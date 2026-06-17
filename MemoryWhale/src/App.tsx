@@ -6,7 +6,8 @@ import {
   Network,
   RefreshCcw,
   Search,
-  Sparkles
+  Sparkles,
+  Terminal
 } from "lucide-react";
 import * as d3 from "d3";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -55,6 +56,30 @@ type GraphPayload = {
   links: GraphLink[];
 };
 
+type CommandRun = {
+  id: number;
+  command: string;
+  argv_json: string;
+  cwd?: string | null;
+  exit_code?: number | null;
+  stdout: string;
+  stderr: string;
+  notes: string;
+  created_at: string;
+};
+
+type CommandArgument = {
+  id: number;
+  command_run_id: number;
+  position: number;
+  value: string;
+};
+
+type TerminalMemory = {
+  runs: CommandRun[];
+  arguments: CommandArgument[];
+};
+
 type SearchResult = {
   documents: Document[];
   concepts: Concept[];
@@ -93,12 +118,20 @@ async function callBackend<T>(command: string, args?: Record<string, unknown>): 
 
 function App() {
   const [graph, setGraph] = useState<GraphPayload>(emptyGraph);
+  const [terminalMemory, setTerminalMemory] = useState<TerminalMemory>({ runs: [], arguments: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [terminalResult, setTerminalResult] = useState<TerminalMemory | null>(null);
   const [title, setTitle] = useState("");
   const [sourceType, setSourceType] = useState("note");
   const [content, setContent] = useState(demoContent);
+  const [commandLine, setCommandLine] = useState("cargo check --manifest-path MemoryWhale/src-tauri/Cargo.toml");
+  const [cwd, setCwd] = useState("MemoryWhale");
+  const [exitCode, setExitCode] = useState("127");
+  const [stdout, setStdout] = useState("");
+  const [stderr, setStderr] = useState("zsh:1: command not found: cargo");
+  const [commandNotes, setCommandNotes] = useState("Terminal could not verify Rust because cargo is missing.");
   const [status, setStatus] = useState("Ready");
 
   useEffect(() => {
@@ -114,12 +147,19 @@ function App() {
         value: graph.documents.find((doc) => doc.id === id)
       };
     }
+    if (selectedId.startsWith("command:")) {
+      const id = Number(selectedId.split(":")[1]);
+      return {
+        kind: "command" as const,
+        value: terminalMemory.runs.find((run) => run.id === id)
+      };
+    }
     const id = Number(selectedId.split(":")[1]);
     return {
       kind: "concept" as const,
       value: graph.concepts.find((concept) => concept.id === id)
     };
-  }, [graph, selectedId]);
+  }, [graph, selectedId, terminalMemory]);
 
   const connectedDocuments = useMemo(() => {
     if (!selectedId) return [];
@@ -143,7 +183,9 @@ function App() {
 
   async function refreshGraph() {
     const next = await callBackend<GraphPayload>("get_graph");
+    const terminal = await callBackend<TerminalMemory>("list_terminal_memory");
     setGraph(next);
+    setTerminalMemory(terminal);
     if (!selectedId && next.nodes.length > 0) {
       setSelectedId(next.nodes[0].id);
     }
@@ -188,17 +230,45 @@ function App() {
     setQuery(nextQuery);
     if (!nextQuery.trim()) {
       setSearchResult(null);
+      setTerminalResult(null);
       return;
     }
     const result = await callBackend<SearchResult>("search_memory", { query: nextQuery });
+    const terminal = await callBackend<TerminalMemory>("list_terminal_memory", { query: nextQuery });
     setSearchResult(result);
+    setTerminalResult(terminal);
+  }
+
+  async function rememberCommand() {
+    if (!commandLine.trim()) {
+      setStatus("Add a command before saving terminal memory");
+      return;
+    }
+    await callBackend<CommandRun>("remember_command_run", {
+      request: {
+        command_line: commandLine,
+        cwd: cwd.trim() || null,
+        exit_code: exitCode.trim() === "" ? null : Number(exitCode),
+        stdout,
+        stderr,
+        notes: commandNotes
+      }
+    });
+    setStatus("Remembered terminal command, arguments, and error log");
+    setStdout("");
+    setStderr("");
+    setCommandNotes("");
+    await refreshGraph();
   }
 
   async function resetDemoData() {
     const next = await callBackend<GraphPayload>("reset_demo_data");
+    const terminal = await callBackend<TerminalMemory>("list_terminal_memory");
     setGraph(next);
+    setTerminalMemory(terminal);
     setSelectedId(next.nodes[0]?.id ?? null);
     setSearchResult(null);
+    setTerminalResult(null);
     setStatus("Loaded demo knowledge galaxy");
   }
 
@@ -258,6 +328,56 @@ function App() {
           </div>
         </section>
 
+        <section className="panel terminal-panel">
+          <div className="panel-title">
+            <Terminal size={17} />
+            <span>Terminal Memory</span>
+          </div>
+          <input
+            className="text-input mono-input"
+            value={commandLine}
+            onChange={(event) => setCommandLine(event.target.value)}
+            placeholder="cargo check --manifest-path app/Cargo.toml"
+          />
+          <div className="terminal-grid">
+            <input
+              className="text-input mono-input"
+              value={cwd}
+              onChange={(event) => setCwd(event.target.value)}
+              placeholder="cwd"
+            />
+            <input
+              className="text-input mono-input"
+              value={exitCode}
+              onChange={(event) => setExitCode(event.target.value)}
+              placeholder="exit"
+              inputMode="numeric"
+            />
+          </div>
+          <textarea
+            className="terminal-textarea"
+            value={stderr}
+            onChange={(event) => setStderr(event.target.value)}
+            placeholder="stderr / error log"
+          />
+          <textarea
+            className="terminal-textarea"
+            value={stdout}
+            onChange={(event) => setStdout(event.target.value)}
+            placeholder="stdout"
+          />
+          <textarea
+            className="terminal-textarea"
+            value={commandNotes}
+            onChange={(event) => setCommandNotes(event.target.value)}
+            placeholder="What should MemoryWhale remember?"
+          />
+          <button className="primary-button" onClick={() => void rememberCommand()} type="button">
+            <Terminal size={16} />
+            Remember Command
+          </button>
+        </section>
+
         <section className="panel">
           <div className="panel-title">
             <Search size={17} />
@@ -294,6 +414,17 @@ function App() {
                 <span>{doc.title}</span>
               </button>
             ))}
+            {(terminalResult?.runs ?? terminalMemory.runs).slice(0, 8).map((run) => (
+              <button
+                className="source-item"
+                key={`run-${run.id}`}
+                onClick={() => setSelectedId(`command:${run.id}`)}
+                type="button"
+              >
+                <span className={`dot ${run.exit_code === 0 ? "command-dot" : "error-dot"}`} />
+                <span>{run.command}</span>
+              </button>
+            ))}
           </div>
         </section>
       </aside>
@@ -304,6 +435,7 @@ function App() {
             <Metric icon={<Database size={16} />} label="Documents" value={graph.documents.length} />
             <Metric icon={<Network size={16} />} label="Concepts" value={graph.concepts.length} />
             <Metric icon={<Filter size={16} />} label="Links" value={graph.links.length} />
+            <Metric icon={<Terminal size={16} />} label="Commands" value={terminalMemory.runs.length} />
           </div>
           <div className="actions">
             <span className="status">{status}</span>
@@ -322,6 +454,7 @@ function App() {
             selected={selected}
             documents={connectedDocuments}
             quotes={graph.quotes}
+            terminalArguments={terminalMemory.arguments}
             links={graph.links.filter((link) => link.source === selectedId || link.target === selectedId)}
           />
         </div>
@@ -488,14 +621,24 @@ function DetailsPanel({
   selected,
   documents,
   quotes,
+  terminalArguments,
   links
 }: {
-  selected: { kind: "document"; value?: Document } | { kind: "concept"; value?: Concept } | null;
+  selected:
+    | { kind: "document"; value?: Document }
+    | { kind: "concept"; value?: Concept }
+    | { kind: "command"; value?: CommandRun }
+    | null;
   documents: Document[];
   quotes: Quote[];
+  terminalArguments: CommandArgument[];
   links: GraphLink[];
 }) {
   const relevantQuotes = quotes.filter((quote) => documents.some((doc) => doc.id === quote.document_id));
+  const selectedCommand = selected?.kind === "command" ? selected.value : undefined;
+  const selectedArgs = selectedCommand
+    ? terminalArguments.filter((argument) => argument.command_run_id === selectedCommand.id)
+    : [];
 
   return (
     <aside className="details" aria-label="Selected memory">
@@ -505,6 +648,21 @@ function DetailsPanel({
       </div>
       {!selected?.value ? (
         <div className="empty-details">Select a node to inspect its connected notes.</div>
+      ) : selected.kind === "command" ? (
+        <div>
+          <p className={selected.value.exit_code === 0 ? "eyebrow success" : "eyebrow danger"}>terminal command</p>
+          <h2>{selected.value.command}</h2>
+          <p className="summary">
+            Exit {selected.value.exit_code ?? "unknown"} · {selected.value.cwd || "cwd unknown"}
+          </p>
+          {selectedArgs.length > 0 && (
+            <div className="arg-list">
+              {selectedArgs.map((argument) => (
+                <code key={argument.id}>{argument.value}</code>
+              ))}
+            </div>
+          )}
+        </div>
       ) : selected.kind === "document" ? (
         <div>
           <p className="eyebrow">{selected.value.source_type}</p>
@@ -532,6 +690,15 @@ function DetailsPanel({
         </div>
       </div>
 
+      {selectedCommand && (
+        <div className="detail-section">
+          <h3>Terminal Log</h3>
+          {selectedCommand.notes && <p className="summary">{selectedCommand.notes}</p>}
+          {selectedCommand.stderr && <pre className="terminal-log error-log">{selectedCommand.stderr}</pre>}
+          {selectedCommand.stdout && <pre className="terminal-log">{selectedCommand.stdout}</pre>}
+        </div>
+      )}
+
       <div className="detail-section">
         <h3>Relationships</h3>
         <div className="link-list">
@@ -556,18 +723,31 @@ function DetailsPanel({
 }
 
 function nodeRadius(node: GraphNode) {
-  const base = node.node_type === "document" ? 14 : 9;
+  const base = node.node_type === "document" ? 14 : node.node_type === "command" ? 12 : 9;
   return Math.max(base, Math.min(30, base + node.weight * 1.35));
 }
 
 async function mockBackend<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   await new Promise((resolve) => window.setTimeout(resolve, 80));
   const store = loadMockStore();
+  const terminal = loadMockTerminal();
 
-  if (command === "get_graph") return store as T;
+  if (command === "get_graph") return graphWithCommands(store, terminal) as T;
+  if (command === "list_terminal_memory") {
+    const query = String(args?.query ?? "").toLowerCase();
+    if (!query) return terminal as T;
+    return {
+      runs: terminal.runs.filter((run) =>
+        `${run.command} ${run.argv_json} ${run.cwd ?? ""} ${run.stdout} ${run.stderr} ${run.notes}`.toLowerCase().includes(query)
+      ),
+      arguments: terminal.arguments.filter((argument) => argument.value.toLowerCase().includes(query))
+    } as T;
+  }
   if (command === "reset_demo_data") {
     localStorage.removeItem("memorywhale-demo");
-    return seedMockStore() as T;
+    localStorage.removeItem("memorywhale-terminal-demo");
+    seedMockTerminal();
+    return graphWithCommands(seedMockStore(), loadMockTerminal()) as T;
   }
   if (command === "search_memory") {
     const query = String(args?.query ?? "").toLowerCase();
@@ -581,6 +761,19 @@ async function mockBackend<T>(command: string, args?: Record<string, unknown>): 
     const next = addMockDocument(store, request.title || inferTitle(request.content), request.source_type, request.content);
     saveMockStore(next);
     return next.documents[0] as T;
+  }
+  if (command === "remember_command_run") {
+    const request = args?.request as {
+      command_line: string;
+      cwd?: string | null;
+      exit_code?: number | null;
+      stdout?: string;
+      stderr?: string;
+      notes?: string;
+    };
+    const next = addMockCommand(terminal, request);
+    saveMockTerminal(next);
+    return next.runs[0] as T;
   }
   throw new Error(`Mock backend does not implement ${command}`);
 }
@@ -604,8 +797,90 @@ function seedMockStore() {
   return graph;
 }
 
+function loadMockTerminal() {
+  const stored = localStorage.getItem("memorywhale-terminal-demo");
+  if (stored) return JSON.parse(stored) as TerminalMemory;
+  return seedMockTerminal();
+}
+
+function seedMockTerminal() {
+  let terminal: TerminalMemory = { runs: [], arguments: [] };
+  terminal = addMockCommand(terminal, {
+    command_line: "npm run build",
+    cwd: "MemoryWhale",
+    exit_code: 0,
+    stdout: "tsc && vite build completed successfully",
+    stderr: "",
+    notes: "Frontend build passed."
+  });
+  terminal = addMockCommand(terminal, {
+    command_line: "cargo check --manifest-path MemoryWhale/src-tauri/Cargo.toml",
+    cwd: "MemoryWhale",
+    exit_code: 127,
+    stdout: "",
+    stderr: "zsh:1: command not found: cargo",
+    notes: "Rust verification needs cargo installed."
+  });
+  saveMockTerminal(terminal);
+  return terminal;
+}
+
 function saveMockStore(graph: GraphPayload) {
   localStorage.setItem("memorywhale-demo", JSON.stringify(graph));
+}
+
+function saveMockTerminal(terminal: TerminalMemory) {
+  localStorage.setItem("memorywhale-terminal-demo", JSON.stringify(terminal));
+}
+
+function addMockCommand(
+  terminal: TerminalMemory,
+  request: {
+    command_line: string;
+    cwd?: string | null;
+    exit_code?: number | null;
+    stdout?: string;
+    stderr?: string;
+    notes?: string;
+  }
+): TerminalMemory {
+  const runId = Math.max(0, ...terminal.runs.map((run) => run.id)) + 1;
+  const argv = splitMockCommand(request.command_line);
+  const run: CommandRun = {
+    id: runId,
+    command: argv[0] ?? request.command_line,
+    argv_json: JSON.stringify(argv),
+    cwd: request.cwd,
+    exit_code: request.exit_code,
+    stdout: request.stdout ?? "",
+    stderr: request.stderr ?? "",
+    notes: request.notes ?? "",
+    created_at: new Date().toISOString()
+  };
+  const nextArgId = Math.max(0, ...terminal.arguments.map((argument) => argument.id)) + 1;
+  const args = argv.map((value, index) => ({
+    id: nextArgId + index,
+    command_run_id: runId,
+    position: index,
+    value
+  }));
+  return {
+    runs: [run, ...terminal.runs],
+    arguments: [...args, ...terminal.arguments]
+  };
+}
+
+function graphWithCommands(graph: GraphPayload, terminal: TerminalMemory): GraphPayload {
+  const commandNodes = terminal.runs.map((run) => ({
+    id: `command:${run.id}`,
+    label: `${run.command} (${run.exit_code === 0 ? "ok" : "error"})`,
+    node_type: "command",
+    weight: run.exit_code === 0 ? 2 : 4
+  }));
+  return {
+    ...graph,
+    nodes: [...graph.nodes, ...commandNodes]
+  };
 }
 
 function addMockDocument(graph: GraphPayload, title: string, sourceType: string, content: string): GraphPayload {
@@ -650,6 +925,10 @@ function addMockDocument(graph: GraphPayload, title: string, sourceType: string,
     links,
     nodes
   };
+}
+
+function splitMockCommand(commandLine: string) {
+  return commandLine.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map((part) => part.replace(/^['"]|['"]$/g, "")) ?? [];
 }
 
 function inferTitle(content: string) {

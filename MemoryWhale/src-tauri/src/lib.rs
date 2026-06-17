@@ -61,6 +61,43 @@ struct Quote {
     text: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct RememberCommandRequest {
+    command_line: String,
+    cwd: Option<String>,
+    exit_code: Option<i64>,
+    stdout: Option<String>,
+    stderr: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct CommandRun {
+    id: i64,
+    command: String,
+    argv_json: String,
+    cwd: Option<String>,
+    exit_code: Option<i64>,
+    stdout: String,
+    stderr: String,
+    notes: String,
+    created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+struct CommandArgument {
+    id: i64,
+    command_run_id: i64,
+    position: i64,
+    value: String,
+}
+
+#[derive(Debug, Serialize)]
+struct TerminalMemory {
+    runs: Vec<CommandRun>,
+    arguments: Vec<CommandArgument>,
+}
+
 #[derive(Debug, Serialize)]
 struct GraphNode {
     id: String,
@@ -105,6 +142,8 @@ pub fn run() {
             import_file,
             get_graph,
             search_memory,
+            remember_command_run,
+            list_terminal_memory,
             reset_demo_data
         ])
         .run(tauri::generate_context!())
@@ -167,6 +206,29 @@ fn init_connection() -> anyhow::Result<Connection> {
             name TEXT NOT NULL UNIQUE
         );
 
+        CREATE TABLE IF NOT EXISTS command_runs (
+            id INTEGER PRIMARY KEY,
+            command TEXT NOT NULL,
+            argv_json TEXT NOT NULL,
+            cwd TEXT,
+            exit_code INTEGER,
+            stdout TEXT NOT NULL DEFAULT '',
+            stderr TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS command_arguments (
+            id INTEGER PRIMARY KEY,
+            command_run_id INTEGER NOT NULL,
+            position INTEGER NOT NULL,
+            value TEXT NOT NULL,
+            FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
+        CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
+        CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
         CREATE INDEX IF NOT EXISTS idx_documents_title ON documents(title);
         CREATE INDEX IF NOT EXISTS idx_concepts_name ON concepts(name);
         CREATE INDEX IF NOT EXISTS idx_links_from ON links(from_id);
@@ -193,15 +255,21 @@ fn import_file(state: tauri::State<AppState>, path: String) -> Result<Document, 
         .unwrap_or("Imported document")
         .to_string();
     let source_type = source_type_for_path(&path_buf);
-    save_document(&state, ImportRequest {
-        title: Some(title),
-        source_type,
-        content,
-    })
+    save_document(
+        &state,
+        ImportRequest {
+            title: Some(title),
+            source_type,
+            content,
+        },
+    )
 }
 
 #[tauri::command]
-fn import_text(state: tauri::State<AppState>, request: ImportRequest) -> Result<Document, AppError> {
+fn import_text(
+    state: tauri::State<AppState>,
+    request: ImportRequest,
+) -> Result<Document, AppError> {
     save_document(&state, request)
 }
 
@@ -249,7 +317,30 @@ fn search_memory(state: tauri::State<AppState>, query: String) -> Result<SearchR
         .query_map(params![concept_pattern], row_to_concept)?
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(SearchResult { documents, concepts })
+    Ok(SearchResult {
+        documents,
+        concepts,
+    })
+}
+
+#[tauri::command]
+fn remember_command_run(
+    state: tauri::State<AppState>,
+    request: RememberCommandRequest,
+) -> Result<CommandRun, AppError> {
+    save_command_run(&state, request)
+}
+
+#[tauri::command]
+fn list_terminal_memory(
+    state: tauri::State<AppState>,
+    query: Option<String>,
+) -> Result<TerminalMemory, AppError> {
+    let conn = state
+        .db
+        .lock()
+        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+    load_terminal_memory(&conn, query.as_deref())
 }
 
 #[tauri::command]
@@ -265,6 +356,8 @@ fn reset_demo_data(state: tauri::State<AppState>) -> Result<GraphPayload, AppErr
         DELETE FROM concepts;
         DELETE FROM notes;
         DELETE FROM documents;
+        DELETE FROM command_arguments;
+        DELETE FROM command_runs;
         ",
     )?;
     drop(conn);
@@ -291,6 +384,33 @@ fn reset_demo_data(state: tauri::State<AppState>) -> Result<GraphPayload, AppErr
         save_document(&state, sample)?;
     }
 
+    let command_samples = [
+        RememberCommandRequest {
+            command_line: "npm run build".to_string(),
+            cwd: Some("MemoryWhale".to_string()),
+            exit_code: Some(0),
+            stdout: Some("tsc && vite build completed successfully".to_string()),
+            stderr: None,
+            notes: Some("Baseline frontend build for the Rust/Tauri app.".to_string()),
+        },
+        RememberCommandRequest {
+            command_line: "cargo check --manifest-path MemoryWhale/src-tauri/Cargo.toml"
+                .to_string(),
+            cwd: Some("MemoryWhale".to_string()),
+            exit_code: Some(127),
+            stdout: None,
+            stderr: Some("zsh:1: command not found: cargo".to_string()),
+            notes: Some(
+                "Rust verification was blocked because cargo was unavailable in the terminal."
+                    .to_string(),
+            ),
+        },
+    ];
+
+    for sample in command_samples {
+        save_command_run(&state, sample)?;
+    }
+
     let conn = state
         .db
         .lock()
@@ -298,7 +418,105 @@ fn reset_demo_data(state: tauri::State<AppState>) -> Result<GraphPayload, AppErr
     load_graph(&conn)
 }
 
-fn save_document(state: &tauri::State<AppState>, request: ImportRequest) -> Result<Document, AppError> {
+fn save_command_run(
+    state: &tauri::State<AppState>,
+    request: RememberCommandRequest,
+) -> Result<CommandRun, AppError> {
+    let argv = split_command_line(&request.command_line);
+    let command = argv
+        .first()
+        .cloned()
+        .unwrap_or_else(|| request.command_line.trim().to_string());
+    if command.is_empty() {
+        return Err(AppError::Message(
+            "command line cannot be empty".to_string(),
+        ));
+    }
+
+    let stdout = request.stdout.unwrap_or_default();
+    let stderr = request.stderr.unwrap_or_default();
+    let notes = request.notes.unwrap_or_default();
+    let created_at = Utc::now().to_rfc3339();
+    let argv_json = serde_json::to_string(&argv)
+        .map_err(|err| AppError::Message(format!("failed to encode argv: {err}")))?;
+
+    let mut conn = state
+        .db
+        .lock()
+        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+    let tx = conn.transaction()?;
+    tx.execute(
+        "
+        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        ",
+        params![
+            command,
+            argv_json,
+            request.cwd,
+            request.exit_code,
+            stdout,
+            stderr,
+            notes,
+            created_at
+        ],
+    )?;
+    let run_id = tx.last_insert_rowid();
+
+    for (position, value) in argv.iter().enumerate() {
+        tx.execute(
+            "
+            INSERT INTO command_arguments (command_run_id, position, value)
+            VALUES (?1, ?2, ?3)
+            ",
+            params![run_id, position as i64, value],
+        )?;
+    }
+
+    let combined = format!(
+        "{}\n{}\n{}\n{}",
+        request.command_line, stdout, stderr, notes
+    );
+    let command_node = format!("command:{run_id}");
+    for concept in extract_keywords(&combined, 10) {
+        tx.execute(
+            "INSERT OR IGNORE INTO concepts (name, description) VALUES (?1, ?2)",
+            params![
+                concept,
+                format!("Terminal memory concept extracted from command runs: {concept}")
+            ],
+        )?;
+        let concept_id: i64 = tx.query_row(
+            "SELECT id FROM concepts WHERE name = ?1",
+            params![concept],
+            |row| row.get(0),
+        )?;
+        upsert_link(
+            &tx,
+            &command_node,
+            &format!("concept:{concept_id}"),
+            "terminal_mentions",
+        )?;
+    }
+
+    tx.commit()?;
+
+    conn.query_row(
+        "
+        SELECT id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at
+        FROM command_runs
+        WHERE id = ?1
+        ",
+        params![run_id],
+        row_to_command_run,
+    )
+    .map_err(AppError::from)
+}
+
+fn save_document(
+    state: &tauri::State<AppState>,
+    request: ImportRequest,
+) -> Result<Document, AppError> {
     let title = request
         .title
         .filter(|value| !value.trim().is_empty())
@@ -318,7 +536,13 @@ fn save_document(state: &tauri::State<AppState>, request: ImportRequest) -> Resu
         INSERT INTO documents (title, source_type, content, summary, created_at)
         VALUES (?1, ?2, ?3, ?4, ?5)
         ",
-        params![title, request.source_type, request.content, summary, created_at],
+        params![
+            title,
+            request.source_type,
+            request.content,
+            summary,
+            created_at
+        ],
     )?;
     let document_id = tx.last_insert_rowid();
     tx.execute(
@@ -338,7 +562,10 @@ fn save_document(state: &tauri::State<AppState>, request: ImportRequest) -> Resu
     for concept in concepts {
         tx.execute(
             "INSERT OR IGNORE INTO concepts (name, description) VALUES (?1, ?2)",
-            params![concept, format!("Recurring idea extracted from local sources: {concept}")],
+            params![
+                concept,
+                format!("Recurring idea extracted from local sources: {concept}")
+            ],
         )?;
         let concept_id: i64 = tx.query_row(
             "SELECT id FROM concepts WHERE name = ?1",
@@ -453,6 +680,21 @@ fn load_graph(conn: &Connection) -> Result<GraphPayload, AppError> {
             node_type: "concept".to_string(),
         });
     }
+    let command_runs = load_terminal_memory(conn, None)?.runs;
+    for run in &command_runs {
+        let id = format!("command:{}", run.id);
+        let status = match run.exit_code {
+            Some(0) => "ok",
+            Some(_) => "error",
+            None => "unknown",
+        };
+        nodes.push(GraphNode {
+            weight: *node_weights.get(&id).unwrap_or(&2),
+            id,
+            label: format!("{} ({status})", run.command),
+            node_type: "command".to_string(),
+        });
+    }
 
     Ok(GraphPayload {
         documents,
@@ -460,6 +702,64 @@ fn load_graph(conn: &Connection) -> Result<GraphPayload, AppError> {
         quotes,
         nodes,
         links,
+    })
+}
+
+fn load_terminal_memory(
+    conn: &Connection,
+    query: Option<&str>,
+) -> Result<TerminalMemory, AppError> {
+    let trimmed = query.unwrap_or("").trim();
+    let runs = if trimmed.is_empty() {
+        conn.prepare(
+            "
+            SELECT id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at
+            FROM command_runs
+            ORDER BY created_at DESC
+            LIMIT 80
+            ",
+        )?
+        .query_map([], row_to_command_run)?
+        .collect::<Result<Vec<_>, _>>()?
+    } else {
+        let pattern = format!("%{trimmed}%");
+        conn.prepare(
+            "
+            SELECT DISTINCT cr.id, cr.command, cr.argv_json, cr.cwd, cr.exit_code,
+                cr.stdout, cr.stderr, cr.notes, cr.created_at
+            FROM command_runs cr
+            LEFT JOIN command_arguments ca ON ca.command_run_id = cr.id
+            WHERE cr.command LIKE ?1
+                OR cr.argv_json LIKE ?1
+                OR cr.cwd LIKE ?1
+                OR cr.stdout LIKE ?1
+                OR cr.stderr LIKE ?1
+                OR cr.notes LIKE ?1
+                OR ca.value LIKE ?1
+            ORDER BY cr.created_at DESC
+            LIMIT 80
+            ",
+        )?
+        .query_map(params![pattern], row_to_command_run)?
+        .collect::<Result<Vec<_>, _>>()?
+    };
+
+    let run_ids: HashSet<i64> = runs.iter().map(|run| run.id).collect();
+    let mut all_args = conn
+        .prepare(
+            "
+            SELECT id, command_run_id, position, value
+            FROM command_arguments
+            ORDER BY command_run_id DESC, position ASC
+            ",
+        )?
+        .query_map([], row_to_command_argument)?
+        .collect::<Result<Vec<_>, _>>()?;
+    all_args.retain(|argument| run_ids.contains(&argument.command_run_id));
+
+    Ok(TerminalMemory {
+        runs,
+        arguments: all_args,
     })
 }
 
@@ -482,12 +782,88 @@ fn row_to_concept(row: &rusqlite::Row<'_>) -> rusqlite::Result<Concept> {
     })
 }
 
+fn row_to_command_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandRun> {
+    Ok(CommandRun {
+        id: row.get(0)?,
+        command: row.get(1)?,
+        argv_json: row.get(2)?,
+        cwd: row.get(3)?,
+        exit_code: row.get(4)?,
+        stdout: row.get(5)?,
+        stderr: row.get(6)?,
+        notes: row.get(7)?,
+        created_at: row.get(8)?,
+    })
+}
+
+fn row_to_command_argument(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandArgument> {
+    Ok(CommandArgument {
+        id: row.get(0)?,
+        command_run_id: row.get(1)?,
+        position: row.get(2)?,
+        value: row.get(3)?,
+    })
+}
+
 fn source_type_for_path(path: &Path) -> String {
-    match path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_lowercase().as_str() {
+    match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_lowercase()
+        .as_str()
+    {
         "md" | "markdown" => "markdown".to_string(),
         "txt" => "text".to_string(),
         _ => "text".to_string(),
     }
+}
+
+fn split_command_line(input: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut chars = input.chars().peekable();
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+
+    while let Some(ch) = chars.next() {
+        if escaped {
+            current.push(ch);
+            escaped = false;
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if let Some(active_quote) = quote {
+            if ch == active_quote {
+                quote = None;
+            } else {
+                current.push(ch);
+            }
+            continue;
+        }
+        if ch == '\'' || ch == '"' {
+            quote = Some(ch);
+            continue;
+        }
+        if ch.is_whitespace() {
+            if !current.is_empty() {
+                args.push(std::mem::take(&mut current));
+            }
+            while chars.peek().is_some_and(|next| next.is_whitespace()) {
+                chars.next();
+            }
+            continue;
+        }
+        current.push(ch);
+    }
+
+    if !current.is_empty() {
+        args.push(current);
+    }
+    args
 }
 
 fn infer_title(content: &str) -> String {
@@ -517,7 +893,12 @@ fn extract_quotes(content: &str) -> Vec<String> {
         .lines()
         .map(str::trim)
         .filter(|line| line.starts_with('>') || line.starts_with('"'))
-        .map(|line| line.trim_start_matches('>').trim_matches('"').trim().to_string())
+        .map(|line| {
+            line.trim_start_matches('>')
+                .trim_matches('"')
+                .trim()
+                .to_string()
+        })
         .filter(|line| line.len() > 24)
         .take(8)
         .collect()
@@ -525,11 +906,53 @@ fn extract_quotes(content: &str) -> Vec<String> {
 
 fn extract_keywords(content: &str, limit: usize) -> Vec<String> {
     let stop_words: HashSet<&str> = [
-        "about", "after", "again", "also", "and", "because", "been", "being", "between",
-        "could", "each", "every", "from", "have", "into", "like", "more", "most", "notes",
-        "over", "should", "that", "their", "there", "these", "they", "this", "through",
-        "transcript", "using", "were", "when", "where", "which", "while", "with", "would",
-        "your", "the", "for", "are", "can", "will", "all", "app", "local", "first",
+        "about",
+        "after",
+        "again",
+        "also",
+        "and",
+        "because",
+        "been",
+        "being",
+        "between",
+        "could",
+        "each",
+        "every",
+        "from",
+        "have",
+        "into",
+        "like",
+        "more",
+        "most",
+        "notes",
+        "over",
+        "should",
+        "that",
+        "their",
+        "there",
+        "these",
+        "they",
+        "this",
+        "through",
+        "transcript",
+        "using",
+        "were",
+        "when",
+        "where",
+        "which",
+        "while",
+        "with",
+        "would",
+        "your",
+        "the",
+        "for",
+        "are",
+        "can",
+        "will",
+        "all",
+        "app",
+        "local",
+        "first",
     ]
     .into_iter()
     .collect();
@@ -547,11 +970,19 @@ fn extract_keywords(content: &str, limit: usize) -> Vec<String> {
     let mut scored: Vec<(String, i64)> = counts
         .into_iter()
         .map(|(word, count)| {
-            let technical_bonus = if word.contains('-') || word.contains('_') { 2 } else { 0 };
+            let technical_bonus = if word.contains('-') || word.contains('_') {
+                2
+            } else {
+                0
+            };
             let length_bonus = (word.len() as i64 / 7).min(2);
             (word, count * 3 + technical_bonus + length_bonus)
         })
         .collect();
     scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    scored.into_iter().take(limit).map(|(word, _)| word).collect()
+    scored
+        .into_iter()
+        .take(limit)
+        .map(|(word, _)| word)
+        .collect()
 }

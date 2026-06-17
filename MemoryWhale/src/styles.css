@@ -116,6 +116,25 @@ p {
   gap: 10px;
 }
 
+.terminal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.terminal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 8px;
+}
+
+.mono-input,
+.terminal-textarea,
+.terminal-log,
+.arg-list code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
 .text-input,
 textarea,
 .search-box {
@@ -137,6 +156,11 @@ textarea {
   resize: vertical;
   padding: 11px;
   line-height: 1.45;
+}
+
+.terminal-textarea {
+  min-height: 74px;
+  font-size: 0.86rem;
 }
 
 .text-input:focus,
@@ -246,6 +270,14 @@ textarea:focus,
   background: #f0b66b;
 }
 
+.command-dot {
+  background: #83d37f;
+}
+
+.error-dot {
+  background: #f07f6b;
+}
+
 .workspace {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -321,6 +353,11 @@ textarea:focus,
   stroke: #cafff7;
 }
 
+.graph-node.command circle {
+  fill: rgba(131, 211, 127, 0.7);
+  stroke: #dbffd9;
+}
+
 .graph-node.selected circle {
   fill: #f07f6b;
   stroke: #fff3df;
@@ -350,6 +387,14 @@ textarea:focus,
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.eyebrow.success {
+  color: #83d37f;
+}
+
+.eyebrow.danger {
+  color: #f07f6b;
 }
 
 .details h2 {
@@ -407,6 +452,41 @@ textarea:focus,
   color: #cdfdf6;
   background: rgba(47, 227, 204, 0.08);
   font-size: 0.82rem;
+}
+
+.arg-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.arg-list code {
+  border: 1px solid rgba(131, 211, 127, 0.22);
+  border-radius: 6px;
+  padding: 5px 7px;
+  background: rgba(131, 211, 127, 0.08);
+  color: #e6ffe4;
+  font-size: 0.78rem;
+}
+
+.terminal-log {
+  overflow: auto;
+  max-height: 180px;
+  margin: 0;
+  border: 1px solid rgba(169, 237, 226, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #d7ebe9;
+  font-size: 0.82rem;
+  line-height: 1.42;
+  white-space: pre-wrap;
+}
+
+.error-log {
+  border-color: rgba(240, 127, 107, 0.3);
+  color: #ffd2ca;
 }
 
 blockquote {
