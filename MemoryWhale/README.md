@@ -39,6 +39,29 @@ command history, and terminal error memory in one searchable graph.
 - Search documents and concepts by keyword/source/tag-style text.
 - Click graph nodes to inspect connected notes and summaries.
 
+## Why You Should Use It
+
+Use MemoryWhale when terminal history is too fragile for the work you are
+doing. Normal shell history remembers commands loosely, but it does not preserve
+the full debugging situation: the machine, the working directory, the exact
+arguments, the output, the error log, and the note about what the attempt meant.
+
+That missing context matters most in serious engineering work:
+
+- Robotics and embedded development where the same repo runs on a Jetson,
+  laptop, simulator, and deployment machine.
+- AI-assisted debugging where the agent needs the actual history of failed
+  attempts, not a vague memory that "something broke."
+- Long-running projects where build errors, environment problems, and one-off
+  fixes return weeks later.
+- Work that can be interrupted by terminal shutdowns, restarts, SSH drops,
+  hardware changes, or lost scrollback.
+- Local-first workflows where project memory should stay on your machine.
+
+MemoryWhale turns terminal history into a durable technical memory. It is not
+just a prettier shell log. It is a place to preserve the reasoning trail of a
+project so a human or AI agent can continue from what already happened.
+
 ## Run
 
 ```bash
@@ -115,3 +138,12 @@ I import project notes, paste important terminal output, and save command runs
 through the Terminal Memory panel or the `mw-remember` helper. MemoryWhale
 stores everything locally in SQLite, so the memory stays on my machine and can
 be backed up like any other project data.
+
+## Project Governance
+
+MemoryWhale is guided by a small set of project documents:
+
+- [Contributing](CONTRIBUTING.md) explains how to make useful changes.
+- [Code of Conduct](CODE_OF_CONDUCT.md) defines the standard for collaboration.
+- [AI Constitution](CONSTITUTION.md) defines how AI agents should reason and act
+  when working on this project.
