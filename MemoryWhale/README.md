@@ -24,10 +24,10 @@ MemoryWhale started by combining two local projects in this workspace:
   tooling, terminal awareness, and a stronger foundation for developer-facing
   workflows.
 
-The result is a client-ready desktop knowledge tool focused on notes,
-transcripts, command history, and terminal error memory in one local graph.
+The result is a local desktop memory tool focused on notes, transcripts,
+command history, and terminal error memory in one searchable graph.
 
-## What Clients Can Do
+## What It Can Do
 
 - Import `.txt` and `.md` files from disk.
 - Paste text, transcript, or web article notes directly into the app.
@@ -84,24 +84,27 @@ cargo run --bin mw-remember -- \
 Those command memories appear as graph nodes and connect to extracted concepts
 from the command, arguments, and error text.
 
-## Why Teams Use It
+## Why I Built It
 
-MemoryWhale gives teams a private, local workspace for technical memory. It
-keeps project notes, debugging history, command attempts, and terminal errors
-in one searchable place, so important context does not disappear between
-sessions.
+Terminal work is full of useful context, but most of it disappears. A command
+fails, the error scrolls away, the exact flags are forgotten, and the next
+session starts without the history that would have made debugging faster.
 
-It is designed for client work where privacy and continuity matter:
+MemoryWhale is built to remember what I put into it:
 
-- Local-first storage: project knowledge stays on the machine.
-- Faster handoffs: command history and error logs remain attached to the work.
-- Better debugging continuity: failed attempts become searchable references.
-- Visual exploration: documents, concepts, and commands can be inspected as a graph.
-- Simple onboarding: import notes, paste terminal output, and search what happened.
+- Commands and arguments I tried.
+- Error logs that explain what went wrong.
+- Notes about why a fix worked or failed.
+- Project context that should survive between sessions.
+- Related ideas that are easier to see as a graph than as terminal scrollback.
 
-## Client Setup Notes
+The goal is simple: make the terminal feel like it has long-term memory, so I
+can search old attempts, recover exact errors, and build on previous work
+instead of rediscovering it.
 
-For a client install, configure a workspace folder, import the project notes,
-then start saving important terminal runs through the Terminal Memory panel or
-the `mw-remember` helper. The database is local SQLite, so backups can be
-handled with normal file backup tools.
+## How I Use It
+
+I import project notes, paste important terminal output, and save command runs
+through the Terminal Memory panel or the `mw-remember` helper. MemoryWhale
+stores everything locally in SQLite, so the memory stays on my machine and can
+be backed up like any other project data.
