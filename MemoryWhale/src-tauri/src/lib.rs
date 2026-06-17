@@ -1,6 +1,6 @@
 use chrono::Utc;
 use regex::Regex;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -358,10 +358,6 @@ fn save_document(state: &tauri::State<AppState>, request: ImportRequest) -> Resu
 
     tx.commit()?;
 
-    let conn = state
-        .db
-        .lock()
-        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
     conn.query_row(
         "
         SELECT id, title, source_type, content, summary, created_at
@@ -374,7 +370,12 @@ fn save_document(state: &tauri::State<AppState>, request: ImportRequest) -> Resu
     .map_err(AppError::from)
 }
 
-fn upsert_link(conn: &Connection, from_id: &str, to_id: &str, relation: &str) -> rusqlite::Result<()> {
+fn upsert_link(
+    conn: &rusqlite::Transaction<'_>,
+    from_id: &str,
+    to_id: &str,
+    relation: &str,
+) -> rusqlite::Result<()> {
     conn.execute(
         "
         INSERT INTO links (from_id, to_id, relation, weight)
