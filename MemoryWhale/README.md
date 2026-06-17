@@ -86,21 +86,28 @@ from the command, arguments, and error text.
 
 ## Why I Built It
 
-Terminal work is full of useful context, but most of it disappears. A command
-fails, the error scrolls away, the exact flags are forgotten, and the next
-session starts without the history that would have made debugging faster.
+I was running the same robotics repo on two different machines: a Jetson and my
+local computer for USC AUV work. The codebase was shared, but the terminal
+history was not. Commands, errors, build logs, and debugging attempts lived on
+whichever machine happened to run them.
+
+That became a real problem for AI-assisted debugging. If the terminal shut down,
+the machine changed, or the scrollback disappeared, the agent lost the exact
+context it needed: what command was run, what flags were used, what error came
+back, and what had already been tried.
 
 MemoryWhale is built to remember what I put into it:
 
 - Commands and arguments I tried.
 - Error logs that explain what went wrong.
 - Notes about why a fix worked or failed.
-- Project context that should survive between sessions.
+- Project context that should survive between sessions and machines.
+- Debugging history from Jetson and local development workflows.
 - Related ideas that are easier to see as a graph than as terminal scrollback.
 
 The goal is simple: make the terminal feel like it has long-term memory, so I
-can search old attempts, recover exact errors, and build on previous work
-instead of rediscovering it.
+can search old attempts, recover exact errors after shutdowns, and give an AI
+agent enough history to continue debugging instead of starting over.
 
 ## How I Use It
 
