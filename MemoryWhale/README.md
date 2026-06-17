@@ -129,6 +129,8 @@ be backed up like any other project data.
 
 MemoryWhale is guided by a small set of project documents:
 
+- [Philosophy](PHILOSOPHY.md) explains the communication and memory ideas behind
+  the project.
 - [Contributing](CONTRIBUTING.md) explains how to make useful changes.
 - [Code of Conduct](CODE_OF_CONDUCT.md) defines the standard for collaboration.
 - [AI Constitution](CONSTITUTION.md) defines how AI agents should reason and act
