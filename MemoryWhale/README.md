@@ -11,9 +11,9 @@ desktop/runtime direction of CodeWhale:
 - SQLite local database
 - React + TypeScript frontend
 - Interactive concept graph
-- Plain-text and Markdown import MVP
+- Plain-text and Markdown import workflow
 
-## MVP Features
+## What Clients Can Do
 
 - Import `.txt` and `.md` files from disk.
 - Paste text, transcript, or web article notes directly into the app.
@@ -70,13 +70,24 @@ cargo run --bin mw-remember -- \
 Those command memories appear as graph nodes and connect to extracted concepts
 from the command, arguments, and error text.
 
-## Resume Description
+## Why Teams Use It
 
-MemoryWhale - Built a Rust/Tauri desktop knowledge graph app that imports
-notes and transcripts into a local SQLite database, extracts key concepts,
-and visualizes relationships as an interactive zoomable graph.
+MemoryWhale gives teams a private, local workspace for technical memory. It
+keeps project notes, debugging history, command attempts, and terminal errors
+in one searchable place, so important context does not disappear between
+sessions.
 
-## Resume Keywords
+It is designed for client work where privacy and continuity matter:
 
-Rust, Tauri, SQLite, Knowledge Graph, Graph Visualization, Desktop App,
-Information Retrieval, NLP, Local-First Software
+- Local-first storage: project knowledge stays on the machine.
+- Faster handoffs: command history and error logs remain attached to the work.
+- Better debugging continuity: failed attempts become searchable references.
+- Visual exploration: documents, concepts, and commands can be inspected as a graph.
+- Simple onboarding: import notes, paste terminal output, and search what happened.
+
+## Client Setup Notes
+
+For a client install, configure a workspace folder, import the project notes,
+then start saving important terminal runs through the Terminal Memory panel or
+the `mw-remember` helper. The database is local SQLite, so backups can be
+handled with normal file backup tools.
