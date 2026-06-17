@@ -13,6 +13,20 @@ desktop/runtime direction of CodeWhale:
 - Interactive concept graph
 - Plain-text and Markdown import workflow
 
+## Project Origins
+
+MemoryWhale started by combining two local projects in this workspace:
+
+- **MemPalace** provides the local-first memory direction: private storage,
+  searchable knowledge, durable context, and the idea that important work
+  should stay available between sessions.
+- **CodeWhale** provides the Rust-first desktop/runtime direction: command
+  tooling, terminal awareness, and a stronger foundation for developer-facing
+  workflows.
+
+The result is a client-ready desktop knowledge tool focused on notes,
+transcripts, command history, and terminal error memory in one local graph.
+
 ## What Clients Can Do
 
 - Import `.txt` and `.md` files from disk.
