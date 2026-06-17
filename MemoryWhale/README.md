@@ -1,10 +1,10 @@
 # MemoryWhale
 
-MemoryWhale is a Rust/Tauri desktop knowledge graph app that turns notes,
-transcripts, and imported text into a calm, zoomable knowledge galaxy.
+MemoryWhale is a Rust/Tauri desktop memory system that turns terminal commands,
+error logs, notes, transcripts, and imported text into a calm, searchable
+knowledge graph.
 
-It combines the local-first memory philosophy of MemPalace with the Rust
-desktop/runtime direction of CodeWhale:
+It is built around local technical memory:
 
 - Rust backend commands
 - Tauri desktop shell
@@ -12,20 +12,6 @@ desktop/runtime direction of CodeWhale:
 - React + TypeScript frontend
 - Interactive concept graph
 - Plain-text and Markdown import workflow
-
-## Project Origins
-
-MemoryWhale started by combining two local projects in this workspace:
-
-- **MemPalace** provides the local-first memory direction: private storage,
-  searchable knowledge, durable context, and the idea that important work
-  should stay available between sessions.
-- **CodeWhale** provides the Rust-first desktop/runtime direction: command
-  tooling, terminal awareness, and a stronger foundation for developer-facing
-  workflows.
-
-The result is a local desktop memory tool focused on notes, transcripts,
-command history, and terminal error memory in one searchable graph.
 
 ## What It Can Do
 
