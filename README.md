@@ -78,7 +78,28 @@ MemoryWhale now stores command runs as durable local memory:
 - notes
 
 The desktop UI has a Terminal Memory panel for pasting a command and its
-output. The Rust backend also ships a small helper binary:
+output. The Rust backend also ships helper binaries.
+
+Use `mw` when you want MemoryWhale to run a command and automatically capture
+its stdout, stderr, exit code, cwd, and arguments:
+
+```bash
+cd src-tauri
+cargo run --bin mw -- --notes "Check the Rust backend" -- cargo check
+```
+
+The command output still appears in the terminal while MemoryWhale saves a copy
+to SQLite. The `mw` process exits with the same exit code as the command it ran.
+
+By default, MemoryWhale stores its SQLite database in the local app data
+directory. Set `MEMORYWHALE_DATA_DIR` when you want an explicit location:
+
+```bash
+MEMORYWHALE_DATA_DIR=/tmp/memorywhale-data cargo run --bin mw -- -- echo "saved here"
+```
+
+Use `mw-remember` when you already have output text and want to save it
+manually:
 
 ```bash
 cd src-tauri

@@ -5,6 +5,7 @@ description = "A Rust/Tauri visual second brain for local knowledge graphs"
 authors = ["MemoryWhale"]
 license = "MIT"
 edition = "2021"
+default-run = "memorywhale"
 
 [lib]
 name = "memorywhale_lib"

@@ -126,6 +126,10 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
 }
 
 fn database_path() -> Result<PathBuf, String> {
+    if let Some(path) = env::var_os("MEMORYWHALE_DATA_DIR") {
+        return Ok(PathBuf::from(path).join("memorywhale.sqlite3"));
+    }
+
     let base = dirs::data_local_dir()
         .or_else(dirs::home_dir)
         .ok_or_else(|| "could not resolve local data directory".to_string())?;

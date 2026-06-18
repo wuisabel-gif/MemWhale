@@ -3,6 +3,7 @@ use regex::Regex;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -239,6 +240,10 @@ fn init_connection() -> anyhow::Result<Connection> {
 }
 
 fn database_path() -> anyhow::Result<PathBuf> {
+    if let Some(path) = env::var_os("MEMORYWHALE_DATA_DIR") {
+        return Ok(PathBuf::from(path).join("memorywhale.sqlite3"));
+    }
+
     let base = dirs::data_local_dir()
         .or_else(dirs::home_dir)
         .ok_or_else(|| anyhow::anyhow!("could not resolve a local data directory"))?;
