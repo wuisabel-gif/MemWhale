@@ -1,29 +1,30 @@
 # MemoryWhale
 
-MemoryWhale is a Rust/Tauri desktop memory system that turns terminal commands,
-error logs, notes, transcripts, and imported text into a calm, searchable
-knowledge graph.
+MemoryWhale is a Rust/Tauri local-first terminal memory system that saves
+commands, arguments, working directories, exit codes, stdout, stderr, and notes
+into a searchable SQLite database.
 
 It is built around local technical memory:
 
-- Rust backend commands
+- Rust terminal-memory commands
 - Tauri desktop shell
 - SQLite local database
 - React + TypeScript frontend
-- Interactive concept graph
-- Plain-text and Markdown import workflow
+- Command and error-log recovery
+- Local-first debugging history
 
 ## What It Can Do
 
-- Import `.txt` and `.md` files from disk.
-- Paste text, transcript, or web article notes directly into the app.
-- Store documents, concepts, quotes, tags, and links in SQLite.
-- Auto-extract keywords with a deterministic local algorithm.
-- Build graph edges between documents and concepts.
-- Remember terminal commands, split command-line arguments, exit codes,
-  stdout/stderr, and notes in SQLite.
-- Search documents and concepts by keyword/source/tag-style text.
-- Click graph nodes to inspect connected notes and summaries.
+- Save terminal commands with their full argument list.
+- Store the working directory where each command ran.
+- Preserve exit codes, stdout, stderr, timestamps, and debugging notes.
+- Split command-line arguments into searchable SQLite rows.
+- Record important command attempts manually with `mw-remember`.
+- Run commands through the `mw` wrapper to capture output automatically.
+- Query saved terminal memory from SQLite after shutdowns, SSH disconnects, or
+  machine switches.
+- Keep terminal memory local by default so project history stays on the
+  machine unless the user chooses otherwise.
 
 ## Why You Should Use It
 
