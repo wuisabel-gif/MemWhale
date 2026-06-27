@@ -19,6 +19,14 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::thread;
+use std::time::Duration;
+
+const LIVE_SYNC_INTERVAL_SECS: u64 = 2;
 
 fn main() {
     if let Err(err) = run() {
@@ -41,20 +49,22 @@ fn run() -> Result<(), String> {
     }
 
     let mut notes = String::new();
+    let mut live = false;
     let mut iter = raw_args.into_iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
             "--notes" => notes = iter.next().unwrap_or_default(),
+            "--live" | "--autosave" => live = true,
             value if value.starts_with("--") => {
                 return Err(format!("unknown option {value:?}; run mw --help"));
             }
             value => return Err(format!("unexpected argument {value:?}; run mw --help")),
         }
     }
-    record_session(notes)
+    record_session(notes, live)
 }
 
-fn record_session(notes: String) -> Result<(), String> {
+fn record_session(notes: String, live: bool) -> Result<(), String> {
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
     let cwd = env::current_dir()
         .ok()
@@ -72,54 +82,70 @@ fn record_session(notes: String) -> Result<(), String> {
         .to_string();
 
     eprintln!("mw: recording session to {transcript_str}");
+    if live {
+        eprintln!(
+            "mw: live autosave is on; the dashboard/SQLite row updates every {LIVE_SYNC_INTERVAL_SECS}s."
+        );
+    }
     eprintln!("mw: type `exit` (or Ctrl-D) to stop recording.\n");
+
+    let live_session = if live {
+        let id = insert_live_session(&SessionDraft {
+            shell: &shell,
+            cwd: cwd.as_deref(),
+            transcript_path: &transcript_str,
+            notes: &notes,
+            started_at: &started_at,
+        })?;
+        let sync = start_live_sync(id, transcript_path.clone());
+        Some((id, sync))
+    } else {
+        None
+    };
 
     // `script -q <file>` runs $SHELL interactively and records all I/O to <file>
     // on both macOS (BSD script) and Linux (util-linux script). MW_RECORDING is
     // set so the recorded shell's global-recording hook sees the guard and does
     // not start a nested recording, however this session was launched.
-    let status = Command::new("script")
-        .arg("-q")
+    let mut script = Command::new("script");
+    script.arg("-q");
+    if live && env::consts::OS == "linux" {
+        script.arg("-f");
+    }
+    let status = script
         .arg(&transcript_path)
         .env("MW_RECORDING", "1")
         .status()
         .map_err(|err| format!("failed to launch `script` (is it installed?): {err}"))?;
 
     let ended_at = Utc::now().to_rfc3339();
+    let live_session = if let Some((id, sync)) = live_session {
+        sync.stop.store(true, Ordering::SeqCst);
+        let _ = sync.handle.join();
+        Some(id)
+    } else {
+        None
+    };
 
     if !transcript_path.exists() {
         return Err("recording produced no transcript (session not saved)".to_string());
     }
-    let raw =
-        fs::read(&transcript_path).map_err(|err| format!("failed to read transcript: {err}"))?;
-    let byte_count = raw.len() as i64;
-    let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
-
-    let db_path = database_path()?;
-    if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
-    }
-    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
-    conn.execute(
-        "
-        INSERT INTO sessions
-            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-        ",
-        params![
-            shell,
-            cwd,
-            transcript_str,
-            cleaned,
-            notes,
-            started_at,
-            ended_at,
-            byte_count
-        ],
-    )
-    .map_err(|err| format!("failed to insert session: {err}"))?;
-    let id = conn.last_insert_rowid();
+    let (id, byte_count) = if let Some(id) = live_session {
+        let byte_count = update_session_from_transcript(id, &transcript_path, &ended_at)?;
+        (id, byte_count)
+    } else {
+        insert_finished_session(
+            &SessionDraft {
+                shell: &shell,
+                cwd: cwd.as_deref(),
+                transcript_path: &transcript_str,
+                notes: &notes,
+                started_at: &started_at,
+            },
+            &transcript_path,
+            &ended_at,
+        )?
+    };
 
     let exit_note = match status.code() {
         Some(code) => format!("shell exited with code {code}"),
@@ -132,6 +158,7 @@ fn record_session(notes: String) -> Result<(), String> {
 fn print_help() {
     println!(
         "mw [--notes <text>]      record a whole shell session until you exit\n\
+         mw --live [--notes <text>]  autosave the session to SQLite while it is still running\n\
          mw list                  list recorded sessions\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
@@ -140,6 +167,121 @@ fn print_help() {
          Raw transcript: <data_local>/MemoryWhale/sessions/\n\
          Metadata + cleaned transcript: <data_local>/MemoryWhale/memorywhale.sqlite3 (sessions table)"
     );
+}
+
+struct SessionDraft<'a> {
+    shell: &'a str,
+    cwd: Option<&'a str>,
+    transcript_path: &'a str,
+    notes: &'a str,
+    started_at: &'a str,
+}
+
+struct LiveSync {
+    stop: Arc<AtomicBool>,
+    handle: thread::JoinHandle<()>,
+}
+
+fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
+    let conn = open_session_db()?;
+    conn.execute(
+        "
+        INSERT INTO sessions
+            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count)
+        VALUES (?1, ?2, ?3, '', ?4, ?5, ?5, 0)
+        ",
+        params![
+            draft.shell,
+            draft.cwd,
+            draft.transcript_path,
+            draft.notes,
+            draft.started_at
+        ],
+    )
+    .map_err(|err| format!("failed to create live session row: {err}"))?;
+    Ok(conn.last_insert_rowid())
+}
+
+fn insert_finished_session(
+    draft: &SessionDraft<'_>,
+    transcript_path: &PathBuf,
+    ended_at: &str,
+) -> Result<(i64, i64), String> {
+    let raw =
+        fs::read(transcript_path).map_err(|err| format!("failed to read transcript: {err}"))?;
+    let byte_count = raw.len() as i64;
+    let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
+    let conn = open_session_db()?;
+    conn.execute(
+        "
+        INSERT INTO sessions
+            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        ",
+        params![
+            draft.shell,
+            draft.cwd,
+            draft.transcript_path,
+            cleaned,
+            draft.notes,
+            draft.started_at,
+            ended_at,
+            byte_count
+        ],
+    )
+    .map_err(|err| format!("failed to insert session: {err}"))?;
+    Ok((conn.last_insert_rowid(), byte_count))
+}
+
+fn start_live_sync(id: i64, transcript_path: PathBuf) -> LiveSync {
+    let stop = Arc::new(AtomicBool::new(false));
+    let thread_stop = Arc::clone(&stop);
+    let handle = thread::spawn(move || {
+        while !thread_stop.load(Ordering::SeqCst) {
+            thread::sleep(Duration::from_secs(LIVE_SYNC_INTERVAL_SECS));
+            if thread_stop.load(Ordering::SeqCst) {
+                break;
+            }
+            let ended_at = Utc::now().to_rfc3339();
+            let _ = update_session_from_transcript(id, &transcript_path, &ended_at);
+        }
+    });
+    LiveSync { stop, handle }
+}
+
+fn update_session_from_transcript(
+    id: i64,
+    transcript_path: &PathBuf,
+    ended_at: &str,
+) -> Result<i64, String> {
+    let raw = match fs::read(transcript_path) {
+        Ok(raw) => raw,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(err) => return Err(format!("failed to read transcript: {err}")),
+    };
+    let byte_count = raw.len() as i64;
+    let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
+    let conn = open_session_db()?;
+    conn.execute(
+        "
+        UPDATE sessions
+        SET transcript = ?1, ended_at = ?2, byte_count = ?3
+        WHERE id = ?4
+        ",
+        params![cleaned, ended_at, byte_count, id],
+    )
+    .map_err(|err| format!("failed to autosave session: {err}"))?;
+    Ok(byte_count)
+}
+
+fn open_session_db() -> Result<Connection, String> {
+    let db_path = database_path()?;
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
+    }
+    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
+    init_schema(&conn)?;
+    Ok(conn)
 }
 
 fn global_cmd(args: &[String]) -> Result<(), String> {

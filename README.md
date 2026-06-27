@@ -154,6 +154,17 @@ type `exit` or press Ctrl-D when you want to stop recording. The raw transcript
 is saved under the local MemoryWhale data folder, and searchable session
 metadata is saved in SQLite.
 
+Use `mw --live` when you want the session to appear in SQLite while it is still
+running. This is useful for SSH sessions, demos, robotics logs, and sudden
+shutdown risk: the dashboard gets refreshed every few seconds, so if the
+terminal closes before you can type `exit`, the last autosaved transcript is
+still available.
+
+```bash
+cd src-tauri
+cargo run --bin mw -- --live --notes "project:demo live autosave"
+```
+
 After recording, inspect sessions from the terminal:
 
 ```bash

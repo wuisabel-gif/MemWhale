@@ -1004,9 +1004,9 @@
                 <span class="light"></span>
                 <span class="light"></span>
               </div>
-              <pre><span class="prompt">$</span> mw-remember -- cargo check
-<span class="error">error saved with argv + stderr</span>
-<span class="ok">graph node created</span></pre>
+              <pre><span class="prompt">$</span> mw --live --notes "project:demo"
+<span class="ok">autosaving session every 2s</span>
+<span class="error">safe if SSH drops before exit</span></pre>
             </div>
           </div>
         </section>
@@ -1036,6 +1036,14 @@
               </p>
             </article>
             <article class="card">
+              <strong>Live Autosave for Sessions</strong>
+              <p>
+                <code>mw --live</code> writes the active shell transcript into
+                SQLite every few seconds, so a disconnect can still leave a
+                usable memory trail.
+              </p>
+            </article>
+            <article class="card">
               <strong>Graph Nodes for Failures</strong>
               <p>
                 Failed commands appear in the knowledge galaxy and connect to
@@ -1052,7 +1060,7 @@
             <article class="step">
               <span>1</span>
               <h3>Capture</h3>
-              <p>Paste a terminal run in the app or call the Rust helper.</p>
+              <p>Paste a terminal run, call the Rust helper, or start a live-autosaved shell.</p>
             </article>
             <article class="step">
               <span>2</span>
@@ -1109,7 +1117,8 @@
             <p class="section-copy">
               Use the desktop app for the full visual experience, or use the
               Rust helper when you want to save a terminal run from the command
-              line.
+              line. For demos, SSH sessions, and sudden shutdown risk, use
+              <code>mw --live</code>.
             </p>
             <div class="stat-list">
               <div class="stat">
@@ -1141,6 +1150,7 @@
 <span class="prompt">$</span> npm run tauri:dev
 
 <span class="prompt">$</span> cd src-tauri
+<span class="prompt">$</span> cargo run --bin mw -- --live --notes "project:demo"
 <span class="prompt">$</span> cargo run --bin mw-remember -- --help</pre>
           </div>
         </section>

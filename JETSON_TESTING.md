@@ -75,6 +75,9 @@ mw-remember --cwd "$(pwd)" --exit-code 0 --notes "smoke test" -- echo hello
 # a whole session — type exit (wait for "recorded session #N") to save:
 mw --notes "project:auv debugging"
 
+# a live-autosaved session — useful if SSH may disconnect before you can exit:
+mw --live --notes "project:auv live debugging"
+
 mw list          # what's recorded
 mw show 1        # replay a session transcript
 ```
