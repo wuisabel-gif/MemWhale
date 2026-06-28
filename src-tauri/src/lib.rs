@@ -1,4 +1,5 @@
 use chrono::Utc;
+use mw_memory::engine::MemoryEngine;
 use regex::Regex;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -145,6 +146,8 @@ pub fn run() {
             search_memory,
             remember_command_run,
             list_terminal_memory,
+            recall_memories,
+            explain_memory,
             reset_demo_data
         ])
         .run(tauri::generate_context!())
@@ -227,6 +230,17 @@ fn init_connection() -> anyhow::Result<Connection> {
             FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS agent_turns (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            ts TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            verdict TEXT,
+            text TEXT NOT NULL,
+            cwd TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_turns_session ON agent_turns(session_id);
         CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
         CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
         CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
@@ -346,6 +360,216 @@ fn list_terminal_memory(
         .lock()
         .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
     load_terminal_memory(&conn, query.as_deref())
+}
+
+// ── Explainable retrieval (mw-memory) ──────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+struct SignalView {
+    name: String,
+    weight: f32,
+    score: f32,
+    applicable: bool,
+    contribution: f32,
+    detail: String,
+}
+
+/// A retrieved memory plus *why* it was retrieved — data behind the Recall panel.
+#[derive(Debug, Serialize)]
+struct RecallHit {
+    id: i64,
+    text: String,
+    score: u32, // percent
+    reasons: Vec<String>,
+    signals: Vec<SignalView>,
+    created_at: String,
+    last_used: String,
+    mentions: u32,
+    importance: f32,
+    tags: Vec<String>,
+}
+
+fn to_hit(sm: &mw_memory::ScoredMemory) -> RecallHit {
+    RecallHit {
+        id: sm.memory.id,
+        text: sm.memory.text.clone(),
+        score: sm.percent(),
+        reasons: sm.reasons(),
+        signals: sm
+            .signals
+            .iter()
+            .map(|s| SignalView {
+                name: s.name.clone(),
+                weight: s.weight,
+                score: s.score,
+                applicable: s.applicable,
+                contribution: s.contribution(),
+                detail: s.detail.clone(),
+            })
+            .collect(),
+        created_at: sm.memory.created_at.to_rfc3339(),
+        last_used: sm.memory.last_used.to_rfc3339(),
+        mentions: sm.memory.mentions,
+        importance: sm.memory.importance,
+        tags: sm.memory.tags.clone(),
+    }
+}
+
+/// Load everything MemoryWhale remembers — documents (notes), command runs, and
+/// agent conversation turns — as scorable memories. Ids are namespaced per source
+/// (documents as-is, commands +1e9, conversation +2e9) so `explain(id)` is stable.
+fn load_memories(conn: &Connection) -> Result<Vec<mw_memory::Memory>, AppError> {
+    let parse = |ts: &str| {
+        chrono::DateTime::parse_from_rfc3339(ts)
+            .map(|d| d.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now())
+    };
+    let mut mems: Vec<mw_memory::Memory> = Vec::new();
+
+    // Documents / notes.
+    let docs = conn
+        .prepare("SELECT id, title, content, source_type, created_at FROM documents")?
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    for (id, title, content, source_type, created) in docs {
+        let when = parse(&created);
+        mems.push(mw_memory::Memory {
+            id,
+            text: format!("{title}. {content}"),
+            created_at: when,
+            last_used: when,
+            mentions: 1,
+            importance: 0.5,
+            tags: vec!["document".into(), source_type],
+            embedding: None,
+        });
+    }
+
+    // Command runs — reinforcement = how often the same command recurs.
+    let runs = conn
+        .prepare("SELECT id, command, argv_json, notes, stderr, exit_code, created_at FROM command_runs")?
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, Option<i64>>(5)?,
+                r.get::<_, String>(6)?,
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut cmd_counts: HashMap<String, u32> = HashMap::new();
+    for (_, cmd, ..) in &runs {
+        *cmd_counts.entry(cmd.to_lowercase()).or_insert(0) += 1;
+    }
+    for (id, command, argv_json, notes, stderr, exit_code, created) in runs {
+        let when = parse(&created);
+        let importance = if exit_code.unwrap_or(0) != 0 { 0.65 } else { 0.4 };
+        mems.push(mw_memory::Memory {
+            id: 1_000_000_000 + id,
+            text: format!("{command} {argv_json} {notes} {stderr}"),
+            created_at: when,
+            last_used: when,
+            mentions: *cmd_counts.get(&command.to_lowercase()).unwrap_or(&1),
+            importance,
+            tags: vec![
+                "command".into(),
+                if exit_code == Some(0) { "ok".into() } else { "error".into() },
+            ],
+            embedding: None,
+        });
+    }
+
+    // Agent conversation turns (written by Delphin / hooks, if present).
+    let turns = conn
+        .prepare("SELECT id, ts, direction, text FROM agent_turns")?
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut turn_counts: HashMap<String, u32> = HashMap::new();
+    for (_, _, _, t) in &turns {
+        *turn_counts.entry(t.trim().to_lowercase()).or_insert(0) += 1;
+    }
+    for (id, ts, direction, text) in turns {
+        if text.trim().is_empty() {
+            continue;
+        }
+        let when = parse(&ts);
+        let importance = match direction.as_str() {
+            "user" => 0.6_f32,
+            "agent" => 0.45,
+            _ => 0.3,
+        };
+        let mentions = *turn_counts.get(&text.trim().to_lowercase()).unwrap_or(&1);
+        mems.push(mw_memory::Memory {
+            id: 2_000_000_000 + id,
+            text,
+            created_at: when,
+            last_used: when,
+            mentions,
+            importance,
+            tags: vec!["conversation".into(), direction],
+            embedding: None,
+        });
+    }
+
+    Ok(mems)
+}
+
+#[tauri::command]
+fn recall_memories(
+    state: tauri::State<AppState>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<RecallHit>, AppError> {
+    let mems = {
+        let conn = state
+            .db
+            .lock()
+            .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+        load_memories(&conn)?
+    };
+    let engine = mw_memory::engine::BuiltinEngine::new(mems);
+    let q = mw_memory::Query::new(query, Utc::now());
+    Ok(engine
+        .retrieve(&q, limit.unwrap_or(8))
+        .iter()
+        .map(to_hit)
+        .collect())
+}
+
+#[tauri::command]
+fn explain_memory(
+    state: tauri::State<AppState>,
+    id: i64,
+    query: String,
+) -> Result<Option<RecallHit>, AppError> {
+    let mems = {
+        let conn = state
+            .db
+            .lock()
+            .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+        load_memories(&conn)?
+    };
+    let engine = mw_memory::engine::BuiltinEngine::new(mems);
+    let q = mw_memory::Query::new(query, Utc::now());
+    Ok(engine.explain(id, &q).as_ref().map(to_hit))
 }
 
 #[tauri::command]

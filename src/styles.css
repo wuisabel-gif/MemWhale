@@ -729,3 +729,112 @@ blockquote {
     scroll-behavior: auto !important;
   }
 }
+
+/* Recall panel — explainable retrieval */
+.recall-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.recall-hit {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: rgba(248, 251, 255, 0.82);
+  overflow: hidden;
+}
+
+.recall-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.recall-score {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--azure-ink);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+}
+
+.recall-text {
+  line-height: 1.35;
+}
+
+.recall-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 0 10px 8px 10px;
+}
+
+.recall-reasons .reason {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.recall-reasons .reason::before {
+  content: "· ";
+  color: var(--faint);
+}
+
+.recall-explain {
+  border-top: 1px solid var(--line);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sig {
+  display: grid;
+  grid-template-columns: 88px 60px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.sig-off {
+  opacity: 0.45;
+}
+
+.sig-name {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.sig-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line-2);
+  overflow: hidden;
+}
+
+.sig-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--grad);
+}
+
+.sig-detail {
+  color: var(--muted);
+}
+
+.sig-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--faint);
+}

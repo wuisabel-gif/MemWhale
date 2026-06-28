@@ -85,6 +85,28 @@ type SearchResult = {
   concepts: Concept[];
 };
 
+type SignalView = {
+  name: string;
+  weight: number;
+  score: number;
+  applicable: boolean;
+  contribution: number;
+  detail: string;
+};
+
+type RecallHit = {
+  id: number;
+  text: string;
+  score: number; // percent
+  reasons: string[];
+  signals: SignalView[];
+  created_at: string;
+  last_used: string;
+  mentions: number;
+  importance: number;
+  tags: string[];
+};
+
 type SimNode = GraphNode & d3.SimulationNodeDatum;
 type SimLink = GraphLink & d3.SimulationLinkDatum<SimNode>;
 
@@ -119,6 +141,9 @@ async function callBackend<T>(command: string, args?: Record<string, unknown>): 
 function App() {
   const [graph, setGraph] = useState<GraphPayload>(emptyGraph);
   const [terminalMemory, setTerminalMemory] = useState<TerminalMemory>({ runs: [], arguments: [] });
+  const [recallQuery, setRecallQuery] = useState("");
+  const [recallHits, setRecallHits] = useState<RecallHit[]>([]);
+  const [openHit, setOpenHit] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
@@ -237,6 +262,17 @@ function App() {
     const terminal = await callBackend<TerminalMemory>("list_terminal_memory", { query: nextQuery });
     setSearchResult(result);
     setTerminalResult(terminal);
+  }
+
+  async function runRecall(nextQuery = recallQuery) {
+    setRecallQuery(nextQuery);
+    setOpenHit(null);
+    if (!nextQuery.trim()) {
+      setRecallHits([]);
+      return;
+    }
+    const hits = await callBackend<RecallHit[]>("recall_memories", { query: nextQuery, limit: 8 });
+    setRecallHits(hits);
   }
 
   async function rememberCommand() {
@@ -430,6 +466,14 @@ function App() {
             ))}
           </div>
         </section>
+
+        <RecallPanel
+          query={recallQuery}
+          hits={recallHits}
+          openId={openHit}
+          onQuery={(q) => void runRecall(q)}
+          onToggle={(id) => setOpenHit(openHit === id ? null : id)}
+        />
       </aside>
 
       <section className="workspace" aria-label="Knowledge galaxy">
@@ -463,6 +507,70 @@ function App() {
         </div>
       </section>
     </main>
+  );
+}
+
+function RecallPanel({
+  query,
+  hits,
+  openId,
+  onQuery,
+  onToggle
+}: {
+  query: string;
+  hits: RecallHit[];
+  openId: number | null;
+  onQuery: (q: string) => void;
+  onToggle: (id: number) => void;
+}) {
+  return (
+    <section className="panel recall-panel">
+      <div className="panel-title">
+        <Sparkles size={17} />
+        <span>Recall</span>
+      </div>
+      <div className="search-box">
+        <Search size={16} />
+        <input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="Ask your memory…" />
+      </div>
+      <div className="recall-list">
+        {hits.map((h) => (
+          <div className="recall-hit" key={h.id}>
+            <button className="recall-head" onClick={() => onToggle(h.id)} type="button">
+              <span className="recall-score">{h.score}%</span>
+              <span className="recall-text">{h.text}</span>
+            </button>
+            <div className="recall-reasons">
+              {h.reasons.slice(0, 4).map((r, i) => (
+                <span className="reason" key={i}>
+                  {r}
+                </span>
+              ))}
+            </div>
+            {openId === h.id && (
+              <div className="recall-explain">
+                {h.signals.map((s) => (
+                  <div className={`sig ${s.applicable ? "" : "sig-off"}`} key={s.name}>
+                    <span className="sig-name">{s.name}</span>
+                    <span className="sig-bar">
+                      <span style={{ width: `${Math.round(s.score * 100)}%` }} />
+                    </span>
+                    <span className="sig-detail">{s.detail}</span>
+                  </div>
+                ))}
+                <div className="sig-meta">
+                  mentioned {h.mentions}× · importance {h.importance.toFixed(2)}
+                  {h.tags.length ? ` · ${h.tags.join(", ")}` : ""}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {query.trim() !== "" && hits.length === 0 && (
+          <p className="muted">No matches — import notes or save terminal commands, then recall them here.</p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -778,7 +886,62 @@ async function mockBackend<T>(command: string, args?: Record<string, unknown>): 
     saveMockTerminal(next);
     return next.runs[0] as T;
   }
+  if (command === "recall_memories") {
+    return demoRecallHits() as T;
+  }
+  if (command === "explain_memory") {
+    const id = Number(args?.id);
+    return (demoRecallHits().find((h) => h.id === id) ?? null) as T;
+  }
   throw new Error(`Mock backend does not implement ${command}`);
+}
+
+function demoRecallHits(): RecallHit[] {
+  const sig = (
+    name: string,
+    weight: number,
+    score: number,
+    applicable: boolean,
+    detail: string
+  ): SignalView => ({ name, weight, score, applicable, contribution: applicable ? weight * score : 0, detail });
+  return [
+    {
+      id: 1000000002,
+      text: "cargo check --manifest-path MemoryWhale/src-tauri/Cargo.toml zsh:1: command not found: cargo",
+      score: 68,
+      reasons: ["62% term overlap (lexical)", "mentioned 4×", "importance 0.65"],
+      signals: [
+        sig("similarity", 0.4, 0.62, true, "62% term overlap (lexical)"),
+        sig("recency", 0.2, 0.55, true, "last used 2 days ago"),
+        sig("importance", 0.15, 0.65, true, "importance 0.65"),
+        sig("reinforcement", 0.1, 0.5, true, "mentioned 4×"),
+        sig("task", 0.15, 0, false, "no task context")
+      ],
+      created_at: "",
+      last_used: "",
+      mentions: 4,
+      importance: 0.65,
+      tags: ["command", "error"]
+    },
+    {
+      id: 1,
+      text: "Rust Desktop Systems. Rust, Tauri, and SQLite make local-first desktop software feel fast.",
+      score: 41,
+      reasons: ["38% term overlap (lexical)", "importance 0.50", "last used today"],
+      signals: [
+        sig("similarity", 0.4, 0.38, true, "38% term overlap (lexical)"),
+        sig("recency", 0.2, 1.0, true, "last used today"),
+        sig("importance", 0.15, 0.5, true, "importance 0.50"),
+        sig("reinforcement", 0.1, 0.2, true, "mentioned 1×"),
+        sig("task", 0.15, 0, false, "no task context")
+      ],
+      created_at: "",
+      last_used: "",
+      mentions: 1,
+      importance: 0.5,
+      tags: ["document", "markdown"]
+    }
+  ];
 }
 
 function loadMockStore() {
