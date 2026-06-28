@@ -532,6 +532,21 @@ fn load_memories(conn: &Connection) -> Result<Vec<mw_memory::Memory>, AppError> 
     Ok(mems)
 }
 
+/// Build the recall engine. Uses local **Ollama** embeddings for semantic recall
+/// when the Ollama server is running (`ollama pull nomic-embed-text`), and
+/// transparently falls back to the lexical scorer when it isn't — so the app
+/// stays zero-setup and works offline.
+fn build_recall_engine(mems: Vec<mw_memory::Memory>) -> mw_memory::engine::BuiltinEngine {
+    use mw_memory::engine::BuiltinEngine;
+    let lexical = BuiltinEngine::new(mems.clone());
+    match BuiltinEngine::new(mems)
+        .with_embedder(std::sync::Arc::new(mw_memory::embed::OllamaEmbedder::default()))
+    {
+        Ok(engine) => engine,
+        Err(_) => lexical,
+    }
+}
+
 #[tauri::command]
 fn recall_memories(
     state: tauri::State<AppState>,
@@ -545,7 +560,7 @@ fn recall_memories(
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
         load_memories(&conn)?
     };
-    let engine = mw_memory::engine::BuiltinEngine::new(mems);
+    let engine = build_recall_engine(mems);
     let q = mw_memory::Query::new(query, Utc::now());
     Ok(engine
         .retrieve(&q, limit.unwrap_or(8))
@@ -567,7 +582,7 @@ fn explain_memory(
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
         load_memories(&conn)?
     };
-    let engine = mw_memory::engine::BuiltinEngine::new(mems);
+    let engine = build_recall_engine(mems);
     let q = mw_memory::Query::new(query, Utc::now());
     Ok(engine.explain(id, &q).as_ref().map(to_hit))
 }

@@ -144,6 +144,7 @@ function App() {
   const [recallQuery, setRecallQuery] = useState("");
   const [recallHits, setRecallHits] = useState<RecallHit[]>([]);
   const [openHit, setOpenHit] = useState<number | null>(null);
+  const recallTimer = useRef<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
@@ -264,15 +265,18 @@ function App() {
     setTerminalResult(terminal);
   }
 
-  async function runRecall(nextQuery = recallQuery) {
+  // Debounced so semantic mode doesn't re-embed on every keystroke.
+  function runRecall(nextQuery = recallQuery) {
     setRecallQuery(nextQuery);
     setOpenHit(null);
+    if (recallTimer.current) window.clearTimeout(recallTimer.current);
     if (!nextQuery.trim()) {
       setRecallHits([]);
       return;
     }
-    const hits = await callBackend<RecallHit[]>("recall_memories", { query: nextQuery, limit: 8 });
-    setRecallHits(hits);
+    recallTimer.current = window.setTimeout(() => {
+      void callBackend<RecallHit[]>("recall_memories", { query: nextQuery, limit: 8 }).then(setRecallHits);
+    }, 350);
   }
 
   async function rememberCommand() {
