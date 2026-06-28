@@ -14,6 +14,10 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="local-first, nothing uploaded"/>
 </p>
 
+<p align="center">
+  🐬 <b>Sibling project:</b> <a href="https://github.com/wuisabel-gif/Delphin">Delphin</a> — the duplex communication layer (talk to your agent while it thinks). MemoryWhale is the memory layer; they refer to each other — see <a href="ECOSYSTEM.md">ECOSYSTEM.md</a>.
+</p>
+
 <p align="center"><b>Use it as</b></p>
 
 <p align="center">
