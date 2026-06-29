@@ -30,6 +30,26 @@ pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
+/// Encode an embedding as little-endian f32 bytes (for caching as a SQLite BLOB).
+pub fn vec_to_bytes(v: &[f32]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(v.len() * 4);
+    for f in v {
+        out.extend_from_slice(&f.to_le_bytes());
+    }
+    out
+}
+
+/// Decode little-endian f32 bytes back into an embedding. Returns an empty vec
+/// if the byte length isn't a multiple of 4 (corrupt/foreign blob).
+pub fn bytes_to_vec(b: &[u8]) -> Vec<f32> {
+    if b.len() % 4 != 0 {
+        return Vec::new();
+    }
+    b.chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect()
+}
+
 /// Local-first embedder backed by Ollama's `/api/embeddings`.
 /// Run e.g. `ollama pull nomic-embed-text` first.
 pub struct OllamaEmbedder {
@@ -74,7 +94,10 @@ impl Embedder for OllamaEmbedder {
             .get("embedding")
             .and_then(|v| v.as_array())
             .ok_or_else(|| anyhow::anyhow!("ollama response missing 'embedding'"))?;
-        let vec: Vec<f32> = arr.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect();
+        let vec: Vec<f32> = arr
+            .iter()
+            .filter_map(|x| x.as_f64().map(|f| f as f32))
+            .collect();
         if vec.is_empty() {
             anyhow::bail!("ollama returned an empty embedding");
         }
@@ -92,5 +115,15 @@ mod tests {
         assert!(cosine(&[1.0, 0.0], &[0.0, 1.0]).abs() < 1e-6);
         assert_eq!(cosine(&[], &[1.0]), 0.0);
         assert_eq!(cosine(&[1.0, 2.0], &[1.0]), 0.0); // dim mismatch
+    }
+
+    #[test]
+    fn vec_bytes_roundtrip() {
+        let v = vec![0.0f32, 1.5, -2.25, 3.125e9, f32::MIN];
+        assert_eq!(bytes_to_vec(&vec_to_bytes(&v)), v);
+        assert_eq!(vec_to_bytes(&v).len(), v.len() * 4);
+        // corrupt length -> empty, no panic
+        assert!(bytes_to_vec(&[1, 2, 3]).is_empty());
+        assert!(bytes_to_vec(&[]).is_empty());
     }
 }

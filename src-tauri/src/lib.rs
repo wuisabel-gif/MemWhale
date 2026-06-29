@@ -240,6 +240,17 @@ fn init_connection() -> anyhow::Result<Connection> {
             cwd TEXT
         );
 
+        -- Cache of computed embeddings so semantic recall doesn't re-embed every
+        -- memory on every query. Keyed by the memory's namespaced id + model;
+        -- text_hash lets us invalidate when the underlying text changes.
+        CREATE TABLE IF NOT EXISTS memory_embeddings (
+            memory_id INTEGER NOT NULL,
+            model TEXT NOT NULL,
+            text_hash TEXT NOT NULL,
+            vec BLOB NOT NULL,
+            PRIMARY KEY (memory_id, model)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_agent_turns_session ON agent_turns(session_id);
         CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
         CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
@@ -455,7 +466,9 @@ fn load_memories(conn: &Connection) -> Result<Vec<mw_memory::Memory>, AppError> 
 
     // Command runs — reinforcement = how often the same command recurs.
     let runs = conn
-        .prepare("SELECT id, command, argv_json, notes, stderr, exit_code, created_at FROM command_runs")?
+        .prepare(
+            "SELECT id, command, argv_json, notes, stderr, exit_code, created_at FROM command_runs",
+        )?
         .query_map([], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
@@ -474,7 +487,11 @@ fn load_memories(conn: &Connection) -> Result<Vec<mw_memory::Memory>, AppError> 
     }
     for (id, command, argv_json, notes, stderr, exit_code, created) in runs {
         let when = parse(&created);
-        let importance = if exit_code.unwrap_or(0) != 0 { 0.65 } else { 0.4 };
+        let importance = if exit_code.unwrap_or(0) != 0 {
+            0.65
+        } else {
+            0.4
+        };
         mems.push(mw_memory::Memory {
             id: 1_000_000_000 + id,
             text: format!("{command} {argv_json} {notes} {stderr}"),
@@ -484,7 +501,11 @@ fn load_memories(conn: &Connection) -> Result<Vec<mw_memory::Memory>, AppError> 
             importance,
             tags: vec![
                 "command".into(),
-                if exit_code == Some(0) { "ok".into() } else { "error".into() },
+                if exit_code == Some(0) {
+                    "ok".into()
+                } else {
+                    "error".into()
+                },
             ],
             embedding: None,
         });
@@ -536,14 +557,76 @@ fn load_memories(conn: &Connection) -> Result<Vec<mw_memory::Memory>, AppError> 
 /// when the Ollama server is running (`ollama pull nomic-embed-text`), and
 /// transparently falls back to the lexical scorer when it isn't — so the app
 /// stays zero-setup and works offline.
-fn build_recall_engine(mems: Vec<mw_memory::Memory>) -> mw_memory::engine::BuiltinEngine {
+/// The embedding model whose vectors we cache (matches `OllamaEmbedder::default`).
+const EMBED_MODEL: &str = "nomic-embed-text";
+
+/// Stable-ish hash of a memory's text, used to invalidate the embedding cache
+/// when the underlying text changes.
+fn text_hash(s: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    s.hash(&mut h);
+    format!("{:016x}", h.finish())
+}
+
+fn cache_get(conn: &Connection, id: i64, model: &str, hash: &str) -> Option<Vec<f32>> {
+    conn.query_row(
+        "SELECT vec FROM memory_embeddings WHERE memory_id = ?1 AND model = ?2 AND text_hash = ?3",
+        params![id, model, hash],
+        |r| r.get::<_, Vec<u8>>(0),
+    )
+    .ok()
+    .map(|b| mw_memory::embed::bytes_to_vec(&b))
+    .filter(|v| !v.is_empty())
+}
+
+fn cache_put(conn: &Connection, id: i64, model: &str, hash: &str, vec: &[f32]) {
+    let _ = conn.execute(
+        "INSERT OR REPLACE INTO memory_embeddings (memory_id, model, text_hash, vec)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![id, model, hash, mw_memory::embed::vec_to_bytes(vec)],
+    );
+}
+
+/// Fill each memory's embedding from the cache, computing + caching any misses.
+/// Returns Err if the embedder is unavailable (so callers fall back to lexical).
+fn fill_embeddings(
+    conn: &Connection,
+    mems: &mut [mw_memory::Memory],
+    embedder: &dyn mw_memory::embed::Embedder,
+) -> anyhow::Result<()> {
+    for m in mems.iter_mut() {
+        let hash = text_hash(&m.text);
+        if let Some(v) = cache_get(conn, m.id, EMBED_MODEL, &hash) {
+            m.embedding = Some(v);
+        } else {
+            let v = embedder.embed(&m.text)?; // Ollama down -> Err -> lexical fallback
+            cache_put(conn, m.id, EMBED_MODEL, &hash, &v);
+            m.embedding = Some(v);
+        }
+    }
+    Ok(())
+}
+
+/// Build the recall engine. Uses local **Ollama** embeddings for semantic recall
+/// when available — caching each memory's vector in SQLite so only the *query*
+/// is embedded per search — and transparently falls back to the lexical scorer
+/// when Ollama isn't running, so the app stays zero-setup.
+fn build_recall_engine(
+    conn: &Connection,
+    mut mems: Vec<mw_memory::Memory>,
+) -> mw_memory::engine::BuiltinEngine {
     use mw_memory::engine::BuiltinEngine;
-    let lexical = BuiltinEngine::new(mems.clone());
-    match BuiltinEngine::new(mems)
-        .with_embedder(std::sync::Arc::new(mw_memory::embed::OllamaEmbedder::default()))
-    {
-        Ok(engine) => engine,
-        Err(_) => lexical,
+    let embedder = std::sync::Arc::new(mw_memory::embed::OllamaEmbedder::default());
+    if fill_embeddings(conn, &mut mems, embedder.as_ref()).is_ok() {
+        // Memories are pre-embedded (from cache); the engine still needs the
+        // embedder to embed the query at retrieval time. with_embedder skips
+        // memories that already have an embedding, so this makes no extra calls.
+        BuiltinEngine::new(mems.clone())
+            .with_embedder(embedder)
+            .unwrap_or_else(|_| BuiltinEngine::new(mems))
+    } else {
+        BuiltinEngine::new(mems) // lexical fallback (Ollama unavailable)
     }
 }
 
@@ -553,14 +636,14 @@ fn recall_memories(
     query: String,
     limit: Option<usize>,
 ) -> Result<Vec<RecallHit>, AppError> {
-    let mems = {
+    let engine = {
         let conn = state
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        load_memories(&conn)?
+        let mems = load_memories(&conn)?;
+        build_recall_engine(&conn, mems)
     };
-    let engine = build_recall_engine(mems);
     let q = mw_memory::Query::new(query, Utc::now());
     Ok(engine
         .retrieve(&q, limit.unwrap_or(8))
@@ -575,14 +658,14 @@ fn explain_memory(
     id: i64,
     query: String,
 ) -> Result<Option<RecallHit>, AppError> {
-    let mems = {
+    let engine = {
         let conn = state
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        load_memories(&conn)?
+        let mems = load_memories(&conn)?;
+        build_recall_engine(&conn, mems)
     };
-    let engine = build_recall_engine(mems);
     let q = mw_memory::Query::new(query, Utc::now());
     Ok(engine.explain(id, &q).as_ref().map(to_hit))
 }
