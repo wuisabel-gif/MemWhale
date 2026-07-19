@@ -54,8 +54,6 @@ fn run_bash(home: &Path, cwd: &Path, script: &str, extra: &[(&str, &str)]) {
         write!(child.stdin.as_mut().unwrap(), "{script}\ntrue\nexit\n").unwrap();
     }
     child.wait().unwrap();
-    // The hook writes from a detached subshell; give it a moment to land.
-    std::thread::sleep(std::time::Duration::from_millis(1500));
 }
 
 fn hook_rows(home: &Path) -> Vec<(String, String, i64)> {
@@ -88,6 +86,23 @@ fn hook_rows(home: &Path) -> Vec<(String, String, i64)> {
     rows
 }
 
+/// The hook writes from a detached subshell, so rows land asynchronously.
+/// Poll rather than guess a sleep.
+fn wait_for_hook_row(home: &Path, command: &str) -> Option<(String, String, i64)> {
+    for _ in 0..60 {
+        if let Some(row) = hook_rows(home).into_iter().find(|(c, _, _)| c == command) {
+            return Some(row);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+    None
+}
+
+/// Negative assertions have nothing to poll for: wait out the async write.
+fn settle() {
+    std::thread::sleep(std::time::Duration::from_secs(3));
+}
+
 #[test]
 fn hook_records_command_cwd_and_exit_code() {
     let home = sandbox("basic");
@@ -103,9 +118,9 @@ fn hook_records_command_cwd_and_exit_code() {
     let work = home.join("work");
     run_bash(&home, &work, "sh -c 'exit 7'", &[]);
 
+    let hit = wait_for_hook_row(&home, "sh")
+        .unwrap_or_else(|| panic!("no hook row for `sh`; got {:?}", hook_rows(&home)));
     let rows = hook_rows(&home);
-    let hit = rows.iter().find(|(cmd, _, _)| cmd == "sh");
-    let hit = hit.unwrap_or_else(|| panic!("no hook row for `sh`; got {rows:?}"));
     assert_eq!(hit.2, 7, "wrong exit code in {rows:?}");
     assert!(
         Path::new(&hit.1).ends_with("work"),
@@ -124,6 +139,7 @@ fn wrapper_session_suppresses_hook_rows() {
         "sh -c 'exit 7'",
         &[("MW_RECORDING", "1")],
     );
+    settle();
     assert!(
         hook_rows(&home).is_empty(),
         "hook logged inside an mw capture session: {:?}",
@@ -138,6 +154,7 @@ fn off_gated_directory_records_nothing() {
     let work = home.join("work");
     fs::write(work.join(".mwignore"), "capture = \"off\"\n").unwrap();
     run_bash(&home, &work, "sh -c 'exit 7'", &[]);
+    settle();
     assert!(
         hook_rows(&home).is_empty(),
         "hook wrote in an off-gated directory: {:?}",

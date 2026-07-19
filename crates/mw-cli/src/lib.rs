@@ -174,8 +174,16 @@ fn add_column_if_missing(
         .and_then(|mut s| s.exists(params![table, column]))
         .map_err(|e| format!("failed to inspect {table} columns: {e}"))?;
     if !present {
-        conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
-            .map_err(|e| format!("failed to add {table}.{column}: {e}"))?;
+        // Two writers (e.g. two shell hooks firing at once on a fresh DB) can
+        // both read the column as missing and both try to add it. The loser
+        // gets "duplicate column name", which is the outcome we wanted anyway.
+        if let Err(e) = conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
+        {
+            let msg = e.to_string();
+            if !msg.contains("duplicate column") {
+                return Err(format!("failed to add {table}.{column}: {msg}"));
+            }
+        }
     }
     Ok(())
 }

@@ -57,10 +57,15 @@ if [ -n "${ZSH_VERSION:-}" ]; then
   add-zsh-hook precmd  __mw_precmd
 elif [ -n "${BASH_VERSION:-}" ]; then
   __mw_preexec() {
+    # The DEBUG trap also fires for the commands *inside* our own hook
+    # functions; __MW_IN_HOOK keeps those out of the record. Without it the
+    # first-word-wins latch below can be claimed by our own bookkeeping and
+    # the user's actual command is silently dropped.
+    [ -n "${__MW_IN_HOOK:-}" ] && return 0
     # Ignore completion expansions and the prompt command itself.
     [ -n "${COMP_LINE:-}" ] && return 0
     [ "$BASH_COMMAND" = "${PROMPT_COMMAND:-}" ] && return 0
-    case "$BASH_COMMAND" in __mw_*) return 0 ;; esac
+    case "$BASH_COMMAND" in __mw_*|__MW_*) return 0 ;; esac
     [ -n "${__MW_LAST_CMD:-}" ] && return 0   # first word of the pipeline wins
     __MW_LAST_CMD="$BASH_COMMAND"
     __MW_START=$SECONDS
@@ -68,10 +73,12 @@ elif [ -n "${BASH_VERSION:-}" ]; then
   }
   __mw_precmd() {
     local code=$?
+    __MW_IN_HOOK=1
     if [ -n "${__MW_LAST_CMD:-}" ]; then
       __mw_record "$code" "$__MW_LAST_CMD" "$((SECONDS - ${__MW_START:-$SECONDS}))"
     fi
     __MW_LAST_CMD=""
+    __MW_IN_HOOK=""
     return $code
   }
   trap '__mw_preexec' DEBUG
@@ -79,4 +86,7 @@ elif [ -n "${BASH_VERSION:-}" ]; then
     *__mw_precmd*) : ;;
     *) PROMPT_COMMAND="__mw_precmd${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
   esac
+  # The DEBUG trap is live for the rest of this file, so the `case` above just
+  # latched itself as "the user's command". Drop it.
+  __MW_LAST_CMD=""
 fi

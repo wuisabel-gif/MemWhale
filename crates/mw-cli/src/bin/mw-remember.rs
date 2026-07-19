@@ -73,9 +73,7 @@ fn run() -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
     }
 
-    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
-    memorywhale_cli::ensure_capture_kind(&conn)?;
+    let conn = open_ready(&db_path)?;
     conn.execute(
         "
         INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, capture_kind)
@@ -111,6 +109,33 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+/// Open the database and make sure the schema is usable.
+///
+/// Shell hooks fire one writer per command, so several can be creating or
+/// upgrading a brand-new database at the same instant — `PRAGMA journal_mode`
+/// and `ALTER TABLE` both lose races that `busy_timeout` alone doesn't cover.
+/// Retry briefly rather than dropping the row.
+fn open_ready(db_path: &std::path::Path) -> Result<Connection, String> {
+    let mut last = String::new();
+    for attempt in 0..5 {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(80 * attempt));
+        }
+        let conn = match Connection::open(db_path) {
+            Ok(conn) => conn,
+            Err(err) => {
+                last = format!("failed to open db: {err}");
+                continue;
+            }
+        };
+        match init_schema(&conn).and_then(|()| memorywhale_cli::ensure_capture_kind(&conn)) {
+            Ok(()) => return Ok(conn),
+            Err(err) => last = err,
+        }
+    }
+    Err(last)
+}
+
 fn print_help() {
     println!(
         "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]"
@@ -121,6 +146,9 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "
         PRAGMA journal_mode = WAL;
+        -- Shell hooks fire one writer per command, so two can land at once.
+        -- Wait instead of failing: a dropped row is a silently missing memory.
+        PRAGMA busy_timeout = 3000;
 
         CREATE TABLE IF NOT EXISTS command_runs (
             id INTEGER PRIMARY KEY,

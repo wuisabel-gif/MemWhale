@@ -85,6 +85,25 @@ and is a weaker signal of intent.
 
 `cargo build --workspace` and `cargo test --workspace` both pass.
 
+## Bugs found while verifying (fixed here)
+
+Running the scripted bash test in a loop exposed three real races, all of which
+would have silently eaten memories in production:
+
+1. **No `busy_timeout` in `mw-remember`.** Two hooks firing back to back both
+   write; the loser hit "database is locked" and dropped its row. Now
+   `PRAGMA busy_timeout = 3000`.
+2. **Fresh-database creation race.** Concurrent `PRAGMA journal_mode = WAL` and
+   `ALTER TABLE` on a brand-new file lose in ways `busy_timeout` doesn't cover.
+   `open_ready()` now retries open + schema up to 5 times with a short backoff.
+   `add_column_if_missing` also treats "duplicate column name" as success — two
+   writers can both read a column as missing and both try to add it.
+3. **The bash `DEBUG` trap is live for the rest of the sourced file**, so the
+   `case` that wires `PROMPT_COMMAND` latched *itself* as "the user's command"
+   and a bogus `case` row was recorded — and, worse, the latch then blocked the
+   real command. Fixed with an `__MW_IN_HOOK` re-entrancy guard, a `__MW_*`
+   ignore pattern, and clearing the latch at the end of the file.
+
 ## Follow-ups
 
 - **PowerShell** is deliberately out of scope for this issue; needs its own
