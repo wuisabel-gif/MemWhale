@@ -1,0 +1,48 @@
+{
+  "query_id": "q09",
+  "query": "how did I recover from detached HEAD state",
+  "relevant_ids": [
+    8
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        8,
+        7,
+        2,
+        15,
+        1
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        8,
+        7,
+        13,
+        26,
+        28
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        8,
+        26,
+        13,
+        7,
+        28
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "query_id": "q07",
+  "query": "temporary value dropped while borrowed lifetime error",
+  "relevant_ids": [
+    6
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        1,
+        2,
+        15,
+        14
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.16666666666666666
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        6,
+        3,
+        1,
+        4,
+        5
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        6,
+        3,
+        13,
+        1,
+        33
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "query_id": "q21",
+  "query": "out of memory OOM during LTO release build on jetson",
+  "relevant_ids": [
+    20
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        20,
+        7,
+        2,
+        1,
+        15
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        20,
+        13,
+        22,
+        26,
+        5
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        20,
+        13,
+        22,
+        16,
+        33
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}
