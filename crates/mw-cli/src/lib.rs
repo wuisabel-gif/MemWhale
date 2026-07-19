@@ -91,6 +91,9 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      );
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
+/// Schema version `migrate` brings a database up to.
+pub const LATEST_SCHEMA_VERSION: i64 = 2;
+
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
 ///
@@ -98,6 +101,11 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
 /// `source_session_id`/`approved` to `bookmarks` and backfills existing rows as
 /// human (via the column defaults). Safe on a populated DB: `ADD COLUMN` with a
 /// constant default never rewrites rows.
+///
+/// Migration 2 — first-class scopes: adds `project`/`machine` to `sessions` and
+/// backfills `project` from the legacy `project:<name>` convention inside
+/// `notes`. The notes string itself is left untouched, so the dashboard's
+/// existing note parsing keeps working.
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -105,27 +113,186 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
     if version < 1 {
         conn.execute_batch(BOOKMARKS_BASE)
             .map_err(|e| format!("failed to prepare bookmarks table: {e}"))?;
-        add_column_if_missing(conn, "author_kind", "TEXT NOT NULL DEFAULT 'human'")?;
-        add_column_if_missing(conn, "author_name", "TEXT")?;
-        add_column_if_missing(conn, "source_session_id", "INTEGER")?;
-        add_column_if_missing(conn, "approved", "INTEGER NOT NULL DEFAULT 1")?;
-        add_column_if_missing(conn, "created_at", "TEXT")?; // belt-and-suspenders; base has it
+        add_column_if_missing(conn, "bookmarks", "author_kind", "TEXT NOT NULL DEFAULT 'human'")?;
+        add_column_if_missing(conn, "bookmarks", "author_name", "TEXT")?;
+        add_column_if_missing(conn, "bookmarks", "source_session_id", "INTEGER")?;
+        add_column_if_missing(conn, "bookmarks", "approved", "INTEGER NOT NULL DEFAULT 1")?;
+        add_column_if_missing(conn, "bookmarks", "created_at", "TEXT")?; // base has it
         conn.execute_batch("PRAGMA user_version = 1;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 2 {
+        // A bookmarks-only DB (mw-remember on a fresh machine) has no sessions
+        // table yet; `init_schema` creates it with the columns already present.
+        if table_exists(conn, "sessions")? {
+            add_column_if_missing(conn, "sessions", "project", "TEXT")?;
+            add_column_if_missing(conn, "sessions", "machine", "TEXT")?;
+            backfill_project_from_notes(conn)?;
+        }
+        conn.execute_batch(&format!("PRAGMA user_version = {LATEST_SCHEMA_VERSION};"))
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
     Ok(())
 }
 
-fn add_column_if_missing(conn: &Connection, column: &str, decl: &str) -> Result<(), String> {
+fn table_exists(conn: &Connection, table: &str) -> Result<bool, String> {
+    conn.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?1")
+        .and_then(|mut s| s.exists(params![table]))
+        .map_err(|e| format!("failed to inspect schema: {e}"))
+}
+
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    decl: &str,
+) -> Result<(), String> {
     let present = conn
-        .prepare("SELECT 1 FROM pragma_table_info('bookmarks') WHERE name = ?1")
-        .and_then(|mut s| s.exists(params![column]))
-        .map_err(|e| format!("failed to inspect bookmarks columns: {e}"))?;
+        .prepare("SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2")
+        .and_then(|mut s| s.exists(params![table, column]))
+        .map_err(|e| format!("failed to inspect {table} columns: {e}"))?;
     if !present {
-        conn.execute(&format!("ALTER TABLE bookmarks ADD COLUMN {column} {decl}"), [])
-            .map_err(|e| format!("failed to add bookmarks.{column}: {e}"))?;
+        conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
+            .map_err(|e| format!("failed to add {table}.{column}: {e}"))?;
     }
     Ok(())
+}
+
+/// Lift the legacy `project:<name>` note convention into `sessions.project`.
+/// Read-only on `notes` — existing users' notes strings stay byte-identical.
+fn backfill_project_from_notes(conn: &Connection) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare("SELECT id, notes FROM sessions WHERE project IS NULL AND notes LIKE '%project:%'")
+        .map_err(|e| format!("failed to prepare backfill: {e}"))?;
+    let rows: Vec<(i64, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| format!("failed to read sessions: {e}"))?
+        .flatten()
+        .collect();
+    for (id, notes) in rows {
+        if let Some(project) = project_of(&notes) {
+            conn.execute("UPDATE sessions SET project = ?1 WHERE id = ?2", params![project, id])
+                .map_err(|e| format!("failed to backfill session {id}: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+/// Extract a `project:<name>` tag from a notes string. Same shape the dashboard
+/// has always parsed, so the schema column and the note convention agree.
+pub fn project_of(notes: &str) -> Option<String> {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"project:([\w.\-]+)").expect("valid project regex"))
+        .captures(notes)
+        .map(|c| c[1].to_string())
+}
+
+/// This machine's name, recorded on every captured session so memory synced
+/// from a teammate (or your other box) stays distinguishable. `MW_MACHINE`
+/// wins, then `machine = "..."` in `<data dir>/config.toml`, then the hostname.
+pub fn machine_name() -> String {
+    if let Ok(v) = std::env::var("MW_MACHINE") {
+        if !v.trim().is_empty() {
+            return v.trim().to_string();
+        }
+    }
+    if let Some(v) = config_value("machine") {
+        return v;
+    }
+    // ponytail: shelling out to `hostname` beats a dep; falls back to the env.
+    std::process::Command::new("hostname")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        // macOS reports an FQDN, Linux the short name — keep the first label so
+        // the filter value is the same short name you'd type on either.
+        .map(|s| s.trim().split('.').next().unwrap_or("").to_string())
+        .filter(|s| !s.is_empty())
+        .or_else(|| std::env::var("HOSTNAME").ok())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// A `key = "value"` line from `<data dir>/config.toml`, unquoted.
+fn config_value(key: &str) -> Option<String> {
+    let text = std::fs::read_to_string(data_dir().ok()?.join("config.toml")).ok()?;
+    text.lines().find_map(|line| {
+        let (k, v) = line.split_once('=')?;
+        if k.trim() != key {
+            return None;
+        }
+        let v = v.trim().trim_matches('"').trim().to_string();
+        (!v.is_empty()).then_some(v)
+    })
+}
+
+/// Parse a relative time window like `7d`, `24h`, `2w`, `30m` into a duration.
+pub fn parse_since(spec: &str) -> Result<chrono::Duration, String> {
+    let spec = spec.trim();
+    let bad = || format!("invalid --since {spec:?}; use e.g. 7d, 24h, 2w");
+    let unit = spec.chars().last().ok_or_else(bad)?;
+    let n: i64 = spec[..spec.len() - unit.len_utf8()].parse().map_err(|_| bad())?;
+    if n < 0 {
+        return Err(bad());
+    }
+    match unit {
+        'm' => Ok(chrono::Duration::minutes(n)),
+        'h' => Ok(chrono::Duration::hours(n)),
+        'd' => Ok(chrono::Duration::days(n)),
+        'w' => Ok(chrono::Duration::weeks(n)),
+        _ => Err(bad()),
+    }
+}
+
+/// Narrow loaded memories to an explicit scope before they reach the engine, so
+/// ranking happens *within* the scope rather than being trimmed after the fact.
+///
+/// With no filters this returns the input untouched — the unscoped `mw search`
+/// path is byte-for-byte what it always was. `project`/`machine` only match
+/// memories that actually carry a scope: recorded sessions (the new columns) and,
+/// for `project`, command runs still tagged the legacy way in their notes.
+pub fn scope_memories(
+    conn: &Connection,
+    mut mems: Vec<mw_memory::Memory>,
+    project: Option<&str>,
+    machine: Option<&str>,
+    since: Option<chrono::DateTime<Utc>>,
+) -> Vec<mw_memory::Memory> {
+    use mw_memory::sqlite::{decode_id, Source};
+
+    if let Some(cutoff) = since {
+        mems.retain(|m| m.created_at >= cutoff);
+    }
+    if project.is_none() && machine.is_none() {
+        return mems;
+    }
+
+    let ids = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> std::collections::HashSet<i64> {
+        conn.prepare(sql)
+            .and_then(|mut s| {
+                s.query_map(p, |r| r.get::<_, i64>(0))
+                    .map(|rows| rows.flatten().collect())
+            })
+            .unwrap_or_default()
+    };
+    let sessions = ids(
+        "SELECT id FROM sessions
+         WHERE (?1 IS NULL OR project = ?1) AND (?2 IS NULL OR machine = ?2)",
+        params![project, machine],
+    );
+    // command_runs never carried a machine, so a machine filter excludes them.
+    let commands = match (project, machine) {
+        (Some(p), None) => ids(
+            "SELECT id FROM command_runs WHERE notes LIKE '%project:' || ?1 || '%'",
+            params![p],
+        ),
+        _ => Default::default(),
+    };
+    mems.retain(|m| match decode_id(m.id) {
+        (Source::Session, id) => sessions.contains(&id),
+        (Source::Command, id) => commands.contains(&id),
+        _ => false,
+    });
+    mems
 }
 
 /// True when agent-written memories should start unapproved and be excluded from
@@ -612,7 +779,73 @@ mod tests {
         // migrate is idempotent
         migrate(&conn).unwrap();
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(version, 1);
+        assert_eq!(version, LATEST_SCHEMA_VERSION);
+    }
+
+    // Migration 2 round-trip on a populated pre-scope DB: the legacy
+    // `project:` note convention becomes a real column, the notes themselves
+    // are untouched, and scoped queries then work.
+    #[test]
+    fn migration_2_lifts_project_notes_into_a_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        let legacy_notes = "debugging the jetson build project:camera-driver runtime:host";
+        conn.execute_batch(&format!(
+            "CREATE TABLE sessions (
+                 id INTEGER PRIMARY KEY, shell TEXT, cwd TEXT, transcript_path TEXT NOT NULL,
+                 transcript TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                 started_at TEXT NOT NULL, ended_at TEXT NOT NULL,
+                 byte_count INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'finished'
+             );
+             CREATE TABLE command_runs (id INTEGER PRIMARY KEY, command TEXT, argv_json TEXT,
+                 notes TEXT, stderr TEXT, exit_code INTEGER, created_at TEXT);
+             INSERT INTO sessions (transcript_path, transcript, notes, started_at, ended_at)
+             VALUES ('/tmp/a', 'linker failed', '{legacy_notes}', '2026-06-20T12:00:00+00:00',
+                     '2026-06-20T13:00:00+00:00');
+             INSERT INTO sessions (transcript_path, transcript, notes, started_at, ended_at)
+             VALUES ('/tmp/b', 'unrelated work', 'project:other', '2026-06-21T12:00:00+00:00',
+                     '2026-06-21T13:00:00+00:00');"
+        ))
+        .unwrap();
+
+        migrate(&conn).unwrap();
+
+        let (project, notes): (Option<String>, String) = conn
+            .query_row("SELECT project, notes FROM sessions WHERE id = 1", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(project.as_deref(), Some("camera-driver"));
+        assert_eq!(notes, legacy_notes, "original notes must survive untouched");
+
+        // Scoped retrieval now works through the shared loader + scope filter.
+        let mems = mw_memory::sqlite::load_memories(&conn);
+        assert_eq!(mems.len(), 2);
+        let scoped = scope_memories(&conn, mems.clone(), Some("camera-driver"), None, None);
+        assert_eq!(scoped.len(), 1);
+        assert!(scoped[0].text.contains("linker failed"));
+        // Unscoped is untouched — the byte-identical guarantee for old users.
+        assert_eq!(scope_memories(&conn, mems, None, None, None).len(), 2);
+
+        migrate(&conn).unwrap(); // idempotent
+        let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        assert_eq!(version, LATEST_SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn since_parses_relative_windows() {
+        assert_eq!(parse_since("7d").unwrap(), chrono::Duration::days(7));
+        assert_eq!(parse_since("24h").unwrap(), chrono::Duration::hours(24));
+        assert_eq!(parse_since("2w").unwrap(), chrono::Duration::weeks(2));
+        assert_eq!(parse_since(" 30m ").unwrap(), chrono::Duration::minutes(30));
+        for bad in ["7", "d", "", "7y", "-1d", "1.5d", "seven days"] {
+            assert!(parse_since(bad).is_err(), "{bad:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn project_tag_is_parsed_out_of_notes() {
+        assert_eq!(project_of("os:macos project:mw-cli runtime:host").as_deref(), Some("mw-cli"));
+        assert_eq!(project_of("no tags here"), None);
     }
 
     #[test]
