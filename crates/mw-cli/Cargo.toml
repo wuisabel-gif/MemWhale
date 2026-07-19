@@ -20,6 +20,15 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Parent-death detection (prctl on Linux, getppid/pipe-EOF elsewhere).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# Integration test spawns a real process tree (fork) and inspects the DB row.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+
 # `cargo install cargo-deb && cargo deb -p mw-cli` builds the Debian/Jetson package.
 # ponytail: asset paths are manifest-relative; verified only in CI (no dpkg locally).
 [package.metadata.deb]

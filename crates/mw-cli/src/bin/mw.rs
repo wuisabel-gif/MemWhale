@@ -119,6 +119,18 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
             notes: &notes,
             started_at: &started_at,
         })?;
+        // If our parent dies while `script` is still running, finalize this row
+        // as `interrupted` immediately instead of leaving it stranded as
+        // `recording` until the dashboard's next-startup recovery. Installed
+        // before any other thread so the SIGTERM mask (Linux) covers them.
+        #[cfg(unix)]
+        {
+            let death_path = transcript_path.clone();
+            memorywhale_cli::guard_parent_death(move || {
+                let ended_at = Utc::now().to_rfc3339();
+                let _ = update_session_from_transcript(id, &death_path, &ended_at, "interrupted");
+            });
+        }
         let sync = start_live_sync(id, transcript_path.clone());
         Some((id, sync))
     } else {
