@@ -14,6 +14,10 @@ use std::io::{BufRead, Write};
 fn main() {
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
+    // Client name from the `initialize` handshake (e.g. "Claude Code"), used to
+    // attribute agent-written memories. One process serves one client, so a
+    // single mutable slot is enough.
+    let mut client_name: Option<String> = None;
     for line in stdin.lock().lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
@@ -23,13 +27,21 @@ fn main() {
             Ok(v) => v,
             Err(_) => continue,
         };
+        let method = msg.get("method").and_then(Value::as_str).unwrap_or("");
+        let params = msg.get("params").cloned().unwrap_or(json!({}));
+        if method == "initialize" {
+            client_name = params
+                .get("clientInfo")
+                .and_then(|c| c.get("name"))
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+        }
         // Notifications (no `id`) get no reply.
         let Some(id) = msg.get("id").cloned() else {
             continue;
         };
-        let method = msg.get("method").and_then(Value::as_str).unwrap_or("");
-        let params = msg.get("params").cloned().unwrap_or(json!({}));
-        let reply = match handle(method, &params) {
+        let reply = match handle(method, &params, client_name.as_deref()) {
             Ok(result) => json!({"jsonrpc": "2.0", "id": id, "result": result}),
             Err(msg) => json!({"jsonrpc": "2.0", "id": id,
                 "error": {"code": -32603, "message": msg}}),
@@ -39,7 +51,7 @@ fn main() {
     }
 }
 
-fn handle(method: &str, params: &Value) -> Result<Value, String> {
+fn handle(method: &str, params: &Value, client_name: Option<&str>) -> Result<Value, String> {
     match method {
         "initialize" => Ok(json!({
             "protocolVersion": "2024-11-05",
@@ -50,7 +62,7 @@ fn handle(method: &str, params: &Value) -> Result<Value, String> {
         "tools/call" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("");
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
-            let text = call_tool(name, &args)?;
+            let text = call_tool(name, &args, client_name)?;
             Ok(json!({"content": [{"type": "text", "text": text}]}))
         }
         // Unknown method: return empty result rather than erroring the session.
@@ -93,10 +105,14 @@ fn tool_defs() -> Value {
 
 fn open() -> Result<Connection, String> {
     let path = memorywhale_cli::database_path()?;
-    Connection::open(&path).map_err(|e| format!("failed to open {}: {e}", path.display()))
+    let conn =
+        Connection::open(&path).map_err(|e| format!("failed to open {}: {e}", path.display()))?;
+    // Ensure bookmarks provenance columns exist so reads below can rely on them.
+    let _ = memorywhale_cli::migrate(&conn);
+    Ok(conn)
 }
 
-fn call_tool(name: &str, args: &Value) -> Result<String, String> {
+fn call_tool(name: &str, args: &Value, client_name: Option<&str>) -> Result<String, String> {
     match name {
         "recent_errors" => {
             let limit = args.get("limit").and_then(Value::as_i64).unwrap_or(8);
@@ -118,7 +134,7 @@ fn call_tool(name: &str, args: &Value) -> Result<String, String> {
                 .get("text")
                 .and_then(Value::as_str)
                 .ok_or_else(|| "remember needs a 'text'".to_string())?;
-            remember_tool(text)
+            remember_tool(text, client_name)
         }
         other => Err(format!("unknown tool: {other}")),
     }
@@ -208,14 +224,23 @@ fn search_memory(query: &str) -> Result<String, String> {
     // Remembered lessons (`mw mark` / `mw remember` / this server's `remember`
     // tool). The table may not exist yet on a DB that's only ever seen
     // command_runs, so treat a missing table as zero results, not an error.
-    if let Ok(mut stmt) =
-        conn.prepare("SELECT label, created_at FROM bookmarks WHERE label LIKE ?1 ORDER BY id DESC LIMIT 20")
-    {
-        if let Ok(rows) =
-            stmt.query_map(params![like], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-        {
-            for (label, created_at) in rows.flatten() {
-                out.push_str(&format!("- remembered ({created_at}): {label}\n"));
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT label, created_at, author_kind, author_name, source_session_id FROM bookmarks
+         WHERE label LIKE ?1 AND approved = 1 ORDER BY id DESC LIMIT 20",
+    ) {
+        if let Ok(rows) = stmt.query_map(params![like], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, Option<i64>>(4)?,
+            ))
+        }) {
+            for (label, created_at, kind, name, sid) in rows.flatten() {
+                let prov =
+                    memorywhale_cli::provenance_label(&kind, name.as_deref(), &created_at, sid);
+                out.push_str(&format!("- {label} ({prov})\n"));
             }
         }
     }
@@ -269,27 +294,35 @@ fn get_context(project: Option<&str>) -> Result<String, String> {
 
     // Remembered lessons — same missing-table tolerance as search_memory.
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT label, created_at FROM bookmarks
-         WHERE ?1 IS NULL OR label LIKE ?1 ORDER BY id DESC LIMIT 8",
+        "SELECT label, created_at, author_kind, author_name, source_session_id FROM bookmarks
+         WHERE (?1 IS NULL OR label LIKE ?1) AND approved = 1 ORDER BY id DESC LIMIT 8",
     ) {
         if let Ok(rows) = stmt.query_map(params![like.as_deref()], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, Option<i64>>(4)?,
+            ))
         }) {
             let mut any_notes = false;
-            for (label, created_at) in rows.flatten() {
+            for (label, created_at, kind, name, sid) in rows.flatten() {
                 if !any_notes {
                     out.push_str("\nRemembered lessons:\n");
                     any_notes = true;
                 }
-                out.push_str(&format!("- ({created_at}): {label}\n"));
+                let prov =
+                    memorywhale_cli::provenance_label(&kind, name.as_deref(), &created_at, sid);
+                out.push_str(&format!("- {label} ({prov})\n"));
             }
         }
     }
     Ok(out)
 }
 
-fn remember_tool(text: &str) -> Result<String, String> {
-    let id = memorywhale_cli::remember(text, None)?;
+fn remember_tool(text: &str, client_name: Option<&str>) -> Result<String, String> {
+    let id = memorywhale_cli::remember_as(text, None, "agent", client_name, None)?;
     Ok(format!(
         "Saved as memory #{id}. Future search_memory/get_context calls (yours or a teammate's) will find it."
     ))

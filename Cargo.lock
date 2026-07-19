@@ -2032,6 +2032,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "dirs 5.0.1",
+ "memorywhale-cli",
  "mw-memory",
  "regex",
  "rusqlite",

@@ -100,6 +100,19 @@ struct TerminalMemory {
     arguments: Vec<CommandArgument>,
 }
 
+/// A remembered lesson (bookmarks table) with provenance, for the dashboard.
+#[derive(Debug, Serialize)]
+struct Lesson {
+    id: i64,
+    label: String,
+    created_at: String,
+    author_kind: String,
+    author_name: Option<String>,
+    source_session_id: Option<i64>,
+    approved: bool,
+    provenance: String,
+}
+
 #[derive(Debug, Serialize)]
 struct GraphNode {
     id: String,
@@ -148,7 +161,10 @@ pub fn run() {
             list_terminal_memory,
             recall_memories,
             explain_memory,
-            reset_demo_data
+            reset_demo_data,
+            list_lessons,
+            delete_lesson,
+            approve_lesson
         ])
         .run(tauri::generate_context!())
         .expect("error while running MemoryWhale");
@@ -371,6 +387,76 @@ fn list_terminal_memory(
         .lock()
         .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
     load_terminal_memory(&conn, query.as_deref())
+}
+
+// ── Remembered lessons with provenance (bookmarks table) ───────────────────
+
+/// List remembered lessons with provenance. `agent_only` filters to
+/// agent-written ones. Includes unapproved (pending-review) lessons so the
+/// dashboard can surface and approve them.
+#[tauri::command]
+fn list_lessons(
+    state: tauri::State<AppState>,
+    agent_only: Option<bool>,
+) -> Result<Vec<Lesson>, AppError> {
+    let conn = state
+        .db
+        .lock()
+        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+    memorywhale_cli::migrate(&conn).map_err(AppError::Message)?;
+    let sql = "SELECT id, label, created_at, author_kind, author_name, source_session_id, approved
+               FROM bookmarks
+               WHERE (?1 = 0 OR author_kind = 'agent')
+               ORDER BY id DESC LIMIT 500";
+    let filter = i64::from(agent_only.unwrap_or(false));
+    let lessons = conn
+        .prepare(sql)?
+        .query_map(params![filter], |r| {
+            let created_at: String = r.get(2)?;
+            let author_kind: String = r.get(3)?;
+            let author_name: Option<String> = r.get(4)?;
+            let source_session_id: Option<i64> = r.get(5)?;
+            Ok(Lesson {
+                id: r.get(0)?,
+                label: r.get(1)?,
+                provenance: memorywhale_cli::provenance_label(
+                    &author_kind,
+                    author_name.as_deref(),
+                    &created_at,
+                    source_session_id,
+                ),
+                created_at,
+                author_kind,
+                author_name,
+                source_session_id,
+                approved: r.get::<_, i64>(6)? != 0,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(lessons)
+}
+
+/// Delete a remembered lesson by id.
+#[tauri::command]
+fn delete_lesson(state: tauri::State<AppState>, id: i64) -> Result<(), AppError> {
+    let conn = state
+        .db
+        .lock()
+        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+    conn.execute("DELETE FROM bookmarks WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+/// Approve a pending (agent-written, review-mode) lesson so retrieval includes it.
+#[tauri::command]
+fn approve_lesson(state: tauri::State<AppState>, id: i64) -> Result<(), AppError> {
+    let conn = state
+        .db
+        .lock()
+        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+    memorywhale_cli::migrate(&conn).map_err(AppError::Message)?;
+    conn.execute("UPDATE bookmarks SET approved = 1 WHERE id = ?1", params![id])?;
+    Ok(())
 }
 
 // ── Explainable retrieval (mw-memory) ──────────────────────────────────────
