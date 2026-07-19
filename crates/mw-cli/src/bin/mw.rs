@@ -12,7 +12,7 @@
 //   mw                                  # record a session, exit the subshell to stop
 //   mw --notes "debugging the Jetson build"
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use mw_memory::engine::MemoryEngine;
 use regex::Regex;
 use rusqlite::{params, Connection};
@@ -40,7 +40,7 @@ fn run() -> Result<(), String> {
     let raw_args: Vec<String> = env::args().skip(1).collect();
     match raw_args.first().map(String::as_str) {
         Some("show") => return show_session(&raw_args[1..]),
-        Some("list") => return list_sessions(),
+        Some("list") => return list_sessions(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
         Some("remember") => return remember_cmd(&raw_args[1..]),
         Some("rm") => return rm_memory(&raw_args[1..]),
@@ -207,7 +207,7 @@ fn print_help() {
     println!(
         "mw [--notes <text>]      record a whole shell session until you exit\n\
          mw --live [--notes <text>]  autosave the session to SQLite while it is still running\n\
-         mw list                  list recorded sessions\n\
+         mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text>       save a lesson/conclusion, e.g. \"the fix was passing --features vendored-ssl\"\n\
@@ -221,7 +221,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
          mw context [project:name] [--last-error] [--limit N]  print a compact digest to paste into an AI agent\n\
          mw agent [session-id]    export a full session as agent-ready text to paste later (default: latest)\n\
@@ -306,15 +306,18 @@ fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
     conn.execute(
         "
         INSERT INTO sessions
-            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
-        VALUES (?1, ?2, ?3, '', ?4, ?5, ?5, 0, 'recording')
+            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count,
+             status, project, machine)
+        VALUES (?1, ?2, ?3, '', ?4, ?5, ?5, 0, 'recording', ?6, ?7)
         ",
         params![
             draft.shell,
             draft.cwd,
             draft.transcript_path,
             draft.notes,
-            draft.started_at
+            draft.started_at,
+            memorywhale_cli::project_of(draft.notes),
+            memorywhale_cli::machine_name()
         ],
     )
     .map_err(|err| format!("failed to create live session row: {err}"))?;
@@ -334,8 +337,9 @@ fn insert_finished_session(
     conn.execute(
         "
         INSERT INTO sessions
-            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'finished')
+            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count,
+             status, project, machine)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'finished', ?9, ?10)
         ",
         params![
             draft.shell,
@@ -345,7 +349,9 @@ fn insert_finished_session(
             draft.notes,
             draft.started_at,
             ended_at,
-            byte_count
+            byte_count,
+            memorywhale_cli::project_of(draft.notes),
+            memorywhale_cli::machine_name()
         ],
     )
     .map_err(|err| format!("failed to insert session: {err}"))?;
@@ -580,6 +586,8 @@ fn open_session_db() -> Result<Connection, String> {
     }
     let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
     init_schema(&conn)?;
+    // Provenance (v1) + scope columns (v2) exist before any read or write.
+    memorywhale_cli::migrate(&conn)?;
     Ok(conn)
 }
 
@@ -1009,23 +1017,35 @@ fn show_session(args: &[String]) -> Result<(), String> {
     }
 }
 
-fn list_sessions() -> Result<(), String> {
-    let conn =
-        Connection::open(database_path()?).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
+fn list_sessions(args: &[String]) -> Result<(), String> {
+    let (scope, rest) = Scope::take(args)?;
+    if let Some(other) = rest.first() {
+        return Err(format!("unexpected argument {other:?}; run mw --help"));
+    }
+    let conn = open_session_db()?;
+    let since = scope.cutoff(Utc::now()).map(|c| c.to_rfc3339());
 
     let mut stmt = conn
-        .prepare("SELECT id, started_at, byte_count, notes FROM sessions ORDER BY id")
+        .prepare(
+            "SELECT id, started_at, byte_count, notes FROM sessions
+             WHERE (?1 IS NULL OR project = ?1)
+               AND (?2 IS NULL OR machine = ?2)
+               AND (?3 IS NULL OR started_at >= ?3)
+             ORDER BY id",
+        )
         .map_err(|err| format!("failed to query sessions: {err}"))?;
     let rows = stmt
-        .query_map([], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, i64>(2)?,
-                r.get::<_, String>(3)?,
-            ))
-        })
+        .query_map(
+            params![scope.project.as_deref(), scope.machine.as_deref(), since.as_deref()],
+            |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                    r.get::<_, String>(3)?,
+                ))
+            },
+        )
         .map_err(|err| format!("failed to read sessions: {err}"))?;
 
     let mut count = 0;
@@ -1344,23 +1364,97 @@ fn note_provenance(conn: &Connection, id: i64) -> Option<String> {
     .ok()
 }
 
+/// `--project` / `--machine` / `--since` as parsed off a command line.
+#[derive(Default)]
+struct Scope {
+    project: Option<String>,
+    machine: Option<String>,
+    since: Option<String>,
+}
+
+impl Scope {
+    /// Pull the scope flags out of `args`, returning them plus the leftovers.
+    fn take(args: &[String]) -> Result<(Scope, Vec<String>), String> {
+        let mut scope = Scope::default();
+        let mut rest = Vec::new();
+        let mut iter = args.iter();
+        while let Some(arg) = iter.next() {
+            let slot = match arg.as_str() {
+                "--project" => &mut scope.project,
+                "--machine" => &mut scope.machine,
+                "--since" => &mut scope.since,
+                _ => {
+                    rest.push(arg.clone());
+                    continue;
+                }
+            };
+            *slot = Some(
+                iter.next()
+                    .cloned()
+                    .ok_or_else(|| format!("{arg} requires a value"))?,
+            );
+        }
+        if let Some(spec) = &scope.since {
+            memorywhale_cli::parse_since(spec)?; // fail fast on a bad window
+        }
+        // `--project project:demo` and `--project demo` mean the same thing.
+        scope.project = scope
+            .project
+            .map(|p| p.trim_start_matches("project:").to_string())
+            .filter(|p| !p.is_empty());
+        Ok((scope, rest))
+    }
+
+    /// Cutoff timestamp for `--since`, relative to `now`.
+    fn cutoff(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        let spec = self.since.as_ref()?;
+        Some(now - memorywhale_cli::parse_since(spec).ok()?)
+    }
+
+    /// The scope as engine task tags, so task-relevance scoring can fire on
+    /// memories that mention the project or machine.
+    fn task_tags(&self) -> Vec<String> {
+        [self.project.as_ref(), self.machine.as_ref()]
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect()
+    }
+}
+
 fn search_memory(args: &[String]) -> Result<(), String> {
+    let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
     let terms: Vec<&String> = args.iter().filter(|a| a.as_str() != "--explain").collect();
     if terms.is_empty() {
-        return Err("usage: mw search <text> [--explain]".to_string());
+        return Err(
+            "usage: mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]"
+                .to_string(),
+        );
     }
     let query = terms.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
+    // Opening the db migrates it, so the provenance and scope columns exist
+    // before the loader reads them; the loader also skips unapproved notes.
     let conn = open_session_db()?;
-    // Guarantees the provenance columns exist before the loader reads them; the
-    // loader also skips unapproved (review-mode) agent notes.
-    let _ = memorywhale_cli::migrate(&conn);
 
     // One loader, one engine — the same code path the desktop Recall panel uses.
     // "now" is supplied here by the caller so scoring stays deterministic.
+    let now = Utc::now();
     let mems = mw_memory::sqlite::load_memories(&conn);
+    // No flags => `mems` comes back untouched, i.e. exactly the old behaviour.
+    let mems = memorywhale_cli::scope_memories(
+        &conn,
+        mems,
+        scope.project.as_deref(),
+        scope.machine.as_deref(),
+        scope.cutoff(now),
+    );
     let engine = mw_memory::engine::BuiltinEngine::new(mems);
-    let q = mw_memory::Query::new(&query, Utc::now());
+    let mut q = mw_memory::Query::new(&query, now);
+    let tags = scope.task_tags();
+    if !tags.is_empty() {
+        q = q.with_task(tags);
+    }
     let hits = engine.retrieve(&q, 20);
 
     println!("# matches for {query:?}  (ranked)\n");
