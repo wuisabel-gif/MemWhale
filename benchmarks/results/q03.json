@@ -1,0 +1,49 @@
+{
+  "query_id": "q03",
+  "query": "camera driver frame decode type problem and its fix",
+  "relevant_ids": [
+    1,
+    2
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        2,
+        1,
+        14,
+        15,
+        7
+      ],
+      "recall_at_1": 0.5,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        1,
+        2,
+        14,
+        15,
+        7
+      ],
+      "recall_at_1": 0.5,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        1,
+        14,
+        2,
+        15,
+        4
+      ],
+      "recall_at_1": 0.5,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

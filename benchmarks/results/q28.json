@@ -1,0 +1,48 @@
+{
+  "query_id": "q28",
+  "query": "crates.io publish failed version already uploaded bump version",
+  "relevant_ids": [
+    32
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        32,
+        7,
+        2,
+        1,
+        14
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        32,
+        21,
+        33,
+        37,
+        5
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        32,
+        33,
+        21,
+        29,
+        12
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

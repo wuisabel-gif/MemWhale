@@ -1,0 +1,48 @@
+{
+  "query_id": "q27",
+  "query": "which fake AWS access key leaked into the S3 upload workflow",
+  "relevant_ids": [
+    34
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        15,
+        1,
+        14
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.16666666666666666
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        34,
+        23,
+        33,
+        36,
+        37
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        34,
+        23,
+        33,
+        37,
+        2
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

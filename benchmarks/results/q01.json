@@ -1,0 +1,48 @@
+{
+  "query_id": "q01",
+  "query": "what was the exact E0308 error in the camera driver build",
+  "relevant_ids": [
+    1
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        2,
+        1,
+        7,
+        15,
+        14
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        1,
+        2,
+        14,
+        15,
+        18
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        1,
+        2,
+        15,
+        14,
+        5
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

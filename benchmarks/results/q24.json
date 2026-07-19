@@ -1,0 +1,48 @@
+{
+  "query_id": "q24",
+  "query": "sqlite database is locked SQLITE_BUSY concurrent writes WAL",
+  "relevant_ids": [
+    26
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        26,
+        15,
+        14
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 0.3333333333333333
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        26,
+        28,
+        1,
+        3,
+        4
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        26,
+        25,
+        15,
+        14,
+        4
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

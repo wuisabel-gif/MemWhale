@@ -1,0 +1,53 @@
+{
+  "query_id": "q29",
+  "query": "all the flaky test failures we debugged",
+  "relevant_ids": [
+    14,
+    15,
+    16,
+    17,
+    37,
+    36
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        15,
+        14,
+        7,
+        2,
+        1
+      ],
+      "recall_at_1": 0.16666666666666666,
+      "recall_at_5": 0.3333333333333333,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        14,
+        15,
+        22,
+        36,
+        3
+      ],
+      "recall_at_1": 0.16666666666666666,
+      "recall_at_5": 0.5,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        14,
+        15,
+        28,
+        16,
+        17
+      ],
+      "recall_at_1": 0.16666666666666666,
+      "recall_at_5": 0.6666666666666666,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}
