@@ -11,6 +11,7 @@
 pub mod embed;
 pub mod engine;
 pub mod scorer;
+pub mod sqlite;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
