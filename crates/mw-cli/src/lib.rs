@@ -158,6 +158,117 @@ fn secret_patterns() -> &'static [Regex] {
     })
 }
 
+/// Finalize the current in-progress recording the moment this process's parent
+/// dies, instead of waiting for the dashboard's next-startup recovery.
+///
+/// `mw --live` inserts a `status='recording'` session row and then blocks inside
+/// the interactive `script` child. If its parent (the terminal/shell that
+/// launched it) is killed, `mw` is orphaned and the row is stranded. This guard
+/// spawns a small background watcher that detects parent death and runs
+/// `finalize` (which flips the row to `interrupted`), then exits cleanly.
+///
+/// Mechanisms, cheapest reliable one per platform:
+///   * Linux: `prctl(PR_SET_PDEATHSIG, SIGTERM)`, with SIGTERM blocked and a
+///     thread `sigwait`-ing for it so `finalize` runs on a normal thread (SQLite
+///     is not async-signal-safe). Handles the race where the parent died before
+///     `prctl` by re-checking `getppid()`.
+///   * Other Unix (macOS, BSD): if a cooperating parent handed us the read end of
+///     a pipe via `MW_PDEATH_FD`, watch it for EOF (parent closed its write end =
+///     parent gone). Otherwise poll `getppid()` for reparenting — the portable
+///     fallback that needs no parent cooperation, which is what an arbitrary
+///     terminal/shell parent gives us.
+///
+/// `finalize` must be idempotent: startup recovery may still run later. Flipping
+/// a row to `interrupted` and skipping already-imported transcripts both are.
+#[cfg(unix)]
+pub fn guard_parent_death<F>(finalize: F)
+where
+    F: Fn() + Send + 'static,
+{
+    // safety: getppid() takes no args and only reads our own parent pid.
+    let original_ppid = unsafe { libc::getppid() };
+
+    #[cfg(target_os = "linux")]
+    {
+        // Block SIGTERM process-wide so the PDEATHSIG below can't just kill us
+        // before we finalize; a thread sigwaits for it instead. Called before any
+        // other thread spawns so the mask is inherited by all of them.
+        // safety: zeroed sigset_t is a valid empty set for the libc sig* calls.
+        unsafe {
+            let mut set: libc::sigset_t = std::mem::zeroed();
+            libc::sigemptyset(&mut set);
+            libc::sigaddset(&mut set, libc::SIGTERM);
+            libc::pthread_sigmask(libc::SIG_BLOCK, &set, std::ptr::null_mut());
+            // Ask the kernel to send us SIGTERM when our parent dies.
+            libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM as libc::c_ulong, 0, 0, 0);
+        }
+        // Race: the parent may have died between our start and prctl. If so we've
+        // been reparented (getppid changed, typically to 1) — finalize now.
+        // safety: see above.
+        if unsafe { libc::getppid() } != original_ppid {
+            finalize();
+            std::process::exit(0);
+        }
+        std::thread::spawn(move || {
+            // safety: sigset_t built here, sigwait blocks until SIGTERM arrives.
+            unsafe {
+                let mut set: libc::sigset_t = std::mem::zeroed();
+                libc::sigemptyset(&mut set);
+                libc::sigaddset(&mut set, libc::SIGTERM);
+                let mut sig: libc::c_int = 0;
+                libc::sigwait(&set, &mut sig);
+            }
+            finalize();
+            std::process::exit(0);
+        });
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        use std::os::unix::io::RawFd;
+        let pipe_fd: Option<RawFd> = std::env::var(PDEATH_FD_ENV)
+            .ok()
+            .and_then(|v| v.parse::<RawFd>().ok());
+        std::thread::spawn(move || {
+            match pipe_fd {
+                Some(fd) => {
+                    let mut buf = [0u8; 1];
+                    loop {
+                        // safety: blocking read of one byte from a pipe fd handed
+                        // to us by the parent; the buffer is a local we own.
+                        let n = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, 1) };
+                        if n == 0 {
+                            break; // EOF: parent closed its write end -> parent gone
+                        }
+                        if n < 0 {
+                            let e = std::io::Error::last_os_error();
+                            if e.kind() == std::io::ErrorKind::Interrupted {
+                                continue;
+                            }
+                            break; // any other error: treat as parent gone
+                        }
+                        // n == 1: unexpected byte on the control pipe; keep waiting.
+                    }
+                }
+                None => loop {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    // safety: getppid() only reads our own parent pid.
+                    if unsafe { libc::getppid() } != original_ppid {
+                        break; // reparented -> parent gone
+                    }
+                },
+            }
+            finalize();
+            std::process::exit(0);
+        });
+    }
+}
+
+/// Env var a cooperating parent sets to the inherited read-end fd of a
+/// parent-death pipe, for the non-Linux EOF mechanism above.
+#[cfg(unix)]
+pub const PDEATH_FD_ENV: &str = "MW_PDEATH_FD";
+
 #[cfg(test)]
 mod tests {
     use super::*;
