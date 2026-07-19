@@ -85,6 +85,17 @@ type SearchResult = {
   concepts: Concept[];
 };
 
+type Lesson = {
+  id: number;
+  label: string;
+  created_at: string;
+  author_kind: string;
+  author_name: string | null;
+  source_session_id: number | null;
+  approved: boolean;
+  provenance: string;
+};
+
 type SignalView = {
   name: string;
   weight: number;
@@ -159,10 +170,35 @@ function App() {
   const [stderr, setStderr] = useState("zsh:1: command not found: cargo");
   const [commandNotes, setCommandNotes] = useState("Terminal could not verify Rust because cargo is missing.");
   const [status, setStatus] = useState("Ready");
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [agentOnly, setAgentOnly] = useState(false);
 
   useEffect(() => {
     void refreshGraph();
   }, []);
+
+  useEffect(() => {
+    void refreshLessons();
+  }, [agentOnly]);
+
+  async function refreshLessons() {
+    try {
+      const next = await callBackend<Lesson[]>("list_lessons", { agentOnly });
+      setLessons(next);
+    } catch {
+      setLessons([]);
+    }
+  }
+
+  async function deleteLesson(id: number) {
+    await callBackend("delete_lesson", { id });
+    await refreshLessons();
+  }
+
+  async function approveLesson(id: number) {
+    await callBackend("approve_lesson", { id });
+    await refreshLessons();
+  }
 
   const selected = useMemo(() => {
     if (!selectedId) return null;
@@ -467,6 +503,35 @@ function App() {
                 <span className={`dot ${run.exit_code === 0 ? "command-dot" : "error-dot"}`} />
                 <span>{run.command}</span>
               </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-title">
+            <span>Remembered lessons</span>
+            <label style={{ marginLeft: "auto", fontSize: "0.8rem", display: "flex", gap: "0.35rem", alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={agentOnly}
+                onChange={(event) => setAgentOnly(event.target.checked)}
+              />
+              Agent-written only
+            </label>
+          </div>
+          <div className="result-list">
+            {lessons.length === 0 && <span className="source-item">No lessons yet.</span>}
+            {lessons.map((lesson) => (
+              <div className="source-item" key={`lesson-${lesson.id}`} style={{ flexDirection: "column", alignItems: "stretch", gap: "0.25rem" }}>
+                <span>{lesson.label}{lesson.approved ? "" : " (pending review)"}</span>
+                <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>{lesson.provenance}</span>
+                <span style={{ display: "flex", gap: "0.5rem" }}>
+                  {!lesson.approved && (
+                    <button type="button" onClick={() => void approveLesson(lesson.id)}>Approve</button>
+                  )}
+                  <button type="button" onClick={() => void deleteLesson(lesson.id)}>Delete</button>
+                </span>
+              </div>
             ))}
           </div>
         </section>
