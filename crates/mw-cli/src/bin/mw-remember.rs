@@ -20,6 +20,7 @@ fn run() -> Result<(), String> {
     let mut stderr = String::new();
     let mut notes = String::new();
     let mut command_parts = Vec::new();
+    let mut capture_kind = "full".to_string();
 
     let mut args = env::args().skip(1).peekable();
     while let Some(arg) = args.next() {
@@ -35,6 +36,7 @@ fn run() -> Result<(), String> {
             "--stdout" => stdout = args.next().unwrap_or_default(),
             "--stderr" => stderr = args.next().unwrap_or_default(),
             "--notes" => notes = args.next().unwrap_or_default(),
+            "--capture-kind" => capture_kind = args.next().unwrap_or_else(|| "full".to_string()),
             "--" => {
                 command_parts.extend(args);
                 break;
@@ -73,10 +75,11 @@ fn run() -> Result<(), String> {
 
     let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
     init_schema(&conn)?;
+    memorywhale_cli::ensure_capture_kind(&conn)?;
     conn.execute(
         "
-        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, capture_kind)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
         ",
         params![
             command,
@@ -86,7 +89,8 @@ fn run() -> Result<(), String> {
             memorywhale_cli::redact(&stdout),
             memorywhale_cli::redact(&stderr),
             memorywhale_cli::redact(&notes),
-            created_at
+            created_at,
+            capture_kind
         ],
     )
     .map_err(|err| format!("failed to insert command run: {err}"))?;
@@ -109,7 +113,7 @@ fn run() -> Result<(), String> {
 
 fn print_help() {
     println!(
-        "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> -- <command> [args...]"
+        "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]"
     );
 }
 
@@ -127,7 +131,8 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             stdout TEXT NOT NULL DEFAULT '',
             stderr TEXT NOT NULL DEFAULT '',
             notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            capture_kind TEXT NOT NULL DEFAULT 'full'
         );
 
         CREATE TABLE IF NOT EXISTS command_arguments (

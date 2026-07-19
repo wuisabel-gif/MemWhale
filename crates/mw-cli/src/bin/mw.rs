@@ -61,6 +61,7 @@ fn run() -> Result<(), String> {
         Some("doctor") => return doctor(),
         Some("global") => return global_cmd(&raw_args[1..]),
         Some("status") => return global_status(),
+        Some("hooks") => return hooks_cmd(&raw_args[1..]),
         Some("--help") | Some("-h") => {
             print_help();
             return Ok(());
@@ -253,6 +254,7 @@ fn print_help() {
          mw ask [question] [--chat chatgpt|claude|gemini|URL] [--session] [--no-open]  package the last failure for your chat AI\n\
          mw doctor                check the install: data dir, database, `script`, and hook status\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
+         mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
          Raw transcript: <data_local>/MemoryWhale/sessions/\n\
@@ -961,6 +963,126 @@ fn global_cmd(args: &[String]) -> Result<(), String> {
             "unknown subcommand {other:?}; usage: mw global [on|off|status]"
         )),
     }
+}
+
+// ---------------------------------------------------------------------------
+// `mw hooks` — the lightweight always-on capture tier.
+//
+// ponytail: no PowerShell here; Windows is a follow-up issue.
+// ---------------------------------------------------------------------------
+
+const HOOK_SH: &str = include_str!("../../../../linux/shell/memorywhale.sh");
+const HOOK_FISH: &str = include_str!("../../../../linux/shell/memorywhale.fish");
+const HOOK_BEGIN: &str = "# >>> memorywhale shell hooks >>>";
+const HOOK_END: &str = "# <<< memorywhale shell hooks <<<";
+
+/// (shell name, rc file, generated hook file, hook script body)
+fn hook_target() -> Result<(&'static str, PathBuf, PathBuf, &'static str), String> {
+    let home = dirs::home_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
+    let shell = env::var("SHELL").unwrap_or_default();
+    let name = shell.rsplit('/').next().unwrap_or_default();
+    let hooks_dir = memorywhale_dir()?;
+    if name.contains("fish") {
+        Ok((
+            "fish",
+            home.join(".config").join("fish").join("config.fish"),
+            hooks_dir.join("memorywhale.fish"),
+            HOOK_FISH,
+        ))
+    } else if name.contains("zsh") {
+        Ok(("zsh", home.join(".zshrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
+    } else {
+        Ok(("bash", home.join(".bashrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
+    }
+}
+
+fn hook_block(shell: &str, hook_path: &str) -> String {
+    let source_line = if shell == "fish" {
+        format!("test -f \"{hook_path}\"; and source \"{hook_path}\"")
+    } else {
+        format!("[ -f \"{hook_path}\" ] && . \"{hook_path}\"")
+    };
+    format!("{HOOK_BEGIN}\n# Managed by `mw hooks` — edit above/below, not inside.\n{source_line}\n{HOOK_END}\n")
+}
+
+/// Drop the managed block (and only that) from an rc file's text.
+fn strip_hook_block(rc: &str) -> String {
+    let mut out = String::with_capacity(rc.len());
+    let mut skipping = false;
+    for line in rc.lines() {
+        if line.trim() == HOOK_BEGIN {
+            skipping = true;
+            continue;
+        }
+        if skipping {
+            if line.trim() == HOOK_END {
+                skipping = false;
+            }
+            continue;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
+fn hooks_cmd(args: &[String]) -> Result<(), String> {
+    match args.first().map(String::as_str) {
+        Some("install") => hooks_install(),
+        Some("uninstall") | Some("remove") => hooks_uninstall(),
+        Some(other) => Err(format!(
+            "unknown subcommand {other:?}; usage: mw hooks [install|uninstall]"
+        )),
+        None => Err("usage: mw hooks [install|uninstall]".to_string()),
+    }
+}
+
+fn hooks_install() -> Result<(), String> {
+    let (shell, rc_path, hook_path, body) = hook_target()?;
+    if let Some(parent) = hook_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("failed to create data dir: {e}"))?;
+    }
+    fs::write(&hook_path, body).map_err(|e| format!("failed to write hook script: {e}"))?;
+    let hook_str = hook_path
+        .to_str()
+        .ok_or_else(|| "hook path is not valid UTF-8".to_string())?;
+
+    if let Some(parent) = rc_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+    }
+    let existing = fs::read_to_string(&rc_path).unwrap_or_default();
+    // Idempotent: strip any previous block first, then append exactly one.
+    let mut updated = strip_hook_block(&existing);
+    if !updated.is_empty() && !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(&hook_block(shell, hook_str));
+    fs::write(&rc_path, updated).map_err(|e| format!("failed to update {}: {e}", rc_path.display()))?;
+
+    println!("mw: lightweight shell hooks INSTALLED ({shell}).");
+    println!("  rc file: {}", rc_path.display());
+    println!("  hook:    {hook_str}");
+    println!("  Records command, cwd, exit code and duration. No output — use `mw --live` for that.");
+    println!("  Open a NEW terminal to start capturing.");
+    Ok(())
+}
+
+fn hooks_uninstall() -> Result<(), String> {
+    let (shell, rc_path, hook_path, _) = hook_target()?;
+    let existing = fs::read_to_string(&rc_path).unwrap_or_default();
+    let updated = strip_hook_block(&existing);
+    let changed = updated != existing;
+    if changed {
+        fs::write(&rc_path, updated)
+            .map_err(|e| format!("failed to update {}: {e}", rc_path.display()))?;
+    }
+    let _ = fs::remove_file(&hook_path);
+    if changed {
+        println!("mw: shell hooks REMOVED from {} ({shell}).", rc_path.display());
+    } else {
+        println!("mw: no shell hook block found in {} — nothing to do.", rc_path.display());
+    }
+    Ok(())
 }
 
 /// Shell startup file to wire the hook into, chosen from $SHELL (zsh vs bash).
