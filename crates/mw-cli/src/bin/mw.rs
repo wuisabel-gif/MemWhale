@@ -60,6 +60,7 @@ fn run() -> Result<(), String> {
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
         Some("doctor") => return doctor(),
         Some("global") => return global_cmd(&raw_args[1..]),
+        Some("status") => return global_status(),
         Some("--help") | Some("-h") => {
             print_help();
             return Ok(());
@@ -93,18 +94,35 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
         .ok()
         .and_then(|path| path.to_str().map(ToOwned::to_owned));
 
+    // Capture gate for this directory, resolved before anything is recorded.
+    let gate = memorywhale_cli::capture_rule_for(cwd.as_deref());
+    if !gate.mode.stores_anything() {
+        return run_unrecorded_shell(&shell, &gate.source);
+    }
+    let store_output = gate.mode.stores_output();
+
     let started_at = Utc::now().to_rfc3339();
     let sessions_dir = sessions_dir()?;
     fs::create_dir_all(&sessions_dir)
         .map_err(|err| format!("failed to create sessions dir: {err}"))?;
-    let transcript_path =
-        sessions_dir.join(format!("session-{}.log", started_at.replace(':', "-")));
+    // commands-only: `script` still needs somewhere to write, but it goes to a
+    // scratch file outside the memory directory and is deleted on exit, so no
+    // output survives anywhere.
+    let transcript_path = if store_output {
+        sessions_dir.join(format!("session-{}.log", started_at.replace(':', "-")))
+    } else {
+        env::temp_dir().join(format!("mw-scratch-{}.log", started_at.replace(':', "-")))
+    };
     let transcript_str = transcript_path
         .to_str()
         .ok_or_else(|| "transcript path is not valid UTF-8".to_string())?
         .to_string();
 
-    eprintln!("mw: recording session to {transcript_str}");
+    if store_output {
+        eprintln!("mw: recording session to {transcript_str}");
+    } else {
+        eprintln!("mw: capture is commands-only here ({}) — no output will be stored.", gate.source);
+    }
     if live {
         eprintln!(
             "mw: live autosave is on; the dashboard/SQLite row updates every {LIVE_SYNC_INTERVAL_SECS}s."
@@ -119,8 +137,9 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
             transcript_path: &transcript_str,
             notes: &notes,
             started_at: &started_at,
+            store_output,
         })?;
-        let sync = start_live_sync(id, transcript_path.clone());
+        let sync = start_live_sync(id, transcript_path.clone(), store_output);
         Some((id, sync))
     } else {
         None
@@ -179,7 +198,7 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
     }
     let (id, byte_count) = if let Some(id) = live_session {
         let byte_count =
-            update_session_from_transcript(id, &transcript_path, &ended_at, "finished")?;
+            update_session_from_transcript(id, &transcript_path, &ended_at, "finished", store_output)?;
         (id, byte_count)
     } else {
         insert_finished_session(
@@ -189,11 +208,15 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
                 transcript_path: &transcript_str,
                 notes: &notes,
                 started_at: &started_at,
+                store_output,
             },
             &transcript_path,
             &ended_at,
         )?
     };
+    if !store_output {
+        let _ = fs::remove_file(&transcript_path);
+    }
 
     let exit_note = match status.code() {
         Some(code) => format!("shell exited with code {code}"),
@@ -213,6 +236,8 @@ fn print_help() {
          mw remember <text>       save a lesson/conclusion, e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
+         mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
+         mw status                print the effective capture mode for this directory and why\n\
          mw share [session|command] <id> [-o file]  write a self-contained HTML page to send to someone\n\
          mw discard               inside a recording: throw the current session away — nothing saved\n\
          mw replay <run-id>       rerun a saved command from command_runs\n\
@@ -294,6 +319,33 @@ struct SessionDraft<'a> {
     transcript_path: &'a str,
     notes: &'a str,
     started_at: &'a str,
+    /// False under `commands-only`: session metadata is kept, the transcript
+    /// (and its on-disk path) never reaches the database.
+    store_output: bool,
+}
+
+/// `capture = "off"` for this directory: hand the user a plain interactive
+/// shell. `mw` is often `exec`d by the global hook, so it must still leave a
+/// usable shell behind — it just records nothing, anywhere.
+fn run_unrecorded_shell(shell: &str, source: &str) -> Result<(), String> {
+    eprintln!("mw: capture is OFF for this directory ({source}) — nothing will be recorded.");
+    Command::new(shell)
+        .env("MW_RECORDING", "1")
+        .status()
+        .map_err(|err| format!("failed to launch {shell}: {err}"))?;
+    Ok(())
+}
+
+impl SessionDraft<'_> {
+    /// Under `commands-only` the scratch transcript is deleted on exit, so the
+    /// database must not point at it.
+    fn stored_transcript_path(&self) -> &str {
+        if self.store_output {
+            self.transcript_path
+        } else {
+            ""
+        }
+    }
 }
 
 struct LiveSync {
@@ -313,7 +365,7 @@ fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
         params![
             draft.shell,
             draft.cwd,
-            draft.transcript_path,
+            draft.stored_transcript_path(),
             draft.notes,
             draft.started_at,
             memorywhale_cli::project_of(draft.notes),
@@ -332,7 +384,11 @@ fn insert_finished_session(
     let raw =
         fs::read(transcript_path).map_err(|err| format!("failed to read transcript: {err}"))?;
     let byte_count = raw.len() as i64;
-    let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
+    let cleaned = if draft.store_output {
+        clean_transcript(&String::from_utf8_lossy(&raw))
+    } else {
+        String::new()
+    };
     let conn = open_session_db()?;
     conn.execute(
         "
@@ -344,7 +400,7 @@ fn insert_finished_session(
         params![
             draft.shell,
             draft.cwd,
-            draft.transcript_path,
+            draft.stored_transcript_path(),
             cleaned,
             draft.notes,
             draft.started_at,
@@ -439,9 +495,15 @@ fn prune_cmd(args: &[String]) -> Result<(), String> {
                     .ok_or_else(|| "--min-bytes needs a number".to_string())?;
             }
             "--dry-run" => dry = true,
+            "--older-than" => {
+                let spec = iter
+                    .next()
+                    .ok_or_else(|| "--older-than needs a duration, e.g. 30d".to_string())?;
+                return prune_older_than(spec, dry || args.iter().any(|a| a == "--dry-run"));
+            }
             other => {
                 return Err(format!(
-                    "unexpected argument {other:?}; usage: mw prune [--min-bytes N] [--dry-run]"
+                    "unexpected argument {other:?}; usage: mw prune [--min-bytes N] [--older-than 30d] [--dry-run]"
                 ))
             }
         }
@@ -479,6 +541,56 @@ fn prune_cmd(args: &[String]) -> Result<(), String> {
         n += 1;
     }
     println!("mw: pruned {n} empty/interrupted session(s) (and their transcripts).");
+    Ok(())
+}
+
+/// Delete sessions (and their transcripts) and command runs older than a
+/// relative window like `30d`. Reuses the `--since` duration parser.
+fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
+    let cutoff = (Utc::now() - memorywhale_cli::parse_since(spec)?).to_rfc3339();
+    let conn = open_session_db()?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, transcript_path FROM sessions WHERE started_at < ?1")
+        .map_err(|err| format!("failed to query sessions: {err}"))?;
+    let sessions: Vec<(i64, Option<String>)> = stmt
+        .query_map(params![cutoff], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|err| format!("query error: {err}"))?
+        .filter_map(Result::ok)
+        .collect();
+    let runs: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM command_runs WHERE created_at < ?1",
+            params![cutoff],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+
+    if sessions.is_empty() && runs == 0 {
+        println!("mw: nothing older than {spec}.");
+        return Ok(());
+    }
+    if dry {
+        println!(
+            "mw: would remove {} session(s) and {runs} command run(s) older than {spec} (dry run).",
+            sessions.len()
+        );
+        for (id, path) in &sessions {
+            println!("  session #{id}{}", path.as_deref().map(|p| format!(" -> {p}")).unwrap_or_default());
+        }
+        return Ok(());
+    }
+    for (id, transcript_path) in &sessions {
+        if let Some(p) = transcript_path.as_deref().filter(|p| !p.is_empty()) {
+            let _ = fs::remove_file(p);
+        }
+        let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
+    }
+    let _ = conn.execute("DELETE FROM command_runs WHERE created_at < ?1", params![cutoff]);
+    println!(
+        "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
+        sessions.len()
+    );
     Ok(())
 }
 
@@ -537,7 +649,7 @@ fn share_cmd(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn start_live_sync(id: i64, transcript_path: PathBuf) -> LiveSync {
+fn start_live_sync(id: i64, transcript_path: PathBuf, store_output: bool) -> LiveSync {
     let stop = Arc::new(AtomicBool::new(false));
     let thread_stop = Arc::clone(&stop);
     let handle = thread::spawn(move || {
@@ -547,7 +659,8 @@ fn start_live_sync(id: i64, transcript_path: PathBuf) -> LiveSync {
                 break;
             }
             let ended_at = Utc::now().to_rfc3339();
-            let _ = update_session_from_transcript(id, &transcript_path, &ended_at, "recording");
+            let _ =
+                update_session_from_transcript(id, &transcript_path, &ended_at, "recording", store_output);
         }
     });
     LiveSync { stop, handle }
@@ -558,6 +671,7 @@ fn update_session_from_transcript(
     transcript_path: &PathBuf,
     ended_at: &str,
     status: &str,
+    store_output: bool,
 ) -> Result<i64, String> {
     let raw = match fs::read(transcript_path) {
         Ok(raw) => raw,
@@ -565,7 +679,11 @@ fn update_session_from_transcript(
         Err(err) => return Err(format!("failed to read transcript: {err}")),
     };
     let byte_count = raw.len() as i64;
-    let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
+    let cleaned = if store_output {
+        clean_transcript(&String::from_utf8_lossy(&raw))
+    } else {
+        String::new()
+    };
     let conn = open_session_db()?;
     conn.execute(
         "
@@ -965,6 +1083,12 @@ fn global_status() -> Result<(), String> {
     if !wired {
         println!("run `mw global on` to set it up.");
     }
+
+    let cwd = env::current_dir().unwrap_or_default();
+    let gate = memorywhale_cli::capture_rule(&cwd);
+    println!();
+    println!("capture mode here ({}): {}", cwd.display(), gate.mode.as_str());
+    println!("  rule: {}", gate.source);
     Ok(())
 }
 
