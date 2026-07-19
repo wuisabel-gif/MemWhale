@@ -50,6 +50,17 @@ fn run() -> Result<(), String> {
         return Err("missing command; pass it after --".to_string());
     }
 
+    // Capture gate: decided before the database is even opened, so an `off`
+    // directory never produces a row.
+    let gate = memorywhale_cli::capture_rule_for(cwd.as_deref());
+    if !gate.mode.stores_anything() {
+        return Ok(());
+    }
+    if !gate.mode.stores_output() {
+        stdout.clear();
+        stderr.clear();
+    }
+
     notes = append_environment_tags(notes);
     let command = command_parts[0].clone();
     let argv_json = serde_json::to_string(&command_parts)

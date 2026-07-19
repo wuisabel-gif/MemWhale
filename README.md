@@ -176,6 +176,48 @@ mw --notes "project:pop_playlist server testing"  # terminal 2
 To auto-record every new terminal without typing `mw`, use `mw global on`
 (`mw global off` to stop). Full operating procedure: [SOP.md](SOP.md).
 
+## Capture gates: never record certain directories
+
+Some directories should never end up in your memory. Capture gates decide, per
+directory, how much may be stored — and they are enforced *before* anything is
+written to SQLite, not cleaned up afterwards.
+
+| Mode | What is stored |
+| --- | --- |
+| `full` | Everything (the default, unchanged). |
+| `commands-only` | What ran, where, exit code, and timing — no stdout/stderr or transcript. |
+| `off` | Nothing at all. |
+
+Drop a `.mwignore` file at the root of a directory tree:
+
+```toml
+# ~/finances/.mwignore
+capture = "off"
+```
+
+…or gate paths globally in `<data dir>/config.toml`:
+
+```toml
+machine = "laptop"
+
+[capture.paths]
+"~/finances" = "off"
+"~/work/client-repo" = "commands-only"
+```
+
+Precedence: the nearest `.mwignore` walking **up** from your working directory,
+then the longest matching prefix under `[capture.paths]`, then `full`. Paths are
+resolved through symlinks, so a shortcut into a gated tree stays gated.
+
+Check what applies where you are:
+
+```bash
+mw status     # capture mode for this directory, and which rule produced it
+```
+
+Already-recorded memory can be aged out with `mw prune --older-than 90d`
+(add `--dry-run` to see what would go first).
+
 ## Sharing memory across machines
 
 Memory is local per machine, but you can move it:
