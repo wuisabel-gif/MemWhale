@@ -1,0 +1,48 @@
+{
+  "query_id": "q18",
+  "query": "tests pass locally but fail in CI due to test ordering",
+  "relevant_ids": [
+    17
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        15,
+        14,
+        17
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 0.2
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        17,
+        14,
+        30,
+        5,
+        33
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        17,
+        30,
+        1,
+        37,
+        16
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

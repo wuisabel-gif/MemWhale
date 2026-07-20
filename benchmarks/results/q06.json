@@ -1,0 +1,48 @@
+{
+  "query_id": "q06",
+  "query": "undeclared crate or module tokio E0433",
+  "relevant_ids": [
+    5
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        15,
+        5,
+        14
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 0.25
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        5,
+        16,
+        21,
+        29,
+        32
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        5,
+        25,
+        32,
+        33,
+        21
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

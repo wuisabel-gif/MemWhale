@@ -1,0 +1,48 @@
+{
+  "query_id": "q13",
+  "query": "gitignore not ignoring the target directory already tracked",
+  "relevant_ids": [
+    12
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        15,
+        1,
+        14
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.1111111111111111
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        12,
+        22,
+        3,
+        4,
+        7
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        12,
+        22,
+        19,
+        29,
+        23
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

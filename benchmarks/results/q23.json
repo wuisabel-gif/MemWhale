@@ -1,0 +1,48 @@
+{
+  "query_id": "q23",
+  "query": "no such module fts5 when creating the sqlite search index",
+  "relevant_ids": [
+    25
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        25,
+        7,
+        2,
+        15,
+        1
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        25,
+        18,
+        28,
+        35,
+        3
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        25,
+        35,
+        18,
+        26,
+        5
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "query_id": "q25",
+  "query": "stack overflow parsing deeply nested json RUST_MIN_STACK",
+  "relevant_ids": [
+    24
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        15,
+        1,
+        14
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.16666666666666666
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        24,
+        4,
+        9,
+        22,
+        30
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        24,
+        30,
+        4,
+        1,
+        2
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

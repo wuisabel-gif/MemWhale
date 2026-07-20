@@ -1,0 +1,48 @@
+{
+  "query_id": "q20",
+  "query": "cross compile aarch64 linker not found for the jetson",
+  "relevant_ids": [
+    19
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        1,
+        19,
+        15
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 0.25
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        19,
+        4,
+        7,
+        21,
+        28
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        19,
+        35,
+        20,
+        18,
+        1
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

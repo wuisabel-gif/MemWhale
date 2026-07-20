@@ -1,0 +1,49 @@
+{
+  "query_id": "q30",
+  "query": "jetson aarch64 build problems",
+  "relevant_ids": [
+    19,
+    20
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        19,
+        20,
+        7,
+        2,
+        1
+      ],
+      "recall_at_1": 0.5,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        19,
+        20,
+        1,
+        18,
+        22
+      ],
+      "recall_at_1": 0.5,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        19,
+        20,
+        30,
+        29,
+        22
+      ],
+      "recall_at_1": 0.5,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

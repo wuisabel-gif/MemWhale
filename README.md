@@ -220,6 +220,10 @@ npm install && npm run tauri:dev # full desktop app (needs Tauri system deps)
   man pages: [linux/README.md](linux/README.md) (`linux/install.sh --all`)
 - Real problems hit while setting up on a Jetson, and the fixes:
   [DEBUG.md](DEBUG.md)
+- Reproducible offline retrieval benchmark (no API keys): the built-in scorer
+  hits **recall@5 = 0.74** on a 37-item terminal-session corpus / 30 queries —
+  see [benchmarks/BENCHMARKS.md](benchmarks/BENCHMARKS.md) for the full table and
+  the one-line reproduce command.
 
 ## Attribution and learning sources
 

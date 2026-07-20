@@ -1,0 +1,48 @@
+{
+  "query_id": "q05",
+  "query": "trait bound Serialize is not satisfied when returning JSON",
+  "relevant_ids": [
+    4
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        4,
+        7,
+        2,
+        15,
+        1
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        4,
+        28,
+        3,
+        10,
+        33
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        4,
+        28,
+        33,
+        24,
+        6
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}
