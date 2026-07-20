@@ -13,6 +13,7 @@
 //   mw --notes "debugging the Jetson build"
 
 use chrono::Utc;
+use mw_memory::engine::MemoryEngine;
 use regex::Regex;
 use rusqlite::{params, Connection};
 use std::env;
@@ -232,7 +233,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text>         search commands, output, notes, and session transcripts\n\
+         mw search <text> [--explain]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
          mw context [project:name] [--last-error] [--limit N]  print a compact digest to paste into an AI agent\n\
          mw agent [session-id]    export a full session as agent-ready text to paste later (default: latest)\n\
@@ -1327,143 +1328,95 @@ fn rebuild_missing_arguments(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-/// Search command runs (command, args, output, notes) and session transcripts
-/// for a substring. The everyday "where did I see that error?" command.
+/// Search remembered commands, sessions, and notes — ranked by the explainable
+/// engine (`mw-memory`) rather than a raw LIKE scan, so the best match rises to
+/// the top with a score and, under `--explain`, the per-signal breakdown behind
+/// it. The everyday "where did I see that error?" command.
+///
+/// The CLI runs the engine in its lexical mode (term overlap) — no Ollama, no
+/// embedding cache — so it stays dependency-light and works fully offline. The
+/// desktop app attaches semantic embeddings over the same engine + loader.
+/// Provenance for one remembered note, e.g. "remembered by Claude Code on
+/// 2026-07-12 during session #41". Looked up per hit — only note-sourced
+/// results have one, and a search returns at most 20.
+fn note_provenance(conn: &Connection, id: i64) -> Option<String> {
+    conn.query_row(
+        "SELECT author_kind, author_name, created_at, source_session_id
+         FROM bookmarks WHERE id = ?1",
+        params![id],
+        |r| {
+            Ok(memorywhale_cli::provenance_label(
+                &r.get::<_, String>(0)?,
+                r.get::<_, Option<String>>(1)?.as_deref(),
+                &r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                r.get::<_, Option<i64>>(3)?,
+            ))
+        },
+    )
+    .ok()
+}
+
 fn search_memory(args: &[String]) -> Result<(), String> {
-    if args.is_empty() {
-        return Err("usage: mw search <text>".to_string());
+    let explain = args.iter().any(|a| a == "--explain");
+    let terms: Vec<&String> = args.iter().filter(|a| a.as_str() != "--explain").collect();
+    if terms.is_empty() {
+        return Err("usage: mw search <text> [--explain]".to_string());
     }
-    let query = args.join(" ");
-    let like = format!("%{query}%");
+    let query = terms.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
     let conn = open_session_db()?;
-
-    println!("# matches for {query:?}\n");
-
-    // Command runs: prefer the FTS5 index (scales to large histories); fall back
-    // to a LIKE scan if the index or FTS5 itself is unavailable.
-    let _ = memorywhale_cli::ensure_fts(&conn);
-    let fts = memorywhale_cli::fts_match_query(&query);
-    let collect_cmds = |sql: &str, param: &str| -> Result<Vec<(i64, String, Option<i64>, String, String)>, String> {
-        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(params![param], |r| {
-                Ok((
-                    r.get::<_, i64>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, Option<i64>>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, String>(4)?,
-                ))
-            })
-            .map_err(|e| e.to_string())?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
-    };
-    const CMD_FTS: &str = "SELECT id, argv_json, exit_code, notes, created_at
-         FROM command_runs
-         WHERE id IN (SELECT rowid FROM command_fts WHERE command_fts MATCH ?1)
-         ORDER BY id DESC LIMIT 30";
-    const CMD_LIKE: &str = "SELECT id, argv_json, exit_code, notes, created_at
-         FROM command_runs
-         WHERE command LIKE ?1 OR argv_json LIKE ?1 OR stdout LIKE ?1
-            OR stderr LIKE ?1 OR notes LIKE ?1
-         ORDER BY id DESC LIMIT 30";
-    let cmd_rows = if fts.is_empty() {
-        collect_cmds(CMD_LIKE, &like)?
-    } else {
-        collect_cmds(CMD_FTS, &fts).or_else(|_| collect_cmds(CMD_LIKE, &like))?
-    };
-
-    println!("## Commands");
-    let mut any = false;
-    for (id, argv_json, exit_code, notes, created_at) in cmd_rows {
-        let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
-        any = true;
-        println!(
-            "- #{id} `{}` (exit {}, {}){}  — `mw replay {id}`",
-            argv.join(" "),
-            exit_code.unwrap_or(0),
-            created_at,
-            if notes.trim().is_empty() {
-                String::new()
-            } else {
-                format!(": {}", notes.trim())
-            }
-        );
-    }
-    if !any {
-        println!("(none)");
-    }
-
-    // Session transcripts.
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, notes, started_at
-             FROM sessions
-             WHERE transcript LIKE ?1 OR notes LIKE ?1
-             ORDER BY id DESC LIMIT 30",
-        )
-        .map_err(|err| format!("failed to prepare session search: {err}"))?;
-    let rows = stmt
-        .query_map(params![like], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-            ))
-        })
-        .map_err(|err| format!("failed to search sessions: {err}"))?;
-    println!("\n## Sessions");
-    let mut any = false;
-    for row in rows {
-        let (id, notes, started_at) = row.map_err(|err| format!("row error: {err}"))?;
-        any = true;
-        println!(
-            "- #{id} {started_at}{}  — `mw show {id}`",
-            if notes.trim().is_empty() {
-                String::new()
-            } else {
-                format!(": {}", notes.trim())
-            }
-        );
-    }
-    if !any {
-        println!("(none)");
-    }
-
-    // Remembered notes/lessons (`mw mark` / `mw remember` / MCP `remember`).
-    // Provenance columns are guaranteed by the migration; unapproved agent
-    // memories (review mode) are excluded from retrieval.
+    // Guarantees the provenance columns exist before the loader reads them; the
+    // loader also skips unapproved (review-mode) agent notes.
     let _ = memorywhale_cli::migrate(&conn);
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, label, created_at, author_kind, author_name, source_session_id
-             FROM bookmarks
-             WHERE label LIKE ?1 AND approved = 1 ORDER BY id DESC LIMIT 30",
-        )
-        .map_err(|err| format!("failed to prepare notes search: {err}"))?;
-    let rows = stmt
-        .query_map(params![like], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, Option<String>>(4)?,
-                r.get::<_, Option<i64>>(5)?,
-            ))
-        })
-        .map_err(|err| format!("failed to search notes: {err}"))?;
-    println!("\n## Notes");
-    let mut any = false;
-    for row in rows {
-        let (id, label, created_at, kind, name, sid) =
-            row.map_err(|err| format!("row error: {err}"))?;
-        any = true;
-        let prov = memorywhale_cli::provenance_label(&kind, name.as_deref(), &created_at, sid);
-        println!("- #{id} {label} ({prov})");
-    }
-    if !any {
+
+    // One loader, one engine — the same code path the desktop Recall panel uses.
+    // "now" is supplied here by the caller so scoring stays deterministic.
+    let mems = mw_memory::sqlite::load_memories(&conn);
+    let engine = mw_memory::engine::BuiltinEngine::new(mems);
+    let q = mw_memory::Query::new(&query, Utc::now());
+    let hits = engine.retrieve(&q, 20);
+
+    println!("# matches for {query:?}  (ranked)\n");
+    if hits.is_empty() {
         println!("(none)");
+        return Ok(());
+    }
+    for sm in &hits {
+        let (source, real_id) = mw_memory::sqlite::decode_id(sm.memory.id);
+        let action = match source {
+            mw_memory::sqlite::Source::Command => format!("  — `mw replay {real_id}`"),
+            mw_memory::sqlite::Source::Session => format!("  — `mw show {real_id}`"),
+            _ => String::new(),
+        };
+        let snippet = sm
+            .memory
+            .text
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("")
+            .trim();
+        let snippet: String = snippet.chars().take(100).collect();
+        // Only remembered notes carry provenance — who wrote this lesson, and when.
+        let prov = match source {
+            mw_memory::sqlite::Source::Note => note_provenance(&conn, real_id)
+                .map(|p| format!("  ({p})"))
+                .unwrap_or_default(),
+            _ => String::new(),
+        };
+        println!(
+            "{:>3}%  [{}] {}{}{}",
+            sm.percent(),
+            source.tag(),
+            snippet,
+            action,
+            prov
+        );
+        if explain {
+            // Full per-signal breakdown + reasons (reuses the engine's view).
+            for line in sm.explain().lines() {
+                println!("      {line}");
+            }
+            println!();
+        }
     }
     Ok(())
 }
