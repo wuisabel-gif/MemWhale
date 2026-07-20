@@ -146,9 +146,18 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
         #[cfg(unix)]
         {
             let death_path = transcript_path.clone();
+            // Honours the directory's capture mode: under commands-only the
+            // interrupted row is finalized without storing transcript output,
+            // same as the normal finish path.
             memorywhale_cli::guard_parent_death(move || {
                 let ended_at = Utc::now().to_rfc3339();
-                let _ = update_session_from_transcript(id, &death_path, &ended_at, "interrupted");
+                let _ = update_session_from_transcript(
+                    id,
+                    &death_path,
+                    &ended_at,
+                    "interrupted",
+                    store_output,
+                );
             });
         }
         let sync = start_live_sync(id, transcript_path.clone(), store_output);
