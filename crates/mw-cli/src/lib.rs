@@ -92,7 +92,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 2;
+pub const LATEST_SCHEMA_VERSION: i64 = 3;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -106,6 +106,10 @@ pub const LATEST_SCHEMA_VERSION: i64 = 2;
 /// backfills `project` from the legacy `project:<name>` convention inside
 /// `notes`. The notes string itself is left untouched, so the dashboard's
 /// existing note parsing keeps working.
+///
+/// Migration 3 — capture tiers: adds `command_runs.capture_kind`, defaulting to
+/// `full` so every pre-existing row keeps its meaning. Shell-hook rows write
+/// `hook` instead (command + cwd + exit code, no output).
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -129,8 +133,26 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
             add_column_if_missing(conn, "sessions", "machine", "TEXT")?;
             backfill_project_from_notes(conn)?;
         }
+        conn.execute_batch("PRAGMA user_version = 2;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 3 {
+        ensure_capture_kind(conn)?;
         conn.execute_batch(&format!("PRAGMA user_version = {LATEST_SCHEMA_VERSION};"))
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Add `command_runs.capture_kind` if the table exists and lacks it.
+///
+/// ponytail: exposed (not just inlined in migration 3) because half a dozen
+/// binaries still create `command_runs` with their own `CREATE TABLE IF NOT
+/// EXISTS`, so a DB can reach version 3 *before* the table exists. Writers call
+/// this directly; it's two pragma queries.
+pub fn ensure_capture_kind(conn: &Connection) -> Result<(), String> {
+    if table_exists(conn, "command_runs")? {
+        add_column_if_missing(conn, "command_runs", "capture_kind", "TEXT NOT NULL DEFAULT 'full'")?;
     }
     Ok(())
 }
@@ -152,8 +174,16 @@ fn add_column_if_missing(
         .and_then(|mut s| s.exists(params![table, column]))
         .map_err(|e| format!("failed to inspect {table} columns: {e}"))?;
     if !present {
-        conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
-            .map_err(|e| format!("failed to add {table}.{column}: {e}"))?;
+        // Two writers (e.g. two shell hooks firing at once on a fresh DB) can
+        // both read the column as missing and both try to add it. The loser
+        // gets "duplicate column name", which is the outcome we wanted anyway.
+        if let Err(e) = conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
+        {
+            let msg = e.to_string();
+            if !msg.contains("duplicate column") {
+                return Err(format!("failed to add {table}.{column}: {msg}"));
+            }
+        }
     }
     Ok(())
 }
@@ -223,6 +253,171 @@ fn config_value(key: &str) -> Option<String> {
         let v = v.trim().trim_matches('"').trim().to_string();
         (!v.is_empty()).then_some(v)
     })
+}
+
+/// How much of a command or session may be persisted, decided per directory
+/// *before* anything is written to SQLite.
+///
+/// * `Full` — the historical behaviour: command, argv, cwd, exit code, and the
+///   full stdout/stderr or session transcript.
+/// * `CommandsOnly` — what ran and how it went (command, argv, cwd, exit code,
+///   timestamps) but no captured output.
+/// * `Off` — nothing is written at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureMode {
+    Full,
+    CommandsOnly,
+    Off,
+}
+
+impl CaptureMode {
+    /// Parse a config value, tolerating surrounding quotes/whitespace.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().trim_matches('"').trim().to_ascii_lowercase().as_str() {
+            "full" => Some(Self::Full),
+            "commands-only" | "commands_only" => Some(Self::CommandsOnly),
+            "off" | "none" => Some(Self::Off),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Full => "full",
+            Self::CommandsOnly => "commands-only",
+            Self::Off => "off",
+        }
+    }
+
+    /// True when stdout/stderr (or a session transcript) may be stored.
+    pub fn stores_output(self) -> bool {
+        matches!(self, Self::Full)
+    }
+
+    /// True when a row may be written at all.
+    pub fn stores_anything(self) -> bool {
+        !matches!(self, Self::Off)
+    }
+}
+
+/// A resolved capture decision plus the rule that produced it, so `mw status`
+/// can tell you *why* a directory is gated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaptureRule {
+    pub mode: CaptureMode,
+    /// Human-readable origin, e.g. a `.mwignore` path or a config entry.
+    pub source: String,
+}
+
+/// Resolve the capture mode for a working directory.
+///
+/// Precedence: the nearest `.mwignore` walking *up* from `cwd`, then the
+/// longest matching prefix in `[capture.paths]` of `<data dir>/config.toml`,
+/// then `full`. Paths are canonicalized on both sides so a symlinked cwd can't
+/// dodge a gate.
+pub fn capture_rule(cwd: &std::path::Path) -> CaptureRule {
+    let dir = canonical(cwd);
+    if let Some(rule) = mwignore_rule(&dir) {
+        return rule;
+    }
+    if let Some(rule) = data_dir()
+        .ok()
+        .map(|d| d.join("config.toml"))
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|text| capture_paths_rule(&text, &dir))
+    {
+        return rule;
+    }
+    CaptureRule {
+        mode: CaptureMode::Full,
+        source: "default (no .mwignore or [capture.paths] match)".to_string(),
+    }
+}
+
+/// Convenience wrapper for the many call sites that only have an optional cwd
+/// string. An unknown cwd is never gated (nothing to match against).
+pub fn capture_rule_for(cwd: Option<&str>) -> CaptureRule {
+    match cwd {
+        Some(c) => capture_rule(std::path::Path::new(c)),
+        None => CaptureRule {
+            mode: CaptureMode::Full,
+            source: "default (unknown working directory)".to_string(),
+        },
+    }
+}
+
+/// Resolve symlinks so prefix matching can't be defeated by a symlinked path.
+/// Falls back to the input when the path doesn't exist yet.
+fn canonical(path: &std::path::Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// Nearest `.mwignore` at or above `dir`. Format is the same hand-rolled
+/// `key = "value"` line parsing as `config.toml`; only `capture` is read.
+fn mwignore_rule(dir: &std::path::Path) -> Option<CaptureRule> {
+    for ancestor in dir.ancestors() {
+        let file = ancestor.join(".mwignore");
+        let Ok(text) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        if let Some(mode) = text.lines().find_map(|line| {
+            let line = line.split('#').next().unwrap_or("");
+            let (k, v) = line.split_once('=')?;
+            (k.trim() == "capture").then(|| CaptureMode::parse(v)).flatten()
+        }) {
+            return Some(CaptureRule {
+                mode,
+                source: file.display().to_string(),
+            });
+        }
+    }
+    None
+}
+
+/// Longest-prefix match against the `[capture.paths]` table of a config file.
+/// Hand-rolled to keep mw-cli TOML-crate-free, matching `config_value` above.
+fn capture_paths_rule(config: &str, dir: &std::path::Path) -> Option<CaptureRule> {
+    let mut in_section = false;
+    let mut best: Option<(usize, CaptureRule)> = None;
+    for line in config.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        if line.starts_with('[') {
+            in_section = line == "[capture.paths]";
+            continue;
+        }
+        if !in_section {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let Some(mode) = CaptureMode::parse(value) else {
+            continue;
+        };
+        let raw = key.trim().trim_matches('"').trim();
+        let prefix = canonical(&expand_tilde(raw));
+        if !dir.starts_with(&prefix) {
+            continue;
+        }
+        let depth = prefix.components().count();
+        if best.as_ref().map_or(true, |(d, _)| depth > *d) {
+            best = Some((
+                depth,
+                CaptureRule {
+                    mode,
+                    source: format!("config.toml [capture.paths] {raw:?}"),
+                },
+            ));
+        }
+    }
+    best.map(|(_, rule)| rule)
+}
+
+fn expand_tilde(path: &str) -> PathBuf {
+    match path.strip_prefix("~/") {
+        Some(rest) => dirs::home_dir().unwrap_or_default().join(rest),
+        None => PathBuf::from(path),
+    }
 }
 
 /// Parse a relative time window like `7d`, `24h`, `2w`, `30m` into a duration.
@@ -357,6 +552,12 @@ pub fn remember_as(
     author_name: Option<&str>,
     source_session_id: Option<i64>,
 ) -> Result<i64, String> {
+    // Capture gate, before the database is opened. Every note-writing surface
+    // (`mw mark`, `mw remember`, MCP, the desktop app) routes through here.
+    let gate = capture_rule_for(cwd);
+    if !gate.mode.stores_anything() {
+        return Err(format!("capture is off for this directory ({}) — nothing saved", gate.source));
+    }
     let text = redact(text);
     let path = database_path()?;
     if let Some(parent) = path.parent() {
@@ -840,6 +1041,157 @@ mod tests {
         for bad in ["7", "d", "", "7y", "-1d", "1.5d", "seven days"] {
             assert!(parse_since(bad).is_err(), "{bad:?} should be rejected");
         }
+    }
+
+    // --- capture gates -------------------------------------------------
+
+    fn scratch(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "mw-cap-{tag}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::canonicalize(&dir).unwrap()
+    }
+
+    #[test]
+    fn capture_modes_parse() {
+        assert_eq!(CaptureMode::parse("\"full\""), Some(CaptureMode::Full));
+        assert_eq!(CaptureMode::parse(" commands-only "), Some(CaptureMode::CommandsOnly));
+        assert_eq!(CaptureMode::parse("OFF"), Some(CaptureMode::Off));
+        assert_eq!(CaptureMode::parse("maybe"), None);
+        assert!(CaptureMode::Full.stores_output() && CaptureMode::Full.stores_anything());
+        assert!(!CaptureMode::CommandsOnly.stores_output());
+        assert!(CaptureMode::CommandsOnly.stores_anything());
+        assert!(!CaptureMode::Off.stores_anything());
+    }
+
+    // Longest matching prefix wins inside [capture.paths], and only that section
+    // is consulted (a top-level `capture = ...` key must not leak in).
+    #[test]
+    fn global_config_matches_longest_path_prefix() {
+        let root = scratch("prefix");
+        let nested = root.join("a/b");
+        std::fs::create_dir_all(&nested).unwrap();
+        let config = format!(
+            "machine = \"laptop\"\n\
+             capture = \"off\"\n\
+             \n\
+             [capture.paths]\n\
+             \"{root}\" = \"commands-only\"\n\
+             \"{root}/a/b\" = \"off\"\n\
+             \"/nowhere/else\" = \"off\"\n",
+            root = root.display()
+        );
+        assert_eq!(capture_paths_rule(&config, &root).unwrap().mode, CaptureMode::CommandsOnly);
+        assert_eq!(capture_paths_rule(&config, &nested).unwrap().mode, CaptureMode::Off);
+        assert!(capture_paths_rule(&config, std::path::Path::new("/tmp")).is_none());
+    }
+
+    // Full precedence chain: .mwignore beats the global config, which beats the
+    // default — and every answer names the rule that produced it.
+    #[test]
+    fn mwignore_beats_global_config_beats_default() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let data = fresh_data_dir("capture-precedence");
+        let root = scratch("precedence");
+        let gated = root.join("gated");
+        let deep = gated.join("sub/dir");
+        std::fs::create_dir_all(&deep).unwrap();
+
+        std::fs::write(
+            data.join("config.toml"),
+            format!("[capture.paths]\n\"{}\" = \"commands-only\"\n", root.display()),
+        )
+        .unwrap();
+
+        // Global config only.
+        let rule = capture_rule(&root);
+        assert_eq!(rule.mode, CaptureMode::CommandsOnly);
+        assert!(rule.source.contains("[capture.paths]"), "{}", rule.source);
+
+        // .mwignore at a directory root wins, and applies to children below it.
+        std::fs::write(gated.join(".mwignore"), "# private\ncapture = \"off\"\n").unwrap();
+        let rule = capture_rule(&deep);
+        assert_eq!(rule.mode, CaptureMode::Off);
+        assert!(rule.source.ends_with(".mwignore"), "{}", rule.source);
+
+        // Nothing configured anywhere → full, byte-identical old behaviour.
+        let untouched = scratch("precedence-default");
+        let rule = capture_rule(&untouched);
+        assert_eq!(rule.mode, CaptureMode::Full);
+        assert!(rule.source.starts_with("default"), "{}", rule.source);
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&data);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // The hard guarantee: an `off` directory writes ZERO rows, and the gate runs
+    // before the database is touched (not as post-hoc deletion).
+    #[test]
+    fn off_directory_writes_zero_rows() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
+        let data = fresh_data_dir("capture-off");
+        let secret = scratch("off-dir");
+        std::fs::write(secret.join(".mwignore"), "capture = \"off\"\n").unwrap();
+
+        let err = remember("balance is 12345", secret.to_str()).unwrap_err();
+        assert!(err.contains("capture is off"), "{err}");
+
+        // A directory with no gate still records — no regression.
+        let open_dir = scratch("off-control");
+        assert!(remember("normal lesson", open_dir.to_str()).is_ok());
+
+        let conn = Connection::open(data.join("memorywhale.sqlite3")).unwrap();
+        let gated: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM bookmarks WHERE cwd = ?1",
+                params![secret.to_str()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(gated, 0, "an off directory must produce no rows at all");
+        let total: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(total, 1, "only the ungated write landed");
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&data);
+        let _ = std::fs::remove_dir_all(&secret);
+        let _ = std::fs::remove_dir_all(&open_dir);
+    }
+
+    // A symlink pointing into a gated tree must not dodge the gate: both sides
+    // of the prefix comparison are canonicalized.
+    #[test]
+    #[cfg(unix)]
+    fn symlinked_cwd_still_hits_the_gate() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let data = fresh_data_dir("capture-symlink");
+        let root = scratch("symlink");
+        let real = root.join("finances");
+        std::fs::create_dir_all(&real).unwrap();
+        std::fs::write(
+            data.join("config.toml"),
+            format!("[capture.paths]\n\"{}\" = \"off\"\n", real.display()),
+        )
+        .unwrap();
+
+        let link = root.join("shortcut");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        assert_eq!(capture_rule(&link).mode, CaptureMode::Off, "symlink must resolve to the gate");
+
+        // And the write path agrees.
+        assert!(remember("secret", link.to_str()).is_err());
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&data);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
