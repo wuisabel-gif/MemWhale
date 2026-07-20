@@ -16,6 +16,10 @@ use std::io::{BufRead, Write};
 fn main() {
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
+    // Client name from the `initialize` handshake (e.g. "Claude Code"), used to
+    // attribute agent-written memories. One process serves one client, so a
+    // single mutable slot is enough.
+    let mut client_name: Option<String> = None;
     for line in stdin.lock().lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
@@ -25,13 +29,21 @@ fn main() {
             Ok(v) => v,
             Err(_) => continue,
         };
+        let method = msg.get("method").and_then(Value::as_str).unwrap_or("");
+        let params = msg.get("params").cloned().unwrap_or(json!({}));
+        if method == "initialize" {
+            client_name = params
+                .get("clientInfo")
+                .and_then(|c| c.get("name"))
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+        }
         // Notifications (no `id`) get no reply.
         let Some(id) = msg.get("id").cloned() else {
             continue;
         };
-        let method = msg.get("method").and_then(Value::as_str).unwrap_or("");
-        let params = msg.get("params").cloned().unwrap_or(json!({}));
-        let reply = match handle(method, &params) {
+        let reply = match handle(method, &params, client_name.as_deref()) {
             Ok(result) => json!({"jsonrpc": "2.0", "id": id, "result": result}),
             Err(msg) => json!({"jsonrpc": "2.0", "id": id,
                 "error": {"code": -32603, "message": msg}}),
@@ -41,7 +53,7 @@ fn main() {
     }
 }
 
-fn handle(method: &str, params: &Value) -> Result<Value, String> {
+fn handle(method: &str, params: &Value, client_name: Option<&str>) -> Result<Value, String> {
     match method {
         "initialize" => Ok(json!({
             "protocolVersion": "2024-11-05",
@@ -52,7 +64,7 @@ fn handle(method: &str, params: &Value) -> Result<Value, String> {
         "tools/call" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("");
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
-            let text = call_tool(name, &args)?;
+            let text = call_tool(name, &args, client_name)?;
             Ok(json!({"content": [{"type": "text", "text": text}]}))
         }
         // Unknown method: return empty result rather than erroring the session.
@@ -95,10 +107,14 @@ fn tool_defs() -> Value {
 
 fn open() -> Result<Connection, String> {
     let path = memorywhale_cli::database_path()?;
-    Connection::open(&path).map_err(|e| format!("failed to open {}: {e}", path.display()))
+    let conn =
+        Connection::open(&path).map_err(|e| format!("failed to open {}: {e}", path.display()))?;
+    // Ensure bookmarks provenance columns exist so reads below can rely on them.
+    let _ = memorywhale_cli::migrate(&conn);
+    Ok(conn)
 }
 
-fn call_tool(name: &str, args: &Value) -> Result<String, String> {
+fn call_tool(name: &str, args: &Value, client_name: Option<&str>) -> Result<String, String> {
     match name {
         "recent_errors" => {
             let limit = args.get("limit").and_then(Value::as_i64).unwrap_or(8);
@@ -120,7 +136,7 @@ fn call_tool(name: &str, args: &Value) -> Result<String, String> {
                 .get("text")
                 .and_then(Value::as_str)
                 .ok_or_else(|| "remember needs a 'text'".to_string())?;
-            remember_tool(text)
+            remember_tool(text, client_name)
         }
         other => Err(format!("unknown tool: {other}")),
     }
@@ -169,11 +185,18 @@ fn recent_errors(limit: i64) -> Result<String, String> {
     })
 }
 
-/// One ranked hit rendered for an agent: score, source, a snippet, and the
-/// `reasons` the engine ranked it where it did (additive — the tool's input
-/// schema is unchanged; agents just get the "why" alongside each result).
-fn render_hit(sm: &mw_memory::ScoredMemory) -> String {
+/// One ranked hit rendered for an agent: score, source, a snippet, the
+/// `reasons` the engine ranked it where it did, and — for remembered notes —
+/// who wrote it, so an agent can weigh a peer's lesson differently from a
+/// human's (additive; the tool's input schema is unchanged).
+fn render_hit(conn: &Connection, sm: &mw_memory::ScoredMemory) -> String {
     let (source, real_id) = mw_memory::sqlite::decode_id(sm.memory.id);
+    let prov = match source {
+        mw_memory::sqlite::Source::Note => note_provenance(conn, real_id)
+            .map(|p| format!("\n  {p}"))
+            .unwrap_or_default(),
+        _ => String::new(),
+    };
     let snippet: String = sm
         .memory
         .text
@@ -191,13 +214,33 @@ fn render_hit(sm: &mw_memory::ScoredMemory) -> String {
         reasons.join("; ")
     };
     format!(
-        "- [{} #{}] {}% — {}\n  reasons: {}\n",
+        "- [{} #{}] {}% — {}\n  reasons: {}{}\n",
         source.tag(),
         real_id,
         sm.percent(),
         snippet,
-        reasons
+        reasons,
+        prov
     )
+}
+
+/// Provenance for one remembered note, e.g. "remembered by Claude Code on
+/// 2026-07-12 during session #41".
+fn note_provenance(conn: &Connection, id: i64) -> Option<String> {
+    conn.query_row(
+        "SELECT author_kind, author_name, created_at, source_session_id
+         FROM bookmarks WHERE id = ?1",
+        params![id],
+        |r| {
+            Ok(memorywhale_cli::provenance_label(
+                &r.get::<_, String>(0)?,
+                r.get::<_, Option<String>>(1)?.as_deref(),
+                &r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                r.get::<_, Option<i64>>(3)?,
+            ))
+        },
+    )
+    .ok()
 }
 
 /// Rank all memories (commands, sessions, notes, …) for the query via the
@@ -213,7 +256,7 @@ fn search_memory(query: &str) -> Result<String, String> {
     }
     let mut out = String::new();
     for sm in &hits {
-        out.push_str(&render_hit(sm));
+        out.push_str(&render_hit(&conn, sm));
     }
     Ok(out)
 }
@@ -235,13 +278,13 @@ fn get_context(project: Option<&str>) -> Result<String, String> {
         return Ok(out);
     }
     for sm in &hits {
-        out.push_str(&render_hit(sm));
+        out.push_str(&render_hit(&conn, sm));
     }
     Ok(out)
 }
 
-fn remember_tool(text: &str) -> Result<String, String> {
-    let id = memorywhale_cli::remember(text, None)?;
+fn remember_tool(text: &str, client_name: Option<&str>) -> Result<String, String> {
+    let id = memorywhale_cli::remember_as(text, None, "agent", client_name, None)?;
     Ok(format!(
         "Saved as memory #{id}. Future search_memory/get_context calls (yours or a teammate's) will find it."
     ))

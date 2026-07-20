@@ -1324,6 +1324,26 @@ fn rebuild_missing_arguments(conn: &Connection) -> Result<(), String> {
 /// The CLI runs the engine in its lexical mode (term overlap) — no Ollama, no
 /// embedding cache — so it stays dependency-light and works fully offline. The
 /// desktop app attaches semantic embeddings over the same engine + loader.
+/// Provenance for one remembered note, e.g. "remembered by Claude Code on
+/// 2026-07-12 during session #41". Looked up per hit — only note-sourced
+/// results have one, and a search returns at most 20.
+fn note_provenance(conn: &Connection, id: i64) -> Option<String> {
+    conn.query_row(
+        "SELECT author_kind, author_name, created_at, source_session_id
+         FROM bookmarks WHERE id = ?1",
+        params![id],
+        |r| {
+            Ok(memorywhale_cli::provenance_label(
+                &r.get::<_, String>(0)?,
+                r.get::<_, Option<String>>(1)?.as_deref(),
+                &r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                r.get::<_, Option<i64>>(3)?,
+            ))
+        },
+    )
+    .ok()
+}
+
 fn search_memory(args: &[String]) -> Result<(), String> {
     let explain = args.iter().any(|a| a == "--explain");
     let terms: Vec<&String> = args.iter().filter(|a| a.as_str() != "--explain").collect();
@@ -1332,6 +1352,9 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     }
     let query = terms.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
     let conn = open_session_db()?;
+    // Guarantees the provenance columns exist before the loader reads them; the
+    // loader also skips unapproved (review-mode) agent notes.
+    let _ = memorywhale_cli::migrate(&conn);
 
     // One loader, one engine — the same code path the desktop Recall panel uses.
     // "now" is supplied here by the caller so scoring stays deterministic.
@@ -1360,12 +1383,20 @@ fn search_memory(args: &[String]) -> Result<(), String> {
             .unwrap_or("")
             .trim();
         let snippet: String = snippet.chars().take(100).collect();
+        // Only remembered notes carry provenance — who wrote this lesson, and when.
+        let prov = match source {
+            mw_memory::sqlite::Source::Note => note_provenance(&conn, real_id)
+                .map(|p| format!("  ({p})"))
+                .unwrap_or_default(),
+            _ => String::new(),
+        };
         println!(
-            "{:>3}%  [{}] {}{}",
+            "{:>3}%  [{}] {}{}{}",
             sm.percent(),
             source.tag(),
             snippet,
-            action
+            action,
+            prov
         );
         if explain {
             // Full per-signal breakdown + reasons (reuses the engine's view).

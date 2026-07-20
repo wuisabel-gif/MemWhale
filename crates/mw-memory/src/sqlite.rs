@@ -200,8 +200,18 @@ fn agent_turns(conn: &Connection) -> Vec<Memory> {
 
 /// Remembered lessons / bookmarks (CLI `mw mark` / `mw remember`).
 fn bookmarks(conn: &Connection) -> Vec<Memory> {
-    let Ok(mut stmt) = conn.prepare("SELECT id, label, created_at FROM bookmarks") else {
-        return Vec::new();
+    // Review mode is enforced at write time (agent notes land with approved=0),
+    // so every reader just filters approved=1 — one rule, no config lookup here.
+    // Older DBs predating the provenance migration have no `approved` column;
+    // there the prepare fails and we fall back to loading everything.
+    let mut stmt = match conn
+        .prepare("SELECT id, label, created_at FROM bookmarks WHERE approved = 1")
+    {
+        Ok(stmt) => stmt,
+        Err(_) => match conn.prepare("SELECT id, label, created_at FROM bookmarks") {
+            Ok(stmt) => stmt,
+            Err(_) => return Vec::new(),
+        },
     };
     let rows = stmt.query_map([], |r| {
         Ok((
