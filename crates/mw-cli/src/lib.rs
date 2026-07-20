@@ -92,7 +92,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 3;
+pub const LATEST_SCHEMA_VERSION: i64 = 4;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -110,6 +110,10 @@ pub const LATEST_SCHEMA_VERSION: i64 = 3;
 /// Migration 3 — capture tiers: adds `command_runs.capture_kind`, defaulting to
 /// `full` so every pre-existing row keeps its meaning. Shell-hook rows write
 /// `hook` instead (command + cwd + exit code, no output).
+///
+/// Migration 4 — error fingerprints: adds `command_runs.error_fingerprint` (+
+/// index) and backfills it for existing failed rows, so recurring failures group
+/// and `mw context --last-error` can show their outcome history immediately.
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -138,6 +142,12 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
     }
     if version < 3 {
         ensure_capture_kind(conn)?;
+        conn.execute_batch("PRAGMA user_version = 3;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 4 {
+        ensure_error_fingerprint(conn)?;
+        backfill_error_fingerprints(conn)?;
         conn.execute_batch(&format!("PRAGMA user_version = {LATEST_SCHEMA_VERSION};"))
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
@@ -155,6 +165,197 @@ pub fn ensure_capture_kind(conn: &Connection) -> Result<(), String> {
         add_column_if_missing(conn, "command_runs", "capture_kind", "TEXT NOT NULL DEFAULT 'full'")?;
     }
     Ok(())
+}
+
+/// Add `command_runs.error_fingerprint` (+ its index) if the table exists and
+/// lacks it. Same rationale as [`ensure_capture_kind`]: writers create
+/// `command_runs` independently, so this is callable outside migration 4.
+pub fn ensure_error_fingerprint(conn: &Connection) -> Result<(), String> {
+    if table_exists(conn, "command_runs")? {
+        add_column_if_missing(conn, "command_runs", "error_fingerprint", "TEXT")?;
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_command_runs_fingerprint
+             ON command_runs(error_fingerprint);",
+        )
+        .map_err(|e| format!("failed to index error_fingerprint: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Compute fingerprints for existing failed rows that don't have one, so the
+/// "you've hit this N times" history works retroactively on a populated DB the
+/// first time migration 4 runs.
+fn backfill_error_fingerprints(conn: &Connection) -> Result<(), String> {
+    if !table_exists(conn, "command_runs")? {
+        return Ok(());
+    }
+    let rows: Vec<(i64, String, String)> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, command, stderr FROM command_runs
+                 WHERE exit_code IS NOT NULL AND exit_code != 0
+                   AND error_fingerprint IS NULL",
+            )
+            .map_err(|e| format!("failed to scan for backfill: {e}"))?;
+        let mapped = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .map_err(|e| format!("backfill query: {e}"))?;
+        mapped.filter_map(Result::ok).collect()
+    };
+    for (id, command, stderr) in rows {
+        if let Some(fp) = error_fingerprint(&command, &stderr) {
+            conn.execute(
+                "UPDATE command_runs SET error_fingerprint = ?1 WHERE id = ?2",
+                params![fp, id],
+            )
+            .map_err(|e| format!("backfill update: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+/// Mask the volatile parts of one line of error output — absolute paths,
+/// hex/memory addresses, `:line:col` positions, long hashes, and bare multi-digit
+/// integers (pids, byte counts, timestamps) — so the same failure normalizes
+/// identically across runs, machines, and directories.
+///
+/// Deliberately keeps letter-prefixed codes like `E0308` intact: those *are* the
+/// error identity, so `E0308` and `E0277` must fingerprint differently.
+pub fn normalize_error_line(line: &str) -> String {
+    fn re(pat: &str) -> &'static Regex {
+        // ponytail: tiny leaked cache keyed by pattern; the set is fixed and
+        // compiled once. Simpler than five named statics.
+        use std::collections::HashMap;
+        use std::sync::Mutex;
+        static CACHE: OnceLock<Mutex<HashMap<String, &'static Regex>>> = OnceLock::new();
+        let mut map = CACHE.get_or_init(|| Mutex::new(HashMap::new())).lock().unwrap();
+        map.entry(pat.to_string()).or_insert_with(|| {
+            Box::leak(Box::new(Regex::new(pat).expect("static regex")))
+        })
+    }
+    let mut s = line.trim().to_string();
+    // Order matters: paths and hex before the generic integer mask.
+    s = re(r"(?:[A-Za-z]:)?[/\\][\w.\-/\\]+").replace_all(&s, "<path>").into_owned();
+    s = re(r"\b0x[0-9a-fA-F]+\b").replace_all(&s, "<addr>").into_owned();
+    s = re(r":\d+:\d+").replace_all(&s, ":<n>:<n>").into_owned();
+    s = re(r":\d+\b").replace_all(&s, ":<n>").into_owned();
+    s = re(r"\b[0-9a-f]{7,}\b").replace_all(&s, "<hash>").into_owned();
+    s = re(r"\b\d{3,}\b").replace_all(&s, "<n>").into_owned();
+    s = re(r"\s+").replace_all(&s, " ").into_owned();
+    s.trim().chars().take(200).collect()
+}
+
+/// A stable, portable fingerprint for a failed command: the command's base name
+/// plus the most error-ish line of its stderr, normalized and FNV-1a hashed to
+/// 8 hex chars. `None` when there's nothing error-shaped to fingerprint.
+///
+/// Pure and deterministic — no clock, no randomness, no platform-dependent
+/// hasher — so a fingerprint is comparable across machines and reproducible.
+pub fn error_fingerprint(command: &str, stderr: &str) -> Option<String> {
+    let salient = stderr
+        .lines()
+        .find(|l| {
+            let l = l.to_lowercase();
+            ["error", "failed", "fatal", "cannot", "no such", "not found", "panic", "exception"]
+                .iter()
+                .any(|kw| l.contains(kw))
+        })
+        .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))?;
+    let cmd = command.rsplit(['/', '\\']).next().unwrap_or(command);
+    let sig = format!("{cmd}\n{}", normalize_error_line(salient));
+    // FNV-1a, 32-bit — small, stable, dependency-free.
+    let mut hash: u32 = 0x811c_9dc5;
+    for b in sig.bytes() {
+        hash ^= b as u32;
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    Some(format!("{hash:08x}"))
+}
+
+/// What we know about one recurring failure, assembled from `command_runs`.
+#[derive(Debug, Clone)]
+pub struct ErrorInsight {
+    pub fingerprint: String,
+    /// How many failed runs share this fingerprint.
+    pub occurrences: i64,
+    /// Of those failures, how many were later followed by a *successful* run of
+    /// the same command — i.e. the problem went away at least once.
+    pub resolutions: i64,
+    /// Whether the most recent run of this command succeeded.
+    pub currently_green: bool,
+}
+
+impl ErrorInsight {
+    /// One-line human summary for `mw context --last-error`.
+    pub fn summary(&self) -> String {
+        let times = if self.occurrences == 1 { "once".into() } else { format!("{} times", self.occurrences) };
+        if self.occurrences <= 1 {
+            return format!("First time hitting this ({}).", self.fingerprint);
+        }
+        let outcome = if self.resolutions == 0 {
+            "never resolved yet".to_string()
+        } else {
+            format!("a later run succeeded {} of {} times", self.resolutions, self.occurrences)
+        };
+        let now = if self.currently_green { "; the latest run is green" } else { "" };
+        format!("You've hit this {times} — {outcome}{now}. [{}]", self.fingerprint)
+    }
+}
+
+/// Assemble outcome history for a fingerprint. `resolutions` counts failure rows
+/// that have a later successful run of the same command — the honest, evidence-
+/// only version of "did the fix work", computed from observed exit codes rather
+/// than anyone's claim.
+pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsight, String> {
+    // The command name behind this fingerprint (rows sharing it share it).
+    let command: Option<String> = conn
+        .query_row(
+            "SELECT command FROM command_runs WHERE error_fingerprint = ?1 LIMIT 1",
+            params![fingerprint],
+            |r| r.get(0),
+        )
+        .ok();
+    let Some(command) = command else {
+        return Ok(ErrorInsight {
+            fingerprint: fingerprint.to_string(),
+            occurrences: 0,
+            resolutions: 0,
+            currently_green: false,
+        });
+    };
+    let occurrences: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM command_runs WHERE error_fingerprint = ?1",
+            params![fingerprint],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("count failures: {e}"))?;
+    // A failure "resolved" if a later row (higher id) ran the same command and
+    // exited 0.
+    let resolutions: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM command_runs f
+             WHERE f.error_fingerprint = ?1
+               AND EXISTS (
+                   SELECT 1 FROM command_runs s
+                   WHERE s.command = ?2 AND s.exit_code = 0 AND s.id > f.id
+               )",
+            params![fingerprint, command],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("count resolutions: {e}"))?;
+    let currently_green: bool = conn
+        .query_row(
+            "SELECT exit_code = 0 FROM command_runs
+             WHERE command = ?1 AND exit_code IS NOT NULL
+             ORDER BY id DESC LIMIT 1",
+            params![command],
+            |r| r.get::<_, Option<bool>>(0),
+        )
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+    Ok(ErrorInsight { fingerprint: fingerprint.to_string(), occurrences, resolutions, currently_green })
 }
 
 fn table_exists(conn: &Connection, table: &str) -> Result<bool, String> {
@@ -803,6 +1004,66 @@ mod tests {
 
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fingerprint_is_stable_across_volatile_noise() {
+        // Same E0308 in two builds: different path, line:col, and a build hash.
+        let a = "error[E0308]: mismatched types\n --> /home/ann/proj/src/cam.rs:42:19\nbuild abcdef0123456 failed";
+        let b = "error[E0308]: mismatched types\n --> /tmp/ci/9/src/cam.rs:8:3\nbuild 99fedcba00011 failed";
+        let fa = error_fingerprint("cargo", a).unwrap();
+        let fb = error_fingerprint("cargo", b).unwrap();
+        assert_eq!(fa, fb, "path/line/hash noise must not change the fingerprint");
+    }
+
+    #[test]
+    fn fingerprint_distinguishes_error_codes() {
+        // E0308 vs E0277 are different failures and must not collide — the
+        // letter-prefixed code is preserved through normalization.
+        let e308 = error_fingerprint("cargo", "error[E0308]: mismatched types").unwrap();
+        let e277 = error_fingerprint("cargo", "error[E0277]: trait not satisfied").unwrap();
+        assert_ne!(e308, e277);
+    }
+
+    #[test]
+    fn fingerprint_none_when_no_error_text() {
+        assert!(error_fingerprint("ls", "").is_none());
+        assert!(error_fingerprint("ls", "   \n  \n").is_none());
+    }
+
+    #[test]
+    fn insight_counts_occurrences_and_resolutions() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE command_runs (
+                id INTEGER PRIMARY KEY, command TEXT NOT NULL, argv_json TEXT NOT NULL DEFAULT '[]',
+                cwd TEXT, exit_code INTEGER, stdout TEXT NOT NULL DEFAULT '',
+                stderr TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT '', error_fingerprint TEXT);",
+        )
+        .unwrap();
+        let err = "error[E0308]: mismatched types";
+        let fp = error_fingerprint("cargo", err).unwrap();
+        // Timeline: fail, fail, then a success (the fix), then fail again.
+        let insert = |exit: i64, fp: Option<&str>| {
+            conn.execute(
+                "INSERT INTO command_runs (command, exit_code, stderr, error_fingerprint)
+                 VALUES ('cargo', ?1, ?2, ?3)",
+                params![exit, err, fp],
+            )
+            .unwrap();
+        };
+        insert(101, Some(&fp));
+        insert(101, Some(&fp));
+        insert(0, None); // the fix worked
+        insert(101, Some(&fp)); // regressed later
+
+        let insight = error_insight(&conn, &fp).unwrap();
+        assert_eq!(insight.occurrences, 3, "three failing runs share the fingerprint");
+        // The two failures *before* the success each have a later green run.
+        assert_eq!(insight.resolutions, 2);
+        assert!(!insight.currently_green, "last run failed again");
+        assert!(insight.summary().contains("3 times"));
     }
 
     #[test]

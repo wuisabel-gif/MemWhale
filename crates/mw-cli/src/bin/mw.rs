@@ -2594,6 +2594,27 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
     }
 
     if last_error {
+        // Outcome history for the single failure we just printed: how often this
+        // exact error has recurred, and whether it ever resolved. This is the
+        // evidence-grounded answer to "have I seen this before, and did the fix
+        // work" — computed from observed exit codes, not remembered claims.
+        if let Ok(Some((command, stderr))) = conn.query_row(
+            "SELECT command, stderr FROM command_runs
+             WHERE exit_code IS NOT NULL AND exit_code != 0
+             ORDER BY id DESC LIMIT 1",
+            [],
+            |r| Ok(Some((r.get::<_, String>(0)?, r.get::<_, String>(1)?))),
+        ) {
+            if let Some(fp) = memorywhale_cli::error_fingerprint(&command, &stderr) {
+                if let Ok(insight) = memorywhale_cli::error_insight(&conn, &fp) {
+                    println!("\n## This error");
+                    println!("{}", insight.summary());
+                    if insight.occurrences > 1 && insight.resolutions == 0 {
+                        println!("No recorded fix yet — once you resolve it, run `mw remember \"<the fix>\"`.");
+                    }
+                }
+            }
+        }
         return Ok(());
     }
 

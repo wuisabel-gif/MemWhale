@@ -181,10 +181,19 @@ fn remember_command(
 
     let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
     init_schema(&conn)?;
+    memorywhale_cli::ensure_error_fingerprint(&conn)?;
+    // Fingerprint failures only — a stable key that groups this error with prior
+    // occurrences, so `mw context --last-error` can show its history. Computed
+    // from the redacted stderr (what we store), so it matches the backfill path.
+    let redacted_stderr = memorywhale_cli::redact(stderr);
+    let fingerprint = match exit_code {
+        Some(0) | None => None,
+        Some(_) => memorywhale_cli::error_fingerprint(&command, &redacted_stderr),
+    };
     conn.execute(
         "
-        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, error_fingerprint)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
         ",
         params![
             command,
@@ -192,9 +201,10 @@ fn remember_command(
             cwd.to_string_lossy(),
             exit_code,
             memorywhale_cli::redact(stdout),
-            memorywhale_cli::redact(stderr),
+            redacted_stderr,
             memorywhale_cli::redact(notes),
-            created_at
+            created_at,
+            fingerprint
         ],
     )
     .map_err(|err| format!("failed to insert command run: {err}"))?;
