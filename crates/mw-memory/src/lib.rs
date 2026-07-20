@@ -5,19 +5,23 @@
 //! importance, reinforcement, task-relevance), each with a human-readable reason.
 //!
 //! Everything is behind a [`engine::MemoryEngine`] interface that MemoryWhale
-//! owns, so the storage/retrieval backend is pluggable: a built-in scorer today,
-//! a `MemPalace` adapter (over MCP) tomorrow — without changing callers.
+//! owns, so the storage/retrieval backend is pluggable: the built-in scorer by
+//! default, or — with the off-by-default `mempalace` feature — an
+//! `engine::MemPalaceEngine` that talks to a local `mempalace-mcp` server over
+//! MCP. Callers never change.
 
 pub mod embed;
 pub mod engine;
+#[cfg(feature = "mempalace")]
+mod mcp;
 pub mod scorer;
 pub mod sqlite;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// A single memory item. (The built-in engine scores over these; a MemPalace
-/// adapter would map its drawers/triples into the same shape.)
+/// A single memory item. (The built-in engine scores over these; the MemPalace
+/// adapter maps its hits into the same shape.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Memory {
     pub id: i64,

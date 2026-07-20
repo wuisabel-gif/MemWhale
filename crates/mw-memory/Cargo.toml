@@ -2,8 +2,14 @@
 name = "mw-memory"
 version = "0.1.0"
 edition = "2021"
-description = "Explainable retrieval for MemoryWhale: a MemoryEngine interface, a built-in scorer that ranks memories with per-signal reasons, and a pluggable MemPalace backend."
+description = "Explainable retrieval for MemoryWhale: a MemoryEngine interface, a built-in scorer that ranks memories with per-signal reasons, and an optional MemPalace backend over MCP."
 license = "MIT"
+
+[features]
+default = []
+# Talk to a local `mempalace-mcp` server as an MCP client. Off by default and
+# dependency-free: it only enables code that already-present crates cover.
+mempalace = []
 
 [dependencies]
 anyhow = "1"
