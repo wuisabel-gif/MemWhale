@@ -1430,11 +1430,15 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         println!("(none)");
     }
 
-    // Remembered notes/lessons (`mw mark` / `mw remember`).
+    // Remembered notes/lessons (`mw mark` / `mw remember` / MCP `remember`).
+    // Provenance columns are guaranteed by the migration; unapproved agent
+    // memories (review mode) are excluded from retrieval.
+    let _ = memorywhale_cli::migrate(&conn);
     let mut stmt = conn
         .prepare(
-            "SELECT id, label, created_at FROM bookmarks
-             WHERE label LIKE ?1 ORDER BY id DESC LIMIT 30",
+            "SELECT id, label, created_at, author_kind, author_name, source_session_id
+             FROM bookmarks
+             WHERE label LIKE ?1 AND approved = 1 ORDER BY id DESC LIMIT 30",
         )
         .map_err(|err| format!("failed to prepare notes search: {err}"))?;
     let rows = stmt
@@ -1443,15 +1447,20 @@ fn search_memory(args: &[String]) -> Result<(), String> {
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,
                 r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, Option<i64>>(5)?,
             ))
         })
         .map_err(|err| format!("failed to search notes: {err}"))?;
     println!("\n## Notes");
     let mut any = false;
     for row in rows {
-        let (id, label, created_at) = row.map_err(|err| format!("row error: {err}"))?;
+        let (id, label, created_at, kind, name, sid) =
+            row.map_err(|err| format!("row error: {err}"))?;
         any = true;
-        println!("- #{id} {created_at}: {label}");
+        let prov = memorywhale_cli::provenance_label(&kind, name.as_deref(), &created_at, sid);
+        println!("- #{id} {label} ({prov})");
     }
     if !any {
         println!("(none)");

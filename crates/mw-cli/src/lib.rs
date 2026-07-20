@@ -79,32 +79,142 @@ pub fn fts_match_query(query: &str) -> String {
         .join(" ")
 }
 
+/// Base `bookmarks` schema (pre-provenance). Kept as-is so `migrate` can layer
+/// the provenance columns on top with `PRAGMA user_version` migrations.
+const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
+         id INTEGER PRIMARY KEY,
+         label TEXT NOT NULL,
+         cwd TEXT,
+         created_at TEXT NOT NULL,
+         command_run_id INTEGER,
+         session_id INTEGER
+     );
+     CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
+
+/// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
+/// cheap (a `user_version` check), so callers run it before touching bookmarks.
+///
+/// Migration 1 — memory provenance: adds `author_kind`/`author_name`/
+/// `source_session_id`/`approved` to `bookmarks` and backfills existing rows as
+/// human (via the column defaults). Safe on a populated DB: `ADD COLUMN` with a
+/// constant default never rewrites rows.
+pub fn migrate(conn: &Connection) -> Result<(), String> {
+    let version: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(|e| format!("failed to read schema version: {e}"))?;
+    if version < 1 {
+        conn.execute_batch(BOOKMARKS_BASE)
+            .map_err(|e| format!("failed to prepare bookmarks table: {e}"))?;
+        add_column_if_missing(conn, "author_kind", "TEXT NOT NULL DEFAULT 'human'")?;
+        add_column_if_missing(conn, "author_name", "TEXT")?;
+        add_column_if_missing(conn, "source_session_id", "INTEGER")?;
+        add_column_if_missing(conn, "approved", "INTEGER NOT NULL DEFAULT 1")?;
+        add_column_if_missing(conn, "created_at", "TEXT")?; // belt-and-suspenders; base has it
+        conn.execute_batch("PRAGMA user_version = 1;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    Ok(())
+}
+
+fn add_column_if_missing(conn: &Connection, column: &str, decl: &str) -> Result<(), String> {
+    let present = conn
+        .prepare("SELECT 1 FROM pragma_table_info('bookmarks') WHERE name = ?1")
+        .and_then(|mut s| s.exists(params![column]))
+        .map_err(|e| format!("failed to inspect bookmarks columns: {e}"))?;
+    if !present {
+        conn.execute(&format!("ALTER TABLE bookmarks ADD COLUMN {column} {decl}"), [])
+            .map_err(|e| format!("failed to add bookmarks.{column}: {e}"))?;
+    }
+    Ok(())
+}
+
+/// True when agent-written memories should start unapproved and be excluded from
+/// retrieval until approved in the dashboard. Off by default. Enabled by env var
+/// `MEMORYWHALE_REVIEW_AGENT_MEMORIES=1` or a `review_agent_memories = true` line
+/// in `<data dir>/config.toml`.
+pub fn review_agent_memories() -> bool {
+    if let Some(v) = std::env::var_os("MEMORYWHALE_REVIEW_AGENT_MEMORIES") {
+        return v == "1" || v == "true";
+    }
+    data_dir()
+        .ok()
+        .map(|d| d.join("config.toml"))
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .map(|s| {
+            s.lines().any(|l| {
+                let l = l.trim();
+                l.starts_with("review_agent_memories") && l.contains("true")
+            })
+        })
+        .unwrap_or(false)
+}
+
+/// Human-readable provenance, e.g. "remembered by Claude Code on 2026-07-12
+/// during session #41". `created_at` may be an RFC3339 timestamp; only the date
+/// part is shown.
+pub fn provenance_label(
+    author_kind: &str,
+    author_name: Option<&str>,
+    created_at: &str,
+    session_id: Option<i64>,
+) -> String {
+    let who = match (author_kind, author_name) {
+        ("agent", Some(n)) if !n.is_empty() => n.to_string(),
+        ("agent", _) => "agent".to_string(),
+        _ => "you".to_string(),
+    };
+    let date = created_at.get(..10).unwrap_or(created_at);
+    let mut s = format!("remembered by {who} on {date}");
+    if let Some(sid) = session_id {
+        s.push_str(&format!(" during session #{sid}"));
+    }
+    s
+}
+
 /// Save a freeform lesson or conclusion ("the fix was X") into the bookmarks
-/// table — the same store `mw mark` writes to. Shared by `mw remember` and the
-/// MCP `remember` tool, so a human and an agent write to the same place and
-/// either one can search it back out later.
+/// table — the same store `mw mark` writes to. Records the author as a human;
+/// see [`remember_as`] for agent-attributed writes. Shared by `mw remember` and
+/// `mw mark`.
 pub fn remember(text: &str, cwd: Option<&str>) -> Result<i64, String> {
+    remember_as(text, cwd, "human", None, None)
+}
+
+/// Like [`remember`] but records who wrote the lesson. `author_kind` is
+/// "human" or "agent"; `author_name` is the MCP client name for agents (else
+/// `None`). When [`review_agent_memories`] is on, agent lessons are stored
+/// unapproved so retrieval skips them until approved in the dashboard.
+pub fn remember_as(
+    text: &str,
+    cwd: Option<&str>,
+    author_kind: &str,
+    author_name: Option<&str>,
+    source_session_id: Option<i64>,
+) -> Result<i64, String> {
     let text = redact(text);
     let path = database_path()?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("failed to create data dir: {e}"))?;
     }
     let conn = Connection::open(&path).map_err(|e| format!("failed to open db: {e}"))?;
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS bookmarks (
-             id INTEGER PRIMARY KEY,
-             label TEXT NOT NULL,
-             cwd TEXT,
-             created_at TEXT NOT NULL,
-             command_run_id INTEGER,
-             session_id INTEGER
-         );
-         CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);",
-    )
-    .map_err(|e| format!("failed to prepare bookmarks table: {e}"))?;
+    migrate(&conn)?;
+    let approved = if author_kind == "agent" && review_agent_memories() {
+        0
+    } else {
+        1
+    };
     conn.execute(
-        "INSERT INTO bookmarks (label, cwd, created_at) VALUES (?1, ?2, ?3)",
-        params![text, cwd, Utc::now().to_rfc3339()],
+        "INSERT INTO bookmarks
+            (label, cwd, created_at, author_kind, author_name, source_session_id, approved)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            text,
+            cwd,
+            Utc::now().to_rfc3339(),
+            author_kind,
+            author_name,
+            source_session_id,
+            approved
+        ],
     )
     .map_err(|e| format!("failed to save note: {e}"))?;
     Ok(conn.last_insert_rowid())
@@ -346,14 +456,27 @@ mod tests {
         assert_eq!(n, 1, "trigger should index the new row");
     }
 
-    #[test]
-    fn remember_writes_and_redacts() {
+    // Tests that mutate process-global env (MEMORYWHALE_DATA_DIR / review flag)
+    // are serialized so they don't clobber each other under parallel runs.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn fresh_data_dir(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "mw-remember-test-{}",
-            std::process::id()
+            "mw-{tag}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
         ));
+        let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         std::env::set_var("MEMORYWHALE_DATA_DIR", &dir);
+        dir
+    }
+
+    #[test]
+    fn remember_writes_and_redacts() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
+        let dir = fresh_data_dir("remember-test");
 
         let id = remember("the fix: API_KEY=abcdef123456 in .env", Some("/tmp/repo")).unwrap();
         assert!(id > 0);
@@ -371,5 +494,137 @@ mod tests {
 
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // `mw remember` / `mw mark` (CLI) attribute the lesson to a human.
+    #[test]
+    fn cli_remember_is_human() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
+        let dir = fresh_data_dir("prov-human");
+
+        let id = remember("the fix was --features vendored-ssl", None).unwrap();
+        let conn = Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+        let (kind, name, approved): (String, Option<String>, i64) = conn
+            .query_row(
+                "SELECT author_kind, author_name, approved FROM bookmarks WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(kind, "human");
+        assert_eq!(name, None);
+        assert_eq!(approved, 1);
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // The MCP `remember` tool attributes the lesson to the agent + client name.
+    #[test]
+    fn mcp_remember_is_agent_attributed() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
+        let dir = fresh_data_dir("prov-agent");
+
+        let id = remember_as("E0308 was a string fps field", None, "agent", Some("Claude Code"), Some(41))
+            .unwrap();
+        let conn = Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+        let (kind, name, sid, approved): (String, Option<String>, Option<i64>, i64) = conn
+            .query_row(
+                "SELECT author_kind, author_name, source_session_id, approved FROM bookmarks WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(kind, "agent");
+        assert_eq!(name.as_deref(), Some("Claude Code"));
+        assert_eq!(sid, Some(41));
+        assert_eq!(approved, 1, "agent memory is approved when review mode is off");
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // With review mode ON, agent memories start unapproved and are excluded from
+    // the approved-only retrieval query.
+    #[test]
+    fn review_mode_hides_unapproved_agent_memories() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh_data_dir("prov-review");
+        std::env::set_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES", "1");
+
+        let agent_id = remember_as("unreviewed agent claim", None, "agent", Some("Codex"), None).unwrap();
+        let human_id = remember("trusted human note", None).unwrap();
+
+        let conn = Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+        let agent_approved: i64 = conn
+            .query_row("SELECT approved FROM bookmarks WHERE id = ?1", [agent_id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(agent_approved, 0, "agent memory pending review");
+
+        // Retrieval filters on approved = 1 (as mw search / MCP do).
+        let visible: Vec<i64> = conn
+            .prepare("SELECT id FROM bookmarks WHERE approved = 1")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert!(visible.contains(&human_id), "human memory visible");
+        assert!(!visible.contains(&agent_id), "unapproved agent memory hidden");
+
+        std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // The migration is safe on a populated DB: an existing pre-provenance row is
+    // backfilled as human/approved, and new provenance columns are usable.
+    #[test]
+    fn migrate_backfills_existing_rows_as_human() {
+        let conn = Connection::open_in_memory().unwrap();
+        // Fixture: legacy bookmarks table with a row, no provenance columns.
+        conn.execute_batch(
+            "CREATE TABLE bookmarks (
+                 id INTEGER PRIMARY KEY, label TEXT NOT NULL, cwd TEXT,
+                 created_at TEXT NOT NULL, command_run_id INTEGER, session_id INTEGER
+             );
+             INSERT INTO bookmarks (label, created_at) VALUES ('old lesson', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+
+        let (kind, approved): (String, i64) = conn
+            .query_row(
+                "SELECT author_kind, approved FROM bookmarks WHERE label = 'old lesson'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(kind, "human", "existing rows backfilled as human");
+        assert_eq!(approved, 1);
+
+        // migrate is idempotent
+        migrate(&conn).unwrap();
+        let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        assert_eq!(version, 1);
+    }
+
+    #[test]
+    fn provenance_label_formats() {
+        assert_eq!(
+            provenance_label("agent", Some("Claude Code"), "2026-07-12T09:00:00Z", Some(41)),
+            "remembered by Claude Code on 2026-07-12 during session #41"
+        );
+        assert_eq!(
+            provenance_label("human", None, "2026-07-12T09:00:00Z", None),
+            "remembered by you on 2026-07-12"
+        );
+        assert_eq!(
+            provenance_label("agent", None, "2026-07-12", None),
+            "remembered by agent on 2026-07-12"
+        );
     }
 }
