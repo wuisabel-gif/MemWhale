@@ -92,7 +92,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 2;
+pub const LATEST_SCHEMA_VERSION: i64 = 3;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -106,6 +106,10 @@ pub const LATEST_SCHEMA_VERSION: i64 = 2;
 /// backfills `project` from the legacy `project:<name>` convention inside
 /// `notes`. The notes string itself is left untouched, so the dashboard's
 /// existing note parsing keeps working.
+///
+/// Migration 3 — capture tiers: adds `command_runs.capture_kind`, defaulting to
+/// `full` so every pre-existing row keeps its meaning. Shell-hook rows write
+/// `hook` instead (command + cwd + exit code, no output).
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -129,8 +133,26 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
             add_column_if_missing(conn, "sessions", "machine", "TEXT")?;
             backfill_project_from_notes(conn)?;
         }
+        conn.execute_batch("PRAGMA user_version = 2;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 3 {
+        ensure_capture_kind(conn)?;
         conn.execute_batch(&format!("PRAGMA user_version = {LATEST_SCHEMA_VERSION};"))
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Add `command_runs.capture_kind` if the table exists and lacks it.
+///
+/// ponytail: exposed (not just inlined in migration 3) because half a dozen
+/// binaries still create `command_runs` with their own `CREATE TABLE IF NOT
+/// EXISTS`, so a DB can reach version 3 *before* the table exists. Writers call
+/// this directly; it's two pragma queries.
+pub fn ensure_capture_kind(conn: &Connection) -> Result<(), String> {
+    if table_exists(conn, "command_runs")? {
+        add_column_if_missing(conn, "command_runs", "capture_kind", "TEXT NOT NULL DEFAULT 'full'")?;
     }
     Ok(())
 }
@@ -152,8 +174,16 @@ fn add_column_if_missing(
         .and_then(|mut s| s.exists(params![table, column]))
         .map_err(|e| format!("failed to inspect {table} columns: {e}"))?;
     if !present {
-        conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
-            .map_err(|e| format!("failed to add {table}.{column}: {e}"))?;
+        // Two writers (e.g. two shell hooks firing at once on a fresh DB) can
+        // both read the column as missing and both try to add it. The loser
+        // gets "duplicate column name", which is the outcome we wanted anyway.
+        if let Err(e) = conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
+        {
+            let msg = e.to_string();
+            if !msg.contains("duplicate column") {
+                return Err(format!("failed to add {table}.{column}: {msg}"));
+            }
+        }
     }
     Ok(())
 }
