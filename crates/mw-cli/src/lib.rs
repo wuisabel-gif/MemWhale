@@ -243,6 +243,23 @@ pub fn machine_name() -> String {
 }
 
 /// A `key = "value"` line from `<data dir>/config.toml`, unquoted.
+/// When the user has opted into the external MemPalace semantic engine, returns
+/// the argv to spawn its MCP server; otherwise `None` (use the builtin engine).
+///
+/// `<data dir>/config.toml`:
+/// ```toml
+/// engine = "mempalace"
+/// mempalace_command = "mempalace-mcp"   # optional; may include args, e.g. "npx mempalace-mcp"
+/// ```
+pub fn mempalace_command() -> Option<Vec<String>> {
+    if config_value("engine")?.trim() != "mempalace" {
+        return None;
+    }
+    let cmd = config_value("mempalace_command").unwrap_or_else(|| "mempalace-mcp".into());
+    let argv: Vec<String> = cmd.split_whitespace().map(str::to_string).collect();
+    (!argv.is_empty()).then_some(argv)
+}
+
 fn config_value(key: &str) -> Option<String> {
     let text = std::fs::read_to_string(data_dir().ok()?.join("config.toml")).ok()?;
     text.lines().find_map(|line| {
@@ -755,6 +772,37 @@ mod tests {
     fn keeps_label_hides_value() {
         assert_eq!(redact("API_KEY=abcdef123456"), "API_KEY=[REDACTED]");
         assert_eq!(redact("password: hunter2secret"), "password: [REDACTED]");
+    }
+
+    #[test]
+    fn mempalace_command_reads_config() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh_data_dir("mempalace-cfg");
+
+        // No config → builtin (None).
+        assert!(mempalace_command().is_none());
+
+        // engine set but not mempalace → still None.
+        std::fs::write(dir.join("config.toml"), "engine = \"builtin\"\n").unwrap();
+        assert!(mempalace_command().is_none());
+
+        // Opted in, default command.
+        std::fs::write(dir.join("config.toml"), "engine = \"mempalace\"\n").unwrap();
+        assert_eq!(mempalace_command(), Some(vec!["mempalace-mcp".to_string()]));
+
+        // Opted in with an override that carries args.
+        std::fs::write(
+            dir.join("config.toml"),
+            "engine = \"mempalace\"\nmempalace_command = \"npx mempalace-mcp --stdio\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            mempalace_command(),
+            Some(vec!["npx".into(), "mempalace-mcp".into(), "--stdio".into()])
+        );
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

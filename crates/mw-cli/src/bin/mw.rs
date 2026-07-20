@@ -1689,6 +1689,35 @@ impl Scope {
     }
 }
 
+/// Render hits from an external engine (MemPalace) — no local ids, so no
+/// `mw replay/show` action or provenance lookup; the reason string already
+/// carries the source ("mempalace semantic score 0.87").
+fn print_external_hits(query: &str, hits: &[mw_memory::ScoredMemory], explain: bool) {
+    println!("# matches for {query:?}  (mempalace)\n");
+    if hits.is_empty() {
+        println!("(none)");
+        return;
+    }
+    for sm in hits {
+        let snippet: String = sm
+            .memory
+            .text
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("")
+            .trim()
+            .chars()
+            .take(100)
+            .collect();
+        println!("{:>3}%  [mempalace] {}", sm.percent(), snippet);
+        if explain {
+            for reason in sm.reasons() {
+                println!("      {reason}");
+            }
+        }
+    }
+}
+
 fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
@@ -1700,6 +1729,25 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         );
     }
     let query = terms.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
+
+    // External semantic engine (MemPalace), if the user opted in via config. It
+    // ranks server-side over its own corpus, so the local scope filters don't
+    // apply. If the server is unreachable we print a notice and fall through to
+    // the builtin engine over local memory, so a misconfig never hard-fails.
+    if let Some(argv) = memorywhale_cli::mempalace_command() {
+        let (cmd, rest) = argv.split_first().expect("mempalace_command is non-empty");
+        let eng = mw_memory::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec());
+        match eng.try_retrieve(&mw_memory::Query::new(&query, Utc::now()), 20) {
+            Ok(hits) => {
+                print_external_hits(&query, &hits, explain);
+                return Ok(());
+            }
+            Err(e) => {
+                eprintln!("mw: mempalace unavailable ({e:#}); using the local engine");
+            }
+        }
+    }
+
     // Opening the db migrates it, so the provenance and scope columns exist
     // before the loader reads them; the loader also skips unapproved notes.
     let conn = open_session_db()?;

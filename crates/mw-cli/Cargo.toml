@@ -15,7 +15,11 @@ categories = ["command-line-utilities", "development-tools"]
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5"
-mw-memory = { path = "../mw-memory" }
+# The `mempalace` feature adds no dependencies (std process + serde_json +
+# anyhow, all already present), so it's enabled unconditionally: it lets
+# `engine = "mempalace"` in config.toml route search through a local MemPalace
+# MCP server, with a builtin fallback when that server is unreachable.
+mw-memory = { path = "../mw-memory", features = ["mempalace"] }
 regex = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
