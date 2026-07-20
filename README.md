@@ -176,6 +176,88 @@ mw --notes "project:pop_playlist server testing"  # terminal 2
 To auto-record every new terminal without typing `mw`, use `mw global on`
 (`mw global off` to stop). Full operating procedure: [SOP.md](SOP.md).
 
+## Two capture tiers: shell hooks vs `mw --live`
+
+MemoryWhale captures at two levels. They layer — you can run both.
+
+```bash
+mw hooks install     # lightweight, always on, every shell
+mw hooks uninstall    # removes exactly the managed block it added
+```
+
+| | Shell hooks (`mw hooks install`) | Full capture (`mw --live`, `mw-run`) |
+| --- | --- | --- |
+| Always on | Yes, every interactive shell | Per terminal / per command |
+| Records | Command line, working directory, exit code, duration | All of that **plus the full output transcript** |
+| Does **not** record | stdout, stderr, screen content, TUI redraws | — |
+| Cost | One detached write per command, no `script` pty | A pty wrapper for the session |
+| Row marker | `command_runs.capture_kind = 'hook'` | `capture_kind = 'full'` |
+
+Everything lands in the same SQLite database and the same `command_runs`
+table, so `mw search`, `mw context` and the dashboard see hook rows alongside
+full-capture rows. `capture_kind` is how you tell them apart.
+
+How they layer:
+
+- **Hooks are the index.** Always-on, cheap, so you can always answer *what did
+  I run, where, and did it work?* — even months later.
+- **`mw --live` is the recording.** Start it when you're about to do something
+  you'll want to re-read: a gnarly debug session, a deploy, a pairing session.
+- **No double capture.** While a full `mw` session is running it exports
+  `MW_RECORDING=1`; the hook sees that and skips logging entirely, so a command
+  is never recorded twice.
+- **Capture gates apply to both.** A directory gated `off` (via `.mwignore` or
+  `[capture.paths]`) produces zero hook rows — the gate is checked before the
+  database is even opened.
+
+Supported shells: zsh (`preexec`/`precmd`), bash (`DEBUG` trap +
+`PROMPT_COMMAND`), fish (`fish_postexec`). PowerShell is not wired up yet.
+The hook fails silently by design: a locked or missing database, a missing
+binary, a bad path — none of it blocks or breaks your prompt, and your `$?` is
+preserved. Turn it off for one shell with `export MW_HOOK_OFF=1`.
+
+## Capture gates: never record certain directories
+
+Some directories should never end up in your memory. Capture gates decide, per
+directory, how much may be stored — and they are enforced *before* anything is
+written to SQLite, not cleaned up afterwards.
+
+| Mode | What is stored |
+| --- | --- |
+| `full` | Everything (the default, unchanged). |
+| `commands-only` | What ran, where, exit code, and timing — no stdout/stderr or transcript. |
+| `off` | Nothing at all. |
+
+Drop a `.mwignore` file at the root of a directory tree:
+
+```toml
+# ~/finances/.mwignore
+capture = "off"
+```
+
+…or gate paths globally in `<data dir>/config.toml`:
+
+```toml
+machine = "laptop"
+
+[capture.paths]
+"~/finances" = "off"
+"~/work/client-repo" = "commands-only"
+```
+
+Precedence: the nearest `.mwignore` walking **up** from your working directory,
+then the longest matching prefix under `[capture.paths]`, then `full`. Paths are
+resolved through symlinks, so a shortcut into a gated tree stays gated.
+
+Check what applies where you are:
+
+```bash
+mw status     # capture mode for this directory, and which rule produced it
+```
+
+Already-recorded memory can be aged out with `mw prune --older-than 90d`
+(add `--dry-run` to see what would go first).
+
 ## Sharing memory across machines
 
 Memory is local per machine, but you can move it:

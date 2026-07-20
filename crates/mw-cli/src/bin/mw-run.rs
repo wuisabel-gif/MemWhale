@@ -61,13 +61,25 @@ fn run() -> Result<i32, String> {
 
     let command = command_parts[0].clone();
     let args = &command_parts[1..];
+    // Capture gate: output is always shown live, but what may be *stored* is
+    // decided by the cwd's mode before any insert happens.
+    let gate = memorywhale_cli::capture_rule_for(cwd.to_str());
     let output = run_and_capture(&command, args, &cwd)?;
+    if !gate.mode.stores_anything() {
+        eprintln!("mw-run: capture off for this directory ({}) — nothing saved.", gate.source);
+        return Ok(output.exit_code.unwrap_or(1) as i32);
+    }
+    let (stdout, stderr) = if gate.mode.stores_output() {
+        (output.stdout.as_str(), output.stderr.as_str())
+    } else {
+        ("", "")
+    };
     let run_id = remember_command(
         &command_parts,
         &cwd,
         output.exit_code,
-        &output.stdout,
-        &output.stderr,
+        stdout,
+        stderr,
         &notes,
     )?;
 
