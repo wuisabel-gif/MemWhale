@@ -512,133 +512,6 @@ fn to_hit(sm: &mw_memory::ScoredMemory) -> RecallHit {
     }
 }
 
-/// Load everything MemoryWhale remembers — documents (notes), command runs, and
-/// agent conversation turns — as scorable memories. Ids are namespaced per source
-/// (documents as-is, commands +1e9, conversation +2e9) so `explain(id)` is stable.
-fn load_memories(conn: &Connection) -> Result<Vec<mw_memory::Memory>, AppError> {
-    let parse = |ts: &str| {
-        chrono::DateTime::parse_from_rfc3339(ts)
-            .map(|d| d.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc::now())
-    };
-    let mut mems: Vec<mw_memory::Memory> = Vec::new();
-
-    // Documents / notes.
-    let docs = conn
-        .prepare("SELECT id, title, content, source_type, created_at FROM documents")?
-        .query_map([], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, String>(4)?,
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    for (id, title, content, source_type, created) in docs {
-        let when = parse(&created);
-        mems.push(mw_memory::Memory {
-            id,
-            text: format!("{title}. {content}"),
-            created_at: when,
-            last_used: when,
-            mentions: 1,
-            importance: 0.5,
-            tags: vec!["document".into(), source_type],
-            embedding: None,
-        });
-    }
-
-    // Command runs — reinforcement = how often the same command recurs.
-    let runs = conn
-        .prepare(
-            "SELECT id, command, argv_json, notes, stderr, exit_code, created_at FROM command_runs",
-        )?
-        .query_map([], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, String>(4)?,
-                r.get::<_, Option<i64>>(5)?,
-                r.get::<_, String>(6)?,
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut cmd_counts: HashMap<String, u32> = HashMap::new();
-    for (_, cmd, ..) in &runs {
-        *cmd_counts.entry(cmd.to_lowercase()).or_insert(0) += 1;
-    }
-    for (id, command, argv_json, notes, stderr, exit_code, created) in runs {
-        let when = parse(&created);
-        let importance = if exit_code.unwrap_or(0) != 0 {
-            0.65
-        } else {
-            0.4
-        };
-        mems.push(mw_memory::Memory {
-            id: 1_000_000_000 + id,
-            text: format!("{command} {argv_json} {notes} {stderr}"),
-            created_at: when,
-            last_used: when,
-            mentions: *cmd_counts.get(&command.to_lowercase()).unwrap_or(&1),
-            importance,
-            tags: vec![
-                "command".into(),
-                if exit_code == Some(0) {
-                    "ok".into()
-                } else {
-                    "error".into()
-                },
-            ],
-            embedding: None,
-        });
-    }
-
-    // Agent conversation turns (written by Delphin / hooks, if present).
-    let turns = conn
-        .prepare("SELECT id, ts, direction, text FROM agent_turns")?
-        .query_map([], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut turn_counts: HashMap<String, u32> = HashMap::new();
-    for (_, _, _, t) in &turns {
-        *turn_counts.entry(t.trim().to_lowercase()).or_insert(0) += 1;
-    }
-    for (id, ts, direction, text) in turns {
-        if text.trim().is_empty() {
-            continue;
-        }
-        let when = parse(&ts);
-        let importance = match direction.as_str() {
-            "user" => 0.6_f32,
-            "agent" => 0.45,
-            _ => 0.3,
-        };
-        let mentions = *turn_counts.get(&text.trim().to_lowercase()).unwrap_or(&1);
-        mems.push(mw_memory::Memory {
-            id: 2_000_000_000 + id,
-            text,
-            created_at: when,
-            last_used: when,
-            mentions,
-            importance,
-            tags: vec!["conversation".into(), direction],
-            embedding: None,
-        });
-    }
-
-    Ok(mems)
-}
-
 /// Build the recall engine. Uses local **Ollama** embeddings for semantic recall
 /// when the Ollama server is running (`ollama pull nomic-embed-text`), and
 /// transparently falls back to the lexical scorer when it isn't — so the app
@@ -727,7 +600,7 @@ fn recall_memories(
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        let mems = load_memories(&conn)?;
+        let mems = mw_memory::sqlite::load_memories(&conn);
         build_recall_engine(&conn, mems)
     };
     let q = mw_memory::Query::new(query, Utc::now());
@@ -749,7 +622,7 @@ fn explain_memory(
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        let mems = load_memories(&conn)?;
+        let mems = mw_memory::sqlite::load_memories(&conn);
         build_recall_engine(&conn, mems)
     };
     let q = mw_memory::Query::new(query, Utc::now());

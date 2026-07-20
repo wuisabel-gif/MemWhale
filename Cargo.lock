@@ -2053,6 +2053,7 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "libc",
+ "mw-memory",
  "regex",
  "rusqlite",
  "serde",

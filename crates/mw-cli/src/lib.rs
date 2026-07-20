@@ -563,13 +563,16 @@ mod tests {
             .unwrap();
         assert_eq!(agent_approved, 0, "agent memory pending review");
 
-        // Retrieval filters on approved = 1 (as mw search / MCP do).
-        let visible: Vec<i64> = conn
-            .prepare("SELECT id FROM bookmarks WHERE approved = 1")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .map(Result::unwrap)
+        // Assert through the REAL retrieval path — the shared loader every
+        // surface (mw search, MCP, desktop) goes through — not a re-implemented
+        // query, so this test fails if the loader ever drops the approved filter.
+        let loaded = mw_memory::sqlite::load_memories(&conn);
+        let visible: Vec<i64> = loaded
+            .iter()
+            .filter_map(|m| match mw_memory::sqlite::decode_id(m.id) {
+                (mw_memory::sqlite::Source::Note, id) => Some(id),
+                _ => None,
+            })
             .collect();
         assert!(visible.contains(&human_id), "human memory visible");
         assert!(!visible.contains(&agent_id), "unapproved agent memory hidden");
