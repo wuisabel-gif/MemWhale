@@ -85,14 +85,17 @@ fn tool_defs() -> Value {
             "name": "search_memory",
             "description": "Search remembered commands, sessions, and notes for a term. Results are ranked by an explainable engine and each includes the reasons it ranked where it did.",
             "inputSchema": {"type": "object", "properties": {
-                "query": {"type": "string", "description": "text to search for"}
+                "query": {"type": "string", "description": "text to search for"},
+                "project": {"type": "string", "description": "optional: only memory recorded for this project, e.g. demo"},
+                "machine": {"type": "string", "description": "optional: only memory recorded on this machine"}
             }, "required": ["query"]}
         },
         {
             "name": "get_context",
-            "description": "The most relevant remembered memory, engine-ranked, optionally scoped to a project tag. Each result includes the reasons it was ranked where it did.",
+            "description": "The most relevant remembered memory, engine-ranked, optionally scoped to a project or machine. Each result includes the reasons it was ranked where it did.",
             "inputSchema": {"type": "object", "properties": {
-                "project": {"type": "string", "description": "project tag, e.g. project:demo"}
+                "project": {"type": "string", "description": "project tag, e.g. project:demo"},
+                "machine": {"type": "string", "description": "optional: only memory recorded on this machine"}
             }}
         },
         {
@@ -125,11 +128,11 @@ fn call_tool(name: &str, args: &Value, client_name: Option<&str>) -> Result<Stri
                 .get("query")
                 .and_then(Value::as_str)
                 .ok_or_else(|| "search_memory needs a 'query'".to_string())?;
-            search_memory(q)
+            search_memory(q, scope_arg(args, "project"), scope_arg(args, "machine"))
         }
         "get_context" => {
             let project = args.get("project").and_then(Value::as_str);
-            get_context(project)
+            get_context(project, scope_arg(args, "machine"))
         }
         "remember" => {
             let text = args
@@ -246,10 +249,27 @@ fn note_provenance(conn: &Connection, id: i64) -> Option<String> {
 /// Rank all memories (commands, sessions, notes, …) for the query via the
 /// explainable engine — the same loader + scorer the CLI and desktop use.
 /// "now" is supplied by this caller so ranking is deterministic in tests.
-fn search_memory(query: &str) -> Result<String, String> {
+fn search_memory(
+    query: &str,
+    project: Option<&str>,
+    machine: Option<&str>,
+) -> Result<String, String> {
     let conn = open()?;
-    let engine = mw_memory::engine::BuiltinEngine::new(mw_memory::sqlite::load_memories(&conn));
-    let q = mw_memory::Query::new(query, Utc::now());
+    let now = Utc::now();
+    // Unscoped (no project/machine) leaves the memory set untouched.
+    let mems = memorywhale_cli::scope_memories(
+        &conn,
+        mw_memory::sqlite::load_memories(&conn),
+        project,
+        machine,
+        None,
+    );
+    let engine = mw_memory::engine::BuiltinEngine::new(mems);
+    let mut q = mw_memory::Query::new(query, now);
+    let tags = task_tags(&[project, machine]);
+    if !tags.is_empty() {
+        q = q.with_task(tags);
+    }
     let hits = engine.retrieve(&q, 20);
     if hits.is_empty() {
         return Ok(format!("(no matches for {query:?})"));
@@ -261,15 +281,40 @@ fn search_memory(query: &str) -> Result<String, String> {
     Ok(out)
 }
 
-fn get_context(project: Option<&str>) -> Result<String, String> {
+/// Non-empty scope values as engine task tags, so task-relevance scoring can
+/// fire on memories that mention the project or machine.
+fn task_tags(values: &[Option<&str>]) -> Vec<String> {
+    values.iter().flatten().map(|s| s.to_string()).collect()
+}
+
+/// Optional string argument, treating empty/blank as absent.
+fn scope_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
+    args.get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+}
+
+fn get_context(project: Option<&str>, machine: Option<&str>) -> Result<String, String> {
     let conn = open()?;
-    let engine = mw_memory::engine::BuiltinEngine::new(mw_memory::sqlite::load_memories(&conn));
+    // Callers have always passed the tag form ("project:demo"); the column
+    // holds the bare name, so accept either.
+    let scope = project.map(|p| p.trim_start_matches("project:"));
+    let mems = memorywhale_cli::scope_memories(
+        &conn,
+        mw_memory::sqlite::load_memories(&conn),
+        scope.filter(|s| !s.is_empty()),
+        machine,
+        None,
+    );
+    let engine = mw_memory::engine::BuiltinEngine::new(mems);
     // Scope by project tag when given: it's both the query text and a task tag
     // so the task-relevance signal can fire when a memory carries the tag.
     let query = project.unwrap_or("");
     let mut q = mw_memory::Query::new(query, Utc::now());
-    if let Some(p) = project {
-        q = q.with_task(vec![p.to_string()]);
+    let tags = task_tags(&[project, machine]);
+    if !tags.is_empty() {
+        q = q.with_task(tags);
     }
     let hits = engine.retrieve(&q, 8);
     let mut out = String::from("Most relevant memory (engine-ranked):\n");
