@@ -12,7 +12,7 @@
 //   mw                                  # record a session, exit the subshell to stop
 //   mw --notes "debugging the Jetson build"
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use mw_memory::engine::MemoryEngine;
 use regex::Regex;
 use rusqlite::{params, Connection};
@@ -40,7 +40,7 @@ fn run() -> Result<(), String> {
     let raw_args: Vec<String> = env::args().skip(1).collect();
     match raw_args.first().map(String::as_str) {
         Some("show") => return show_session(&raw_args[1..]),
-        Some("list") => return list_sessions(),
+        Some("list") => return list_sessions(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
         Some("remember") => return remember_cmd(&raw_args[1..]),
         Some("rm") => return rm_memory(&raw_args[1..]),
@@ -60,6 +60,8 @@ fn run() -> Result<(), String> {
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
         Some("doctor") => return doctor(),
         Some("global") => return global_cmd(&raw_args[1..]),
+        Some("status") => return global_status(),
+        Some("hooks") => return hooks_cmd(&raw_args[1..]),
         Some("--help") | Some("-h") => {
             print_help();
             return Ok(());
@@ -93,18 +95,35 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
         .ok()
         .and_then(|path| path.to_str().map(ToOwned::to_owned));
 
+    // Capture gate for this directory, resolved before anything is recorded.
+    let gate = memorywhale_cli::capture_rule_for(cwd.as_deref());
+    if !gate.mode.stores_anything() {
+        return run_unrecorded_shell(&shell, &gate.source);
+    }
+    let store_output = gate.mode.stores_output();
+
     let started_at = Utc::now().to_rfc3339();
     let sessions_dir = sessions_dir()?;
     fs::create_dir_all(&sessions_dir)
         .map_err(|err| format!("failed to create sessions dir: {err}"))?;
-    let transcript_path =
-        sessions_dir.join(format!("session-{}.log", started_at.replace(':', "-")));
+    // commands-only: `script` still needs somewhere to write, but it goes to a
+    // scratch file outside the memory directory and is deleted on exit, so no
+    // output survives anywhere.
+    let transcript_path = if store_output {
+        sessions_dir.join(format!("session-{}.log", started_at.replace(':', "-")))
+    } else {
+        env::temp_dir().join(format!("mw-scratch-{}.log", started_at.replace(':', "-")))
+    };
     let transcript_str = transcript_path
         .to_str()
         .ok_or_else(|| "transcript path is not valid UTF-8".to_string())?
         .to_string();
 
-    eprintln!("mw: recording session to {transcript_str}");
+    if store_output {
+        eprintln!("mw: recording session to {transcript_str}");
+    } else {
+        eprintln!("mw: capture is commands-only here ({}) — no output will be stored.", gate.source);
+    }
     if live {
         eprintln!(
             "mw: live autosave is on; the dashboard/SQLite row updates every {LIVE_SYNC_INTERVAL_SECS}s."
@@ -119,6 +138,7 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
             transcript_path: &transcript_str,
             notes: &notes,
             started_at: &started_at,
+            store_output,
         })?;
         // If our parent dies while `script` is still running, finalize this row
         // as `interrupted` immediately instead of leaving it stranded as
@@ -127,12 +147,21 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
         #[cfg(unix)]
         {
             let death_path = transcript_path.clone();
+            // Honours the directory's capture mode: under commands-only the
+            // interrupted row is finalized without storing transcript output,
+            // same as the normal finish path.
             memorywhale_cli::guard_parent_death(move || {
                 let ended_at = Utc::now().to_rfc3339();
-                let _ = update_session_from_transcript(id, &death_path, &ended_at, "interrupted");
+                let _ = update_session_from_transcript(
+                    id,
+                    &death_path,
+                    &ended_at,
+                    "interrupted",
+                    store_output,
+                );
             });
         }
-        let sync = start_live_sync(id, transcript_path.clone());
+        let sync = start_live_sync(id, transcript_path.clone(), store_output);
         Some((id, sync))
     } else {
         None
@@ -191,7 +220,7 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
     }
     let (id, byte_count) = if let Some(id) = live_session {
         let byte_count =
-            update_session_from_transcript(id, &transcript_path, &ended_at, "finished")?;
+            update_session_from_transcript(id, &transcript_path, &ended_at, "finished", store_output)?;
         (id, byte_count)
     } else {
         insert_finished_session(
@@ -201,11 +230,15 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
                 transcript_path: &transcript_str,
                 notes: &notes,
                 started_at: &started_at,
+                store_output,
             },
             &transcript_path,
             &ended_at,
         )?
     };
+    if !store_output {
+        let _ = fs::remove_file(&transcript_path);
+    }
 
     let exit_note = match status.code() {
         Some(code) => format!("shell exited with code {code}"),
@@ -219,12 +252,14 @@ fn print_help() {
     println!(
         "mw [--notes <text>]      record a whole shell session until you exit\n\
          mw --live [--notes <text>]  autosave the session to SQLite while it is still running\n\
-         mw list                  list recorded sessions\n\
+         mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text>       save a lesson/conclusion, e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
+         mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
+         mw status                print the effective capture mode for this directory and why\n\
          mw share [session|command] <id> [-o file]  write a self-contained HTML page to send to someone\n\
          mw discard               inside a recording: throw the current session away — nothing saved\n\
          mw replay <run-id>       rerun a saved command from command_runs\n\
@@ -233,13 +268,14 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
          mw context [project:name] [--last-error] [--limit N]  print a compact digest to paste into an AI agent\n\
          mw agent [session-id]    export a full session as agent-ready text to paste later (default: latest)\n\
          mw ask [question] [--chat chatgpt|claude|gemini|URL] [--session] [--no-open]  package the last failure for your chat AI\n\
          mw doctor                check the install: data dir, database, `script`, and hook status\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
+         mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
          Raw transcript: <data_local>/MemoryWhale/sessions/\n\
@@ -306,6 +342,33 @@ struct SessionDraft<'a> {
     transcript_path: &'a str,
     notes: &'a str,
     started_at: &'a str,
+    /// False under `commands-only`: session metadata is kept, the transcript
+    /// (and its on-disk path) never reaches the database.
+    store_output: bool,
+}
+
+/// `capture = "off"` for this directory: hand the user a plain interactive
+/// shell. `mw` is often `exec`d by the global hook, so it must still leave a
+/// usable shell behind — it just records nothing, anywhere.
+fn run_unrecorded_shell(shell: &str, source: &str) -> Result<(), String> {
+    eprintln!("mw: capture is OFF for this directory ({source}) — nothing will be recorded.");
+    Command::new(shell)
+        .env("MW_RECORDING", "1")
+        .status()
+        .map_err(|err| format!("failed to launch {shell}: {err}"))?;
+    Ok(())
+}
+
+impl SessionDraft<'_> {
+    /// Under `commands-only` the scratch transcript is deleted on exit, so the
+    /// database must not point at it.
+    fn stored_transcript_path(&self) -> &str {
+        if self.store_output {
+            self.transcript_path
+        } else {
+            ""
+        }
+    }
 }
 
 struct LiveSync {
@@ -318,15 +381,18 @@ fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
     conn.execute(
         "
         INSERT INTO sessions
-            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
-        VALUES (?1, ?2, ?3, '', ?4, ?5, ?5, 0, 'recording')
+            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count,
+             status, project, machine)
+        VALUES (?1, ?2, ?3, '', ?4, ?5, ?5, 0, 'recording', ?6, ?7)
         ",
         params![
             draft.shell,
             draft.cwd,
-            draft.transcript_path,
+            draft.stored_transcript_path(),
             draft.notes,
-            draft.started_at
+            draft.started_at,
+            memorywhale_cli::project_of(draft.notes),
+            memorywhale_cli::machine_name()
         ],
     )
     .map_err(|err| format!("failed to create live session row: {err}"))?;
@@ -341,23 +407,30 @@ fn insert_finished_session(
     let raw =
         fs::read(transcript_path).map_err(|err| format!("failed to read transcript: {err}"))?;
     let byte_count = raw.len() as i64;
-    let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
+    let cleaned = if draft.store_output {
+        clean_transcript(&String::from_utf8_lossy(&raw))
+    } else {
+        String::new()
+    };
     let conn = open_session_db()?;
     conn.execute(
         "
         INSERT INTO sessions
-            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'finished')
+            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count,
+             status, project, machine)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'finished', ?9, ?10)
         ",
         params![
             draft.shell,
             draft.cwd,
-            draft.transcript_path,
+            draft.stored_transcript_path(),
             cleaned,
             draft.notes,
             draft.started_at,
             ended_at,
-            byte_count
+            byte_count,
+            memorywhale_cli::project_of(draft.notes),
+            memorywhale_cli::machine_name()
         ],
     )
     .map_err(|err| format!("failed to insert session: {err}"))?;
@@ -445,9 +518,15 @@ fn prune_cmd(args: &[String]) -> Result<(), String> {
                     .ok_or_else(|| "--min-bytes needs a number".to_string())?;
             }
             "--dry-run" => dry = true,
+            "--older-than" => {
+                let spec = iter
+                    .next()
+                    .ok_or_else(|| "--older-than needs a duration, e.g. 30d".to_string())?;
+                return prune_older_than(spec, dry || args.iter().any(|a| a == "--dry-run"));
+            }
             other => {
                 return Err(format!(
-                    "unexpected argument {other:?}; usage: mw prune [--min-bytes N] [--dry-run]"
+                    "unexpected argument {other:?}; usage: mw prune [--min-bytes N] [--older-than 30d] [--dry-run]"
                 ))
             }
         }
@@ -485,6 +564,56 @@ fn prune_cmd(args: &[String]) -> Result<(), String> {
         n += 1;
     }
     println!("mw: pruned {n} empty/interrupted session(s) (and their transcripts).");
+    Ok(())
+}
+
+/// Delete sessions (and their transcripts) and command runs older than a
+/// relative window like `30d`. Reuses the `--since` duration parser.
+fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
+    let cutoff = (Utc::now() - memorywhale_cli::parse_since(spec)?).to_rfc3339();
+    let conn = open_session_db()?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, transcript_path FROM sessions WHERE started_at < ?1")
+        .map_err(|err| format!("failed to query sessions: {err}"))?;
+    let sessions: Vec<(i64, Option<String>)> = stmt
+        .query_map(params![cutoff], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|err| format!("query error: {err}"))?
+        .filter_map(Result::ok)
+        .collect();
+    let runs: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM command_runs WHERE created_at < ?1",
+            params![cutoff],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+
+    if sessions.is_empty() && runs == 0 {
+        println!("mw: nothing older than {spec}.");
+        return Ok(());
+    }
+    if dry {
+        println!(
+            "mw: would remove {} session(s) and {runs} command run(s) older than {spec} (dry run).",
+            sessions.len()
+        );
+        for (id, path) in &sessions {
+            println!("  session #{id}{}", path.as_deref().map(|p| format!(" -> {p}")).unwrap_or_default());
+        }
+        return Ok(());
+    }
+    for (id, transcript_path) in &sessions {
+        if let Some(p) = transcript_path.as_deref().filter(|p| !p.is_empty()) {
+            let _ = fs::remove_file(p);
+        }
+        let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
+    }
+    let _ = conn.execute("DELETE FROM command_runs WHERE created_at < ?1", params![cutoff]);
+    println!(
+        "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
+        sessions.len()
+    );
     Ok(())
 }
 
@@ -543,7 +672,7 @@ fn share_cmd(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn start_live_sync(id: i64, transcript_path: PathBuf) -> LiveSync {
+fn start_live_sync(id: i64, transcript_path: PathBuf, store_output: bool) -> LiveSync {
     let stop = Arc::new(AtomicBool::new(false));
     let thread_stop = Arc::clone(&stop);
     let handle = thread::spawn(move || {
@@ -553,7 +682,8 @@ fn start_live_sync(id: i64, transcript_path: PathBuf) -> LiveSync {
                 break;
             }
             let ended_at = Utc::now().to_rfc3339();
-            let _ = update_session_from_transcript(id, &transcript_path, &ended_at, "recording");
+            let _ =
+                update_session_from_transcript(id, &transcript_path, &ended_at, "recording", store_output);
         }
     });
     LiveSync { stop, handle }
@@ -564,6 +694,7 @@ fn update_session_from_transcript(
     transcript_path: &PathBuf,
     ended_at: &str,
     status: &str,
+    store_output: bool,
 ) -> Result<i64, String> {
     let raw = match fs::read(transcript_path) {
         Ok(raw) => raw,
@@ -571,7 +702,11 @@ fn update_session_from_transcript(
         Err(err) => return Err(format!("failed to read transcript: {err}")),
     };
     let byte_count = raw.len() as i64;
-    let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
+    let cleaned = if store_output {
+        clean_transcript(&String::from_utf8_lossy(&raw))
+    } else {
+        String::new()
+    };
     let conn = open_session_db()?;
     conn.execute(
         "
@@ -592,6 +727,8 @@ fn open_session_db() -> Result<Connection, String> {
     }
     let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
     init_schema(&conn)?;
+    // Provenance (v1) + scope columns (v2) exist before any read or write.
+    memorywhale_cli::migrate(&conn)?;
     Ok(conn)
 }
 
@@ -849,6 +986,126 @@ fn global_cmd(args: &[String]) -> Result<(), String> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// `mw hooks` — the lightweight always-on capture tier.
+//
+// ponytail: no PowerShell here; Windows is a follow-up issue.
+// ---------------------------------------------------------------------------
+
+const HOOK_SH: &str = include_str!("../../../../linux/shell/memorywhale.sh");
+const HOOK_FISH: &str = include_str!("../../../../linux/shell/memorywhale.fish");
+const HOOK_BEGIN: &str = "# >>> memorywhale shell hooks >>>";
+const HOOK_END: &str = "# <<< memorywhale shell hooks <<<";
+
+/// (shell name, rc file, generated hook file, hook script body)
+fn hook_target() -> Result<(&'static str, PathBuf, PathBuf, &'static str), String> {
+    let home = dirs::home_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
+    let shell = env::var("SHELL").unwrap_or_default();
+    let name = shell.rsplit('/').next().unwrap_or_default();
+    let hooks_dir = memorywhale_dir()?;
+    if name.contains("fish") {
+        Ok((
+            "fish",
+            home.join(".config").join("fish").join("config.fish"),
+            hooks_dir.join("memorywhale.fish"),
+            HOOK_FISH,
+        ))
+    } else if name.contains("zsh") {
+        Ok(("zsh", home.join(".zshrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
+    } else {
+        Ok(("bash", home.join(".bashrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
+    }
+}
+
+fn hook_block(shell: &str, hook_path: &str) -> String {
+    let source_line = if shell == "fish" {
+        format!("test -f \"{hook_path}\"; and source \"{hook_path}\"")
+    } else {
+        format!("[ -f \"{hook_path}\" ] && . \"{hook_path}\"")
+    };
+    format!("{HOOK_BEGIN}\n# Managed by `mw hooks` — edit above/below, not inside.\n{source_line}\n{HOOK_END}\n")
+}
+
+/// Drop the managed block (and only that) from an rc file's text.
+fn strip_hook_block(rc: &str) -> String {
+    let mut out = String::with_capacity(rc.len());
+    let mut skipping = false;
+    for line in rc.lines() {
+        if line.trim() == HOOK_BEGIN {
+            skipping = true;
+            continue;
+        }
+        if skipping {
+            if line.trim() == HOOK_END {
+                skipping = false;
+            }
+            continue;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
+fn hooks_cmd(args: &[String]) -> Result<(), String> {
+    match args.first().map(String::as_str) {
+        Some("install") => hooks_install(),
+        Some("uninstall") | Some("remove") => hooks_uninstall(),
+        Some(other) => Err(format!(
+            "unknown subcommand {other:?}; usage: mw hooks [install|uninstall]"
+        )),
+        None => Err("usage: mw hooks [install|uninstall]".to_string()),
+    }
+}
+
+fn hooks_install() -> Result<(), String> {
+    let (shell, rc_path, hook_path, body) = hook_target()?;
+    if let Some(parent) = hook_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("failed to create data dir: {e}"))?;
+    }
+    fs::write(&hook_path, body).map_err(|e| format!("failed to write hook script: {e}"))?;
+    let hook_str = hook_path
+        .to_str()
+        .ok_or_else(|| "hook path is not valid UTF-8".to_string())?;
+
+    if let Some(parent) = rc_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+    }
+    let existing = fs::read_to_string(&rc_path).unwrap_or_default();
+    // Idempotent: strip any previous block first, then append exactly one.
+    let mut updated = strip_hook_block(&existing);
+    if !updated.is_empty() && !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(&hook_block(shell, hook_str));
+    fs::write(&rc_path, updated).map_err(|e| format!("failed to update {}: {e}", rc_path.display()))?;
+
+    println!("mw: lightweight shell hooks INSTALLED ({shell}).");
+    println!("  rc file: {}", rc_path.display());
+    println!("  hook:    {hook_str}");
+    println!("  Records command, cwd, exit code and duration. No output — use `mw --live` for that.");
+    println!("  Open a NEW terminal to start capturing.");
+    Ok(())
+}
+
+fn hooks_uninstall() -> Result<(), String> {
+    let (shell, rc_path, hook_path, _) = hook_target()?;
+    let existing = fs::read_to_string(&rc_path).unwrap_or_default();
+    let updated = strip_hook_block(&existing);
+    let changed = updated != existing;
+    if changed {
+        fs::write(&rc_path, updated)
+            .map_err(|e| format!("failed to update {}: {e}", rc_path.display()))?;
+    }
+    let _ = fs::remove_file(&hook_path);
+    if changed {
+        println!("mw: shell hooks REMOVED from {} ({shell}).", rc_path.display());
+    } else {
+        println!("mw: no shell hook block found in {} — nothing to do.", rc_path.display());
+    }
+    Ok(())
+}
+
 /// Shell startup file to wire the hook into, chosen from $SHELL (zsh vs bash).
 fn shell_rc_path() -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
@@ -969,6 +1226,12 @@ fn global_status() -> Result<(), String> {
     if !wired {
         println!("run `mw global on` to set it up.");
     }
+
+    let cwd = env::current_dir().unwrap_or_default();
+    let gate = memorywhale_cli::capture_rule(&cwd);
+    println!();
+    println!("capture mode here ({}): {}", cwd.display(), gate.mode.as_str());
+    println!("  rule: {}", gate.source);
     Ok(())
 }
 
@@ -1021,23 +1284,35 @@ fn show_session(args: &[String]) -> Result<(), String> {
     }
 }
 
-fn list_sessions() -> Result<(), String> {
-    let conn =
-        Connection::open(database_path()?).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
+fn list_sessions(args: &[String]) -> Result<(), String> {
+    let (scope, rest) = Scope::take(args)?;
+    if let Some(other) = rest.first() {
+        return Err(format!("unexpected argument {other:?}; run mw --help"));
+    }
+    let conn = open_session_db()?;
+    let since = scope.cutoff(Utc::now()).map(|c| c.to_rfc3339());
 
     let mut stmt = conn
-        .prepare("SELECT id, started_at, byte_count, notes FROM sessions ORDER BY id")
+        .prepare(
+            "SELECT id, started_at, byte_count, notes FROM sessions
+             WHERE (?1 IS NULL OR project = ?1)
+               AND (?2 IS NULL OR machine = ?2)
+               AND (?3 IS NULL OR started_at >= ?3)
+             ORDER BY id",
+        )
         .map_err(|err| format!("failed to query sessions: {err}"))?;
     let rows = stmt
-        .query_map([], |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, i64>(2)?,
-                r.get::<_, String>(3)?,
-            ))
-        })
+        .query_map(
+            params![scope.project.as_deref(), scope.machine.as_deref(), since.as_deref()],
+            |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                    r.get::<_, String>(3)?,
+                ))
+            },
+        )
         .map_err(|err| format!("failed to read sessions: {err}"))?;
 
     let mut count = 0;
@@ -1356,23 +1631,97 @@ fn note_provenance(conn: &Connection, id: i64) -> Option<String> {
     .ok()
 }
 
+/// `--project` / `--machine` / `--since` as parsed off a command line.
+#[derive(Default)]
+struct Scope {
+    project: Option<String>,
+    machine: Option<String>,
+    since: Option<String>,
+}
+
+impl Scope {
+    /// Pull the scope flags out of `args`, returning them plus the leftovers.
+    fn take(args: &[String]) -> Result<(Scope, Vec<String>), String> {
+        let mut scope = Scope::default();
+        let mut rest = Vec::new();
+        let mut iter = args.iter();
+        while let Some(arg) = iter.next() {
+            let slot = match arg.as_str() {
+                "--project" => &mut scope.project,
+                "--machine" => &mut scope.machine,
+                "--since" => &mut scope.since,
+                _ => {
+                    rest.push(arg.clone());
+                    continue;
+                }
+            };
+            *slot = Some(
+                iter.next()
+                    .cloned()
+                    .ok_or_else(|| format!("{arg} requires a value"))?,
+            );
+        }
+        if let Some(spec) = &scope.since {
+            memorywhale_cli::parse_since(spec)?; // fail fast on a bad window
+        }
+        // `--project project:demo` and `--project demo` mean the same thing.
+        scope.project = scope
+            .project
+            .map(|p| p.trim_start_matches("project:").to_string())
+            .filter(|p| !p.is_empty());
+        Ok((scope, rest))
+    }
+
+    /// Cutoff timestamp for `--since`, relative to `now`.
+    fn cutoff(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        let spec = self.since.as_ref()?;
+        Some(now - memorywhale_cli::parse_since(spec).ok()?)
+    }
+
+    /// The scope as engine task tags, so task-relevance scoring can fire on
+    /// memories that mention the project or machine.
+    fn task_tags(&self) -> Vec<String> {
+        [self.project.as_ref(), self.machine.as_ref()]
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect()
+    }
+}
+
 fn search_memory(args: &[String]) -> Result<(), String> {
+    let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
     let terms: Vec<&String> = args.iter().filter(|a| a.as_str() != "--explain").collect();
     if terms.is_empty() {
-        return Err("usage: mw search <text> [--explain]".to_string());
+        return Err(
+            "usage: mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]"
+                .to_string(),
+        );
     }
     let query = terms.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
+    // Opening the db migrates it, so the provenance and scope columns exist
+    // before the loader reads them; the loader also skips unapproved notes.
     let conn = open_session_db()?;
-    // Guarantees the provenance columns exist before the loader reads them; the
-    // loader also skips unapproved (review-mode) agent notes.
-    let _ = memorywhale_cli::migrate(&conn);
 
     // One loader, one engine — the same code path the desktop Recall panel uses.
     // "now" is supplied here by the caller so scoring stays deterministic.
+    let now = Utc::now();
     let mems = mw_memory::sqlite::load_memories(&conn);
+    // No flags => `mems` comes back untouched, i.e. exactly the old behaviour.
+    let mems = memorywhale_cli::scope_memories(
+        &conn,
+        mems,
+        scope.project.as_deref(),
+        scope.machine.as_deref(),
+        scope.cutoff(now),
+    );
     let engine = mw_memory::engine::BuiltinEngine::new(mems);
-    let q = mw_memory::Query::new(&query, Utc::now());
+    let mut q = mw_memory::Query::new(&query, now);
+    let tags = scope.task_tags();
+    if !tags.is_empty() {
+        q = q.with_task(tags);
+    }
     let hits = engine.retrieve(&q, 20);
 
     println!("# matches for {query:?}  (ranked)\n");

@@ -20,6 +20,7 @@ fn run() -> Result<(), String> {
     let mut stderr = String::new();
     let mut notes = String::new();
     let mut command_parts = Vec::new();
+    let mut capture_kind = "full".to_string();
 
     let mut args = env::args().skip(1).peekable();
     while let Some(arg) = args.next() {
@@ -35,6 +36,7 @@ fn run() -> Result<(), String> {
             "--stdout" => stdout = args.next().unwrap_or_default(),
             "--stderr" => stderr = args.next().unwrap_or_default(),
             "--notes" => notes = args.next().unwrap_or_default(),
+            "--capture-kind" => capture_kind = args.next().unwrap_or_else(|| "full".to_string()),
             "--" => {
                 command_parts.extend(args);
                 break;
@@ -50,6 +52,17 @@ fn run() -> Result<(), String> {
         return Err("missing command; pass it after --".to_string());
     }
 
+    // Capture gate: decided before the database is even opened, so an `off`
+    // directory never produces a row.
+    let gate = memorywhale_cli::capture_rule_for(cwd.as_deref());
+    if !gate.mode.stores_anything() {
+        return Ok(());
+    }
+    if !gate.mode.stores_output() {
+        stdout.clear();
+        stderr.clear();
+    }
+
     notes = append_environment_tags(notes);
     let command = command_parts[0].clone();
     let argv_json = serde_json::to_string(&command_parts)
@@ -60,12 +73,11 @@ fn run() -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
     }
 
-    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
+    let conn = open_ready(&db_path)?;
     conn.execute(
         "
-        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, capture_kind)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
         ",
         params![
             command,
@@ -75,7 +87,8 @@ fn run() -> Result<(), String> {
             memorywhale_cli::redact(&stdout),
             memorywhale_cli::redact(&stderr),
             memorywhale_cli::redact(&notes),
-            created_at
+            created_at,
+            capture_kind
         ],
     )
     .map_err(|err| format!("failed to insert command run: {err}"))?;
@@ -96,9 +109,36 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+/// Open the database and make sure the schema is usable.
+///
+/// Shell hooks fire one writer per command, so several can be creating or
+/// upgrading a brand-new database at the same instant — `PRAGMA journal_mode`
+/// and `ALTER TABLE` both lose races that `busy_timeout` alone doesn't cover.
+/// Retry briefly rather than dropping the row.
+fn open_ready(db_path: &std::path::Path) -> Result<Connection, String> {
+    let mut last = String::new();
+    for attempt in 0..5 {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(80 * attempt));
+        }
+        let conn = match Connection::open(db_path) {
+            Ok(conn) => conn,
+            Err(err) => {
+                last = format!("failed to open db: {err}");
+                continue;
+            }
+        };
+        match init_schema(&conn).and_then(|()| memorywhale_cli::ensure_capture_kind(&conn)) {
+            Ok(()) => return Ok(conn),
+            Err(err) => last = err,
+        }
+    }
+    Err(last)
+}
+
 fn print_help() {
     println!(
-        "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> -- <command> [args...]"
+        "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]"
     );
 }
 
@@ -106,6 +146,9 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "
         PRAGMA journal_mode = WAL;
+        -- Shell hooks fire one writer per command, so two can land at once.
+        -- Wait instead of failing: a dropped row is a silently missing memory.
+        PRAGMA busy_timeout = 3000;
 
         CREATE TABLE IF NOT EXISTS command_runs (
             id INTEGER PRIMARY KEY,
@@ -116,7 +159,8 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             stdout TEXT NOT NULL DEFAULT '',
             stderr TEXT NOT NULL DEFAULT '',
             notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            capture_kind TEXT NOT NULL DEFAULT 'full'
         );
 
         CREATE TABLE IF NOT EXISTS command_arguments (
