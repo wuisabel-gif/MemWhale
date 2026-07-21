@@ -1,43 +1,43 @@
 {
-  "query_id": "q14",
-  "query": "rebase conflict on Cargo.lock while squashing commits",
+  "query_id": "i13",
+  "query": "the aarch64 cross compilation setup on the edge board",
   "relevant_ids": [
-    13
+    19
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
-        7,
+        19,
+        20,
         14,
-        9,
-        13,
-        3
-      ],
-      "recall_at_1": 0.0,
-      "recall_at_5": 1.0,
-      "reciprocal_rank": 0.25
-    },
-    {
-      "system": "keyword",
-      "top5": [
-        13,
-        7,
-        9,
-        21,
-        6
+        37,
+        31
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,
       "reciprocal_rank": 1.0
     },
     {
+      "system": "keyword",
+      "top5": [
+        15,
+        20,
+        21,
+        4,
+        6
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.09090909090909091
+    },
+    {
       "system": "fts5",
       "top5": [
+        19,
+        20,
         13,
-        7,
-        9,
-        21,
+        23,
         14
       ],
       "recall_at_1": 1.0,

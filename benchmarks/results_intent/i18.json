@@ -1,0 +1,48 @@
+{
+  "query_id": "i18",
+  "query": "the most recent flaky test fix",
+  "relevant_ids": [
+    36
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        15,
+        14,
+        16,
+        9,
+        36
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 0.2
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        15,
+        14,
+        2,
+        7,
+        8
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.09090909090909091
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        14,
+        15,
+        16,
+        17,
+        37
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.125
+    }
+  ]
+}

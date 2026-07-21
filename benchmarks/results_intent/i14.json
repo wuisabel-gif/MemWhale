@@ -1,31 +1,31 @@
 {
-  "query_id": "q23",
-  "query": "no such module fts5 when creating the sqlite search index",
+  "query_id": "i14",
+  "query": "the most recent sqlite problem",
   "relevant_ids": [
-    25
+    18
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
         25,
-        18,
-        35,
         26,
-        5
+        7,
+        2,
+        15
       ],
-      "recall_at_1": 1.0,
-      "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.09090909090909091
     },
     {
       "system": "keyword",
       "top5": [
-        25,
         18,
+        25,
+        26,
         28,
-        35,
-        3
+        1
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,
@@ -35,14 +35,14 @@
       "system": "fts5",
       "top5": [
         25,
-        35,
-        18,
         26,
-        5
+        2,
+        34,
+        20
       ],
-      "recall_at_1": 1.0,
-      "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.05263157894736842
     }
   ]
 }
