@@ -76,7 +76,7 @@ fi
 
 if [ "$DO_HOOK" = 1 ]; then
   echo "==> Enabling per-command recording hook"
-  hook_src="$LINUX_DIR/shell/memorywhale.sh"
+  hook_src="$LINUX_DIR/../crates/mw-cli/shell/memorywhale.sh"
   rc="$HOME/.bashrc"; [ -n "${ZSH_VERSION:-}" ] || case "${SHELL:-}" in *zsh) rc="$HOME/.zshrc";; esac
   line=". \"$hook_src\"  # memorywhale-percmd"
   if ! grep -qF "memorywhale-percmd" "$rc" 2>/dev/null; then

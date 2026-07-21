@@ -996,8 +996,11 @@ fn global_cmd(args: &[String]) -> Result<(), String> {
 // ponytail: no PowerShell here; Windows is a follow-up issue.
 // ---------------------------------------------------------------------------
 
-const HOOK_SH: &str = include_str!("../../../../linux/shell/memorywhale.sh");
-const HOOK_FISH: &str = include_str!("../../../../linux/shell/memorywhale.fish");
+// In-crate so they ship inside the published package (an include_str! that
+// reached ../../../../linux/ broke `cargo publish`, which only packages crate
+// files). `linux/install.sh` and the .deb reference this same copy.
+const HOOK_SH: &str = include_str!("../../shell/memorywhale.sh");
+const HOOK_FISH: &str = include_str!("../../shell/memorywhale.fish");
 const HOOK_BEGIN: &str = "# >>> memorywhale shell hooks >>>";
 const HOOK_END: &str = "# <<< memorywhale shell hooks <<<";
 

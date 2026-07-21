@@ -76,7 +76,7 @@ assets = [
     ["../../linux/completions/mw-extra.bash", "usr/share/bash-completion/completions/mw-view", "644"],
     ["../../linux/completions/_mw", "usr/share/zsh/vendor-completions/_mw", "644"],
     ["../../linux/completions/_mw-extra", "usr/share/zsh/vendor-completions/_mw-extra", "644"],
-    ["../../linux/shell/memorywhale.sh", "usr/share/memorywhale/", "644"],
+    ["shell/memorywhale.sh", "usr/share/memorywhale/", "644"],
     ["../../linux/systemd/memorywhale-dashboard.service", "usr/share/memorywhale/", "644"],
     ["../../linux/systemd/enable-dashboard.sh", "usr/share/memorywhale/", "755"],
     ["../../linux/README.md", "usr/share/doc/memorywhale/LINUX.md", "644"],

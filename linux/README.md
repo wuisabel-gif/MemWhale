@@ -33,7 +33,7 @@ sudo apt install -y build-essential pkg-config libssl-dev \
 | `install.sh` | Build + install the `mw*` binaries into `~/.local/bin`; flags add the extras below. |
 | `systemd/memorywhale-dashboard.service` | A `systemd --user` unit that runs `mw-serve`. |
 | `systemd/enable-dashboard.sh` | Installs the unit, resolves the `mw-serve` path, enables it, and turns on lingering. |
-| `shell/memorywhale.sh` | A bash/zsh hook that records every command (cwd + exit code) via `mw-remember`. |
+| `crates/mw-cli/shell/memorywhale.sh` | A bash/zsh hook that records every command (cwd + exit code) via `mw-remember`. |
 | `completions/mw.bash`, `completions/_mw` | Tab-completion for `mw` in bash and zsh. |
 | `man/*.1` | Man pages for `mw`, `mw-serve`, `mw-remember`. |
 
@@ -60,14 +60,14 @@ Two complementary layers:
 
 - **`mw` / `mw global on`** — records a whole shell session as a faithful
   transcript (every command *and* its output). Best for debugging a build.
-- **`shell/memorywhale.sh`** — a lightweight index that records each command's
+- **`crates/mw-cli/shell/memorywhale.sh`** — a lightweight index that records each command's
   line, working directory, and exit code (no output capture). Best for "what
   did I run, where, and did it work?" across every shell.
 
 Enable the per-command hook:
 
 ```bash
-echo '. /path/to/MemWhale/linux/shell/memorywhale.sh' >> ~/.bashrc   # or ~/.zshrc
+echo '. /path/to/MemWhale/crates/mw-cli/shell/memorywhale.sh' >> ~/.bashrc   # or ~/.zshrc
 # pause it in one shell:  export MW_PERCMD_OFF=1
 ```
 
