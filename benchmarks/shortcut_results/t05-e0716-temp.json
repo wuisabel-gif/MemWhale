@@ -1,0 +1,24 @@
+{
+  "task_id": "t05-e0716-temp",
+  "command": "cargo build -p config-loader",
+  "query": "temporary value dropped while borrowed binding load().unwrap() reference",
+  "fix_ids": [
+    6
+  ],
+  "fingerprint": "6cd430f1",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    6,
+    3,
+    34,
+    28,
+    1
+  ],
+  "search_shortcut_at_1": true,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

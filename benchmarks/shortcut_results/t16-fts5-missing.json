@@ -1,0 +1,24 @@
+{
+  "task_id": "t16-fts5-missing",
+  "command": "cargo test search_index",
+  "query": "no such module fts5 when creating the search index sqlite",
+  "fix_ids": [
+    25
+  ],
+  "fingerprint": "affaca46",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    25,
+    18,
+    35,
+    2,
+    28
+  ],
+  "search_shortcut_at_1": true,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

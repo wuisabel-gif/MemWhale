@@ -399,6 +399,15 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
     Ok(ErrorInsight { fingerprint: fingerprint.to_string(), occurrences, resolutions, currently_green })
 }
 
+/// Scoring predicate for the memory-shortcut eval: is any blind-labelled `fix`
+/// among the top-`k` retrieved note ids? `ranked_note_ids` are the *decoded*
+/// bookmark ids (see [`mw_memory::sqlite::decode_id`]) in engine rank order.
+/// Trivial by design — the honest work is in retrieval, not scoring — but kept
+/// here (not in the example) so it's exercised by `cargo test`.
+pub fn fix_surfaced(ranked_note_ids: &[i64], fix_ids: &[i64], k: usize) -> bool {
+    ranked_note_ids.iter().take(k).any(|id| fix_ids.contains(id))
+}
+
 fn table_exists(conn: &Connection, table: &str) -> Result<bool, String> {
     conn.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?1")
         .and_then(|mut s| s.exists(params![table]))
@@ -1212,6 +1221,58 @@ mod tests {
     fn keeps_label_hides_value() {
         assert_eq!(redact("API_KEY=abcdef123456"), "API_KEY=[REDACTED]");
         assert_eq!(redact("password: hunter2secret"), "password: [REDACTED]");
+    }
+
+    #[test]
+    fn fix_surfaced_hit_and_miss() {
+        // Fix id present within k → hit; outside k or absent → miss.
+        assert!(fix_surfaced(&[9, 2, 5], &[2], 5));
+        assert!(!fix_surfaced(&[9, 5, 7, 8, 6, 2], &[2], 5)); // fix at rank 6, k=5
+        assert!(!fix_surfaced(&[9, 5, 7], &[2], 5)); // fix not retrieved at all
+    }
+
+    /// End-to-end scoring over the REAL retrieval path (load_memories +
+    /// BuiltinEngine): a task whose fix note is in the corpus scores a hit; a
+    /// task with no matching fix scores a miss. Deterministic (fixed `now`).
+    #[test]
+    fn real_ranking_surfaces_fix_in_corpus() {
+        use chrono::{TimeZone, Utc};
+        use mw_memory::engine::{BuiltinEngine, MemoryEngine};
+        use mw_memory::sqlite::{decode_id, load_memories, Source};
+        use mw_memory::Query;
+
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE bookmarks (id INTEGER PRIMARY KEY, label TEXT, created_at TEXT, approved INTEGER DEFAULT 1);
+             INSERT INTO bookmarks (id, label, created_at, approved) VALUES
+                 (2,  'Fixed the E0308 in the camera driver by casting the decoded pixel back to u16 with as u16.', '2026-07-17T12:00:00+00:00', 1),
+                 (26, 'SQLite database is locked SQLITE_BUSY: set PRAGMA journal_mode=WAL and a busy_timeout.', '2026-07-01T12:00:00+00:00', 1),
+                 (7,  'git push rejected non-fast-forward: fixed with git pull --rebase then push.', '2026-07-18T12:00:00+00:00', 1),
+                 (18, 'undefined symbol sqlite3_open_v2 linker error: added rusqlite bundled feature.', '2026-07-08T12:00:00+00:00', 1),
+                 (22, 'openssl-sys build failed: switched reqwest to rustls-tls.', '2026-07-05T12:00:00+00:00', 1),
+                 (31, 'brew install SHA256 mismatch: recomputed the Formula sha256.', '2026-07-13T12:00:00+00:00', 1),
+                 (99, 'Unrelated note about docker COPY and dockerignore patterns.', '2026-07-10T12:00:00+00:00', 1);",
+        )
+        .unwrap();
+
+        let now = Utc.with_ymd_and_hms(2026, 7, 19, 12, 0, 0).unwrap();
+        let rank = |q: &str| -> Vec<i64> {
+            let eng = BuiltinEngine::new(load_memories(&conn));
+            eng.retrieve(&Query::new(q, now), 20)
+                .into_iter()
+                .filter_map(|s| match decode_id(s.memory.id) {
+                    (Source::Note, real) => Some(real),
+                    _ => None,
+                })
+                .collect()
+        };
+
+        // Fix in corpus (#2) → hit within top-5 for its own query.
+        assert!(fix_surfaced(&rank("camera driver expected u16 found u32 mismatch"), &[2], 5));
+        // Selectivity: the camera fix is NOT the top hit for an unrelated query.
+        assert!(!fix_surfaced(&rank("sqlite database is locked SQLITE_BUSY concurrent writes"), &[2], 1));
+        // A failure whose fix isn't in the corpus (empty label set) → always a miss.
+        assert!(!fix_surfaced(&rank("cannot find type GpuContext in this scope wgpu"), &[], 5));
     }
 
     #[test]

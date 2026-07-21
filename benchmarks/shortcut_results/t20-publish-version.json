@@ -1,0 +1,24 @@
+{
+  "task_id": "t20-publish-version",
+  "command": "cargo publish -p mw-memory",
+  "query": "cargo publish fails crate version already uploaded to crates.io",
+  "fix_ids": [
+    32
+  ],
+  "fingerprint": "e083871b",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    32,
+    33,
+    9,
+    37,
+    5
+  ],
+  "search_shortcut_at_1": true,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

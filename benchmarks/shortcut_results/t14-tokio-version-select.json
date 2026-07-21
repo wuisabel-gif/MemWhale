@@ -1,0 +1,22 @@
+{
+  "task_id": "t14-tokio-version-select",
+  "command": "cargo build --workspace",
+  "query": "cargo failed to select a version for tokio multiple versions in the workspace",
+  "fix_ids": [
+    21
+  ],
+  "fingerprint": "faa4a201",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    2,
+    15,
+    32
+  ],
+  "search_shortcut_at_1": false,
+  "search_shortcut_at_5": false,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

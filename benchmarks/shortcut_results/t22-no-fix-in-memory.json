@@ -1,0 +1,22 @@
+{
+  "task_id": "t22-no-fix-in-memory",
+  "command": "cargo build -p renderer",
+  "query": "cannot find type GpuContext in this scope wgpu renderer",
+  "fix_ids": [],
+  "fingerprint": "24b4b324",
+  "occurrences": 2,
+  "resolutions": 0,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": false,
+  "search_top5_notes": [
+    2,
+    35,
+    3,
+    15,
+    9
+  ],
+  "search_shortcut_at_1": false,
+  "search_shortcut_at_5": false,
+  "combined_at_1": false,
+  "combined_at_5": false
+}
