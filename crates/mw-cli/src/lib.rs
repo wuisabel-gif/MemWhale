@@ -1,5 +1,7 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
+pub mod tui;
+
 use chrono::Utc;
 use regex::Regex;
 use rusqlite::{params, Connection};

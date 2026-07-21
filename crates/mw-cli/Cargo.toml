@@ -21,6 +21,9 @@ dirs = "5"
 # MCP server, with a builtin fallback when that server is unreachable.
 mw-memory = { path = "../mw-memory", features = ["mempalace"] }
 regex = "1"
+# Pure-Rust interactive terminal UI (`mw tui`) — no system libraries, so it
+# keeps the bare-machine / Jetson build story intact. Bundles crossterm.
+ratatui = "0.29"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
