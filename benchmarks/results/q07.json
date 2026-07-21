@@ -8,11 +8,11 @@
     {
       "system": "builtin",
       "top5": [
-        1,
         3,
+        1,
         6,
-        13,
-        33
+        33,
+        13
       ],
       "recall_at_1": 0.0,
       "recall_at_5": 1.0,

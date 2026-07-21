@@ -8,15 +8,15 @@
     {
       "system": "builtin",
       "top5": [
-        15,
         14,
-        13,
+        15,
+        36,
         16,
-        9
+        37
       ],
-      "recall_at_1": 0.0,
+      "recall_at_1": 1.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 0.5
+      "reciprocal_rank": 1.0
     },
     {
       "system": "keyword",

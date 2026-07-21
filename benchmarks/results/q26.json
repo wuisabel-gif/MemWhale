@@ -9,9 +9,9 @@
       "system": "builtin",
       "top5": [
         28,
+        18,
         26,
         25,
-        14,
         11
       ],
       "recall_at_1": 1.0,

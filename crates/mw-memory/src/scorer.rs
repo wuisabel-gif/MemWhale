@@ -98,7 +98,7 @@ fn similarity_signal(
             weight,
             score,
             applicable: true,
-            detail: format!("{}% keyword match (BM25)", pct(score)),
+            detail: format!("{}% keyword match ({})", pct(score), bm25_source(query, memory)),
         };
     }
     // Lexical fallback (no index available).
@@ -192,6 +192,41 @@ fn task_signal(memory: &Memory, query: &Query, weight: f32) -> Signal {
         applicable: true,
         detail,
     }
+}
+
+/// Classify which FTS column(s) the BM25 match came from, for the reason string:
+/// `"BM25 · tag+body: compiler, error"`, `"BM25 · tag: flaky"`, or
+/// `"BM25 · body: pizza"`. Uses the engine's shared tokenizer so the label
+/// reflects exactly what the index matched. Falls back to a bare `"BM25"` if the
+/// query/memory tokenization can't attribute it (not expected in practice).
+fn bm25_source(query: &Query, memory: &Memory) -> String {
+    use crate::engine::fts_tokens;
+    let qterms: HashSet<String> = fts_tokens(&query.text).collect();
+    let body: HashSet<String> = fts_tokens(&memory.text).collect();
+    let tags: HashSet<String> = memory.tags.iter().flat_map(|t| fts_tokens(t)).collect();
+
+    // Sorted so the reason string is deterministic.
+    let hit = |col: &HashSet<String>| -> Vec<String> {
+        let mut v: Vec<String> = qterms.intersection(col).cloned().collect();
+        v.sort();
+        v
+    };
+    let in_tags = hit(&tags);
+    let in_body = hit(&body);
+
+    let (label, terms): (&str, Vec<String>) = match (in_tags.is_empty(), in_body.is_empty()) {
+        (false, false) => {
+            let mut u = in_tags;
+            u.extend(in_body);
+            u.sort();
+            u.dedup();
+            ("tag+body", u)
+        }
+        (false, true) => ("tag", in_tags),
+        (true, false) => ("body", in_body),
+        (true, true) => return "BM25".into(),
+    };
+    format!("BM25 · {label}: {}", terms.join(", "))
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────

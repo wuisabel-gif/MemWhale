@@ -19,6 +19,19 @@ use crate::{Memory, Query, ScoredMemory, Weights};
 /// Build an in-memory SQLite FTS5 index over `memories`, MATCH `query`, and
 /// return a per-id keyword relevance in [0,1] derived from SQLite's `bm25` rank.
 ///
+/// The index has two columns — `text` (the memory body) and `tags` (its tags,
+/// space-joined). Tags are explicit user/agent signal, so a query term that only
+/// lives in a tag (e.g. `compiler-error`, `flaky`) still earns similarity even
+/// when the body never says the word. The MATCH is unfiltered, so a term hits on
+/// either column.
+///
+/// **Per-column BM25 weight `bm25(mem_fts, 1.0, 2.0)` — body 1.0, tags 2.0.**
+/// Chosen (before any benchmark run) so one tag hit outranks one equal body hit:
+/// tags are a curated, high-precision label, worth more per hit than an
+/// incidental body token. 2.0 (not higher) keeps it the same order of magnitude
+/// as body, so several strong body hits still win over a lone tag hit — tags tilt
+/// ties, they don't override real text relevance.
+///
 /// SQLite's `bm25()` is negative and more-negative = better; we flip it to a
 /// non-negative `x` and squash with `x / (1 + x)` — monotonic in match quality,
 /// deterministic, and set-independent (so a single-memory `explain` gets the
@@ -39,23 +52,24 @@ fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
         Err(_) => return out,
     };
     if conn
-        .execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text)", [])
+        .execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text, tags)", [])
         .is_err()
     {
         return out;
     }
     {
-        let mut ins = match conn.prepare("INSERT INTO mem_fts(rowid, text) VALUES (?1, ?2)") {
-            Ok(s) => s,
-            Err(_) => return out,
-        };
+        let mut ins =
+            match conn.prepare("INSERT INTO mem_fts(rowid, text, tags) VALUES (?1, ?2, ?3)") {
+                Ok(s) => s,
+                Err(_) => return out,
+            };
         // Insert in corpus order → deterministic bm25.
         for m in memories {
-            let _ = ins.execute(rusqlite::params![m.id, m.text]);
+            let _ = ins.execute(rusqlite::params![m.id, m.text, m.tags.join(" ")]);
         }
     }
     let mut stmt = match conn
-        .prepare("SELECT rowid, bm25(mem_fts) FROM mem_fts WHERE mem_fts MATCH ?1")
+        .prepare("SELECT rowid, bm25(mem_fts, 1.0, 2.0) FROM mem_fts WHERE mem_fts MATCH ?1")
     {
         Ok(s) => s,
         Err(_) => return out,
@@ -72,16 +86,23 @@ fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
     out
 }
 
-/// OR-of-quoted-terms MATCH expression: lowercase alphanumeric tokens (len ≥ 2)
-/// each quoted so FTS5 special characters can't break the query syntax. OR
-/// semantics so partial matches still earn a similarity (the blend then reorders
-/// them). Mirrors the benchmark's lexical tokenizer for an apples-to-apples read.
+/// The tokens the FTS index sees: lowercase alphanumeric tokens (len ≥ 2).
+/// Shared so the query, the body, and the tags are all split the same way — the
+/// scorer reuses it to classify which column a match came from.
+pub(crate) fn fts_tokens(s: &str) -> impl Iterator<Item = String> + '_ {
+    s.split(|c: char| !c.is_alphanumeric())
+        .map(|w| w.to_lowercase())
+        .filter(|w| w.len() >= 2)
+}
+
+/// OR-of-quoted-terms MATCH expression: [`fts_tokens`] each quoted so FTS5
+/// special characters can't break the query syntax. OR semantics so partial
+/// matches still earn a similarity (the blend then reorders them). Mirrors the
+/// benchmark's lexical tokenizer for an apples-to-apples read.
 fn fts_match_expr(query: &str) -> String {
     let mut seen = std::collections::BTreeSet::new();
-    query
-        .split(|c: char| !c.is_alphanumeric())
-        .map(|w| w.to_lowercase())
-        .filter(|w| w.len() >= 2 && seen.insert(w.clone()))
+    fts_tokens(query)
+        .filter(|w| seen.insert(w.clone()))
         .map(|t| format!("\"{t}\""))
         .collect::<Vec<_>>()
         .join(" OR ")
@@ -523,6 +544,27 @@ mod tests {
         let sim_n = non.signals.iter().find(|s| s.name == "similarity").unwrap();
         assert_eq!(sim_n.score, 0.0, "non-matching sim should be 0: {}", sim_n.score);
         assert!(sim_m.score > sim_n.score);
+    }
+
+    #[test]
+    fn tag_match_outranks_weaker_body_match() {
+        // "flaky" lives only in memory 1's tags and only in memory 2's (longer)
+        // body. With tags weighted 2.0 above body 1.0, the tag hit must earn the
+        // higher BM25 similarity — and the reason must name the tag source.
+        let n = now();
+        let mems = vec![
+            Memory { id: 1, text: "the recall test failed sometimes on CI".into(), created_at: n, last_used: n, mentions: 0, importance: 0.0, tags: vec!["flaky".into()], embedding: None },
+            Memory { id: 2, text: "flaky pastry notes: butter, layers, oven temperature, resting time, and folds".into(), created_at: n, last_used: n, mentions: 0, importance: 0.0, tags: vec![], embedding: None },
+        ];
+        let eng = BuiltinEngine::new(mems);
+        let q = Query::new("flaky", n);
+        let a = eng.explain(1, &q).unwrap();
+        let b = eng.explain(2, &q).unwrap();
+        let sim = |s: &ScoredMemory| s.signals.iter().find(|x| x.name == "similarity").unwrap().clone();
+        let (sa, sb) = (sim(&a), sim(&b));
+        assert!(sa.score > 0.0 && sb.score > 0.0, "both should match: {} {}", sa.score, sb.score);
+        assert!(sa.score > sb.score, "tag hit ({}) should outrank weaker body hit ({})", sa.score, sb.score);
+        assert!(sa.detail.contains("tag"), "reason should name the tag source: {}", sa.detail);
     }
 
     #[test]

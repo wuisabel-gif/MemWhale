@@ -50,13 +50,18 @@ over each set's queries and computed over each system's full ranking of the corp
 
 | # | System    | What it is |
 |---|-----------|------------|
-| 1 | `builtin` | `mw-memory`'s `BuiltinEngine`, default weights (similarity 0.40, recency 0.20, importance 0.15, reinforcement 0.10, task 0.15). **Similarity = SQLite FTS5 BM25** keyword relevance, *blended* with the four context signals. No embedder attached. |
+| 1 | `builtin` | `mw-memory`'s `BuiltinEngine`, default weights (similarity 0.40, recency 0.20, importance 0.15, reinforcement 0.10, task 0.15). **Similarity = SQLite FTS5 BM25** keyword relevance over `(text, tags)` — tags weighted 2.0 above body 1.0 — *blended* with the four context signals. No embedder attached. |
 | 2 | `keyword` | Plain baseline: rank by how many distinct query terms substring-match the memory text. |
-| 3 | `fts5`    | In-memory **SQLite FTS5** (bm25) index over the same text — the same keyword signal `builtin` starts from, with **none** of the context blending. |
+| 3 | `fts5`    | In-memory **SQLite FTS5** (bm25) index over the memory text **only** — the plain keyword signal, with **none** of the context blending. |
 
-`builtin` is a strict superset of `fts5`'s signal: same BM25 relevance, then
-recency/importance/reinforcement/task reorder it. So the two sets isolate exactly
-what that blending buys — and costs.
+**By design, `builtin`'s internal FTS index also indexes each memory's tags
+(weighted above the body), while the standalone `fts5` baseline stays text-only —
+so the baseline remains a clean apples-to-apples keyword reference.**
+
+`builtin` no longer shares an identical BM25 signal with `fts5` (it adds the tags
+column); it starts from the same text relevance, adds tag relevance, then
+recency/importance/reinforcement/task reorder it. So the two sets isolate what
+that blending — now including tags — buys and costs.
 
 There is **no local-embedding row**: `embed.rs` only ships an Ollama-backed
 embedder, which needs a running local server and so is neither offline nor
@@ -66,25 +71,28 @@ deterministic. It is intentionally excluded from the committed numbers.
 
 | system  | recall@1 | recall@5 | MRR   |
 |---------|----------|----------|-------|
-| builtin | 0.556    | 0.950    | 0.781 |
+| builtin | 0.489    | 0.961    | 0.731 |
 | keyword | 0.889    | 0.983    | 0.983 |
 | fts5    | 0.889    | 0.989    | 0.983 |
 
 **Honest read.** On a pure *text-match* gold set the lexical baselines still win,
 and that is expected, not a bug: recall here rewards nothing but term overlap,
-while `builtin` deliberately mixes in recency/importance/reinforcement/task. Those
-signals reorder near-ties — e.g. for the E0308 query it ranks the more-recent,
-more-reinforced *fix* (item 2) above the original *error* (item 1), costing
-recall@1 while still catching both inside the top 5. Switching similarity to BM25
-did lift `builtin` a lot on this set (recall@1 0.389 → 0.556, recall@5 0.744 →
-0.950), but it does **not** beat plain keyword/FTS5 here, and it isn't supposed
-to: this set is designed to measure exactly the thing the context signals dilute.
+while `builtin` deliberately mixes in recency/importance/reinforcement/task *and*
+now tag relevance. Those signals reorder near-ties — e.g. for the E0308 query it
+ranks the more-recent, more-reinforced *fix* (item 2) above the original *error*
+(item 1), costing recall@1 while still catching both inside the top 5. Adding
+tags to the BM25 index nudged this set slightly (recall@1 0.556 → 0.489,
+recall@5 0.950 → 0.961, MRR 0.781 → 0.731): two queries whose target shares tags
+with a neighbour lose rank-1 to it (`q17`, `q23`), while `q29` gains a relevant
+item into its top 5. That is the same intended trade — a tag hit reorders
+near-ties — and it is exactly what the intent set below rewards. `builtin` does
+**not** beat plain keyword/FTS5 here, and it isn't supposed to.
 
 ## Results — intent set (`questions_intent.json`, 18 queries)
 
 | system  | recall@1 | recall@5 | MRR   |
 |---------|----------|----------|-------|
-| builtin | **0.667**| **0.917**| **0.812** |
+| builtin | **0.833**| **1.000**| **0.935** |
 | keyword | 0.444    | 0.806    | 0.630 |
 | fts5    | 0.417    | 0.694    | 0.580 |
 
@@ -92,23 +100,24 @@ to: this set is designed to measure exactly the thing the context signals dilute
 wording, the blend wins clearly — it leads on all three metrics. `builtin` gets
 *"the git fix I rely on most"* (reinforcement), *"the most recent E0308 fix"*
 (recency), and *"what was I doing on the jetson last week"* (task tags) that the
-lexical baselines miss.
+lexical baselines miss. **Indexing tags into the BM25 signal lifted this set
+markedly (recall@1 0.667 → 0.833, recall@5 0.917 → 1.000, MRR 0.812 → 0.935):**
+queries whose distinguishing concept lives in a tag rather than the body now
+match — `i03` *"the most recent compiler error I hit"* (tag `compiler-error`),
+`i14` *"the most recent sqlite problem"*, and `i07` *"the flaky test I hit the
+most times"* (tag `flaky`) all resolve to rank 1.
 
 It is **not** perfect, and the misses are reported here rather than hidden.
-`builtin` still trips (recall@1 miss) on 5 of 18:
+`builtin` still trips (recall@1 miss) on 2 of 18:
 
-- **`i14` "the most recent sqlite problem"** — the target text says
-  `sqlite3_open_v2`, which FTS5 tokenizes as `sqlite3`, so the exact token
-  `sqlite` never matches it and BM25 scores it 0. Keyword's *substring* match
-  catches it. (We keep exact-token MATCH to stay apples-to-apples with the `fts5`
-  baseline — not tuned away.)
-- **`i11` "the highest priority lesson"** and **`i07` "the flaky test I hit the
-  most times"** — the intended item loses to a neighbour that is more recent /
-  more reinforced; with importance weighted only 0.15, a pure-importance or
-  pure-reinforcement intent isn't always decisive.
-- **`i03`, `i18`** — the distinguishing concept lives in the *tags* (e.g.
-  `flaky`, `compiler-error`), not the memory text, so BM25 can't see it and only
-  recency is left to lean on.
+- **`i11` "the highest priority lesson"** — the intended item loses to a
+  neighbour that is more recent / more reinforced; with importance weighted only
+  0.15, a pure-importance intent isn't always decisive.
+- **`i18` "the most recent flaky test fix"** — the tag `flaky` now lifts the
+  target (item 36) into the top 5, but items 14 and 15 are *equally recent*
+  (all four days old) and share the same `test`/`flaky` tags — and item 15 is
+  itself a flaky-test fix — so BM25+recency can't single out item 36 at rank 1
+  without special-casing. It lands at rank 3 (recall@5 = 1.0).
 
 The two multi-relevant intent queries (`i12`, `i17`) score recall@1 = 0.5 for
 `builtin` because only one of the two relevant items lands at rank 1 — both are
