@@ -6,6 +6,9 @@ authors = ["MemoryWhale"]
 license = "MIT"
 edition = "2021"
 default-run = "memorywhale"
+# The desktop app is never published to crates.io (it needs Tauri/GTK/WebKit);
+# this also means its path dependency on mw-memory needs no version.
+publish = false
 
 [lib]
 name = "memorywhale_lib"
