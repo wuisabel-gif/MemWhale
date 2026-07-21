@@ -272,7 +272,7 @@ fn print_help() {
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
          mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw tui                   interactive terminal browser: type to search, arrow keys to move, Enter to reveal the command\n\
-         mw sync-mempalace [--wing NAME] [--dry-run]  push local memories into a running MemPalace server (needs mempalace_command in config)\n\
+         mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]  sync local memories into a running MemPalace server, idempotent by memory id (needs mempalace_command in config)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
          mw context [project:name] [--last-error] [--limit N]  print a compact digest to paste into an AI agent\n\
          mw agent [session-id]    export a full session as agent-ready text to paste later (default: latest)\n\
@@ -1748,49 +1748,152 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
         .ok_or("no mempalace_command configured in config.toml")?;
     let (cmd, rest) = argv.split_first().expect("mempalace_argv is non-empty");
 
-    let conn = open_session_db()?;
-    let _ = memorywhale_cli::migrate(&conn);
+    let mut conn = open_session_db()?;
+    memorywhale_cli::migrate(&conn)?; // brings up the mempalace_sync table (v5)
     let mut mems = mw_memory::sqlite::load_memories(&conn);
     if limit > 0 && mems.len() > limit {
         mems.truncate(limit);
     }
-    let drawers: Vec<mw_memory::engine::Drawer> = mems
+    // Render each memory into its target drawer, carrying provenance into the
+    // content and computing the change-key hash over the final string.
+    let desired: Vec<memorywhale_cli::DesiredDrawer> = mems
         .iter()
         .filter(|m| !m.text.trim().is_empty())
         .map(|m| {
-            let (source, _) = mw_memory::sqlite::decode_id(m.id);
-            mw_memory::engine::Drawer {
+            let (source, real_id) = mw_memory::sqlite::decode_id(m.id);
+            let (content, added_by) = drawer_content(&conn, m, source, real_id);
+            memorywhale_cli::DesiredDrawer {
+                mw_id: m.id,
                 wing: wing.clone(),
                 room: source.tag().to_string(),
-                content: m.text.clone(),
+                content_hash: memorywhale_cli::content_hash(&content),
+                content,
+                added_by,
             }
         })
         .collect();
 
-    if drawers.is_empty() {
+    if desired.is_empty() {
         println!("Nothing to sync (no memories found).");
         return Ok(());
     }
+
+    let existing = memorywhale_cli::load_sync_map(&conn)?;
+    let plan = memorywhale_cli::plan_sync(&existing, &desired);
+
     if dry_run {
-        let mut by_room: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
-        for d in &drawers {
-            *by_room.entry(d.room.as_str()).or_default() += 1;
-        }
-        println!("Would file {} drawer(s) into wing {wing:?} (server dedups):", drawers.len());
-        for (room, n) in by_room {
-            println!("  {room}: {n}");
-        }
+        println!(
+            "Plan for wing {wing:?}: {} to add, {} to update (delete+add), {} unchanged.",
+            plan.added(),
+            plan.updated(),
+            plan.unchanged
+        );
         return Ok(());
     }
 
-    let tool = memorywhale_cli::mempalace_checkpoint_tool();
-    let outcome = mw_memory::engine::checkpoint(cmd, rest, &tool, &drawers)
+    if plan.items.is_empty() {
+        println!(
+            "Already up to date (wing {wing:?}): 0 added, 0 updated, {} unchanged.",
+            plan.unchanged
+        );
+        return Ok(());
+    }
+
+    // Build the op stream: each update deletes its old drawer, then every item
+    // adds a fresh one. Adds come back in item order (deletes carry no result).
+    let mut ops: Vec<mw_memory::engine::SyncOp> = Vec::new();
+    for it in &plan.items {
+        if let Some(old) = &it.old_drawer_id {
+            ops.push(mw_memory::engine::SyncOp::Delete { drawer_id: old.clone() });
+        }
+        ops.push(mw_memory::engine::SyncOp::Add {
+            wing: it.wing.clone(),
+            room: it.room.clone(),
+            content: it.content.clone(),
+            added_by: it.added_by.clone(),
+        });
+    }
+
+    let add_tool = memorywhale_cli::mempalace_add_tool();
+    let delete_tool = memorywhale_cli::mempalace_delete_tool();
+    let results = mw_memory::engine::sync_ops(cmd, rest, &add_tool, &delete_tool, &ops)
         .map_err(|e| format!("mempalace sync failed: {e:#}"))?;
+
+    // New drawer_ids, in the same order as plan.items (one Add each).
+    let new_ids: Vec<String> = results
+        .into_iter()
+        .filter_map(|r| match r {
+            mw_memory::engine::SyncResult::Added { drawer_id } => Some(drawer_id),
+            mw_memory::engine::SyncResult::Deleted => None,
+        })
+        .collect();
+    if new_ids.len() != plan.items.len() {
+        return Err(format!(
+            "mempalace returned {} drawer id(s) for {} add(s)",
+            new_ids.len(),
+            plan.items.len()
+        ));
+    }
+
+    let synced_at = Utc::now().to_rfc3339();
+    let rows: Vec<(i64, String, String, String)> = plan
+        .items
+        .iter()
+        .zip(&new_ids)
+        .map(|(it, id)| (it.mw_id, it.wing.clone(), id.clone(), it.content_hash.clone()))
+        .collect();
+    memorywhale_cli::record_sync(&mut conn, &rows, &synced_at)?;
+
     println!(
-        "Synced to MemPalace (wing {wing:?}): {} added, {} already present, {} error(s).",
-        outcome.added, outcome.duplicates, outcome.errors
+        "Synced to MemPalace (wing {wing:?}): {} added, {} updated, {} unchanged, {} deleted.",
+        plan.added(),
+        plan.updated(),
+        plan.unchanged,
+        plan.updated()
     );
     Ok(())
+}
+
+/// Render one memory into its MemPalace drawer content + `added_by`. Prefixes a
+/// stable `[memorywhale <source> #<realid>]` provenance tag; for notes it also
+/// appends the human-readable provenance line and attributes `added_by` to the
+/// note's author.
+fn drawer_content(
+    conn: &Connection,
+    m: &mw_memory::Memory,
+    source: mw_memory::sqlite::Source,
+    real_id: i64,
+) -> (String, String) {
+    let tag = format!("[memorywhale {} #{}]", source.tag(), real_id);
+    let mut content = format!("{tag}\n{}", m.text);
+    let mut added_by = "memorywhale".to_string();
+    if source == mw_memory::sqlite::Source::Note {
+        if let Some((label, author)) = note_meta(conn, real_id) {
+            content.push_str(&format!("\n({label})"));
+            added_by = author;
+        }
+    }
+    (content, added_by)
+}
+
+/// A note's provenance label plus its `added_by` attribution (author name, else
+/// author kind). `None` if the row is gone or predates the provenance columns.
+fn note_meta(conn: &Connection, id: i64) -> Option<(String, String)> {
+    conn.query_row(
+        "SELECT author_kind, author_name, created_at, source_session_id
+         FROM bookmarks WHERE id = ?1",
+        params![id],
+        |r| {
+            let kind: String = r.get(0)?;
+            let name: Option<String> = r.get(1)?;
+            let created: String = r.get::<_, Option<String>>(2)?.unwrap_or_default();
+            let sid: Option<i64> = r.get(3)?;
+            let label = memorywhale_cli::provenance_label(&kind, name.as_deref(), &created, sid);
+            let added_by = name.filter(|n| !n.is_empty()).unwrap_or(kind);
+            Ok((label, added_by))
+        },
+    )
+    .ok()
 }
 
 fn search_memory(args: &[String]) -> Result<(), String> {

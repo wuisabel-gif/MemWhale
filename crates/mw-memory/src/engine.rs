@@ -322,6 +322,73 @@ pub fn checkpoint(
     })
 }
 
+/// One reconcile primitive for [`sync_ops`]: either file a new drawer or delete
+/// an existing one by its server-assigned id.
+#[cfg(feature = "mempalace")]
+pub enum SyncOp {
+    Add {
+        wing: String,
+        room: String,
+        content: String,
+        added_by: String,
+    },
+    Delete {
+        drawer_id: String,
+    },
+}
+
+/// The outcome of one [`SyncOp`], positionally matched to the input `ops`.
+#[cfg(feature = "mempalace")]
+pub enum SyncResult {
+    /// An `Add` succeeded; carries the server-assigned `drawer_id`.
+    Added { drawer_id: String },
+    /// A `Delete` succeeded.
+    Deleted,
+}
+
+/// Run a batch of add/delete reconcile ops over ONE MCP session — the id-based
+/// counterpart to [`checkpoint`]. Spawns `command args…`, does the handshake,
+/// then calls `add_tool` (`mempalace_add_drawer`) / `delete_tool`
+/// (`mempalace_delete_drawer`) for each op in order. Adds parse the new
+/// `drawer_id` out of the tool's JSON result and return it. Results line up 1:1
+/// with `ops`, so the caller can zip them back to the memories they came from.
+#[cfg(feature = "mempalace")]
+pub fn sync_ops(
+    command: &str,
+    args: &[String],
+    add_tool: &str,
+    delete_tool: &str,
+    ops: &[SyncOp],
+) -> anyhow::Result<Vec<SyncResult>> {
+    use anyhow::Context;
+    use serde_json::{json, Value};
+    let mut client = crate::mcp::McpClient::spawn(command, args)?;
+    let mut out = Vec::with_capacity(ops.len());
+    for op in ops {
+        match op {
+            SyncOp::Add { wing, room, content, added_by } => {
+                let text = client.call_tool(
+                    add_tool,
+                    json!({"wing": wing, "room": room, "content": content, "added_by": added_by}),
+                )?;
+                let v: Value =
+                    serde_json::from_str(&text).context("add_drawer result was not JSON")?;
+                let drawer_id = v
+                    .get("drawer_id")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow::anyhow!("add_drawer returned no drawer_id"))?
+                    .to_string();
+                out.push(SyncResult::Added { drawer_id });
+            }
+            SyncOp::Delete { drawer_id } => {
+                client.call_tool(delete_tool, json!({"drawer_id": drawer_id}))?;
+                out.push(SyncResult::Deleted);
+            }
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -406,6 +473,48 @@ mod tests {
         let out = checkpoint("sh", &[script.to_string()], "mempalace_checkpoint", &items).unwrap();
         // Fixture reports two added, one duplicate, no errors.
         assert_eq!(out, CheckpointOutcome { added: 2, duplicates: 1, errors: 0 });
+    }
+
+    /// One session, mixed delete+add ops against a fake server: deletes succeed
+    /// (no result), adds return distinct drawer ids in order.
+    #[cfg(all(feature = "mempalace", unix))]
+    #[test]
+    fn sync_ops_adds_and_deletes_over_one_session() {
+        let script =
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake-mempalace-sync.sh");
+        let ops = vec![
+            SyncOp::Add {
+                wing: "memorywhale".into(),
+                room: "note".into(),
+                content: "first".into(),
+                added_by: "you".into(),
+            },
+            SyncOp::Delete { drawer_id: "old-1".into() },
+            SyncOp::Add {
+                wing: "memorywhale".into(),
+                room: "note".into(),
+                content: "second".into(),
+                added_by: "memorywhale".into(),
+            },
+        ];
+        let out = sync_ops(
+            "sh",
+            &[script.to_string()],
+            "mempalace_add_drawer",
+            "mempalace_delete_drawer",
+            &ops,
+        )
+        .unwrap();
+        assert_eq!(out.len(), 3);
+        let ids: Vec<&str> = out
+            .iter()
+            .filter_map(|r| match r {
+                SyncResult::Added { drawer_id } => Some(drawer_id.as_str()),
+                SyncResult::Deleted => None,
+            })
+            .collect();
+        assert_eq!(ids, vec!["drawer-1", "drawer-2"]);
+        assert!(matches!(out[1], SyncResult::Deleted));
     }
 
     #[cfg(feature = "mempalace")]

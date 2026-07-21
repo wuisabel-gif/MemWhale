@@ -5,6 +5,7 @@ pub mod tui;
 use chrono::Utc;
 use regex::Regex;
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -94,7 +95,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 4;
+pub const LATEST_SCHEMA_VERSION: i64 = 5;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -116,6 +117,11 @@ pub const LATEST_SCHEMA_VERSION: i64 = 4;
 /// Migration 4 — error fingerprints: adds `command_runs.error_fingerprint` (+
 /// index) and backfills it for existing failed rows, so recurring failures group
 /// and `mw context --last-error` can show their outcome history immediately.
+///
+/// Migration 5 — MemPalace id-sync: creates the local `mempalace_sync` mapping
+/// table (`mw_id` → wing/drawer_id/content_hash) so `mw sync-mempalace` is
+/// idempotent by memory id — edited memories replace their drawer, unchanged
+/// ones are skipped. Additive; safe on a populated DB.
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -150,10 +156,31 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
     if version < 4 {
         ensure_error_fingerprint(conn)?;
         backfill_error_fingerprints(conn)?;
+        conn.execute_batch("PRAGMA user_version = 4;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 5 {
+        ensure_mempalace_sync(conn)?;
         conn.execute_batch(&format!("PRAGMA user_version = {LATEST_SCHEMA_VERSION};"))
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
     Ok(())
+}
+
+/// Create the local `mempalace_sync` mapping table if absent. Additive and safe
+/// on a populated DB. `mw_id` is the namespaced memory id (see
+/// [`mw_memory::sqlite::decode_id`]), stable and unique across sources.
+pub fn ensure_mempalace_sync(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mempalace_sync (
+             mw_id        INTEGER PRIMARY KEY,
+             wing         TEXT NOT NULL,
+             drawer_id    TEXT NOT NULL,
+             content_hash TEXT NOT NULL,
+             synced_at    TEXT NOT NULL
+         );",
+    )
+    .map_err(|e| format!("failed to create mempalace_sync table: {e}"))
 }
 
 /// Add `command_runs.capture_kind` if the table exists and lacks it.
@@ -272,6 +299,18 @@ pub fn error_fingerprint(command: &str, stderr: &str) -> Option<String> {
         hash = hash.wrapping_mul(0x0100_0193);
     }
     Some(format!("{hash:08x}"))
+}
+
+/// Stable, portable FNV-1a hash of arbitrary content → 8 hex chars. Same style
+/// as [`error_fingerprint`] (not `std`'s `DefaultHasher`, whose output isn't
+/// portable), used to detect when a synced memory's drawer content changed.
+pub fn content_hash(content: &str) -> String {
+    let mut hash: u32 = 0x811c_9dc5;
+    for b in content.bytes() {
+        hash ^= b as u32;
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    format!("{hash:08x}")
 }
 
 /// What we know about one recurring failure, assembled from `command_runs`.
@@ -480,6 +519,122 @@ pub fn mempalace_search_tool() -> String {
 /// MemPalace's batch-write tool name, used by `mw sync-mempalace`.
 pub fn mempalace_checkpoint_tool() -> String {
     config_value("mempalace_checkpoint_tool").unwrap_or_else(|| "mempalace_checkpoint".into())
+}
+
+/// MemPalace's single-drawer add tool (returns a `drawer_id`), used by the
+/// id-based `mw sync-mempalace` reconcile. Overridable via `mempalace_add_tool`.
+pub fn mempalace_add_tool() -> String {
+    config_value("mempalace_add_tool").unwrap_or_else(|| "mempalace_add_drawer".into())
+}
+
+/// MemPalace's delete-by-id tool, used by the reconcile to replace an edited
+/// drawer. Overridable via `mempalace_delete_tool`.
+pub fn mempalace_delete_tool() -> String {
+    config_value("mempalace_delete_tool").unwrap_or_else(|| "mempalace_delete_drawer".into())
+}
+
+/// One memory rendered into its target MemPalace drawer for a sync pass:
+/// `mw_id` is the stable namespaced id, `content` already carries its
+/// provenance tag/line, and `content_hash` is the change key.
+#[derive(Debug, Clone)]
+pub struct DesiredDrawer {
+    pub mw_id: i64,
+    pub wing: String,
+    pub room: String,
+    pub content: String,
+    pub added_by: String,
+    pub content_hash: String,
+}
+
+/// A drawer to (re)file this pass. `old_drawer_id = Some` means it replaces an
+/// edited drawer (delete the old one first); `None` means it's brand new.
+#[derive(Debug, Clone)]
+pub struct PlanItem {
+    pub mw_id: i64,
+    pub wing: String,
+    pub room: String,
+    pub content: String,
+    pub added_by: String,
+    pub content_hash: String,
+    pub old_drawer_id: Option<String>,
+}
+
+/// The reconcile plan: drawers to file (new + updated) and how many were skipped.
+#[derive(Debug, Default)]
+pub struct SyncPlan {
+    pub items: Vec<PlanItem>,
+    pub unchanged: usize,
+}
+
+impl SyncPlan {
+    /// Count of brand-new drawers.
+    pub fn added(&self) -> usize {
+        self.items.iter().filter(|i| i.old_drawer_id.is_none()).count()
+    }
+    /// Count of replaced (edited) drawers — also the number of deletes.
+    pub fn updated(&self) -> usize {
+        self.items.iter().filter(|i| i.old_drawer_id.is_some()).count()
+    }
+}
+
+/// Load the local `mempalace_sync` mapping: `mw_id → (drawer_id, content_hash)`.
+pub fn load_sync_map(conn: &Connection) -> Result<HashMap<i64, (String, String)>, String> {
+    let mut stmt = conn
+        .prepare("SELECT mw_id, drawer_id, content_hash FROM mempalace_sync")
+        .map_err(|e| format!("failed to read mempalace_sync: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((r.get::<_, i64>(0)?, (r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+        })
+        .map_err(|e| format!("failed to scan mempalace_sync: {e}"))?;
+    Ok(rows.filter_map(Result::ok).collect())
+}
+
+/// Diff `desired` drawers against the existing mapping into a [`SyncPlan`]:
+/// not-in-map → add; in-map & hash changed → update (delete old + add); in-map &
+/// hash unchanged → skip. Pure — no DB, no network — so it's directly testable.
+pub fn plan_sync(existing: &HashMap<i64, (String, String)>, desired: &[DesiredDrawer]) -> SyncPlan {
+    let mut plan = SyncPlan::default();
+    for d in desired {
+        let old_drawer_id = match existing.get(&d.mw_id) {
+            Some((_, hash)) if *hash == d.content_hash => {
+                plan.unchanged += 1;
+                continue;
+            }
+            Some((drawer_id, _)) => Some(drawer_id.clone()),
+            None => None,
+        };
+        plan.items.push(PlanItem {
+            mw_id: d.mw_id,
+            wing: d.wing.clone(),
+            room: d.room.clone(),
+            content: d.content.clone(),
+            added_by: d.added_by.clone(),
+            content_hash: d.content_hash.clone(),
+            old_drawer_id,
+        });
+    }
+    plan
+}
+
+/// Persist new/updated mappings in one transaction (INSERT OR REPLACE keyed on
+/// the `mw_id` primary key, so an update overwrites the old drawer_id/hash).
+pub fn record_sync(
+    conn: &mut Connection,
+    rows: &[(i64, String, String, String)], // (mw_id, wing, drawer_id, content_hash)
+    synced_at: &str,
+) -> Result<(), String> {
+    let tx = conn.transaction().map_err(|e| format!("failed to open transaction: {e}"))?;
+    for (mw_id, wing, drawer_id, hash) in rows {
+        tx.execute(
+            "INSERT OR REPLACE INTO mempalace_sync
+                 (mw_id, wing, drawer_id, content_hash, synced_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![mw_id, wing, drawer_id, hash, synced_at],
+        )
+        .map_err(|e| format!("failed to record sync mapping: {e}"))?;
+    }
+    tx.commit().map_err(|e| format!("failed to commit sync mappings: {e}"))
 }
 
 fn config_value(key: &str) -> Option<String> {
@@ -1035,18 +1190,87 @@ mod tests {
         // Defaults match the real MemPalace server (not the generic "search").
         assert_eq!(mempalace_search_tool(), "mempalace_search");
         assert_eq!(mempalace_checkpoint_tool(), "mempalace_checkpoint");
+        assert_eq!(mempalace_add_tool(), "mempalace_add_drawer");
+        assert_eq!(mempalace_delete_tool(), "mempalace_delete_drawer");
 
         // Overridable for a differently-named server.
         std::fs::write(
             dir.join("config.toml"),
-            "mempalace_tool = \"custom_search\"\nmempalace_checkpoint_tool = \"custom_write\"\n",
+            "mempalace_tool = \"custom_search\"\nmempalace_checkpoint_tool = \"custom_write\"\n\
+             mempalace_add_tool = \"custom_add\"\nmempalace_delete_tool = \"custom_del\"\n",
         )
         .unwrap();
         assert_eq!(mempalace_search_tool(), "custom_search");
         assert_eq!(mempalace_checkpoint_tool(), "custom_write");
+        assert_eq!(mempalace_add_tool(), "custom_add");
+        assert_eq!(mempalace_delete_tool(), "custom_del");
 
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn desired(mw_id: i64, content: &str) -> DesiredDrawer {
+        DesiredDrawer {
+            mw_id,
+            wing: "memorywhale".into(),
+            room: "note".into(),
+            content: content.into(),
+            added_by: "you".into(),
+            content_hash: content_hash(content),
+        }
+    }
+
+    #[test]
+    fn content_hash_is_stable_and_discriminating() {
+        assert_eq!(content_hash("hello world"), content_hash("hello world"));
+        assert_ne!(content_hash("a"), content_hash("b"));
+    }
+
+    #[test]
+    fn sync_reconcile_adds_skips_and_updates() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap(); // creates mempalace_sync (v5)
+
+        let d1 = desired(3_000_000_001, "[tag]\nhello");
+        let d2 = desired(1_000_000_002, "cargo build");
+        let want = vec![d1.clone(), d2.clone()];
+
+        // First sync: empty map -> both ADD, nothing to skip.
+        let plan = plan_sync(&load_sync_map(&conn).unwrap(), &want);
+        assert_eq!((plan.added(), plan.updated(), plan.unchanged), (2, 0, 0));
+        assert!(plan.items[0].old_drawer_id.is_none());
+        let rows: Vec<_> = plan
+            .items
+            .iter()
+            .enumerate()
+            .map(|(i, it)| (it.mw_id, it.wing.clone(), format!("drawer-{i}"), it.content_hash.clone()))
+            .collect();
+        record_sync(&mut conn, &rows, "2026-07-20T00:00:00+00:00").unwrap();
+
+        // Re-sync with no changes -> every drawer SKIPPED, zero ops.
+        let plan = plan_sync(&load_sync_map(&conn).unwrap(), &want);
+        assert!(plan.items.is_empty());
+        assert_eq!(plan.unchanged, 2);
+
+        // Edit d1's content -> hash changes -> UPDATE (delete old drawer-0 + add).
+        let d1b = desired(d1.mw_id, "[tag]\nhello edited");
+        let want2 = vec![d1b.clone(), d2.clone()];
+        let plan = plan_sync(&load_sync_map(&conn).unwrap(), &want2);
+        assert_eq!((plan.added(), plan.updated(), plan.unchanged), (0, 1, 1));
+        assert_eq!(plan.items[0].mw_id, d1.mw_id);
+        assert_eq!(plan.items[0].old_drawer_id.as_deref(), Some("drawer-0"));
+
+        // Persisting the replacement makes the next pass fully unchanged.
+        let it = &plan.items[0];
+        record_sync(
+            &mut conn,
+            &[(it.mw_id, it.wing.clone(), "drawer-9".into(), it.content_hash.clone())],
+            "2026-07-20T01:00:00+00:00",
+        )
+        .unwrap();
+        let plan = plan_sync(&load_sync_map(&conn).unwrap(), &want2);
+        assert!(plan.items.is_empty());
+        assert_eq!(plan.unchanged, 2);
     }
 
     #[test]

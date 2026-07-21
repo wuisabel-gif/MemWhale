@@ -103,6 +103,27 @@ mw-screenshot --notes "VS Code showed the TypeScript warning"
 Local-only and opt-in. On headless machines (e.g. a Jetson without a display)
 screenshot capture may fail; terminal memory recording still works.
 
+## mw sync-mempalace — mirror memories into MemPalace
+
+```bash
+mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]
+```
+
+Pushes local memories into a running [MemPalace](https://github.com/MemPalace/mempalace)
+server (needs `mempalace_command` in `config.toml`). The sync is **idempotent by
+memory id**: a local `mempalace_sync` table maps each memory to the drawer it
+became. On each run:
+
+- a **new** memory is added as a drawer, and the mapping recorded;
+- an **edited** memory (its drawer content changed) has its old drawer deleted
+  and a fresh one added — so exactly one up-to-date drawer survives;
+- an **unchanged** memory is skipped (no server call).
+
+Provenance rides along: each drawer's content is prefixed with a stable
+`[memorywhale <source> #<id>]` tag, notes also carry their "remembered by … on …"
+line, and `added_by` is set to the author. `--dry-run` prints the planned
+add/update/skip breakdown without contacting the server.
+
 ## mw-serve / mw-view / mw-recover / mw-mcp
 
 ```bash
