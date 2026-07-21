@@ -50,7 +50,7 @@ over each set's queries and computed over each system's full ranking of the corp
 
 | # | System    | What it is |
 |---|-----------|------------|
-| 1 | `builtin` | `mw-memory`'s `BuiltinEngine`, default weights (similarity 0.40, recency 0.20, importance 0.15, reinforcement 0.10, task 0.15). **Similarity = SQLite FTS5 BM25** keyword relevance over `(text, tags)` — tags weighted 2.0 above body 1.0 — *blended* with the four context signals. No embedder attached. |
+| 1 | `builtin` | `mw-memory`'s `BuiltinEngine`, default weights (similarity 0.40, recency 0.20, importance 0.15, reinforcement 0.10, task 0.15). **Similarity = SQLite FTS5 BM25** keyword relevance over `(text, tags)` — tags weighted equal to body (1.0/1.0) — *blended* with the four context signals. No embedder attached. |
 | 2 | `keyword` | Plain baseline: rank by how many distinct query terms substring-match the memory text. |
 | 3 | `fts5`    | In-memory **SQLite FTS5** (bm25) index over the memory text **only** — the plain keyword signal, with **none** of the context blending. |
 
@@ -71,7 +71,7 @@ deterministic. It is intentionally excluded from the committed numbers.
 
 | system  | recall@1 | recall@5 | MRR   |
 |---------|----------|----------|-------|
-| builtin | 0.489    | 0.961    | 0.731 |
+| builtin | 0.522    | 0.961    | 0.747 |
 | keyword | 0.889    | 0.983    | 0.983 |
 | fts5    | 0.889    | 0.989    | 0.983 |
 
@@ -81,12 +81,14 @@ while `builtin` deliberately mixes in recency/importance/reinforcement/task *and
 now tag relevance. Those signals reorder near-ties — e.g. for the E0308 query it
 ranks the more-recent, more-reinforced *fix* (item 2) above the original *error*
 (item 1), costing recall@1 while still catching both inside the top 5. Adding
-tags to the BM25 index nudged this set slightly (recall@1 0.556 → 0.489,
-recall@5 0.950 → 0.961, MRR 0.781 → 0.731): two queries whose target shares tags
-with a neighbour lose rank-1 to it (`q17`, `q23`), while `q29` gains a relevant
-item into its top 5. That is the same intended trade — a tag hit reorders
-near-ties — and it is exactly what the intent set below rewards. `builtin` does
-**not** beat plain keyword/FTS5 here, and it isn't supposed to.
+tags to the BM25 index nudged this set slightly (recall@1 0.556 → 0.522,
+recall@5 0.950 → 0.961, MRR 0.781 → 0.747): one query whose target shares a tag
+with a neighbour loses rank-1 to it, while `q29` gains a relevant item into its
+top 5. A **tag-weight sweep (1.0–3.0)** settled the weight: boosting tags above
+body gained *nothing* on the intent set (recall was identical across the range)
+and only widened this term-overlap cost, so tags are indexed but weighted **equal**
+to body — the win is coverage, not weight. `builtin` does **not** beat plain
+keyword/FTS5 here, and it isn't supposed to.
 
 ## Results — intent set (`questions_intent.json`, 18 queries)
 

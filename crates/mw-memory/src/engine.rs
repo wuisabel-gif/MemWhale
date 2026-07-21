@@ -25,12 +25,13 @@ use crate::{Memory, Query, ScoredMemory, Weights};
 /// when the body never says the word. The MATCH is unfiltered, so a term hits on
 /// either column.
 ///
-/// **Per-column BM25 weight `bm25(mem_fts, 1.0, 2.0)` — body 1.0, tags 2.0.**
-/// Chosen (before any benchmark run) so one tag hit outranks one equal body hit:
-/// tags are a curated, high-precision label, worth more per hit than an
-/// incidental body token. 2.0 (not higher) keeps it the same order of magnitude
-/// as body, so several strong body hits still win over a lone tag hit — tags tilt
-/// ties, they don't override real text relevance.
+/// **Per-column BM25 weight `bm25(mem_fts, 1.0, 1.0)` — tags weighted equal to
+/// body.** A tag-weight sweep (1.0–3.0) showed the *intent* gains come entirely
+/// from tags being *indexed at all*, not from up-weighting them: intent recall
+/// was identical across the whole range. A tag>body boost (1.5–2.5) meanwhile
+/// *cost* term-overlap recall@1 (0.522 → 0.489) by letting a tag-sharing neighbor
+/// jump a stronger body match on ties, for zero intent benefit. So tags are
+/// indexed but not boosted — the win is coverage, not weight.
 ///
 /// SQLite's `bm25()` is negative and more-negative = better; we flip it to a
 /// non-negative `x` and squash with `x / (1 + x)` — monotonic in match quality,
@@ -69,7 +70,7 @@ fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
         }
     }
     let mut stmt = match conn
-        .prepare("SELECT rowid, bm25(mem_fts, 1.0, 2.0) FROM mem_fts WHERE mem_fts MATCH ?1")
+        .prepare("SELECT rowid, bm25(mem_fts, 1.0, 1.0) FROM mem_fts WHERE mem_fts MATCH ?1")
     {
         Ok(s) => s,
         Err(_) => return out,
