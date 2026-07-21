@@ -1,6 +1,6 @@
 [package]
 name = "memorywhale-cli"
-version = "0.4.0"
+version = "0.5.0"
 description = "MemoryWhale CLI — local-first terminal memory. Record commands, sessions, and output into local SQLite; browse them in a built-in web dashboard. Nothing is uploaded."
 authors = ["Isabel Wu <wuisabel@usc.edu>"]
 license = "MIT"
