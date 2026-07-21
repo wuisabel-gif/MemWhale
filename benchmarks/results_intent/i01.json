@@ -1,31 +1,31 @@
 {
-  "query_id": "q14",
-  "query": "rebase conflict on Cargo.lock while squashing commits",
+  "query_id": "i01",
+  "query": "what did I work on most recently",
   "relevant_ids": [
-    13
+    7
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
         7,
+        28,
         14,
-        9,
-        13,
-        3
+        37,
+        31
       ],
-      "recall_at_1": 0.0,
+      "recall_at_1": 1.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 0.25
+      "reciprocal_rank": 1.0
     },
     {
       "system": "keyword",
       "top5": [
-        13,
         7,
-        9,
+        10,
         21,
-        6
+        24,
+        28
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,
@@ -34,15 +34,15 @@
     {
       "system": "fts5",
       "top5": [
-        13,
+        28,
         7,
-        9,
-        21,
+        13,
+        23,
         14
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.5
     }
   ]
 }

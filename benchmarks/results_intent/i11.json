@@ -1,48 +1,48 @@
 {
-  "query_id": "q14",
-  "query": "rebase conflict on Cargo.lock while squashing commits",
+  "query_id": "i11",
+  "query": "the highest priority lesson I have saved",
   "relevant_ids": [
-    13
+    2
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
         7,
-        14,
-        9,
-        13,
-        3
+        2,
+        15,
+        1,
+        14
       ],
       "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 0.25
+      "reciprocal_rank": 0.5
     },
     {
       "system": "keyword",
       "top5": [
-        13,
         7,
-        9,
-        21,
-        6
+        1,
+        2,
+        3,
+        4
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.3333333333333333
     },
     {
       "system": "fts5",
       "top5": [
-        13,
         7,
-        9,
-        21,
-        14
+        2,
+        34,
+        20,
+        29
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.5
     }
   ]
 }

@@ -59,6 +59,11 @@ Debian/Ubuntu/Jetson: grab the `.deb` from the
 [releases page](https://github.com/wuisabel-gif/MemWhale/releases) and
 `sudo apt install ./memorywhale_*.deb`.
 
+All three install paths stay in sync via the release workflow — one tag
+produces the prebuilt binaries, bumps the Homebrew formula, and publishes to
+crates.io, so `install.sh`, `brew install`, and `cargo install memorywhale-cli`
+all land on the same version.
+
 **Windows:** run it inside [WSL](https://learn.microsoft.com/windows/wsl/) —
 MemoryWhale is a Linux binary there, so the one-line install above works as-is
 from your WSL shell. (A native Windows build isn't available yet; the session
@@ -114,10 +119,12 @@ and can write down what they figure out:
 claude mcp add memorywhale -- mw-mcp
 ```
 
-That gives the agent four tools: `recent_errors`, `search_memory`,
-`get_context`, and `remember` — so once it works out *why* something failed,
-it can save that conclusion for its future self (or a teammate) to find later,
-the same way you'd type:
+That gives the agent five tools: `recent_errors`, `search_memory`,
+`get_context`, `remember`, and `similar_failures` — the last one lets it paste
+an error it just hit and learn, from observed exit codes, how many times that
+exact failure was seen and how often a later run resolved it. And once it works
+out *why* something failed, it can save that conclusion for its future self (or
+a teammate) to find later, the same way you'd type:
 
 ```bash
 mw remember "the E0308 in camera-driver was the fps field being a string; fix: parse it as i32"
@@ -189,8 +196,9 @@ To auto-record every new terminal without typing `mw`, use `mw global on`
 MemoryWhale captures at two levels. They layer — you can run both.
 
 ```bash
-mw hooks install     # lightweight, always on, every shell
-mw hooks uninstall    # removes exactly the managed block it added
+mw hooks install       # lightweight, always on, every shell
+mw hooks install pwsh  # PowerShell (not in $SHELL, so name it explicitly)
+mw hooks uninstall     # removes exactly the managed block it added
 ```
 
 | | Shell hooks (`mw hooks install`) | Full capture (`mw --live`, `mw-run`) |
@@ -219,7 +227,8 @@ How they layer:
   database is even opened.
 
 Supported shells: zsh (`preexec`/`precmd`), bash (`DEBUG` trap +
-`PROMPT_COMMAND`), fish (`fish_postexec`). PowerShell is not wired up yet.
+`PROMPT_COMMAND`), fish (`fish_postexec`), and PowerShell (a wrapped `prompt`
+function; install with `mw hooks install pwsh`).
 The hook fails silently by design: a locked or missing database, a missing
 binary, a bad path — none of it blocks or breaks your prompt, and your `$?` is
 preserved. Turn it off for one shell with `export MW_HOOK_OFF=1`.
@@ -310,10 +319,28 @@ npm install && npm run tauri:dev # full desktop app (needs Tauri system deps)
   man pages: [linux/README.md](linux/README.md) (`linux/install.sh --all`)
 - Real problems hit while setting up on a Jetson, and the fixes:
   [DEBUG.md](DEBUG.md)
-- Reproducible offline retrieval benchmark (no API keys): the built-in scorer
-  hits **recall@5 = 0.74** on a 37-item terminal-session corpus / 30 queries —
-  see [benchmarks/BENCHMARKS.md](benchmarks/BENCHMARKS.md) for the full table and
-  the one-line reproduce command.
+- Reproducible offline retrieval benchmark (no API keys), 37-item
+  terminal-session corpus, two blind-labeled gold sets: the built-in scorer uses
+  **SQLite FTS5 BM25** for keyword relevance and blends in recency/importance/
+  reinforcement/task. On the 18-query **intent** set (where context, not wording,
+  decides the answer) it leads every baseline — **recall@1 = 0.67, recall@5 =
+  0.92** vs FTS5's 0.42 / 0.69; on the 30-query pure term-overlap set the lexical
+  baselines still win, as designed. See
+  [benchmarks/BENCHMARKS.md](benchmarks/BENCHMARKS.md) for both tables and the
+  one-line reproduce command.
+
+## Documentation
+
+- [docs/CLI.md](docs/CLI.md) — full command reference for every `mw*` binary.
+- [VISION.md](VISION.md) — where the project is headed and why.
+- [PHILOSOPHY.md](PHILOSOPHY.md) — the communication and memory ideas behind it.
+- [ECOSYSTEM.md](ECOSYSTEM.md) — how the pieces (CLI, dashboard, integrations) fit together.
+- [CONSTITUTION.md](CONSTITUTION.md) — governance for users, contributors, maintainers, and AI agents.
+- [SOP.md](SOP.md) — standard operating procedure for building and releasing.
+- [HANDOFF.md](HANDOFF.md) — context handoff notes for picking up the work.
+- [benchmarks/BENCHMARKS.md](benchmarks/BENCHMARKS.md) — the offline retrieval benchmark and how to reproduce it.
+- [integrations/README.md](integrations/README.md) — editor/tool integrations.
+- [linux/README.md](linux/README.md) — Linux/Jetson system deps, shell hook, systemd service, completions, man pages.
 
 ## Attribution and learning sources
 

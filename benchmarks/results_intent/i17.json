@@ -1,48 +1,49 @@
 {
-  "query_id": "q28",
-  "query": "crates.io publish failed version already uploaded bump version",
+  "query_id": "i17",
+  "query": "the most recent tokio async issue",
   "relevant_ids": [
-    32
+    14,
+    15
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
-        32,
-        33,
-        9,
-        37,
+        15,
+        16,
+        14,
+        5,
         21
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.5,
       "recall_at_5": 1.0,
       "reciprocal_rank": 1.0
     },
     {
       "system": "keyword",
       "top5": [
-        32,
+        16,
+        14,
+        15,
         21,
-        33,
-        37,
-        5
+        1
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.5
     },
     {
       "system": "fts5",
       "top5": [
-        32,
-        33,
+        16,
+        5,
         21,
-        29,
-        12
+        15,
+        14
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.25
     }
   ]
 }

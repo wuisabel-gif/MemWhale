@@ -8,9 +8,16 @@
 //! byte-identically.
 //!
 //! Compares three retrieval systems over the same corpus:
-//!   1. builtin  — mw-memory's BuiltinEngine (default weights, lexical similarity).
+//!   1. builtin  — mw-memory's BuiltinEngine (default weights; similarity is now
+//!                 SQLite FTS5 BM25 blended with recency/importance/reinforcement/task).
 //!   2. keyword  — a plain substring/keyword-overlap baseline.
 //!   3. fts5     — an in-memory SQLite FTS5 (bm25) index over the same text.
+//!
+//! Two gold sets, each written to its own results directory:
+//!   - questions.json        → results/         — pure *term-overlap* recall
+//!     (the set the lexical baselines are built to win).
+//!   - questions_intent.json → results_intent/  — *intent* recall that needs
+//!     recency/importance/reinforcement/task context (the set the blend wins).
 //!
 //! (No fourth "local embedding" row: embed.rs only ships an Ollama-backed
 //! embedder, which needs a running local server — not offline/deterministic —
@@ -164,44 +171,32 @@ fn terms(text: &str) -> Vec<String> {
         .collect()
 }
 
-fn main() -> anyhow::Result<()> {
-    let dir = std::env::args().nth(1).unwrap_or_else(|| "benchmarks".into());
-    let dir = dir.trim_end_matches('/');
-    let corpus: Corpus = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/corpus.json"))?)?;
+#[derive(Serialize)]
+struct Row {
+    system: String,
+    recall_at_1: f64,
+    recall_at_5: f64,
+    mrr: f64,
+}
+
+/// Run one gold set end-to-end: score every question with all three systems,
+/// write per-question JSON + summary.json under `results_subdir`, and return the
+/// averaged rows for the printed table.
+fn run_set(
+    dir: &str,
+    results_subdir: &str,
+    questions_file: &str,
+    conn: &Connection,
+    memories: &[Memory],
+    now: DateTime<Utc>,
+) -> anyhow::Result<Vec<Row>> {
     let questions: Questions =
-        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/questions.json"))?)?;
+        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/{questions_file}"))?)?;
 
-    let now = fixed_now();
-    let memories: Vec<Memory> = corpus
-        .memories
-        .iter()
-        .map(|m| Memory {
-            id: m.id,
-            text: m.text.clone(),
-            created_at: now - Duration::days(m.days_old + 10),
-            last_used: now - Duration::days(m.days_old),
-            mentions: m.mentions,
-            importance: m.importance,
-            tags: m.tags.clone(),
-            embedding: None,
-        })
-        .collect();
-
-    // Build the FTS5 index once (deterministic: insert in corpus order).
-    let conn = Connection::open_in_memory()?;
-    conn.execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text)", [])?;
-    {
-        let mut ins = conn.prepare("INSERT INTO mem_fts(rowid, text) VALUES (?1, ?2)")?;
-        for m in &memories {
-            ins.execute(rusqlite::params![m.id, m.text])?;
-        }
-    }
-
-    let results_dir = format!("{dir}/results");
+    let results_dir = format!("{dir}/{results_subdir}");
     std::fs::create_dir_all(&results_dir)?;
 
     const SYSTEMS: [&str; 3] = ["builtin", "keyword", "fts5"];
-    // Running sums for the summary table, indexed like SYSTEMS.
     let mut sum_r1 = [0.0f64; 3];
     let mut sum_r5 = [0.0f64; 3];
     let mut sum_mrr = [0.0f64; 3];
@@ -209,9 +204,9 @@ fn main() -> anyhow::Result<()> {
     for q in &questions.questions {
         let rel: BTreeSet<i64> = q.relevant_ids.iter().copied().collect();
         let rankings = [
-            rank_builtin(&memories, q, now),
-            rank_keyword(&memories, q),
-            rank_fts5(&conn, &memories, q)?,
+            rank_builtin(memories, q, now),
+            rank_keyword(memories, q),
+            rank_fts5(conn, memories, q)?,
         ];
 
         let mut systems = Vec::with_capacity(3);
@@ -243,13 +238,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     let n = questions.questions.len() as f64;
-    #[derive(Serialize)]
-    struct Row {
-        system: String,
-        recall_at_1: f64,
-        recall_at_5: f64,
-        mrr: f64,
-    }
     let rows: Vec<Row> = (0..3)
         .map(|i| Row {
             system: SYSTEMS[i].to_string(),
@@ -276,20 +264,71 @@ fn main() -> anyhow::Result<()> {
         format!("{results_dir}/summary.json"),
         serde_json::to_string_pretty(&summary)? + "\n",
     )?;
+    Ok(rows)
+}
 
+fn print_table(label: &str, questions: usize, now: DateTime<Utc>, rows: &[Row]) {
     println!(
-        "recall benchmark · {} memories · {} queries · now={}\n",
-        memories.len(),
-        questions.questions.len(),
+        "\n{label} · {} queries · now={}\n",
+        questions,
         now.date_naive()
     );
     println!("{:<10} {:>10} {:>10} {:>8}", "system", "recall@1", "recall@5", "MRR");
-    for r in &rows {
+    for r in rows {
         println!(
             "{:<10} {:>10.3} {:>10.3} {:>8.3}",
             r.system, r.recall_at_1, r.recall_at_5, r.mrr
         );
     }
-    println!("\nper-question results written to {results_dir}/*.json");
+}
+
+fn main() -> anyhow::Result<()> {
+    let dir = std::env::args().nth(1).unwrap_or_else(|| "benchmarks".into());
+    let dir = dir.trim_end_matches('/');
+    let corpus: Corpus = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/corpus.json"))?)?;
+
+    let now = fixed_now();
+    let memories: Vec<Memory> = corpus
+        .memories
+        .iter()
+        .map(|m| Memory {
+            id: m.id,
+            text: m.text.clone(),
+            created_at: now - Duration::days(m.days_old + 10),
+            last_used: now - Duration::days(m.days_old),
+            mentions: m.mentions,
+            importance: m.importance,
+            tags: m.tags.clone(),
+            embedding: None,
+        })
+        .collect();
+
+    // Build the FTS5 index once (deterministic: insert in corpus order).
+    let conn = Connection::open_in_memory()?;
+    conn.execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text)", [])?;
+    {
+        let mut ins = conn.prepare("INSERT INTO mem_fts(rowid, text) VALUES (?1, ?2)")?;
+        for m in &memories {
+            ins.execute(rusqlite::params![m.id, m.text])?;
+        }
+    }
+
+    // Set 1: pure term-overlap gold set → results/.
+    let text_rows = run_set(dir, "results", "questions.json", &conn, &memories, now)?;
+    // Set 2: intent gold set → results_intent/.
+    let intent_rows = run_set(dir, "results_intent", "questions_intent.json", &conn, &memories, now)?;
+
+    let count = |file: &str| -> usize {
+        std::fs::read_to_string(format!("{dir}/{file}"))
+            .ok()
+            .and_then(|s| serde_json::from_str::<Questions>(&s).ok())
+            .map(|q| q.questions.len())
+            .unwrap_or(0)
+    };
+
+    println!("recall benchmark · {} memories · now={}", memories.len(), now.date_naive());
+    print_table("term-overlap set (results/)", count("questions.json"), now, &text_rows);
+    print_table("intent set (results_intent/)", count("questions_intent.json"), now, &intent_rows);
+    println!("\nper-question results written to {dir}/results/*.json and {dir}/results_intent/*.json");
     Ok(())
 }

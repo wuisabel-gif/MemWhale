@@ -1,18 +1,18 @@
 {
-  "query_id": "q21",
-  "query": "out of memory OOM during LTO release build on jetson",
+  "query_id": "i05",
+  "query": "the camera pixel decode type bug and the fix that resolved it",
   "relevant_ids": [
-    20
+    2
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
-        20,
-        16,
-        13,
+        2,
         1,
-        33
+        15,
+        14,
+        9
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,
@@ -21,28 +21,28 @@
     {
       "system": "keyword",
       "top5": [
-        20,
-        13,
-        22,
-        26,
-        5
+        1,
+        2,
+        15,
+        14,
+        27
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.5
     },
     {
       "system": "fts5",
       "top5": [
-        20,
-        13,
-        22,
-        16,
-        33
+        1,
+        2,
+        9,
+        27,
+        15
       ],
-      "recall_at_1": 1.0,
+      "recall_at_1": 0.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.5
     }
   ]
 }

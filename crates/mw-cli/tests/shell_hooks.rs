@@ -147,6 +147,66 @@ fn wrapper_session_suppresses_hook_rows() {
     );
 }
 
+/// Run `mw hooks <sub> pwsh` against a sandbox HOME. Returns command output.
+fn mw_hooks_pwsh(home: &Path, sub: &str) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_mw"))
+        .args(["hooks", sub, "pwsh"])
+        .env("HOME", home)
+        // $SHELL is bash here — proves the explicit `pwsh` arg is what selects
+        // PowerShell, independent of $SHELL detection.
+        .env("SHELL", "/bin/bash")
+        .env("MEMORYWHALE_DATA_DIR", home.join("data"))
+        .output()
+        .unwrap()
+}
+
+/// PowerShell install/uninstall is pure file editing — no real pwsh needed.
+/// (A live `pwsh -i` capture test is a follow-up; no PowerShell on CI/Unix.)
+#[test]
+fn powershell_hook_block_install_is_idempotent() {
+    let home = sandbox("pwsh");
+    // On Unix the profile lives under ~/.config/powershell.
+    let profile = home
+        .join(".config")
+        .join("powershell")
+        .join("Microsoft.PowerShell_profile.ps1");
+    let hook = home.join("data").join("memorywhale.ps1");
+    let expected_block = format!(
+        "# >>> memorywhale shell hooks >>>\n\
+         # Managed by `mw hooks` — edit above/below, not inside.\n\
+         if (Test-Path \"{h}\") {{ . \"{h}\" }}\n\
+         # <<< memorywhale shell hooks <<<\n",
+        h = hook.display()
+    );
+
+    assert!(mw_hooks_pwsh(&home, "install").status.success());
+    let after_install = fs::read_to_string(&profile).unwrap();
+    assert!(
+        after_install.contains(&expected_block),
+        "profile missing exact managed block.\n--- got ---\n{after_install}\n--- want ---\n{expected_block}"
+    );
+    // The dot-sourced hook script itself was generated.
+    assert!(hook.exists(), "hook script not written");
+
+    // Idempotent: installing twice must not duplicate the block.
+    assert!(mw_hooks_pwsh(&home, "install").status.success());
+    let after_twice = fs::read_to_string(&profile).unwrap();
+    assert_eq!(
+        after_twice.matches(">>> memorywhale shell hooks >>>").count(),
+        1,
+        "block duplicated on second install"
+    );
+
+    // Uninstall removes exactly the block.
+    assert!(mw_hooks_pwsh(&home, "uninstall").status.success());
+    let after_uninstall = fs::read_to_string(&profile).unwrap();
+    assert!(
+        !after_uninstall.contains("memorywhale shell hooks"),
+        "block not removed: {after_uninstall}"
+    );
+    assert!(!hook.exists(), "hook script left behind after uninstall");
+}
+
 #[test]
 fn off_gated_directory_records_nothing() {
     let home = sandbox("gate");

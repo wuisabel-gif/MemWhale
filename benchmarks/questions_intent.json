@@ -1,0 +1,23 @@
+{
+  "_comment": "INTENT gold set. Unlike questions.json (pure term-overlap), these queries are answered by CONTEXT: recency, importance, reinforcement, or task-relevance — the signals plain keyword/FTS5 cannot see. relevant_ids were labeled BLIND, by the intent of each query against the corpus text/metadata, before running any ranker (see benchmarks/BENCHMARKS.md and crates/mw-memory/examples/README.md). task_tags exercise the builtin task-relevance signal.",
+  "questions": [
+    { "id": "i01", "text": "what did I work on most recently", "relevant_ids": [7] },
+    { "id": "i02", "text": "the most recent thing I fixed", "relevant_ids": [7] },
+    { "id": "i03", "text": "the most recent compiler error I hit", "relevant_ids": [1] },
+    { "id": "i04", "text": "the most recent E0308 fix specifically", "relevant_ids": [2] },
+    { "id": "i05", "text": "the camera pixel decode type bug and the fix that resolved it", "relevant_ids": [2] },
+    { "id": "i06", "text": "the flaky concurrent decode race and how it was actually fixed", "relevant_ids": [15] },
+    { "id": "i07", "text": "the flaky test I hit the most times", "relevant_ids": [14] },
+    { "id": "i08", "text": "the git fix I rely on most", "relevant_ids": [7] },
+    { "id": "i09", "text": "the most reinforced lesson overall", "relevant_ids": [7] },
+    { "id": "i10", "text": "the most important thing I remember about the camera driver", "relevant_ids": [2] },
+    { "id": "i11", "text": "the highest priority lesson I have saved", "relevant_ids": [2] },
+    { "id": "i12", "text": "what was I doing on the jetson last week", "task_tags": ["jetson"], "relevant_ids": [19, 20] },
+    { "id": "i13", "text": "the aarch64 cross compilation setup on the edge board", "task_tags": ["jetson"], "relevant_ids": [19] },
+    { "id": "i14", "text": "the most recent sqlite problem", "relevant_ids": [18] },
+    { "id": "i15", "text": "the most recent CI or release failure", "relevant_ids": [33] },
+    { "id": "i16", "text": "the latest test that failed because of a leaked port", "relevant_ids": [37] },
+    { "id": "i17", "text": "the most recent tokio async issue", "relevant_ids": [14, 15] },
+    { "id": "i18", "text": "the most recent flaky test fix", "relevant_ids": [36] }
+  ]
+}
