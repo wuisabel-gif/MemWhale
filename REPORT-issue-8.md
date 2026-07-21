@@ -106,8 +106,9 @@ would have silently eaten memories in production:
 
 ## Follow-ups
 
-- **PowerShell** is deliberately out of scope for this issue; needs its own
-  `prompt`-function hook and a `Microsoft.PowerShell_profile.ps1` managed block.
+- **PowerShell** was out of scope for this issue. Now shipped (issue #7): a
+  wrapped `prompt`-function hook and a `Microsoft.PowerShell_profile.ps1`
+  managed block, installed with `mw hooks install pwsh`.
 - Duration is second-granularity (`$SECONDS` / `CMD_DURATION`), recorded in the
   notes as `dur:Ns`. A dedicated `duration_ms` column is the upgrade path if
   sub-second timing turns out to matter.

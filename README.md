@@ -189,8 +189,9 @@ To auto-record every new terminal without typing `mw`, use `mw global on`
 MemoryWhale captures at two levels. They layer — you can run both.
 
 ```bash
-mw hooks install     # lightweight, always on, every shell
-mw hooks uninstall    # removes exactly the managed block it added
+mw hooks install       # lightweight, always on, every shell
+mw hooks install pwsh  # PowerShell (not in $SHELL, so name it explicitly)
+mw hooks uninstall     # removes exactly the managed block it added
 ```
 
 | | Shell hooks (`mw hooks install`) | Full capture (`mw --live`, `mw-run`) |
@@ -219,7 +220,8 @@ How they layer:
   database is even opened.
 
 Supported shells: zsh (`preexec`/`precmd`), bash (`DEBUG` trap +
-`PROMPT_COMMAND`), fish (`fish_postexec`). PowerShell is not wired up yet.
+`PROMPT_COMMAND`), fish (`fish_postexec`), and PowerShell (a wrapped `prompt`
+function; install with `mw hooks install pwsh`).
 The hook fails silently by design: a locked or missing database, a missing
 binary, a bad path — none of it blocks or breaks your prompt, and your `$?` is
 preserved. Turn it off for one shell with `export MW_HOOK_OFF=1`.

@@ -18,7 +18,7 @@ use regex::Regex;
 use rusqlite::{params, Connection};
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -993,7 +993,7 @@ fn global_cmd(args: &[String]) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 // `mw hooks` — the lightweight always-on capture tier.
 //
-// ponytail: no PowerShell here; Windows is a follow-up issue.
+// Supports bash, zsh, fish, and PowerShell (`mw hooks install pwsh`).
 // ---------------------------------------------------------------------------
 
 // In-crate so they ship inside the published package (an include_str! that
@@ -1001,16 +1001,45 @@ fn global_cmd(args: &[String]) -> Result<(), String> {
 // files). `linux/install.sh` and the .deb reference this same copy.
 const HOOK_SH: &str = include_str!("../../shell/memorywhale.sh");
 const HOOK_FISH: &str = include_str!("../../shell/memorywhale.fish");
+const HOOK_PS1: &str = include_str!("../../shell/memorywhale.ps1");
 const HOOK_BEGIN: &str = "# >>> memorywhale shell hooks >>>";
 const HOOK_END: &str = "# <<< memorywhale shell hooks <<<";
 
-/// (shell name, rc file, generated hook file, hook script body)
-fn hook_target() -> Result<(&'static str, PathBuf, PathBuf, &'static str), String> {
+/// The PowerShell profile (`$PROFILE`, current-user/current-host). Windows
+/// keeps it under Documents/PowerShell; PowerShell Core on Unix under
+/// ~/.config/powershell. `#` starts a comment in PowerShell too, so the shared
+/// HOOK_BEGIN/HOOK_END markers work as-is.
+fn powershell_profile(home: &Path) -> PathBuf {
+    let file = "Microsoft.PowerShell_profile.ps1";
+    if cfg!(windows) {
+        home.join("Documents").join("PowerShell").join(file)
+    } else {
+        home.join(".config").join("powershell").join(file)
+    }
+}
+
+/// (shell name, rc file, generated hook file, hook script body).
+/// `explicit` is an optional shell argument (`mw hooks install pwsh`); when
+/// absent we fall back to `$SHELL` detection. PowerShell is never in `$SHELL`,
+/// so it must be requested explicitly.
+fn hook_target(explicit: Option<&str>) -> Result<(&'static str, PathBuf, PathBuf, &'static str), String> {
     let home = dirs::home_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
-    let shell = env::var("SHELL").unwrap_or_default();
-    let name = shell.rsplit('/').next().unwrap_or_default();
     let hooks_dir = memorywhale_dir()?;
-    if name.contains("fish") {
+    let name = match explicit {
+        Some(arg) => arg.to_string(),
+        None => {
+            let shell = env::var("SHELL").unwrap_or_default();
+            shell.rsplit('/').next().unwrap_or_default().to_string()
+        }
+    };
+    if name.contains("pwsh") || name.contains("powershell") {
+        Ok((
+            "powershell",
+            powershell_profile(&home),
+            hooks_dir.join("memorywhale.ps1"),
+            HOOK_PS1,
+        ))
+    } else if name.contains("fish") {
         Ok((
             "fish",
             home.join(".config").join("fish").join("config.fish"),
@@ -1019,16 +1048,21 @@ fn hook_target() -> Result<(&'static str, PathBuf, PathBuf, &'static str), Strin
         ))
     } else if name.contains("zsh") {
         Ok(("zsh", home.join(".zshrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
+    } else if explicit.map_or(false, |a| !a.contains("bash")) {
+        Err(format!(
+            "unknown shell {name:?}; supported: bash, zsh, fish, pwsh/powershell"
+        ))
     } else {
         Ok(("bash", home.join(".bashrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
     }
 }
 
 fn hook_block(shell: &str, hook_path: &str) -> String {
-    let source_line = if shell == "fish" {
-        format!("test -f \"{hook_path}\"; and source \"{hook_path}\"")
-    } else {
-        format!("[ -f \"{hook_path}\" ] && . \"{hook_path}\"")
+    let source_line = match shell {
+        "fish" => format!("test -f \"{hook_path}\"; and source \"{hook_path}\""),
+        // PowerShell: dot-source the generated hook when it exists.
+        "powershell" => format!("if (Test-Path \"{hook_path}\") {{ . \"{hook_path}\" }}"),
+        _ => format!("[ -f \"{hook_path}\" ] && . \"{hook_path}\""),
     };
     format!("{HOOK_BEGIN}\n# Managed by `mw hooks` — edit above/below, not inside.\n{source_line}\n{HOOK_END}\n")
 }
@@ -1055,18 +1089,21 @@ fn strip_hook_block(rc: &str) -> String {
 }
 
 fn hooks_cmd(args: &[String]) -> Result<(), String> {
+    // Optional trailing shell arg: `mw hooks install pwsh`. PowerShell isn't in
+    // $SHELL, so it must be named explicitly.
+    let shell_arg = args.get(1).map(String::as_str);
     match args.first().map(String::as_str) {
-        Some("install") => hooks_install(),
-        Some("uninstall") | Some("remove") => hooks_uninstall(),
+        Some("install") => hooks_install(shell_arg),
+        Some("uninstall") | Some("remove") => hooks_uninstall(shell_arg),
         Some(other) => Err(format!(
-            "unknown subcommand {other:?}; usage: mw hooks [install|uninstall]"
+            "unknown subcommand {other:?}; usage: mw hooks [install|uninstall] [pwsh]"
         )),
-        None => Err("usage: mw hooks [install|uninstall]".to_string()),
+        None => Err("usage: mw hooks [install|uninstall] [pwsh]".to_string()),
     }
 }
 
-fn hooks_install() -> Result<(), String> {
-    let (shell, rc_path, hook_path, body) = hook_target()?;
+fn hooks_install(shell_arg: Option<&str>) -> Result<(), String> {
+    let (shell, rc_path, hook_path, body) = hook_target(shell_arg)?;
     if let Some(parent) = hook_path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("failed to create data dir: {e}"))?;
     }
@@ -1095,8 +1132,8 @@ fn hooks_install() -> Result<(), String> {
     Ok(())
 }
 
-fn hooks_uninstall() -> Result<(), String> {
-    let (shell, rc_path, hook_path, _) = hook_target()?;
+fn hooks_uninstall(shell_arg: Option<&str>) -> Result<(), String> {
+    let (shell, rc_path, hook_path, _) = hook_target(shell_arg)?;
     let existing = fs::read_to_string(&rc_path).unwrap_or_default();
     let updated = strip_hook_block(&existing);
     let changed = updated != existing;
