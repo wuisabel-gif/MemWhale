@@ -75,11 +75,18 @@ mw --live                             # same, but autosaved — survives SSH dro
 mw-run -- cargo check                 # run one command, capture its output + exit code
 mw list && mw show 1                  # inspect recorded sessions
 mw search "linker error"              # find it across commands, output, and transcripts
+mw tui                                # interactive terminal browser — type to search, Enter to act
 mw remember "the fix was X"           # save a conclusion so it doesn't get re-derived
 mw git-fix                            # diagnose the last failed git command: what, why, the fix
 mw context --last-error               # the most recent failure, with its exact error
 mw-serve                              # web dashboard (works headless, e.g. on a Jetson)
 ```
+
+`mw tui` opens an interactive terminal browser — no web page, no server. Type
+to search (ranked live), arrow keys to move, **Enter** to reveal the
+`mw replay`/`mw show` command for the selected memory, **F1** for help, **Esc**
+to quit. The detail pane shows the full memory plus *why* it ranked where it
+did.
 
 Every command run stores the command, each argument as a searchable row, the
 cwd, exit code, stdout, stderr, and your notes. Captured output is scrubbed for

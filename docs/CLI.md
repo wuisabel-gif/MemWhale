@@ -13,6 +13,7 @@ mw --live --notes "project:demo"      # autosave to SQLite every few seconds
 mw list                               # list recorded sessions
 mw show 1                             # print the full transcript of a session
 mw search "linker error"              # search commands, output, notes, transcripts
+mw tui                                # interactive terminal browser (type to search, Enter to act, F1 help, Esc quit)
 mw git-fix                            # diagnose the last failed git command: what, why, the fix
 mw mark "before the risky flash"      # bookmark the current debugging moment
 mw remember "the fix was passing --features vendored-ssl"  # save a lesson/conclusion
