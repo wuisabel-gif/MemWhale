@@ -114,10 +114,12 @@ and can write down what they figure out:
 claude mcp add memorywhale -- mw-mcp
 ```
 
-That gives the agent four tools: `recent_errors`, `search_memory`,
-`get_context`, and `remember` — so once it works out *why* something failed,
-it can save that conclusion for its future self (or a teammate) to find later,
-the same way you'd type:
+That gives the agent five tools: `recent_errors`, `search_memory`,
+`get_context`, `remember`, and `similar_failures` — the last one lets it paste
+an error it just hit and learn, from observed exit codes, how many times that
+exact failure was seen and how often a later run resolved it. And once it works
+out *why* something failed, it can save that conclusion for its future self (or
+a teammate) to find later, the same way you'd type:
 
 ```bash
 mw remember "the E0308 in camera-driver was the fps field being a string; fix: parse it as i32"
