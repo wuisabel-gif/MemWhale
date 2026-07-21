@@ -27,8 +27,10 @@ struct App {
     query: String,
     results: Vec<ScoredMemory>,
     state: ListState,
-    /// Footer line: keybinding hint, or the last "reveal" action.
+    /// The last "reveal" action (the shell command for the selected memory).
     status: String,
+    /// Whether the F1 help overlay is open.
+    show_help: bool,
 }
 
 impl App {
@@ -40,6 +42,7 @@ impl App {
             results: Vec::new(),
             state: ListState::default(),
             status: String::new(),
+            show_help: false,
         };
         app.recompute();
         app
@@ -108,7 +111,13 @@ fn snippet(text: &str, max: usize) -> String {
 fn render(app: &mut App, f: &mut Frame) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(1), Constraint::Length(1)])
+        // search box · body · status line · key bar
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ])
         .split(f.area());
 
     // Search box.
@@ -177,13 +186,106 @@ fn render(app: &mut App, f: &mut Frame) {
     };
     f.render_widget(detail.block(Block::default().borders(Borders::ALL).title(" detail ")), body[1]);
 
-    // Footer: keybindings, or the revealed action.
-    let footer = if app.status.is_empty() {
-        "type to search · ↑/↓ move · Enter reveal command · Esc quit".to_string()
+    // Status line: the revealed action, or a gentle nudge toward it.
+    let status = if app.status.is_empty() {
+        Line::styled(
+            "  press Enter on a result to get its shell command",
+            Style::default().fg(Color::DarkGray),
+        )
     } else {
-        app.status.clone()
+        Line::styled(app.status.clone(), Style::default().fg(Color::Green))
     };
-    f.render_widget(Paragraph::new(footer).style(Style::default().fg(Color::DarkGray)), rows[2]);
+    f.render_widget(Paragraph::new(status), rows[2]);
+
+    // Key bar: always visible, so the controls never disappear.
+    f.render_widget(Paragraph::new(key_bar()), rows[3]);
+
+    // F1 help overlay, drawn last so it sits on top.
+    if app.show_help {
+        render_help(f);
+    }
+}
+
+/// The always-on key hints. Full list lives in the F1 overlay.
+fn key_bar() -> Line<'static> {
+    let key = |k: &'static str| Span::styled(k, Style::default().fg(Color::Cyan));
+    let sep = || Span::styled("  ·  ", Style::default().fg(Color::DarkGray));
+    Line::from(vec![
+        Span::raw(" "),
+        key("type"),
+        Span::raw(" search"),
+        sep(),
+        key("↑↓"),
+        Span::raw(" move"),
+        sep(),
+        key("Enter"),
+        Span::raw(" command"),
+        sep(),
+        key("F1"),
+        Span::raw(" help"),
+        sep(),
+        key("Esc"),
+        Span::raw(" quit"),
+    ])
+}
+
+/// A centred rectangle `pct_x` × `pct_y` percent of `area`, for the help popup.
+fn centered_rect(pct_x: u16, pct_y: u16, area: ratatui::layout::Rect) -> ratatui::layout::Rect {
+    let vert = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - pct_y) / 2),
+            Constraint::Percentage(pct_y),
+            Constraint::Percentage((100 - pct_y) / 2),
+        ])
+        .split(area);
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - pct_x) / 2),
+            Constraint::Percentage(pct_x),
+            Constraint::Percentage((100 - pct_x) / 2),
+        ])
+        .split(vert[1])[1]
+}
+
+fn render_help(f: &mut Frame) {
+    use ratatui::widgets::Clear;
+    let area = centered_rect(70, 70, f.area());
+    let row = |k: &'static str, desc: &'static str| {
+        Line::from(vec![
+            Span::styled(format!("  {k:<16}"), Style::default().fg(Color::Cyan)),
+            Span::raw(desc),
+        ])
+    };
+    let lines = vec![
+        Line::from(""),
+        row("type", "search your memory as you type"),
+        row("↑ / ↓", "move up / down the results"),
+        row("Ctrl-n / Ctrl-p", "move down / up (alternative)"),
+        row("Backspace", "delete a search character"),
+        row("Enter", "reveal the selected item's shell command"),
+        row("F1", "toggle this help"),
+        row("Esc / Ctrl-c", "quit"),
+        Line::from(""),
+        Line::styled(
+            "  Browse here, then run the revealed command in your shell.",
+            Style::default().fg(Color::DarkGray),
+        ),
+        Line::styled(
+            "  Start it any time with:  mw tui",
+            Style::default().fg(Color::DarkGray),
+        ),
+        Line::from(""),
+        Line::styled("  press Esc or F1 to close", Style::default().fg(Color::Yellow)),
+    ];
+    let popup = Paragraph::new(lines).wrap(Wrap { trim: false }).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" MemoryWhale TUI — commands "),
+    );
+    f.render_widget(Clear, area); // blank whatever's behind the popup
+    f.render_widget(popup, area);
 }
 
 fn event_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<(), String> {
@@ -196,7 +298,20 @@ fn event_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<
             continue;
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+
+        // While the help overlay is open it's modal: Esc/F1/Enter close it, and
+        // nothing else (so typed keys don't leak into the query behind it).
+        if app.show_help {
+            if matches!(key.code, KeyCode::Esc | KeyCode::F(1) | KeyCode::Enter)
+                || (ctrl && key.code == KeyCode::Char('c'))
+            {
+                app.show_help = false;
+            }
+            continue;
+        }
+
         match key.code {
+            KeyCode::F(1) => app.show_help = true,
             KeyCode::Esc => return Ok(()),
             KeyCode::Char('c') if ctrl => return Ok(()),
             KeyCode::Down => app.move_sel(1),
@@ -304,6 +419,22 @@ mod tests {
         assert!(text.contains("MemoryWhale"), "header present");
         assert!(text.contains("results"), "results count present");
         assert!(text.contains("cargo build failed"), "the memory is shown");
+        // The key bar is always visible so the controls never disappear.
+        assert!(text.contains("F1"), "key bar shows help hint");
+        assert!(text.contains("quit"), "key bar shows how to exit");
+    }
+
+    #[test]
+    fn help_overlay_lists_commands_and_how_to_exit() {
+        let mut app = app_with(&[(1, "cargo build failed")]);
+        app.show_help = true;
+        let mut terminal = Terminal::new(TestBackend::new(100, 24)).unwrap();
+        terminal.draw(|f| render(&mut app, f)).unwrap();
+        let text = buffer_text(terminal.backend().buffer());
+        assert!(text.contains("commands"), "overlay titled with commands");
+        assert!(text.contains("search your memory"), "explains search");
+        assert!(text.contains("quit"), "explains how to exit");
+        assert!(text.contains("mw tui"), "tells how to start it");
     }
 
     fn buffer_text(buf: &ratatui::buffer::Buffer) -> String {
