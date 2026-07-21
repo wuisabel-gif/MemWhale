@@ -456,9 +456,28 @@ pub fn mempalace_command() -> Option<Vec<String>> {
     if config_value("engine")?.trim() != "mempalace" {
         return None;
     }
+    mempalace_argv()
+}
+
+/// The MCP server argv, regardless of whether `engine = "mempalace"` is set —
+/// used by `mw sync-mempalace`, which pushes to MemPalace even when search
+/// still runs on the builtin engine.
+pub fn mempalace_argv() -> Option<Vec<String>> {
     let cmd = config_value("mempalace_command").unwrap_or_else(|| "mempalace-mcp".into());
     let argv: Vec<String> = cmd.split_whitespace().map(str::to_string).collect();
     (!argv.is_empty()).then_some(argv)
+}
+
+/// MemPalace's search tool name. The real server exposes `mempalace_search`
+/// (not `search`), so that's the default; overridable via `mempalace_tool` in
+/// config for a differently-named server.
+pub fn mempalace_search_tool() -> String {
+    config_value("mempalace_tool").unwrap_or_else(|| "mempalace_search".into())
+}
+
+/// MemPalace's batch-write tool name, used by `mw sync-mempalace`.
+pub fn mempalace_checkpoint_tool() -> String {
+    config_value("mempalace_checkpoint_tool").unwrap_or_else(|| "mempalace_checkpoint".into())
 }
 
 fn config_value(key: &str) -> Option<String> {
@@ -1001,6 +1020,28 @@ mod tests {
             mempalace_command(),
             Some(vec!["npx".into(), "mempalace-mcp".into(), "--stdio".into()])
         );
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mempalace_tool_names_default_to_real_server() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh_data_dir("mempalace-tools");
+
+        // Defaults match the real MemPalace server (not the generic "search").
+        assert_eq!(mempalace_search_tool(), "mempalace_search");
+        assert_eq!(mempalace_checkpoint_tool(), "mempalace_checkpoint");
+
+        // Overridable for a differently-named server.
+        std::fs::write(
+            dir.join("config.toml"),
+            "mempalace_tool = \"custom_search\"\nmempalace_checkpoint_tool = \"custom_write\"\n",
+        )
+        .unwrap();
+        assert_eq!(mempalace_search_tool(), "custom_search");
+        assert_eq!(mempalace_checkpoint_tool(), "custom_write");
 
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
         let _ = std::fs::remove_dir_all(&dir);

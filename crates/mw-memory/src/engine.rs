@@ -272,6 +272,56 @@ impl MemoryEngine for MemPalaceEngine {
     }
 }
 
+/// One item to file into MemPalace: a verbatim `content` string placed under a
+/// `wing` (project) and `room` (aspect). Mirrors `mempalace_add_drawer` inputs.
+#[cfg(feature = "mempalace")]
+pub struct Drawer {
+    pub wing: String,
+    pub room: String,
+    pub content: String,
+}
+
+/// Outcome of a checkpoint push, parsed from the tool's summary.
+#[cfg(feature = "mempalace")]
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct CheckpointOutcome {
+    pub added: usize,
+    pub duplicates: usize,
+    pub errors: usize,
+}
+
+/// Push memories into a running MemPalace server in one batch via its
+/// `mempalace_checkpoint` tool (which semantic-dedups, then files the
+/// non-duplicates). Spawns `command args…`, does the MCP handshake, and calls
+/// `tool` once with all items. Returns the server's added/duplicate/error tally.
+#[cfg(feature = "mempalace")]
+pub fn checkpoint(
+    command: &str,
+    args: &[String],
+    tool: &str,
+    items: &[Drawer],
+) -> anyhow::Result<CheckpointOutcome> {
+    use serde_json::{json, Value};
+    let mut client = crate::mcp::McpClient::spawn(command, args)?;
+    let payload = json!({
+        "items": items
+            .iter()
+            .map(|d| json!({"wing": d.wing, "room": d.room, "content": d.content}))
+            .collect::<Vec<_>>(),
+        "added_by": "memorywhale",
+    });
+    let text = client.call_tool(tool, payload)?;
+    // The summary is JSON with added/duplicates/errors arrays; tolerate shape
+    // drift by counting whatever arrays are present rather than requiring them.
+    let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    let count = |k: &str| v.get(k).and_then(Value::as_array).map(Vec::len).unwrap_or(0);
+    Ok(CheckpointOutcome {
+        added: count("added"),
+        duplicates: count("duplicates"),
+        errors: count("errors"),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -342,6 +392,20 @@ mod tests {
         assert_eq!(hits.len(), 2);
         assert_eq!(hits[0].memory.id, 143);
         assert!(hits[0].reasons()[0].starts_with("mempalace semantic score"));
+    }
+
+    #[cfg(all(feature = "mempalace", unix))]
+    #[test]
+    fn checkpoint_pushes_and_parses_the_summary() {
+        let script =
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake-mempalace-checkpoint.sh");
+        let items = vec![
+            Drawer { wing: "memorywhale".into(), room: "command".into(), content: "cargo build failed".into() },
+            Drawer { wing: "memorywhale".into(), room: "note".into(), content: "the fix was X".into() },
+        ];
+        let out = checkpoint("sh", &[script.to_string()], "mempalace_checkpoint", &items).unwrap();
+        // Fixture reports two added, one duplicate, no errors.
+        assert_eq!(out, CheckpointOutcome { added: 2, duplicates: 1, errors: 0 });
     }
 
     #[cfg(feature = "mempalace")]

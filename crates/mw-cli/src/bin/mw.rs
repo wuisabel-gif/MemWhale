@@ -57,6 +57,7 @@ fn run() -> Result<(), String> {
         Some("agent") => return agent_cmd(&raw_args[1..]),
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
+        Some("sync-mempalace") => return sync_mempalace(&raw_args[1..]),
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
         Some("doctor") => return doctor(),
         Some("global") => return global_cmd(&raw_args[1..]),
@@ -269,6 +270,7 @@ fn print_help() {
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
          mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw sync-mempalace [--wing NAME] [--dry-run]  push local memories into a running MemPalace server (needs mempalace_command in config)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
          mw context [project:name] [--last-error] [--limit N]  print a compact digest to paste into an AI agent\n\
          mw agent [session-id]    export a full session as agent-ready text to paste later (default: latest)\n\
@@ -1718,6 +1720,74 @@ fn print_external_hits(query: &str, hits: &[mw_memory::ScoredMemory], explain: b
     }
 }
 
+/// Push local memories into a running MemPalace server so it can search your
+/// terminal history semantically. Maps each memory to a MemPalace drawer:
+/// `--wing` (default "memorywhale") groups them, and the source kind (command /
+/// session / note / …) becomes the room. `mempalace_checkpoint` on the server
+/// side semantic-dedups, so re-running is safe and only files what's new.
+fn sync_mempalace(args: &[String]) -> Result<(), String> {
+    let mut wing = "memorywhale".to_string();
+    let mut limit: usize = 0; // 0 = all
+    let mut dry_run = false;
+    let mut iter = args.iter();
+    while let Some(a) = iter.next() {
+        match a.as_str() {
+            "--wing" => wing = iter.next().ok_or("--wing needs a value")?.clone(),
+            "--limit" => limit = iter.next().and_then(|v| v.parse().ok()).ok_or("--limit needs a number")?,
+            "--dry-run" => dry_run = true,
+            other => return Err(format!("unexpected argument {other:?}; run mw --help")),
+        }
+    }
+
+    let argv = memorywhale_cli::mempalace_argv()
+        .ok_or("no mempalace_command configured in config.toml")?;
+    let (cmd, rest) = argv.split_first().expect("mempalace_argv is non-empty");
+
+    let conn = open_session_db()?;
+    let _ = memorywhale_cli::migrate(&conn);
+    let mut mems = mw_memory::sqlite::load_memories(&conn);
+    if limit > 0 && mems.len() > limit {
+        mems.truncate(limit);
+    }
+    let drawers: Vec<mw_memory::engine::Drawer> = mems
+        .iter()
+        .filter(|m| !m.text.trim().is_empty())
+        .map(|m| {
+            let (source, _) = mw_memory::sqlite::decode_id(m.id);
+            mw_memory::engine::Drawer {
+                wing: wing.clone(),
+                room: source.tag().to_string(),
+                content: m.text.clone(),
+            }
+        })
+        .collect();
+
+    if drawers.is_empty() {
+        println!("Nothing to sync (no memories found).");
+        return Ok(());
+    }
+    if dry_run {
+        let mut by_room: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+        for d in &drawers {
+            *by_room.entry(d.room.as_str()).or_default() += 1;
+        }
+        println!("Would file {} drawer(s) into wing {wing:?} (server dedups):", drawers.len());
+        for (room, n) in by_room {
+            println!("  {room}: {n}");
+        }
+        return Ok(());
+    }
+
+    let tool = memorywhale_cli::mempalace_checkpoint_tool();
+    let outcome = mw_memory::engine::checkpoint(cmd, rest, &tool, &drawers)
+        .map_err(|e| format!("mempalace sync failed: {e:#}"))?;
+    println!(
+        "Synced to MemPalace (wing {wing:?}): {} added, {} already present, {} error(s).",
+        outcome.added, outcome.duplicates, outcome.errors
+    );
+    Ok(())
+}
+
 fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
@@ -1736,7 +1806,8 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // the builtin engine over local memory, so a misconfig never hard-fails.
     if let Some(argv) = memorywhale_cli::mempalace_command() {
         let (cmd, rest) = argv.split_first().expect("mempalace_command is non-empty");
-        let eng = mw_memory::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec());
+        let eng = mw_memory::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec())
+            .with_tool(memorywhale_cli::mempalace_search_tool());
         match eng.try_retrieve(&mw_memory::Query::new(&query, Utc::now()), 20) {
             Ok(hits) => {
                 print_external_hits(&query, &hits, explain);
