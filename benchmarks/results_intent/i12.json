@@ -1,48 +1,48 @@
 {
-  "query_id": "q03",
-  "query": "camera driver frame decode type problem and its fix",
+  "query_id": "i12",
+  "query": "what was I doing on the jetson last week",
   "relevant_ids": [
-    1,
-    2
+    19,
+    20
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
-        1,
-        2,
+        20,
         14,
         15,
-        9
+        31,
+        16
       ],
       "recall_at_1": 0.5,
-      "recall_at_5": 1.0,
+      "recall_at_5": 0.5,
       "reciprocal_rank": 1.0
     },
     {
       "system": "keyword",
       "top5": [
-        1,
-        2,
         14,
         15,
-        7
+        20,
+        23,
+        31
       ],
-      "recall_at_1": 0.5,
-      "recall_at_5": 1.0,
-      "reciprocal_rank": 1.0
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.5,
+      "reciprocal_rank": 0.3333333333333333
     },
     {
       "system": "fts5",
       "top5": [
-        1,
+        20,
         14,
-        2,
-        15,
-        4
+        31,
+        12,
+        15
       ],
       "recall_at_1": 0.5,
-      "recall_at_5": 1.0,
+      "recall_at_5": 0.5,
       "reciprocal_rank": 1.0
     }
   ]

@@ -1,31 +1,31 @@
 {
-  "query_id": "q14",
-  "query": "rebase conflict on Cargo.lock while squashing commits",
+  "query_id": "i06",
+  "query": "the flaky concurrent decode race and how it was actually fixed",
   "relevant_ids": [
-    13
+    15
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
-        7,
+        15,
         14,
-        9,
-        13,
-        3
+        2,
+        7,
+        1
       ],
-      "recall_at_1": 0.0,
+      "recall_at_1": 1.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 0.25
+      "reciprocal_rank": 1.0
     },
     {
       "system": "keyword",
       "top5": [
-        13,
-        7,
-        9,
-        21,
-        6
+        15,
+        14,
+        1,
+        2,
+        26
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,
@@ -34,11 +34,11 @@
     {
       "system": "fts5",
       "top5": [
-        13,
-        7,
-        9,
-        21,
-        14
+        15,
+        14,
+        26,
+        12,
+        25
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,

@@ -23,6 +23,8 @@ const MAX_RESULTS: usize = 500;
 
 struct App {
     engine: BuiltinEngine,
+    /// Live DB handle — used by review mode to approve/reject pending notes.
+    conn: Connection,
     now: DateTime<Utc>,
     query: String,
     results: Vec<ScoredMemory>,
@@ -31,21 +33,74 @@ struct App {
     status: String,
     /// Whether the F1 help overlay is open.
     show_help: bool,
+    /// Whether the agent-memory review pane is showing (Tab toggles it).
+    review: bool,
+    /// Agent-written memories awaiting approval (`approved = 0`).
+    pending: Vec<crate::PendingNote>,
+    review_state: ListState,
 }
 
 impl App {
-    fn new(engine: BuiltinEngine) -> Self {
+    fn new(engine: BuiltinEngine, conn: Connection) -> Self {
         let mut app = App {
             engine,
+            conn,
             now: Utc::now(),
             query: String::new(),
             results: Vec::new(),
             state: ListState::default(),
             status: String::new(),
             show_help: false,
+            review: false,
+            pending: Vec::new(),
+            review_state: ListState::default(),
         };
         app.recompute();
+        app.refresh_pending();
         app
+    }
+
+    /// Reload the pending-review queue and keep the selection in range.
+    fn refresh_pending(&mut self) {
+        self.pending = crate::pending_agent_notes(&self.conn).unwrap_or_default();
+        let sel = self.review_state.selected().unwrap_or(0).min(self.pending.len().saturating_sub(1));
+        self.review_state.select((!self.pending.is_empty()).then_some(sel));
+    }
+
+    fn toggle_review(&mut self) {
+        self.review = !self.review;
+        if self.review {
+            self.refresh_pending();
+        }
+        self.status.clear();
+    }
+
+    fn move_review_sel(&mut self, delta: isize) {
+        if self.pending.is_empty() {
+            return;
+        }
+        let len = self.pending.len() as isize;
+        let cur = self.review_state.selected().unwrap_or(0) as isize;
+        self.review_state.select(Some((cur + delta).rem_euclid(len) as usize));
+    }
+
+    /// Approve (`a`) or reject (`d`) the selected pending note, then refresh.
+    fn review_action(&mut self, approve: bool) {
+        let Some(note) = self.review_state.selected().and_then(|i| self.pending.get(i)) else {
+            return;
+        };
+        let id = note.id;
+        let result = if approve {
+            crate::approve_note(&self.conn, id)
+        } else {
+            crate::reject_note(&self.conn, id)
+        };
+        self.status = match result {
+            Ok(()) if approve => format!("  approved #{id}"),
+            Ok(()) => format!("  rejected #{id}"),
+            Err(e) => format!("  {e}"),
+        };
+        self.refresh_pending();
     }
 
     /// Re-rank against the current query. Empty query ranks by recency/importance
@@ -120,14 +175,31 @@ fn render(app: &mut App, f: &mut Frame) {
         ])
         .split(f.area());
 
-    // Search box.
-    let search = Paragraph::new(Line::from(vec![
-        Span::styled("search ", Style::default().fg(Color::Cyan)),
-        Span::raw(&app.query),
-        Span::styled("▏", Style::default().fg(Color::Cyan)), // cursor
-    ]))
-    .block(Block::default().borders(Borders::ALL).title(" MemoryWhale "));
+    // Search box (doubles as a mode banner in review mode).
+    let search = if app.review {
+        Paragraph::new(Line::from(vec![Span::styled(
+            "REVIEW MODE — approve/reject agent-written memories",
+            Style::default().fg(Color::Yellow),
+        )]))
+        .block(Block::default().borders(Borders::ALL).title(" MemoryWhale "))
+    } else {
+        Paragraph::new(Line::from(vec![
+            Span::styled("search ", Style::default().fg(Color::Cyan)),
+            Span::raw(&app.query),
+            Span::styled("▏", Style::default().fg(Color::Cyan)), // cursor
+        ]))
+        .block(Block::default().borders(Borders::ALL).title(" MemoryWhale "))
+    };
     f.render_widget(search, rows[0]);
+
+    if app.review {
+        render_review(app, f, rows[1]);
+        render_status_and_keys(app, f, &rows);
+        if app.show_help {
+            render_help(f);
+        }
+        return;
+    }
 
     // Body: results list | detail preview.
     let body = Layout::default()
@@ -186,19 +258,7 @@ fn render(app: &mut App, f: &mut Frame) {
     };
     f.render_widget(detail.block(Block::default().borders(Borders::ALL).title(" detail ")), body[1]);
 
-    // Status line: the revealed action, or a gentle nudge toward it.
-    let status = if app.status.is_empty() {
-        Line::styled(
-            "  press Enter on a result to get its shell command",
-            Style::default().fg(Color::DarkGray),
-        )
-    } else {
-        Line::styled(app.status.clone(), Style::default().fg(Color::Green))
-    };
-    f.render_widget(Paragraph::new(status), rows[2]);
-
-    // Key bar: always visible, so the controls never disappear.
-    f.render_widget(Paragraph::new(key_bar()), rows[3]);
+    render_status_and_keys(app, f, &rows);
 
     // F1 help overlay, drawn last so it sits on top.
     if app.show_help {
@@ -206,10 +266,94 @@ fn render(app: &mut App, f: &mut Frame) {
     }
 }
 
+/// The pending-review pane: a list of unapproved agent memories with their
+/// provenance, or a clear empty-state when the queue is empty (which is also
+/// what you see when review mode isn't enabled — agent notes get auto-approved).
+fn render_review(app: &mut App, f: &mut Frame, area: ratatui::layout::Rect) {
+    if app.pending.is_empty() {
+        let msg = Paragraph::new(vec![
+            Line::from(""),
+            Line::styled(
+                "  no memories awaiting review",
+                Style::default().fg(Color::DarkGray),
+            ),
+            Line::styled(
+                "  (agent memories land here when review_agent_memories = true)",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ])
+        .wrap(Wrap { trim: false })
+        .block(Block::default().borders(Borders::ALL).title(" pending review "));
+        f.render_widget(msg, area);
+        return;
+    }
+
+    let items: Vec<ListItem> = app
+        .pending
+        .iter()
+        .map(|note| {
+            ListItem::new(vec![
+                Line::from(vec![
+                    Span::styled(format!("#{:<4} ", note.id), Style::default().fg(Color::DarkGray)),
+                    Span::raw(snippet(&note.label, 60)),
+                ]),
+                Line::styled(format!("      {}", note.provenance()), Style::default().fg(Color::Yellow)),
+            ])
+        })
+        .collect();
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!(" {} awaiting review — a approve · d reject ", app.pending.len())),
+        )
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol("▶ ");
+    f.render_stateful_widget(list, area, &mut app.review_state);
+}
+
+/// Shared bottom chrome: the status line plus the always-visible key bar.
+fn render_status_and_keys(app: &App, f: &mut Frame, rows: &[ratatui::layout::Rect]) {
+    let status = if !app.status.is_empty() {
+        Line::styled(app.status.clone(), Style::default().fg(Color::Green))
+    } else if app.review {
+        Line::styled(
+            "  a approve · d reject the selected memory · Tab back to search",
+            Style::default().fg(Color::DarkGray),
+        )
+    } else {
+        Line::styled(
+            "  press Enter on a result to get its shell command",
+            Style::default().fg(Color::DarkGray),
+        )
+    };
+    f.render_widget(Paragraph::new(status), rows[2]);
+    f.render_widget(Paragraph::new(key_bar(app.review)), rows[3]);
+}
+
 /// The always-on key hints. Full list lives in the F1 overlay.
-fn key_bar() -> Line<'static> {
+fn key_bar(review: bool) -> Line<'static> {
     let key = |k: &'static str| Span::styled(k, Style::default().fg(Color::Cyan));
     let sep = || Span::styled("  ·  ", Style::default().fg(Color::DarkGray));
+    if review {
+        return Line::from(vec![
+            Span::raw(" "),
+            key("a"),
+            Span::raw(" approve"),
+            sep(),
+            key("d"),
+            Span::raw(" reject"),
+            sep(),
+            key("↑↓"),
+            Span::raw(" move"),
+            sep(),
+            key("Tab"),
+            Span::raw(" back to search"),
+            sep(),
+            key("Esc"),
+            Span::raw(" quit"),
+        ]);
+    }
     Line::from(vec![
         Span::raw(" "),
         key("type"),
@@ -220,6 +364,9 @@ fn key_bar() -> Line<'static> {
         sep(),
         key("Enter"),
         Span::raw(" command"),
+        sep(),
+        key("Tab"),
+        Span::raw(" review"),
         sep(),
         key("F1"),
         Span::raw(" help"),
@@ -265,6 +412,8 @@ fn render_help(f: &mut Frame) {
         row("Ctrl-n / Ctrl-p", "move down / up (alternative)"),
         row("Backspace", "delete a search character"),
         row("Enter", "reveal the selected item's shell command"),
+        row("Tab", "toggle review mode (approve/reject agent memories)"),
+        row("a / d", "in review mode: approve / reject the selected memory"),
         row("F1", "toggle this help"),
         row("Esc / Ctrl-c", "quit"),
         Line::from(""),
@@ -310,10 +459,36 @@ fn event_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<
             continue;
         }
 
+        // Keys shared by both modes.
         match key.code {
-            KeyCode::F(1) => app.show_help = true,
+            KeyCode::F(1) => {
+                app.show_help = true;
+                continue;
+            }
             KeyCode::Esc => return Ok(()),
             KeyCode::Char('c') if ctrl => return Ok(()),
+            KeyCode::Tab => {
+                app.toggle_review();
+                continue;
+            }
+            _ => {}
+        }
+
+        // Review mode: approve/reject the selected pending memory.
+        if app.review {
+            match key.code {
+                KeyCode::Down => app.move_review_sel(1),
+                KeyCode::Up => app.move_review_sel(-1),
+                KeyCode::Char('n') if ctrl => app.move_review_sel(1),
+                KeyCode::Char('p') if ctrl => app.move_review_sel(-1),
+                KeyCode::Char('a') => app.review_action(true),
+                KeyCode::Char('d') => app.review_action(false),
+                _ => {}
+            }
+            continue;
+        }
+
+        match key.code {
             KeyCode::Down => app.move_sel(1),
             KeyCode::Up => app.move_sel(-1),
             KeyCode::Char('n') if ctrl => app.move_sel(1),
@@ -342,7 +517,7 @@ pub fn run() -> Result<(), String> {
     if mems.is_empty() {
         return Err("no memories yet — run some commands with `mw` first".to_string());
     }
-    let mut app = App::new(BuiltinEngine::new(mems));
+    let mut app = App::new(BuiltinEngine::new(mems), conn);
 
     // ratatui::init() enters raw mode + the alternate screen and installs a
     // panic hook that restores the terminal; restore() undoes it on exit.
@@ -372,9 +547,25 @@ mod tests {
         }
     }
 
+    /// An in-memory DB with the bookmarks schema migrated in. Optional pending
+    /// rows are inserted as unapproved agent notes for the review-pane tests.
+    fn conn_with_pending(pending: &[(&str, &str)]) -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::migrate(&conn).unwrap();
+        for (label, author) in pending {
+            conn.execute(
+                "INSERT INTO bookmarks (label, created_at, author_kind, author_name, source_session_id, approved)
+                 VALUES (?1, '2026-07-12T09:00:00Z', 'agent', ?2, 41, 0)",
+                rusqlite::params![label, author],
+            )
+            .unwrap();
+        }
+        conn
+    }
+
     fn app_with(texts: &[(i64, &str)]) -> App {
         let mems = texts.iter().map(|(id, t)| mem(*id, t)).collect();
-        App::new(BuiltinEngine::new(mems))
+        App::new(BuiltinEngine::new(mems), conn_with_pending(&[]))
     }
 
     #[test]
@@ -435,6 +626,54 @@ mod tests {
         assert!(text.contains("search your memory"), "explains search");
         assert!(text.contains("quit"), "explains how to exit");
         assert!(text.contains("mw tui"), "tells how to start it");
+    }
+
+    #[test]
+    fn review_pane_shows_pending_provenance_and_ad_hints() {
+        let conn = conn_with_pending(&[("cache the tokenizer", "Claude Code"), ("retry on 429", "Codex")]);
+        let mut app = App::new(BuiltinEngine::new(vec![mem(1, "seed")]), conn);
+        app.review = true;
+        app.refresh_pending();
+        assert_eq!(app.pending.len(), 2);
+
+        let mut terminal = Terminal::new(TestBackend::new(120, 24)).unwrap();
+        terminal.draw(|f| render(&mut app, f)).unwrap();
+        let text = buffer_text(terminal.backend().buffer());
+        assert!(text.contains("REVIEW MODE"), "review banner shown");
+        assert!(text.contains("cache the tokenizer"), "pending item label shown");
+        assert!(text.contains("remembered by Claude Code"), "provenance shown");
+        assert!(text.contains("approve"), "a=approve hint shown");
+        assert!(text.contains("reject"), "d=reject hint shown");
+    }
+
+    #[test]
+    fn review_pane_empty_state_when_nothing_pending() {
+        let mut app = app_with(&[(1, "seed")]); // no pending rows
+        app.review = true;
+        app.refresh_pending();
+        assert!(app.pending.is_empty());
+
+        let mut terminal = Terminal::new(TestBackend::new(120, 20)).unwrap();
+        terminal.draw(|f| render(&mut app, f)).unwrap();
+        let text = buffer_text(terminal.backend().buffer());
+        assert!(text.contains("no memories awaiting review"), "empty state shown");
+    }
+
+    #[test]
+    fn approve_and_reject_drain_the_queue() {
+        let conn = conn_with_pending(&[("keep me", "Claude Code"), ("drop me", "Codex")]);
+        let mut app = App::new(BuiltinEngine::new(vec![mem(1, "seed")]), conn);
+        app.review = true;
+        app.refresh_pending();
+        assert_eq!(app.pending.len(), 2);
+
+        app.review_action(true); // approve the first
+        assert!(app.status.starts_with("  approved #"));
+        assert_eq!(app.pending.len(), 1, "approved item leaves the queue");
+
+        app.review_action(false); // reject the last
+        assert!(app.status.starts_with("  rejected #"));
+        assert!(app.pending.is_empty(), "rejected item removed too");
     }
 
     fn buffer_text(buf: &ratatui::buffer::Buffer) -> String {

@@ -109,7 +109,7 @@ screenshot capture may fail; terminal memory recording still works.
 mw-serve [--host addr] [--port n] [--token secret]  # web dashboard
 mw-view <id>                                        # open one memory directly
 mw-recover                                          # recover interrupted recordings
-mw-mcp                                              # MCP server for AI agents (stdio)
+mw-mcp                                              # MCP server for AI agents (stdio): recent_errors, search_memory, get_context, remember, similar_failures
 ```
 
 ## Data location

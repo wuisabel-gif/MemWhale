@@ -5,7 +5,8 @@
 // Register with Claude Code:
 //   claude mcp add memorywhale -- mw-mcp
 //
-// Tools exposed: recent_errors, search_memory, get_context, remember.
+// Tools exposed: recent_errors, search_memory, get_context, remember,
+// similar_failures.
 
 use chrono::Utc;
 use mw_memory::engine::MemoryEngine;
@@ -104,6 +105,14 @@ fn tool_defs() -> Value {
             "inputSchema": {"type": "object", "properties": {
                 "text": {"type": "string", "description": "the lesson or conclusion to remember"}
             }, "required": ["text"]}
+        },
+        {
+            "name": "similar_failures",
+            "description": "Check whether an error you just hit has occurred before, and whether a later run resolved it. Pass the error output (and the command that produced it, if you have it) and get an evidence-only history — how many times this exact failure was seen and how often a later run of the same command succeeded — plus a pointer to a concrete past occurrence to go look at. Pass `command` for an exact fingerprint match; without it we fall back to a best-effort text match.",
+            "inputSchema": {"type": "object", "properties": {
+                "error_text": {"type": "string", "description": "the error/stderr output you hit"},
+                "command": {"type": "string", "description": "optional: the command that produced it, e.g. cargo build — enables an exact fingerprint match"}
+            }, "required": ["error_text"]}
         }
     ])
 }
@@ -140,6 +149,14 @@ fn call_tool(name: &str, args: &Value, client_name: Option<&str>) -> Result<Stri
                 .and_then(Value::as_str)
                 .ok_or_else(|| "remember needs a 'text'".to_string())?;
             remember_tool(text, client_name)
+        }
+        "similar_failures" => {
+            let error_text = args
+                .get("error_text")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "similar_failures needs an 'error_text'".to_string())?;
+            let conn = open()?;
+            Ok(similar_failures_report(&conn, error_text, scope_arg(args, "command")))
         }
         other => Err(format!("unknown tool: {other}")),
     }
@@ -335,6 +352,124 @@ fn remember_tool(text: &str, client_name: Option<&str>) -> Result<String, String
     ))
 }
 
+/// Report whether an error the agent just hit has been seen before.
+/// With a `command` we fingerprint exactly like the stored rows and read the
+/// evidence-only insight (occurrences + how often a later run resolved it).
+/// Without one — or on a fingerprint miss — we fall back to matching the salient
+/// stderr line against past failures with LIKE, and say so plainly.
+fn similar_failures_report(conn: &Connection, error_text: &str, command: Option<&str>) -> String {
+    // Exact path only helps when we know the command: stored fingerprints were
+    // computed WITH the real command.
+    if let Some(cmd) = command {
+        if let Some(fp) = memorywhale_cli::error_fingerprint(cmd, error_text) {
+            if let Ok(insight) = memorywhale_cli::error_insight(conn, &fp) {
+                if insight.occurrences > 0 {
+                    let mut out = insight.summary();
+                    if let Some(ptr) = occurrence_pointer(conn, &fp) {
+                        out.push('\n');
+                        out.push_str(&ptr);
+                    }
+                    return out;
+                }
+            }
+        }
+    }
+    // Fallback: best-effort text match on the salient stderr line.
+    match salient_error_line(error_text) {
+        Some(line) => like_fallback(conn, line, command.is_none()),
+        None => "(no error text to match on)".to_string(),
+    }
+}
+
+/// The stderr line the fingerprint keys on: first line naming an error keyword,
+/// else the first non-empty line. Mirrors `error_fingerprint`'s selection.
+fn salient_error_line(stderr: &str) -> Option<&str> {
+    stderr
+        .lines()
+        .find(|l| {
+            let l = l.to_lowercase();
+            ["error", "failed", "fatal", "cannot", "no such", "not found", "panic", "exception"]
+                .iter()
+                .any(|kw| l.contains(kw))
+        })
+        .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))
+        .map(str::trim)
+}
+
+/// A concrete past occurrence to go look at: the most recent run sharing this
+/// fingerprint, by command_run id.
+fn occurrence_pointer(conn: &Connection, fingerprint: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT id, command, cwd FROM command_runs
+         WHERE error_fingerprint = ?1 ORDER BY id DESC LIMIT 1",
+        params![fingerprint],
+        |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+            ))
+        },
+    )
+    .ok()
+    .map(|(id, cmd, cwd)| {
+        let where_ = cwd
+            .filter(|c| !c.trim().is_empty())
+            .map(|c| format!(" (cwd: {c})"))
+            .unwrap_or_default();
+        format!("See command_run #{id}: `{cmd}`{where_}")
+    })
+}
+
+/// Count failed runs whose stderr contains `line`, and point at the most recent.
+/// A text match, not a fingerprint — the report says so.
+fn like_fallback(conn: &Connection, line: &str, no_command: bool) -> String {
+    let pattern = format!("%{}%", like_escape(line));
+    let hit = conn.query_row(
+        "SELECT COUNT(*), MAX(id) FROM command_runs
+         WHERE exit_code IS NOT NULL AND exit_code != 0
+           AND stderr LIKE ?1 ESCAPE '\\'",
+        params![pattern],
+        |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?)),
+    );
+    let (count, last_id) = match hit {
+        Ok(v) => v,
+        Err(e) => return format!("(failed to search past failures: {e})"),
+    };
+    let why = if no_command {
+        " (no command given, so this is a best-effort text match, not a fingerprint)"
+    } else {
+        " (no fingerprint match, so this is a best-effort text match)"
+    };
+    if count == 0 {
+        return format!("Never seen this failure before{why}.");
+    }
+    let ptr = last_id
+        .and_then(|id| {
+            conn.query_row(
+                "SELECT command, cwd FROM command_runs WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)),
+            )
+            .ok()
+            .map(|(cmd, cwd)| {
+                let where_ = cwd
+                    .filter(|c| !c.trim().is_empty())
+                    .map(|c| format!(" (cwd: {c})"))
+                    .unwrap_or_default();
+                format!("\nMost recent: command_run #{id}: `{cmd}`{where_}")
+            })
+        })
+        .unwrap_or_default();
+    let times = if count == 1 { "once".to_string() } else { format!("{count} times") };
+    format!("Seen a similar failure {times} by stderr text{why}.{ptr}")
+}
+
+/// Escape LIKE wildcards so a stderr line matches literally (ESCAPE '\').
+fn like_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+}
+
 /// Last non-empty line, char-capped (safe on UTF-8).
 fn last_line(text: &str, max: usize) -> String {
     let t = text
@@ -348,5 +483,51 @@ fn last_line(text: &str, max: usize) -> String {
         format!("…{}", chars[chars.len() - max..].iter().collect::<String>())
     } else {
         t.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A repeated-then-resolved-then-regressed timeline: the tool's formatted
+    /// output must report the occurrence + resolution counts and point at a
+    /// concrete run. Mirrors lib.rs's `insight_counts_occurrences_and_resolutions`.
+    #[test]
+    fn similar_failures_reports_counts_and_pointer() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE command_runs (
+                id INTEGER PRIMARY KEY, command TEXT NOT NULL, argv_json TEXT NOT NULL DEFAULT '[]',
+                cwd TEXT, exit_code INTEGER, stdout TEXT NOT NULL DEFAULT '',
+                stderr TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT '', error_fingerprint TEXT);",
+        )
+        .unwrap();
+        let err = "error[E0308]: mismatched types";
+        let fp = memorywhale_cli::error_fingerprint("cargo", err).unwrap();
+        let insert = |exit: i64, fp: Option<&str>| {
+            conn.execute(
+                "INSERT INTO command_runs (command, cwd, exit_code, stderr, error_fingerprint)
+                 VALUES ('cargo', '/tmp/proj', ?1, ?2, ?3)",
+                params![exit, err, fp],
+            )
+            .unwrap();
+        };
+        // fail, fail, success (the fix), fail again.
+        insert(101, Some(&fp));
+        insert(101, Some(&fp));
+        insert(0, None);
+        insert(101, Some(&fp));
+
+        // Exact path (command supplied): counts come from the fingerprint insight.
+        let report = similar_failures_report(&conn, err, Some("cargo"));
+        assert!(report.contains("3 times"), "occurrences: {report}");
+        assert!(report.contains("2 of 3"), "resolutions: {report}");
+        assert!(report.contains("command_run #"), "pointer: {report}");
+
+        // Never-seen error is reported plainly.
+        let miss = similar_failures_report(&conn, "error: something brand new", Some("cargo"));
+        assert!(miss.to_lowercase().contains("never seen"), "miss: {miss}");
     }
 }

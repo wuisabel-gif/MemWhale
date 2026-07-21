@@ -7,11 +7,85 @@
 //! an optional, swappable backend rather than a hard dependency. Callers never
 //! change.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use rusqlite::Connection;
+
 use crate::embed::Embedder;
-use crate::scorer::score;
+use crate::scorer::score_with_lexical;
 use crate::{Memory, Query, ScoredMemory, Weights};
+
+/// Build an in-memory SQLite FTS5 index over `memories`, MATCH `query`, and
+/// return a per-id keyword relevance in [0,1] derived from SQLite's `bm25` rank.
+///
+/// SQLite's `bm25()` is negative and more-negative = better; we flip it to a
+/// non-negative `x` and squash with `x / (1 + x)` — monotonic in match quality,
+/// deterministic, and set-independent (so a single-memory `explain` gets the
+/// same number a bulk `retrieve` would). Memories with no FTS match are absent
+/// from the map → the scorer reads that as similarity 0.
+///
+/// Best-effort: if FTS5 is somehow unavailable, returns an empty map and the
+/// scorer falls back to term overlap. rusqlite is `bundled` (FTS5 compiled in),
+/// so that path is not expected in practice.
+fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
+    let mut out = HashMap::new();
+    let match_expr = fts_match_expr(query);
+    if match_expr.is_empty() {
+        return out;
+    }
+    let conn = match Connection::open_in_memory() {
+        Ok(c) => c,
+        Err(_) => return out,
+    };
+    if conn
+        .execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text)", [])
+        .is_err()
+    {
+        return out;
+    }
+    {
+        let mut ins = match conn.prepare("INSERT INTO mem_fts(rowid, text) VALUES (?1, ?2)") {
+            Ok(s) => s,
+            Err(_) => return out,
+        };
+        // Insert in corpus order → deterministic bm25.
+        for m in memories {
+            let _ = ins.execute(rusqlite::params![m.id, m.text]);
+        }
+    }
+    let mut stmt = match conn
+        .prepare("SELECT rowid, bm25(mem_fts) FROM mem_fts WHERE mem_fts MATCH ?1")
+    {
+        Ok(s) => s,
+        Err(_) => return out,
+    };
+    let rows = stmt.query_map([&match_expr], |r| {
+        Ok((r.get::<_, i64>(0)?, r.get::<_, f64>(1)?))
+    });
+    if let Ok(rows) = rows {
+        for (id, bm25) in rows.flatten() {
+            let x = (-bm25).max(0.0) as f32; // flip: negative bm25 → non-negative
+            out.insert(id, x / (1.0 + x));
+        }
+    }
+    out
+}
+
+/// OR-of-quoted-terms MATCH expression: lowercase alphanumeric tokens (len ≥ 2)
+/// each quoted so FTS5 special characters can't break the query syntax. OR
+/// semantics so partial matches still earn a similarity (the blend then reorders
+/// them). Mirrors the benchmark's lexical tokenizer for an apples-to-apples read.
+fn fts_match_expr(query: &str) -> String {
+    let mut seen = std::collections::BTreeSet::new();
+    query
+        .split(|c: char| !c.is_alphanumeric())
+        .map(|w| w.to_lowercase())
+        .filter(|w| w.len() >= 2 && seen.insert(w.clone()))
+        .map(|t| format!("\"{t}\""))
+        .collect::<Vec<_>>()
+        .join(" OR ")
+}
 
 pub trait MemoryEngine {
     fn name(&self) -> &str;
@@ -75,10 +149,19 @@ impl MemoryEngine for BuiltinEngine {
 
     fn retrieve(&self, query: &Query, k: usize) -> Vec<ScoredMemory> {
         let qe = self.query_embedding(query);
+        // Keyword relevance from FTS5 BM25 — only when we're not on the semantic
+        // (embedding) path, which supersedes it.
+        let sims = if qe.is_none() {
+            bm25_similarities(&self.memories, &query.text)
+        } else {
+            HashMap::new()
+        };
         let mut scored: Vec<ScoredMemory> = self
             .memories
             .iter()
-            .map(|m| score(m, query, &self.weights, qe.as_deref()))
+            .map(|m| {
+                score_with_lexical(m, query, &self.weights, qe.as_deref(), sims.get(&m.id).copied())
+            })
             .collect();
         scored.sort_by(|a, b| {
             b.score
@@ -91,10 +174,17 @@ impl MemoryEngine for BuiltinEngine {
 
     fn explain(&self, id: i64, query: &Query) -> Option<ScoredMemory> {
         let qe = self.query_embedding(query);
+        let sims = if qe.is_none() {
+            bm25_similarities(&self.memories, &query.text)
+        } else {
+            HashMap::new()
+        };
         self.memories
             .iter()
             .find(|m| m.id == id)
-            .map(|m| score(m, query, &self.weights, qe.as_deref()))
+            .map(|m| {
+                score_with_lexical(m, query, &self.weights, qe.as_deref(), sims.get(&m.id).copied())
+            })
     }
 }
 
@@ -347,6 +437,25 @@ mod tests {
         let top = eng.retrieve(&q, 2);
         assert_eq!(top.len(), 2);
         assert_eq!(top[0].memory.id, 143); // Rust wins
+    }
+
+    #[test]
+    fn bm25_similarity_signal_fires() {
+        // The similarity signal is now FTS5 BM25: a memory whose text matches the
+        // query scores > 0 on similarity alone, a non-matching one scores 0, and
+        // the detail names BM25 (not term overlap).
+        let eng = BuiltinEngine::new(sample());
+        let q = Query::new("pizza", now());
+
+        let matching = eng.explain(7, &q).unwrap(); // "I ate pizza."
+        let sim_m = matching.signals.iter().find(|s| s.name == "similarity").unwrap();
+        assert!(sim_m.detail.contains("BM25"), "should use BM25: {}", sim_m.detail);
+        assert!(sim_m.score > 0.0, "matching memory sim should fire: {}", sim_m.score);
+
+        let non = eng.explain(143, &q).unwrap(); // "I use Rust for systems software."
+        let sim_n = non.signals.iter().find(|s| s.name == "similarity").unwrap();
+        assert_eq!(sim_n.score, 0.0, "non-matching sim should be 0: {}", sim_n.score);
+        assert!(sim_m.score > sim_n.score);
     }
 
     #[test]

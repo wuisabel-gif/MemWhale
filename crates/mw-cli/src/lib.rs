@@ -772,6 +772,69 @@ pub fn provenance_label(
     s
 }
 
+/// A pending (unapproved) agent-written memory awaiting review, with the fields
+/// needed to render a [`provenance_label`].
+pub struct PendingNote {
+    pub id: i64,
+    pub label: String,
+    pub created_at: String,
+    pub author_kind: String,
+    pub author_name: Option<String>,
+    pub source_session_id: Option<i64>,
+}
+
+impl PendingNote {
+    /// Human-readable provenance for this note (see [`provenance_label`]).
+    pub fn provenance(&self) -> String {
+        provenance_label(
+            &self.author_kind,
+            self.author_name.as_deref(),
+            &self.created_at,
+            self.source_session_id,
+        )
+    }
+}
+
+/// Agent-written memories still awaiting review (`approved = 0`), newest first.
+/// Mirrors the dashboard's pending-list query. Human notes are always approved,
+/// so this is effectively the agent-review queue.
+pub fn pending_agent_notes(conn: &Connection) -> Result<Vec<PendingNote>, String> {
+    conn.prepare(
+        "SELECT id, label, created_at, author_kind, author_name, source_session_id
+         FROM bookmarks
+         WHERE approved = 0 AND author_kind = 'agent'
+         ORDER BY id DESC LIMIT 500",
+    )
+    .and_then(|mut stmt| {
+        stmt.query_map([], |r| {
+            Ok(PendingNote {
+                id: r.get(0)?,
+                label: r.get(1)?,
+                created_at: r.get(2)?,
+                author_kind: r.get(3)?,
+                author_name: r.get(4)?,
+                source_session_id: r.get(5)?,
+            })
+        })?
+        .collect()
+    })
+    .map_err(|e| format!("failed to list pending notes: {e}"))
+}
+
+/// Approve a pending note so retrieval includes it (`UPDATE approved = 1`).
+pub fn approve_note(conn: &Connection, id: i64) -> Result<(), String> {
+    conn.execute("UPDATE bookmarks SET approved = 1 WHERE id = ?1", params![id])
+        .map(|_| ())
+        .map_err(|e| format!("failed to approve note: {e}"))
+}
+
+/// Reject a pending note by deleting the row.
+pub fn reject_note(conn: &Connection, id: i64) -> Result<(), String> {
+    conn.execute("DELETE FROM bookmarks WHERE id = ?1", params![id])
+        .map(|_| ())
+        .map_err(|e| format!("failed to reject note: {e}"))
+}
+
 /// Save a freeform lesson or conclusion ("the fix was X") into the bookmarks
 /// table — the same store `mw mark` writes to. Records the author as a human;
 /// see [`remember_as`] for agent-attributed writes. Shared by `mw remember` and
@@ -1333,6 +1396,47 @@ mod tests {
         migrate(&conn).unwrap();
         let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
         assert_eq!(version, LATEST_SCHEMA_VERSION);
+    }
+
+    // The TUI review primitives, straight against an in-memory DB.
+    #[test]
+    fn review_primitives_approve_reject_and_list() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let insert = |label: &str, kind: &str, approved: i64| {
+            conn.execute(
+                "INSERT INTO bookmarks (label, created_at, author_kind, author_name, source_session_id, approved)
+                 VALUES (?1, '2026-07-12T09:00:00Z', ?2, ?3, ?4, ?5)",
+                params![label, kind, Some("Claude Code"), Some(41_i64), approved],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
+        let pending = insert("agent pending", "agent", 0);
+        insert("agent already approved", "agent", 1);
+        insert("human note", "human", 0); // human unapproved: never in the queue
+
+        // pending list only surfaces the unapproved agent row, with provenance.
+        let notes = pending_agent_notes(&conn).unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].id, pending);
+        assert!(notes[0].provenance().contains("Claude Code"));
+
+        // approve flips approved to 1 and empties the queue.
+        approve_note(&conn, pending).unwrap();
+        let approved: i64 = conn
+            .query_row("SELECT approved FROM bookmarks WHERE id = ?1", [pending], |r| r.get(0))
+            .unwrap();
+        assert_eq!(approved, 1);
+        assert!(pending_agent_notes(&conn).unwrap().is_empty());
+
+        // reject deletes the row.
+        let doomed = insert("agent to reject", "agent", 0);
+        reject_note(&conn, doomed).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks WHERE id = ?1", [doomed], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
     }
 
     // Migration 2 round-trip on a populated pre-scope DB: the legacy

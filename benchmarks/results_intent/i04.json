@@ -1,31 +1,31 @@
 {
-  "query_id": "q14",
-  "query": "rebase conflict on Cargo.lock while squashing commits",
+  "query_id": "i04",
+  "query": "the most recent E0308 fix specifically",
   "relevant_ids": [
-    13
+    2
   ],
   "systems": [
     {
       "system": "builtin",
       "top5": [
+        2,
+        1,
         7,
-        14,
-        9,
-        13,
-        3
+        15,
+        14
       ],
-      "recall_at_1": 0.0,
+      "recall_at_1": 1.0,
       "recall_at_5": 1.0,
-      "reciprocal_rank": 0.25
+      "reciprocal_rank": 1.0
     },
     {
       "system": "keyword",
       "top5": [
-        13,
+        2,
+        1,
         7,
-        9,
-        21,
-        6
+        8,
+        15
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,
@@ -34,11 +34,11 @@
     {
       "system": "fts5",
       "top5": [
-        13,
-        7,
-        9,
-        21,
-        14
+        2,
+        1,
+        34,
+        20,
+        29
       ],
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,

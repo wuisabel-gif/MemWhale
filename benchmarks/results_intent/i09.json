@@ -1,0 +1,48 @@
+{
+  "query_id": "i09",
+  "query": "the most reinforced lesson overall",
+  "relevant_ids": [
+    7
+  ],
+  "systems": [
+    {
+      "system": "builtin",
+      "top5": [
+        7,
+        2,
+        15,
+        1,
+        14
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "system": "keyword",
+      "top5": [
+        1,
+        2,
+        3,
+        4,
+        6
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.16666666666666666
+    },
+    {
+      "system": "fts5",
+      "top5": [
+        2,
+        34,
+        20,
+        29,
+        15
+      ],
+      "recall_at_1": 0.0,
+      "recall_at_5": 0.0,
+      "reciprocal_rank": 0.03571428571428571
+    }
+  ]
+}

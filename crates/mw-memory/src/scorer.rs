@@ -12,14 +12,34 @@ use crate::{Memory, Query, ScoredMemory, Signal, Weights};
 /// Score one memory against a query. `query_embedding` enables semantic
 /// similarity (cosine) when the memory is also embedded; otherwise similarity
 /// falls back to lexical term overlap.
+///
+/// This is the thin wrapper used by callers that have no corpus-wide keyword
+/// index handy (unit tests, the `eval` example). The production path goes
+/// through [`score_with_lexical`], which feeds a precomputed FTS5 BM25
+/// similarity in place of the crude term-overlap fallback.
 pub fn score(
     memory: &Memory,
     query: &Query,
     w: &Weights,
     query_embedding: Option<&[f32]>,
 ) -> ScoredMemory {
+    score_with_lexical(memory, query, w, query_embedding, None)
+}
+
+/// Like [`score`], but with `lexical_sim`: a precomputed lexical relevance in
+/// [0,1] (the engine derives it from an in-memory SQLite FTS5 BM25 index over
+/// the whole memory set). When present it *is* the similarity signal in the
+/// non-semantic path — proper keyword relevance instead of Jaccard term
+/// overlap. `None` falls back to term overlap for callers without an index.
+pub fn score_with_lexical(
+    memory: &Memory,
+    query: &Query,
+    w: &Weights,
+    query_embedding: Option<&[f32]>,
+    lexical_sim: Option<f32>,
+) -> ScoredMemory {
     let signals = vec![
-        similarity_signal(memory, query, w.similarity, query_embedding),
+        similarity_signal(memory, query, w.similarity, query_embedding, lexical_sim),
         recency_signal(memory, query, w.recency),
         importance_signal(memory, w.importance),
         reinforcement_signal(memory, w.reinforcement),
@@ -47,13 +67,17 @@ pub fn score(
 
 // ── signals ──────────────────────────────────────────────────────────────
 
-/// Similarity. Semantic (cosine over embeddings) when both the query and the
-/// memory are embedded; otherwise lexical term overlap (Jaccard) as a fallback.
+/// Similarity, in priority order:
+///   1. Semantic (cosine over embeddings) when both query and memory are embedded.
+///   2. Keyword relevance (SQLite FTS5 BM25) when the engine supplies `lexical_sim`.
+///   3. Lexical term overlap (Jaccard) as a last-resort fallback for callers
+///      without a corpus-wide index (unit tests, the `eval` example).
 fn similarity_signal(
     memory: &Memory,
     query: &Query,
     weight: f32,
     query_embedding: Option<&[f32]>,
+    lexical_sim: Option<f32>,
 ) -> Signal {
     // Semantic path.
     if let (Some(qe), Some(me)) = (query_embedding, memory.embedding.as_deref()) {
@@ -66,7 +90,18 @@ fn similarity_signal(
             detail: format!("{}% semantic match (embeddings)", pct(score)),
         };
     }
-    // Lexical fallback.
+    // Keyword path: precomputed FTS5 BM25 relevance from the engine.
+    if let Some(sim) = lexical_sim {
+        let score = sim.clamp(0.0, 1.0);
+        return Signal {
+            name: "similarity".into(),
+            weight,
+            score,
+            applicable: true,
+            detail: format!("{}% keyword match (BM25)", pct(score)),
+        };
+    }
+    // Lexical fallback (no index available).
     let q = tokenize(&query.text);
     let m = tokenize(&memory.text);
     let score = if q.is_empty() || m.is_empty() {
@@ -219,6 +254,10 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 6, 27, 12, 0, 0).unwrap()
     }
 
+    // NB: these `score(.., None)` tests exercise the *term-overlap fallback*
+    // (no embeddings, no engine-supplied BM25). The production ranking path runs
+    // through `BuiltinEngine`, which feeds real FTS5 BM25 as the similarity
+    // signal — see `engine::tests::bm25_similarity_signal_fires`.
     #[test]
     fn rust_beats_pizza_for_systems_query() {
         let w = Weights::default();
@@ -265,6 +304,19 @@ mod tests {
         let s = score(&mem(1, "I use Rust for systems work.", 0, 27, 0.98, &["rust"]), &q, &w, None);
         let reasons = s.reasons();
         assert!(!reasons.is_empty());
+    }
+
+    #[test]
+    fn lexical_override_replaces_term_overlap() {
+        // When the engine supplies a BM25 similarity, it drives the signal
+        // (and the detail names BM25), regardless of literal token overlap.
+        let w = Weights::default();
+        let q = Query::new("anything", now());
+        let m = mem(1, "totally unrelated text", 0, 1, 0.5, &[]);
+        let s = score_with_lexical(&m, &q, &w, None, Some(0.9));
+        let sim = s.signals.iter().find(|x| x.name == "similarity").unwrap();
+        assert!((sim.score - 0.9).abs() < 1e-6, "override should win: {}", sim.score);
+        assert!(sim.detail.contains("BM25"));
     }
 
     #[test]
