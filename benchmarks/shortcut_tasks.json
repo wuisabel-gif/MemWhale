@@ -1,0 +1,203 @@
+{
+  "_comment": "Recurring-failure scenarios for the offline memory-shortcut eval. Each task is a failure an agent hits AGAIN, whose fix already lives in benchmarks/corpus.json. `command` + `stored_error` seed the past failure into command_runs (so a fingerprint exists); `error_text` is the near-identical stderr the agent RE-hits (drifted line numbers/paths — the fingerprint must survive normalization); `query` is how an agent might ask about it (search_memory path); `fix_ids` are the corpus memory id(s) whose text STATES THE RESOLUTION. fix_ids were labelled BLIND from corpus.json alone, before any retrieval was run (see benchmarks/SHORTCUT_EVAL.md). Any tokens/keys are OBVIOUSLY fake.",
+  "tasks": [
+    {
+      "id": "t01-e0308-camera",
+      "command": "cargo build -p camera-driver",
+      "stored_error": "error[E0308]: mismatched types --> src/frame.rs:88:23 | expected `u16`, found `u32`",
+      "error_text": "error[E0308]: mismatched types --> src/frame.rs:91:19 | expected `u16`, found `u32`",
+      "query": "camera driver fails to compile, expected u16 found u32 in decode_pixel",
+      "fix_ids": [2],
+      "why": "corpus #2 states the fix (cast back to u16 with `as u16`); #1 records only the error."
+    },
+    {
+      "id": "t02-e0502-borrow",
+      "command": "cargo build -p ring-buffer",
+      "stored_error": "error[E0502]: cannot borrow `self.buffer` as mutable because it is also borrowed as immutable --> src/ring.rs:142",
+      "error_text": "error[E0502]: cannot borrow `self.buffer` as mutable because it is also borrowed as immutable --> src/ring.rs:150",
+      "query": "cannot borrow self.buffer as mutable while iterating over it",
+      "fix_ids": [3],
+      "why": "corpus #3 is self-contained: it records the error and the cause/resolution (iterator held an immutable borrow while push needed &mut)."
+    },
+    {
+      "id": "t03-e0277-serialize",
+      "command": "cargo build -p api",
+      "stored_error": "error[E0277]: the trait bound `Frame: Serialize` is not satisfied --> src/api.rs:31",
+      "error_text": "error[E0277]: the trait bound `Frame: Serialize` is not satisfied --> src/api.rs:44",
+      "query": "trait bound Frame Serialize is not satisfied when returning JSON",
+      "fix_ids": [4],
+      "why": "corpus #4 states the fix: derive Serialize on Frame."
+    },
+    {
+      "id": "t04-e0433-tokio",
+      "command": "cargo build -p worker",
+      "stored_error": "error[E0433]: failed to resolve: use of undeclared crate or module `tokio` --> src/main.rs:4",
+      "error_text": "error[E0433]: failed to resolve: use of undeclared crate or module `tokio` --> src/main.rs:7",
+      "query": "use of undeclared crate or module tokio, only in dev-dependencies",
+      "fix_ids": [5],
+      "why": "corpus #5 states the fix: move tokio from dev-dependencies to [dependencies]."
+    },
+    {
+      "id": "t05-e0716-temp",
+      "command": "cargo build -p config-loader",
+      "stored_error": "error[E0716]: temporary value dropped while borrowed --> src/config.rs:52",
+      "error_text": "error[E0716]: temporary value dropped while borrowed --> src/config.rs:58",
+      "query": "temporary value dropped while borrowed binding load().unwrap() reference",
+      "fix_ids": [6],
+      "why": "corpus #6 states the fix: bind to a named let first to extend the lifetime."
+    },
+    {
+      "id": "t06-git-nonfastforward",
+      "command": "git push origin main",
+      "stored_error": "error: failed to push some refs to 'origin'\n ! [rejected] main -> main (non-fast-forward)",
+      "error_text": "error: failed to push some refs to 'origin'\n ! [rejected]        main -> main (non-fast-forward)",
+      "query": "git push rejected non-fast-forward, remote has commits I don't have",
+      "fix_ids": [7],
+      "why": "corpus #7 states the fix: git pull --rebase then push."
+    },
+    {
+      "id": "t07-git-unrelated-histories",
+      "command": "git pull origin main",
+      "stored_error": "fatal: refusing to merge unrelated histories",
+      "error_text": "fatal: refusing to merge unrelated histories",
+      "query": "refusing to merge unrelated histories when pulling upstream template",
+      "fix_ids": [10],
+      "why": "corpus #10 states the fix: git pull --allow-unrelated-histories."
+    },
+    {
+      "id": "t08-git-file-too-big",
+      "command": "git push origin main",
+      "stored_error": "remote: error: File assets/model.bin is 214.00 MB; this exceeds GitHub's file size limit of 100.00 MB",
+      "error_text": "remote: error: File assets/model.bin is 231.40 MB; this exceeds GitHub's file size limit of 100.00 MB",
+      "query": "push rejected, file exceeds GitHub 100 MB file size limit",
+      "fix_ids": [11],
+      "why": "corpus #11 states the fix: move the file to Git LFS."
+    },
+    {
+      "id": "t09-flaky-concurrent-decode",
+      "command": "cargo test concurrent_decode",
+      "stored_error": "test test_frame_pipeline::concurrent_decode ... FAILED",
+      "error_text": "test test_frame_pipeline::concurrent_decode ... FAILED",
+      "query": "flaky concurrent_decode test fails intermittently, shared CAMERA_HANDLE race",
+      "fix_ids": [15],
+      "why": "corpus #15 states the fix (wrap CAMERA_HANDLE in tokio::sync::Mutex); #14 records only the failure."
+    },
+    {
+      "id": "t10-port-in-use",
+      "command": "cargo test binds_to_port",
+      "stored_error": "test server::binds_to_port ... FAILED: Address already in use (os error 48) on 127.0.0.1:8080",
+      "error_text": "test server::binds_to_port ... FAILED: Address already in use (os error 48) on 127.0.0.1:8080",
+      "query": "test fails address already in use os error 48 on port 8080",
+      "fix_ids": [37],
+      "why": "corpus #37 is self-contained: records the error and the fix (bind to port 0)."
+    },
+    {
+      "id": "t11-async-timeout",
+      "command": "cargo test channel_roundtrip",
+      "stored_error": "test channel_roundtrip ... test timed out after 60s",
+      "error_text": "test channel_roundtrip ... test timed out after 60s",
+      "query": "async test hangs and times out, tokio::test single-threaded runtime channel never sent",
+      "fix_ids": [16],
+      "why": "corpus #16 states the fix: switch to flavor = multi_thread."
+    },
+    {
+      "id": "t12-linker-sqlite",
+      "command": "cargo build -p mw-cli",
+      "stored_error": "linker error: undefined symbol: sqlite3_open_v2 when building mw-cli",
+      "error_text": "linker error: undefined symbol: sqlite3_open_v2 when building mw-cli",
+      "query": "undefined symbol sqlite3_open_v2 linker error building mw-cli",
+      "fix_ids": [18],
+      "why": "corpus #18 is self-contained: records the error and the fix (rusqlite bundled feature)."
+    },
+    {
+      "id": "t13-cross-aarch64-linker",
+      "command": "cross build --target aarch64-unknown-linux-gnu",
+      "stored_error": "error: linker `aarch64-linux-gnu-gcc` not found",
+      "error_text": "error: linker `aarch64-linux-gnu-gcc` not found",
+      "query": "cross build aarch64 linker aarch64-linux-gnu-gcc not found jetson",
+      "fix_ids": [19],
+      "why": "corpus #19 states the fix: install gcc-aarch64-linux-gnu and set the target linker."
+    },
+    {
+      "id": "t14-tokio-version-select",
+      "command": "cargo build --workspace",
+      "stored_error": "error: failed to select a version for `tokio`: multiple versions requested",
+      "error_text": "error: failed to select a version for `tokio`: multiple versions requested",
+      "query": "cargo failed to select a version for tokio multiple versions in the workspace",
+      "fix_ids": [21],
+      "why": "corpus #21 states the fix: cargo update -p tokio to unify the version."
+    },
+    {
+      "id": "t15-openssl-sys",
+      "command": "cargo build -p uploader",
+      "stored_error": "error: failed to run custom build command for `openssl-sys`\nCould not find directory of OpenSSL installation",
+      "error_text": "error: failed to run custom build command for `openssl-sys`\nCould not find directory of OpenSSL installation",
+      "query": "openssl-sys build fails could not find OpenSSL installation reqwest",
+      "fix_ids": [22],
+      "why": "corpus #22 states the fix: use reqwest rustls-tls feature to drop native OpenSSL."
+    },
+    {
+      "id": "t16-fts5-missing",
+      "command": "cargo test search_index",
+      "stored_error": "SQLite: no such module: fts5",
+      "error_text": "SQLite: no such module: fts5",
+      "query": "no such module fts5 when creating the search index sqlite",
+      "fix_ids": [25],
+      "why": "corpus #25 states the fix: use rusqlite bundled (compiled with FTS5)."
+    },
+    {
+      "id": "t17-db-locked",
+      "command": "mw serve",
+      "stored_error": "SQLite error: database is locked (SQLITE_BUSY) under concurrent writes",
+      "error_text": "SQLite error: database is locked (SQLITE_BUSY) under concurrent writes",
+      "query": "sqlite database is locked SQLITE_BUSY concurrent writes Tauri and CLI",
+      "fix_ids": [26],
+      "why": "corpus #26 states the fix: PRAGMA journal_mode=WAL and busy_timeout."
+    },
+    {
+      "id": "t18-panic-notfound",
+      "command": "mw context",
+      "stored_error": "thread 'main' panicked: called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound }",
+      "error_text": "thread 'main' panicked: called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound }",
+      "query": "panic unwrap on Err NotFound opening memorywhale.sqlite3 data dir missing",
+      "fix_ids": [28],
+      "why": "corpus #28 states the fix: create the data dir with create_dir_all first."
+    },
+    {
+      "id": "t19-clippy-clone",
+      "command": "cargo clippy --workspace -- -D warnings",
+      "stored_error": "error: this `.clone()` on a Copy type is redundant",
+      "error_text": "error: this `.clone()` on a Copy type is redundant",
+      "query": "clippy fails clone on Copy type is redundant with -D warnings",
+      "fix_ids": [27],
+      "why": "corpus #27 is self-contained: records the lint error and the fix (remove the clone)."
+    },
+    {
+      "id": "t20-publish-version",
+      "command": "cargo publish -p mw-memory",
+      "stored_error": "error: api errors: crate version 0.4.0 already uploaded",
+      "error_text": "error: api errors: crate version 0.4.0 already uploaded",
+      "query": "cargo publish fails crate version already uploaded to crates.io",
+      "fix_ids": [32],
+      "why": "corpus #32 states the fix: bump the version in Cargo.toml before re-publishing."
+    },
+    {
+      "id": "t21-brew-sha256",
+      "command": "brew install memorywhale-cli",
+      "stored_error": "Error: brew install failed to fetch bottle for memorywhale-cli: SHA256 mismatch",
+      "error_text": "Error: brew install failed to fetch bottle for memorywhale-cli: SHA256 mismatch",
+      "query": "brew install SHA256 mismatch bottle after re-tagging the release",
+      "fix_ids": [31],
+      "why": "corpus #31 states the fix: recompute the Formula sha256 with shasum -a 256."
+    },
+    {
+      "id": "t22-no-fix-in-memory",
+      "command": "cargo build -p renderer",
+      "stored_error": "error[E0412]: cannot find type `GpuContext` in this scope --> src/gpu.rs:12",
+      "error_text": "error[E0412]: cannot find type `GpuContext` in this scope --> src/gpu.rs:19",
+      "query": "cannot find type GpuContext in this scope wgpu renderer",
+      "fix_ids": [],
+      "why": "control task: this failure has NO fix in the corpus. It must score a search_memory MISS, so the eval isn't trivially all-hits."
+    }
+  ]
+}
