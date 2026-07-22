@@ -1,5 +1,5 @@
 {
-  "_comment": "Synthetic-but-realistic captured terminal sessions for the mw-memory recall benchmark. Deterministic: days_old is measured against the fixed NOW in the harness. Any tokens/keys here are OBVIOUSLY fake.",
+  "_comment": "Synthetic-but-realistic captured terminal sessions for the memorywhale-core recall benchmark. Deterministic: days_old is measured against the fixed NOW in the harness. Any tokens/keys here are OBVIOUSLY fake.",
   "memories": [
     { "id": 1, "text": "cargo build -p camera-driver failed: error[E0308]: mismatched types --> src/frame.rs:88:23 | expected `u16`, found `u32` | the sensor returns a 12-bit value packed in u16 but decode_pixel() handed back u32.", "tags": ["rust", "camera-driver", "compiler-error", "E0308"], "importance": 0.8, "mentions": 4, "days_old": 3 },
     { "id": 2, "text": "Fixed the E0308 in the camera driver by casting the decoded pixel back to u16 with `as u16` after the shift; the packing math promoted it to u32.", "tags": ["rust", "camera-driver", "fix", "E0308"], "importance": 0.85, "mentions": 6, "days_old": 2 },

@@ -14,9 +14,9 @@ use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wra
 use ratatui::Frame;
 use rusqlite::Connection;
 
-use mw_memory::engine::{BuiltinEngine, MemoryEngine};
-use mw_memory::sqlite::{decode_id, load_memories, Source};
-use mw_memory::{Query, ScoredMemory};
+use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
+use memorywhale_core::sqlite::{decode_id, load_memories, Source};
+use memorywhale_core::{Query, ScoredMemory};
 
 /// How many results to hold in the list — plenty for browsing, cheap to rank.
 const MAX_RESULTS: usize = 500;
@@ -530,7 +530,7 @@ pub fn run() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mw_memory::Memory;
+    use memorywhale_core::Memory;
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
 

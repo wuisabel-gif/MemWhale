@@ -37,4 +37,4 @@ jobs:
         run: cargo build --workspace
 
       - name: Test
-        run: cargo test -p mw-memory -p memorywhale-cli
+        run: cargo test -p memorywhale-core -p memorywhale-cli

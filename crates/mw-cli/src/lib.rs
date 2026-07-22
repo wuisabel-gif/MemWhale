@@ -169,7 +169,7 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
 
 /// Create the local `mempalace_sync` mapping table if absent. Additive and safe
 /// on a populated DB. `mw_id` is the namespaced memory id (see
-/// [`mw_memory::sqlite::decode_id`]), stable and unique across sources.
+/// [`memorywhale_core::sqlite::decode_id`]), stable and unique across sources.
 pub fn ensure_mempalace_sync(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS mempalace_sync (
@@ -841,12 +841,12 @@ pub fn parse_since(spec: &str) -> Result<chrono::Duration, String> {
 /// for `project`, command runs still tagged the legacy way in their notes.
 pub fn scope_memories(
     conn: &Connection,
-    mut mems: Vec<mw_memory::Memory>,
+    mut mems: Vec<memorywhale_core::Memory>,
     project: Option<&str>,
     machine: Option<&str>,
     since: Option<chrono::DateTime<Utc>>,
-) -> Vec<mw_memory::Memory> {
-    use mw_memory::sqlite::{decode_id, Source};
+) -> Vec<memorywhale_core::Memory> {
+    use memorywhale_core::sqlite::{decode_id, Source};
 
     if let Some(cutoff) = since {
         mems.retain(|m| m.created_at >= cutoff);
@@ -1573,11 +1573,11 @@ mod tests {
         // Assert through the REAL retrieval path — the shared loader every
         // surface (mw search, MCP, desktop) goes through — not a re-implemented
         // query, so this test fails if the loader ever drops the approved filter.
-        let loaded = mw_memory::sqlite::load_memories(&conn);
+        let loaded = memorywhale_core::sqlite::load_memories(&conn);
         let visible: Vec<i64> = loaded
             .iter()
-            .filter_map(|m| match mw_memory::sqlite::decode_id(m.id) {
-                (mw_memory::sqlite::Source::Note, id) => Some(id),
+            .filter_map(|m| match memorywhale_core::sqlite::decode_id(m.id) {
+                (memorywhale_core::sqlite::Source::Note, id) => Some(id),
                 _ => None,
             })
             .collect();
@@ -1699,7 +1699,7 @@ mod tests {
         assert_eq!(notes, legacy_notes, "original notes must survive untouched");
 
         // Scoped retrieval now works through the shared loader + scope filter.
-        let mems = mw_memory::sqlite::load_memories(&conn);
+        let mems = memorywhale_core::sqlite::load_memories(&conn);
         assert_eq!(mems.len(), 2);
         let scoped = scope_memories(&conn, mems.clone(), Some("camera-driver"), None, None);
         assert_eq!(scoped.len(), 1);

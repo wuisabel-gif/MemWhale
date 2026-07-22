@@ -308,7 +308,7 @@ agent enough history to continue debugging instead of starting over.
 ## Developing
 
 The repo is a Cargo workspace: `crates/mw-cli` (the CLI, no GUI dependencies),
-`crates/mw-memory` (retrieval), and `src-tauri` (the desktop app).
+`crates/memorywhale-core` (retrieval), and `src-tauri` (the desktop app).
 
 ```bash
 cargo build -p memorywhale-cli            # CLI only — fast, no GTK/WebKit needed

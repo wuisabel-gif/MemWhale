@@ -1,5 +1,5 @@
 {
-  "_comment": "INTENT gold set. Unlike questions.json (pure term-overlap), these queries are answered by CONTEXT: recency, importance, reinforcement, or task-relevance — the signals plain keyword/FTS5 cannot see. relevant_ids were labeled BLIND, by the intent of each query against the corpus text/metadata, before running any ranker (see benchmarks/BENCHMARKS.md and crates/mw-memory/examples/README.md). task_tags exercise the builtin task-relevance signal.",
+  "_comment": "INTENT gold set. Unlike questions.json (pure term-overlap), these queries are answered by CONTEXT: recency, importance, reinforcement, or task-relevance — the signals plain keyword/FTS5 cannot see. relevant_ids were labeled BLIND, by the intent of each query against the corpus text/metadata, before running any ranker (see benchmarks/BENCHMARKS.md and crates/memorywhale-core/examples/README.md). task_tags exercise the builtin task-relevance signal.",
   "questions": [
     { "id": "i01", "text": "what did I work on most recently", "relevant_ids": [7] },
     { "id": "i02", "text": "the most recent thing I fixed", "relevant_ids": [7] },
