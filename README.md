@@ -20,20 +20,32 @@
   🐬 <b>Sibling project:</b> <a href="https://github.com/wuisabel-gif/Delphin">Delphin</a> — the duplex communication layer (talk to your agent while it thinks). MemoryWhale is the memory layer — see <a href="ECOSYSTEM.md">ECOSYSTEM.md</a>.
 </p>
 
-Shell history remembers commands loosely. It does not preserve the debugging
-situation: the machine, the working directory, the exact flags, the error
-output, and the note about what the attempt meant. When the terminal crashes,
-the SSH session drops, or the scrollback scrolls away, that context is gone —
-and you (or your AI agent) re-debug what was already solved.
+**MemoryWhale is persistent, local memory for developers and their coding
+agents.** It records what actually happened in your terminal — the commands,
+their output, the errors, and the fixes that worked — into local SQLite, then
+serves it back: to you, and to your AI agent over the Model Context Protocol.
 
-**MemoryWhale records commands, arguments, output, errors, and whole sessions
-into local SQLite, so what already failed stays searchable** — across crashes,
+```bash
+claude mcp add memorywhale -- mw-mcp   # your agent can now recall past failures + the fixes that worked
+```
+
+Shell history remembers command *lines*. It loses the debugging *situation* —
+the machine, the working directory, the exact flags, the error output, and the
+note about what the attempt meant. When the terminal crashes, the SSH session
+drops, or the scrollback scrolls away, that context is gone — and you (or your
+agent) re-debug what was already solved. MemoryWhale keeps it, across crashes,
 SSH drops, and machine switches. Everything stays on your machine; nothing is
 uploaded.
 
 <p align="center">
   <img src="assets/demo.gif" alt="Capturing a failed build with mw-run, then recalling its exact error later with mw context" width="820" />
 </p>
+
+**How it differs from shell-history tools (atuin, etc.).** Those sync and search
+your command *lines* — fast, and worth using. MemoryWhale records the *outcomes*:
+full output, the errors, and the fixes and lessons you saved — and serves them to
+coding agents via MCP so a failure you already solved doesn't get re-debugged.
+They're complementary: keep atuin for history search; add MemoryWhale for memory.
 
 ## Install
 
