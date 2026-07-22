@@ -1,6 +1,6 @@
 [package]
 name = "memorywhale-core"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 description = "Explainable retrieval for MemoryWhale: a MemoryEngine interface, a built-in scorer that ranks memories with per-signal reasons, and an optional MemPalace backend over MCP."
 license = "MIT"
@@ -12,13 +12,17 @@ default = []
 # Talk to a local `mempalace-mcp` server as an MCP client. Off by default and
 # dependency-free: it only enables code that already-present crates cover.
 mempalace = []
+# Semantic similarity via a network embedder (the Ollama-backed `OllamaEmbedder`).
+# Off by default: the lexical/BM25 path needs no embedder and no network. Pulls
+# in `ureq` (the only crate used solely by the embedding path).
+embeddings = ["dep:ureq"]
 
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ureq = { version = "2", features = ["json"] }
+ureq = { version = "2", features = ["json"], optional = true }
 # The one SQLite loader (memorywhale_core::sqlite) lives here so the CLI and desktop
 # share it. bundled = no system libsqlite3 needed (matches the other crates).
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -27,3 +31,14 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 # memorywhale.sqlite3 into an eval_data.json gold-set skeleton.
 [dev-dependencies]
 dirs = "5"
+
+# These examples drive the Ollama embedder, so they need the `embeddings` feature
+# (and thus `ureq`). Gating them keeps the default `cargo test` build ureq-free.
+# `embed`, `benchmark`, and `dump_eval` need no feature and stay auto-discovered.
+[[example]]
+name = "recall"
+required-features = ["embeddings"]
+
+[[example]]
+name = "eval"
+required-features = ["embeddings"]

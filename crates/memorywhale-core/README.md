@@ -37,7 +37,26 @@ for sm in engine.retrieve(&query, 3) {
     for reason in sm.reasons() {
         println!("  · {reason}");   // explainable per-signal scores
     }
+    // sm.explain() prints the full per-signal breakdown.
 }
 ```
 
-See `examples/` for semantic (Ollama) recall and the ranking benchmark.
+Run it end to end — a few memories, a query, and the full per-signal
+`explain()` breakdown of the winner:
+
+```
+cargo run -p memorywhale-core --example embed
+```
+
+## Features
+
+Both off by default:
+
+- `embeddings` — semantic similarity via a local Ollama embedder
+  (`BuiltinEngine::with_embedder`). Off, retrieval is purely lexical/BM25 and
+  pulls in no network dependency (`ureq`).
+- `mempalace` — route retrieval through a local MemPalace `mempalace-mcp`
+  server. Adds no dependencies.
+
+See `examples/` for the `embed` walkthrough above, semantic (Ollama) recall
+(`--features embeddings`), and the deterministic ranking benchmark.

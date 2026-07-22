@@ -8,16 +8,18 @@
 //! change.
 
 use std::collections::HashMap;
+#[cfg(feature = "embeddings")]
 use std::sync::Arc;
 
 use rusqlite::Connection;
 
+#[cfg(feature = "embeddings")]
 use crate::embed::Embedder;
 use crate::scorer::score_with_lexical;
 use crate::{Memory, Query, ScoredMemory, Weights};
 
 /// Build an in-memory SQLite FTS5 index over `memories`, MATCH `query`, and
-/// return a per-id keyword relevance in [0,1] derived from SQLite's `bm25` rank.
+/// return a per-id keyword relevance in `[0,1]` derived from SQLite's `bm25` rank.
 ///
 /// The index has two columns — `text` (the memory body) and `tags` (its tags,
 /// space-joined). Tags are explicit user/agent signal, so a query term that only
@@ -109,7 +111,12 @@ fn fts_match_expr(query: &str) -> String {
         .join(" OR ")
 }
 
+/// The retrieval backend interface MemoryWhale owns. Implemented by
+/// [`BuiltinEngine`] (the default explainable scorer) and, behind the
+/// `mempalace` feature, `MemPalaceEngine`. Callers depend on this trait, so the
+/// backend is swappable without touching call sites.
 pub trait MemoryEngine {
+    /// A short backend label (e.g. `"builtin"`, `"builtin+embeddings"`).
     fn name(&self) -> &str;
     /// Return the top-`k` memories for the query, each with its score + reasons.
     fn retrieve(&self, query: &Query, k: usize) -> Vec<ScoredMemory>;
@@ -120,11 +127,14 @@ pub trait MemoryEngine {
 /// The default, zero-setup engine: scores an in-memory set with the explainable
 /// scorer. (A SQLite-backed variant just loads `memories` from the DB first.)
 ///
-/// With an [`Embedder`] attached, similarity becomes semantic (cosine over
-/// embeddings); without one, it falls back to lexical term overlap.
+/// Without the `embeddings` feature this is the lexical/BM25 engine, end of
+/// story. With the feature, an `Embedder` can be attached via `with_embedder`
+/// and similarity becomes semantic (cosine over embeddings), falling back to
+/// lexical when a memory or query isn't embedded.
 pub struct BuiltinEngine {
     pub memories: Vec<Memory>,
     pub weights: Weights,
+    #[cfg(feature = "embeddings")]
     embedder: Option<Arc<dyn Embedder>>,
 }
 
@@ -133,6 +143,7 @@ impl BuiltinEngine {
         Self {
             memories,
             weights: Weights::default(),
+            #[cfg(feature = "embeddings")]
             embedder: None,
         }
     }
@@ -144,6 +155,10 @@ impl BuiltinEngine {
 
     /// Attach an embedder and precompute embeddings for every memory that lacks
     /// one. Returns an error if embedding fails (e.g. Ollama not running).
+    ///
+    /// Only present with the `embeddings` feature; without it the engine is
+    /// purely lexical/BM25.
+    #[cfg(feature = "embeddings")]
     pub fn with_embedder(mut self, embedder: Arc<dyn Embedder>) -> anyhow::Result<Self> {
         for m in &mut self.memories {
             if m.embedding.is_none() {
@@ -155,18 +170,25 @@ impl BuiltinEngine {
     }
 
     /// Embed the query text if an embedder is attached (best-effort).
+    #[cfg(feature = "embeddings")]
     fn query_embedding(&self, query: &Query) -> Option<Vec<f32>> {
         self.embedder.as_ref().and_then(|e| e.embed(&query.text).ok())
+    }
+
+    /// No embedder without the feature — retrieval is always lexical/BM25.
+    #[cfg(not(feature = "embeddings"))]
+    fn query_embedding(&self, _query: &Query) -> Option<Vec<f32>> {
+        None
     }
 }
 
 impl MemoryEngine for BuiltinEngine {
     fn name(&self) -> &str {
+        #[cfg(feature = "embeddings")]
         if self.embedder.is_some() {
-            "builtin+embeddings"
-        } else {
-            "builtin"
+            return "builtin+embeddings";
         }
+        "builtin"
     }
 
     fn retrieve(&self, query: &Query, k: usize) -> Vec<ScoredMemory> {

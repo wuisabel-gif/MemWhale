@@ -4,11 +4,61 @@
 //! *why* — a blended score over interpretable signals (similarity, recency,
 //! importance, reinforcement, task-relevance), each with a human-readable reason.
 //!
-//! Everything is behind a [`engine::MemoryEngine`] interface that MemoryWhale
+//! # The core flow
+//!
+//! 1. Build [`Memory`] items — in code, or via [`sqlite::load_memories`] from a
+//!    MemoryWhale database.
+//! 2. Wrap them in an [`engine::BuiltinEngine`] (the default, zero-setup engine).
+//! 3. Run a [`Query`] through [`engine::MemoryEngine::retrieve`].
+//! 4. Read back [`ScoredMemory`] values: a blended `score`, plus the per-signal
+//!    [`Signal`] breakdown. [`ScoredMemory::reasons`] gives the ranked
+//!    "retrieved because…" strings; [`ScoredMemory::explain`] the full audit.
+//!
+//! ```
+//! use chrono::Utc;
+//! use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
+//! use memorywhale_core::{Memory, Query};
+//!
+//! let now = Utc::now();
+//! let mems = vec![Memory {
+//!     id: 1,
+//!     text: "Use Tokio for the async runtime.".into(),
+//!     created_at: now,
+//!     last_used: now,
+//!     mentions: 6,
+//!     importance: 0.6,
+//!     tags: vec!["rust".into(), "tokio".into()],
+//!     embedding: None,
+//! }];
+//! let engine = BuiltinEngine::new(mems);
+//! let hits = engine.retrieve(&Query::new("async runtime", now), 5);
+//! assert_eq!(hits[0].memory.id, 1);
+//! // hits[0].reasons() explains *why* it was retrieved.
+//! ```
+//!
+//! See `examples/embed.rs` for a fuller, runnable walkthrough.
+//!
+//! # Signal model
+//!
+//! The distinctive design lives in [`scorer`]: relevance is a **weighted mean
+//! over the applicable signals** (a missing context, like no task tags, drops
+//! out of the average rather than scoring zero), and each signal carries a
+//! human-readable reason. See that module for the per-signal definitions.
+//!
+//! # Pluggable backends
+//!
+//! Everything is behind an [`engine::MemoryEngine`] interface that MemoryWhale
 //! owns, so the storage/retrieval backend is pluggable: the built-in scorer by
 //! default, or — with the off-by-default `mempalace` feature — an
 //! `engine::MemPalaceEngine` that talks to a local `mempalace-mcp` server over
 //! MCP. Callers never change.
+//!
+//! # Features
+//!
+//! - `embeddings` (off by default) — semantic similarity via a network embedder
+//!   (`embed::OllamaEmbedder` + `BuiltinEngine::with_embedder`). Off, retrieval
+//!   is purely lexical/BM25 and pulls in no network dependency.
+//! - `mempalace` (off by default) — the MemPalace MCP backend above.
 
 pub mod embed;
 pub mod engine;
@@ -31,7 +81,7 @@ pub struct Memory {
     pub last_used: DateTime<Utc>,
     /// How many times it has been reinforced (mentioned/used).
     pub mentions: u32,
-    /// Stored importance weight in [0,1].
+    /// Stored importance weight in `[0,1]`.
     pub importance: f32,
     /// Links / entities / repo associations (used for task relevance and graph).
     pub tags: Vec<String>,
@@ -70,7 +120,9 @@ impl Query {
     }
 }
 
-/// How much each signal counts toward the blended score.
+/// How much each signal counts toward the blended score. These are the mixing
+/// weights of the weighted mean in [`scorer`]; [`Weights::default`] is the tuned
+/// production blend. Pass a custom set via [`engine::BuiltinEngine::with_weights`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Weights {
     pub similarity: f32,
@@ -92,12 +144,15 @@ impl Default for Weights {
     }
 }
 
-/// One interpretable scoring signal and its contribution.
+/// One interpretable scoring signal and its contribution. A [`ScoredMemory`]
+/// carries one per signal (similarity, recency, importance, reinforcement,
+/// task). [`Signal::contribution`] is its `weight × score` share of the blend,
+/// or `0` when the signal doesn't apply.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Signal {
     pub name: String,
     pub weight: f32,
-    /// Raw signal strength in [0,1].
+    /// Raw signal strength in `[0,1]`.
     pub score: f32,
     /// Whether this signal applies (e.g. task-relevance is inert with no task).
     pub applicable: bool,
@@ -115,11 +170,14 @@ impl Signal {
     }
 }
 
-/// A memory with its blended score and the signals that produced it.
+/// A memory with its blended score and the signals that produced it — the unit
+/// of explainable retrieval. Use [`ScoredMemory::reasons`] for the ranked
+/// "retrieved because…" strings, or [`ScoredMemory::explain`] for the full
+/// per-signal audit.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoredMemory {
     pub memory: Memory,
-    /// Blended relevance in [0,1].
+    /// Blended relevance in `[0,1]`.
     pub score: f32,
     pub signals: Vec<Signal>,
 }

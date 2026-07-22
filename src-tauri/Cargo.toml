@@ -22,7 +22,10 @@ anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5"
 memorywhale-cli = { path = "../crates/mw-cli" }
-memorywhale-core = { path = "../crates/memorywhale-core" }
+# The desktop app is the embedding consumer: it caches Ollama vectors and calls
+# `with_embedder`, so it enables the (otherwise off-by-default) `embeddings`
+# feature. The CLI leaves this off, keeping `ureq` out of the CLI build.
+memorywhale-core = { path = "../crates/memorywhale-core", features = ["embeddings"] }
 regex = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

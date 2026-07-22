@@ -1,9 +1,30 @@
 //! The explainable scorer: turn a (memory, query) pair into a blended score plus
 //! the interpretable signals behind it.
 //!
-//! Each signal returns a strength in [0,1] and a human-readable `detail`. The
-//! blended score is the weighted mean over *applicable* signals, so a missing
-//! context (e.g. no task tags) neither helps nor unfairly penalizes.
+//! # The signal model
+//!
+//! Relevance is a **weighted mean over the *applicable* signals**. Each signal
+//! yields a strength in `[0,1]`, a mixing [`Weights`] weight, and a
+//! human-readable `detail`; the blend is `Σ(weight × score) / Σ(weight)` taken
+//! only over signals that apply. So a missing context (e.g. no task tags) drops
+//! out of the average — it neither helps nor unfairly penalizes — instead of
+//! counting as a zero. This is what makes every result explainable: the score is
+//! literally the sum of named, inspectable contributions.
+//!
+//! The five signals:
+//!
+//! - **similarity** — how well the text matches the query. Semantic cosine over
+//!   embeddings when available, else FTS5 BM25 keyword relevance, else a
+//!   term-overlap fallback.
+//! - **recency** — exponential decay from `last_used`, halving every
+//!   `query.half_life_days`.
+//! - **importance** — the memory's stored importance weight, used directly.
+//! - **reinforcement** — mention count, log-scaled and capped.
+//! - **task-relevance** — overlap between the memory's tags and the query's task
+//!   tags; *inapplicable* (drops out) when there is no task context.
+//!
+//! Each contributes a reason string, surfaced via [`ScoredMemory::reasons`] and
+//! [`ScoredMemory::explain`].
 
 use std::collections::HashSet;
 
@@ -27,7 +48,7 @@ pub fn score(
 }
 
 /// Like [`score`], but with `lexical_sim`: a precomputed lexical relevance in
-/// [0,1] (the engine derives it from an in-memory SQLite FTS5 BM25 index over
+/// `[0,1]` (the engine derives it from an in-memory SQLite FTS5 BM25 index over
 /// the whole memory set). When present it *is* the similarity signal in the
 /// non-semantic path — proper keyword relevance instead of Jaccard term
 /// overlap. `None` falls back to term overlap for callers without an index.

@@ -11,7 +11,7 @@ pub trait Embedder: Send + Sync {
     fn name(&self) -> &str;
 }
 
-/// Cosine similarity in [0,1] (negatives clamped to 0 — we only care about
+/// Cosine similarity in `[0,1]` (negatives clamped to 0 — we only care about
 /// "how related," not "how opposite").
 pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
     if a.is_empty() || b.is_empty() || a.len() != b.len() {
@@ -52,11 +52,18 @@ pub fn bytes_to_vec(b: &[u8]) -> Vec<f32> {
 
 /// Local-first embedder backed by Ollama's `/api/embeddings`.
 /// Run e.g. `ollama pull nomic-embed-text` first.
+///
+/// Behind the off-by-default `embeddings` feature (it's the only thing here that
+/// makes a network call, via `ureq`). The pure helpers above — [`cosine`],
+/// [`vec_to_bytes`], [`bytes_to_vec`], and the [`Embedder`] trait — are always
+/// available, so a caller can supply precomputed embeddings without the feature.
+#[cfg(feature = "embeddings")]
 pub struct OllamaEmbedder {
     endpoint: String,
     model: String,
 }
 
+#[cfg(feature = "embeddings")]
 impl OllamaEmbedder {
     pub fn new(model: impl Into<String>) -> Self {
         Self {
@@ -71,12 +78,14 @@ impl OllamaEmbedder {
     }
 }
 
+#[cfg(feature = "embeddings")]
 impl Default for OllamaEmbedder {
     fn default() -> Self {
         Self::new("nomic-embed-text")
     }
 }
 
+#[cfg(feature = "embeddings")]
 impl Embedder for OllamaEmbedder {
     fn name(&self) -> &str {
         "ollama"
