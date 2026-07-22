@@ -348,6 +348,7 @@ npm install && npm run tauri:dev # full desktop app (needs Tauri system deps)
 ## Documentation
 
 - [docs/CLI.md](docs/CLI.md) — full command reference for every `mw*` binary.
+- [docs/MCP.md](docs/MCP.md) — wire the `mw-mcp` server into an agent; the six tools it exposes.
 - [VISION.md](VISION.md) — where the project is headed and why.
 - [PHILOSOPHY.md](PHILOSOPHY.md) — the communication and memory ideas behind it.
 - [ECOSYSTEM.md](ECOSYSTEM.md) — how the pieces (CLI, dashboard, integrations) fit together.

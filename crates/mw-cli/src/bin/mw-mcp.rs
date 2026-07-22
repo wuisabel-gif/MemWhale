@@ -6,7 +6,7 @@
 //   claude mcp add memorywhale -- mw-mcp
 //
 // Tools exposed: recent_errors, search_memory, get_context, remember,
-// similar_failures.
+// similar_failures, stats.
 
 use chrono::Utc;
 use memorywhale_core::engine::MemoryEngine;
@@ -113,6 +113,11 @@ fn tool_defs() -> Value {
                 "error_text": {"type": "string", "description": "the error/stderr output you hit"},
                 "command": {"type": "string", "description": "optional: the command that produced it, e.g. cargo build — enables an exact fingerprint match"}
             }, "required": ["error_text"]}
+        },
+        {
+            "name": "stats",
+            "description": "Health/liveness check for the memory store: confirm it's reachable and populated before relying on the other tools. Returns total memory count, how many are recorded failures, the most-recent memory timestamp (or \"none\"), and the database file path.",
+            "inputSchema": {"type": "object", "properties": {}}
         }
     ])
 }
@@ -158,20 +163,24 @@ fn call_tool(name: &str, args: &Value, client_name: Option<&str>) -> Result<Stri
             let conn = open()?;
             Ok(similar_failures_report(&conn, error_text, scope_arg(args, "command")))
         }
+        "stats" => stats(),
         other => Err(format!("unknown tool: {other}")),
     }
 }
 
 fn recent_errors(limit: i64) -> Result<String, String> {
     let conn = open()?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT argv_json, cwd, exit_code, stderr, notes, created_at
+    // A brand-new store has only the bookmarks table; `command_runs` appears
+    // once something is recorded. Treat its absence as "no failures yet" (same
+    // graceful-read convention as `load_memories`) rather than erroring.
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT argv_json, cwd, exit_code, stderr, notes, created_at
              FROM command_runs
              WHERE exit_code IS NOT NULL AND exit_code != 0
              ORDER BY id DESC LIMIT ?1",
-        )
-        .map_err(|e| e.to_string())?;
+    ) else {
+        return Ok("(no failed commands recorded)".to_string());
+    };
     let rows = stmt
         .query_map(params![limit], |r| {
             Ok((
@@ -352,6 +361,48 @@ fn remember_tool(text: &str, client_name: Option<&str>) -> Result<String, String
     ))
 }
 
+/// Liveness/health summary an agent can call to confirm the store is reachable
+/// and populated. Reads only counts and timestamps — never memory text — so it
+/// leaks nothing beyond how much is stored and when it was last written.
+fn stats() -> Result<String, String> {
+    let path = memorywhale_cli::database_path()?;
+    let conn = open()?;
+    Ok(stats_summary(&conn, &path.display().to_string()))
+}
+
+/// The stats payload as compact JSON. Counts are cheap (`COUNT(*)`, `MAX`) and
+/// tolerate a fresh DB where `command_runs` doesn't exist yet: a failed query
+/// (missing table) reads as zero / "none" rather than an error.
+fn stats_summary(conn: &Connection, db_path: &str) -> String {
+    let count = |sql: &str| conn.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap_or(0);
+    let max_ts = |sql: &str| {
+        conn.query_row(sql, [], |r| r.get::<_, Option<String>>(0))
+            .ok()
+            .flatten()
+    };
+    let memories =
+        count("SELECT COUNT(*) FROM command_runs") + count("SELECT COUNT(*) FROM bookmarks");
+    let errors =
+        count("SELECT COUNT(*) FROM command_runs WHERE exit_code IS NOT NULL AND exit_code != 0");
+    // ISO-8601 timestamps sort lexicographically, so the string max is the most
+    // recent across both writable sources.
+    let latest = [
+        max_ts("SELECT MAX(created_at) FROM command_runs"),
+        max_ts("SELECT MAX(created_at) FROM bookmarks"),
+    ]
+    .into_iter()
+    .flatten()
+    .max()
+    .unwrap_or_else(|| "none".to_string());
+    json!({
+        "memories": memories,
+        "errors": errors,
+        "latest": latest,
+        "db": db_path,
+    })
+    .to_string()
+}
+
 /// Report whether an error the agent just hit has been seen before.
 /// With a `command` we fingerprint exactly like the stored rows and read the
 /// evidence-only insight (occurrences + how often a later run resolved it).
@@ -529,5 +580,38 @@ mod tests {
         // Never-seen error is reported plainly.
         let miss = similar_failures_report(&conn, "error: something brand new", Some("cargo"));
         assert!(miss.to_lowercase().contains("never seen"), "miss: {miss}");
+    }
+
+    /// stats reflects what's in the store: total count, error subset, latest ts,
+    /// and the db path — and an empty DB returns zeros/"none" without erroring.
+    #[test]
+    fn stats_summarizes_counts_and_empty_db() {
+        // Empty DB: no tables at all → graceful zeros and "none".
+        let empty = Connection::open_in_memory().unwrap();
+        let out = stats_summary(&empty, "/tmp/mw.sqlite3");
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["memories"], 0);
+        assert_eq!(v["errors"], 0);
+        assert_eq!(v["latest"], "none");
+        assert_eq!(v["db"], "/tmp/mw.sqlite3");
+
+        // Populated: two runs, one a failure.
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE command_runs (
+                id INTEGER PRIMARY KEY, command TEXT NOT NULL, argv_json TEXT NOT NULL DEFAULT '[]',
+                cwd TEXT, exit_code INTEGER, stdout TEXT NOT NULL DEFAULT '',
+                stderr TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT '', error_fingerprint TEXT);
+             INSERT INTO command_runs (command, exit_code, created_at)
+                 VALUES ('cargo build', 0, '2026-07-20T10:00:00Z');
+             INSERT INTO command_runs (command, exit_code, created_at)
+                 VALUES ('cargo build', 101, '2026-07-21T10:00:00Z');",
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&stats_summary(&conn, "/tmp/mw.sqlite3")).unwrap();
+        assert_eq!(v["memories"], 2);
+        assert_eq!(v["errors"], 1);
+        assert_eq!(v["latest"], "2026-07-21T10:00:00Z");
     }
 }
