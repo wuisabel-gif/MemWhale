@@ -18,7 +18,7 @@ sets — one pure *term-overlap*, one *intent* (recency/importance/tags decide t
 answer, not wording).
 
 ```bash
-cargo run -p mw-memory --example benchmark -- benchmarks/
+cargo run -p memorywhale-core --example benchmark -- benchmarks/
 ```
 
 Each system wins the set it's built for: lexical baselines win pure text-match;
