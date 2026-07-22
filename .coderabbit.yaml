@@ -1,0 +1,39 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai
+# Automatic AI review on every PR. Tuned for this Rust workspace.
+language: en-US
+reviews:
+  profile: chill            # substantive findings, not nitpicks
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  # Skip generated / vendored / large committed artifacts — no value reviewing these.
+  path_filters:
+    - "!**/target/**"
+    - "!**/node_modules/**"
+    - "!Cargo.lock"
+    - "!package-lock.json"
+    - "!src-tauri/gen/**"
+    - "!benchmarks/results/**"
+    - "!benchmarks/results_intent/**"
+    - "!benchmarks/shortcut_results/**"
+    - "!assets/**"
+  path_instructions:
+    - path: "crates/**/*.rs"
+      instructions: >
+        Focus on correctness and data-integrity: SQLite migration ordering and
+        PRAGMA user_version pins (each migration must pin its own literal version,
+        never the LATEST constant), version bumps on published crates, secret
+        redaction before writes, and unsafe blocks. Do NOT flag deliberate
+        `ponytail:` shortcuts — they document intentional simplifications with a
+        stated ceiling. Prefer reuse of existing helpers over new abstractions.
+    - path: ".github/workflows/**"
+      instructions: >
+        Watch for pipeline exit-code masking (e.g. `cmd | tee` without
+        `set -o pipefail`) and publish ordering (path-dependency crates must be
+        published before their dependents).
+chat:
+  auto_reply: true
