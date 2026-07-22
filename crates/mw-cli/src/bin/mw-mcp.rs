@@ -9,7 +9,7 @@
 // similar_failures.
 
 use chrono::Utc;
-use mw_memory::engine::MemoryEngine;
+use memorywhale_core::engine::MemoryEngine;
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
@@ -209,10 +209,10 @@ fn recent_errors(limit: i64) -> Result<String, String> {
 /// `reasons` the engine ranked it where it did, and — for remembered notes —
 /// who wrote it, so an agent can weigh a peer's lesson differently from a
 /// human's (additive; the tool's input schema is unchanged).
-fn render_hit(conn: &Connection, sm: &mw_memory::ScoredMemory) -> String {
-    let (source, real_id) = mw_memory::sqlite::decode_id(sm.memory.id);
+fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory) -> String {
+    let (source, real_id) = memorywhale_core::sqlite::decode_id(sm.memory.id);
     let prov = match source {
-        mw_memory::sqlite::Source::Note => note_provenance(conn, real_id)
+        memorywhale_core::sqlite::Source::Note => note_provenance(conn, real_id)
             .map(|p| format!("\n  {p}"))
             .unwrap_or_default(),
         _ => String::new(),
@@ -276,13 +276,13 @@ fn search_memory(
     // Unscoped (no project/machine) leaves the memory set untouched.
     let mems = memorywhale_cli::scope_memories(
         &conn,
-        mw_memory::sqlite::load_memories(&conn),
+        memorywhale_core::sqlite::load_memories(&conn),
         project,
         machine,
         None,
     );
-    let engine = mw_memory::engine::BuiltinEngine::new(mems);
-    let mut q = mw_memory::Query::new(query, now);
+    let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
+    let mut q = memorywhale_core::Query::new(query, now);
     let tags = task_tags(&[project, machine]);
     if !tags.is_empty() {
         q = q.with_task(tags);
@@ -319,16 +319,16 @@ fn get_context(project: Option<&str>, machine: Option<&str>) -> Result<String, S
     let scope = project.map(|p| p.trim_start_matches("project:"));
     let mems = memorywhale_cli::scope_memories(
         &conn,
-        mw_memory::sqlite::load_memories(&conn),
+        memorywhale_core::sqlite::load_memories(&conn),
         scope.filter(|s| !s.is_empty()),
         machine,
         None,
     );
-    let engine = mw_memory::engine::BuiltinEngine::new(mems);
+    let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     // Scope by project tag when given: it's both the query text and a task tag
     // so the task-relevance signal can fire when a memory carries the tag.
     let query = project.unwrap_or("");
-    let mut q = mw_memory::Query::new(query, Utc::now());
+    let mut q = memorywhale_core::Query::new(query, Utc::now());
     let tags = task_tags(&[project, machine]);
     if !tags.is_empty() {
         q = q.with_task(tags);

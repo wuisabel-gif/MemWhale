@@ -1,6 +1,6 @@
 # Retrieval eval
 
-Two examples that measure `mw-memory`'s ranking quality honestly — semantic
+Two examples that measure `memorywhale-core`'s ranking quality honestly — semantic
 (Ollama embeddings) vs lexical — over a gold set built from your real memory.
 
 - **`dump_eval.rs`** — reads a `memorywhale.sqlite3` into an `eval_data.json`
@@ -10,9 +10,9 @@ Two examples that measure `mw-memory`'s ranking quality honestly — semantic
   P@5 / R@5 / MRR / nDCG@5, isolating embedding latency from scoring latency.
 
 ```bash
-cargo run -p mw-memory --example dump_eval > eval_data.json
+cargo run -p memorywhale-core --example dump_eval > eval_data.json
 #   ... label the queries by hand (see below) ...
-cargo run -p mw-memory --example eval -- eval_data.json
+cargo run -p memorywhale-core --example eval -- eval_data.json
 ```
 
 ## Two rules that keep the numbers real

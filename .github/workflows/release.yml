@@ -135,8 +135,8 @@ jobs:
               return 1
             fi
           }
-          # mw-memory must land first: memorywhale-cli depends on it by version.
-          publish mw-memory || exit 1
+          # memorywhale-core must land first: memorywhale-cli depends on it by version.
+          publish memorywhale-core || exit 1
           # crates.io needs a moment to index the new version before the CLI can
           # resolve it; retry the CLI a few times to ride out that lag.
           for attempt in 1 2 3 4 5; do

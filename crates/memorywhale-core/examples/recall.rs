@@ -1,6 +1,6 @@
 //! Demo: explainable retrieval over a small memory set.
 //!
-//!   cargo run -p mw-memory --example recall
+//!   cargo run -p memorywhale-core --example recall
 //!
 //! Shows ranked results with "retrieved because…" reasons, then a full
 //! `memory explain <id>` breakdown — the differentiator in action.
@@ -8,9 +8,9 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use mw_memory::embed::OllamaEmbedder;
-use mw_memory::engine::{BuiltinEngine, MemoryEngine};
-use mw_memory::{Memory, Query};
+use memorywhale_core::embed::OllamaEmbedder;
+use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
+use memorywhale_core::{Memory, Query};
 
 fn main() {
     let now = Utc::now();

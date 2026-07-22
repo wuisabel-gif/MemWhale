@@ -20,8 +20,8 @@ dirs = "5"
 # `engine = "mempalace"` in config.toml route search through a local MemPalace
 # MCP server, with a builtin fallback when that server is unreachable.
 # `version` (alongside `path`) is required so `cargo publish` can resolve the
-# dependency from crates.io — publish mw-memory first, then this crate.
-mw-memory = { path = "../mw-memory", version = "0.2.0", features = ["mempalace"] }
+# dependency from crates.io — publish memorywhale-core first, then this crate.
+memorywhale-core = { path = "../memorywhale-core", version = "0.2.4", features = ["mempalace"] }
 regex = "1"
 # Pure-Rust interactive terminal UI (`mw tui`) — no system libraries, so it
 # keeps the bare-machine / Jetson build story intact. Bundles crossterm.
