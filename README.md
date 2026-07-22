@@ -142,6 +142,10 @@ a teammate) to find later, the same way you'd type:
 mw remember "the E0308 in camera-driver was the fps field being a string; fix: parse it as i32"
 ```
 
+> **MemoryWhale surfaces the known fix for 95% of recurring failures** (combined
+> `shortcut@5` over 22 scenarios) — a retrieval ceiling, not a solve-rate. See
+> the offline [memory-shortcut eval](benchmarks/SHORTCUT_EVAL.md).
+
 Or bring your own AI — no API key, no per-token billing. Every "AI in your
 terminal" tool wants an API key that meters you by the token; `mw ask` instead
 uses the flat-rate chat subscription you already pay for (ChatGPT Plus, Claude
@@ -320,7 +324,7 @@ agent enough history to continue debugging instead of starting over.
 ## Developing
 
 The repo is a Cargo workspace: `crates/mw-cli` (the CLI, no GUI dependencies),
-`crates/mw-memory` (retrieval), and `src-tauri` (the desktop app).
+`crates/memorywhale-core` (retrieval), and `src-tauri` (the desktop app).
 
 ```bash
 cargo build -p memorywhale-cli            # CLI only — fast, no GTK/WebKit needed

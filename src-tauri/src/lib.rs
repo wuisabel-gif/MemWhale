@@ -1,5 +1,5 @@
 use chrono::Utc;
-use mw_memory::engine::MemoryEngine;
+use memorywhale_core::engine::MemoryEngine;
 use regex::Regex;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -459,7 +459,7 @@ fn approve_lesson(state: tauri::State<AppState>, id: i64) -> Result<(), AppError
     Ok(())
 }
 
-// ── Explainable retrieval (mw-memory) ──────────────────────────────────────
+// ── Explainable retrieval (memorywhale-core) ──────────────────────────────────────
 
 #[derive(Debug, Serialize)]
 struct SignalView {
@@ -486,7 +486,7 @@ struct RecallHit {
     tags: Vec<String>,
 }
 
-fn to_hit(sm: &mw_memory::ScoredMemory) -> RecallHit {
+fn to_hit(sm: &memorywhale_core::ScoredMemory) -> RecallHit {
     RecallHit {
         id: sm.memory.id,
         text: sm.memory.text.clone(),
@@ -535,7 +535,7 @@ fn cache_get(conn: &Connection, id: i64, model: &str, hash: &str) -> Option<Vec<
         |r| r.get::<_, Vec<u8>>(0),
     )
     .ok()
-    .map(|b| mw_memory::embed::bytes_to_vec(&b))
+    .map(|b| memorywhale_core::embed::bytes_to_vec(&b))
     .filter(|v| !v.is_empty())
 }
 
@@ -543,7 +543,7 @@ fn cache_put(conn: &Connection, id: i64, model: &str, hash: &str, vec: &[f32]) {
     let _ = conn.execute(
         "INSERT OR REPLACE INTO memory_embeddings (memory_id, model, text_hash, vec)
          VALUES (?1, ?2, ?3, ?4)",
-        params![id, model, hash, mw_memory::embed::vec_to_bytes(vec)],
+        params![id, model, hash, memorywhale_core::embed::vec_to_bytes(vec)],
     );
 }
 
@@ -551,8 +551,8 @@ fn cache_put(conn: &Connection, id: i64, model: &str, hash: &str, vec: &[f32]) {
 /// Returns Err if the embedder is unavailable (so callers fall back to lexical).
 fn fill_embeddings(
     conn: &Connection,
-    mems: &mut [mw_memory::Memory],
-    embedder: &dyn mw_memory::embed::Embedder,
+    mems: &mut [memorywhale_core::Memory],
+    embedder: &dyn memorywhale_core::embed::Embedder,
 ) -> anyhow::Result<()> {
     for m in mems.iter_mut() {
         let hash = text_hash(&m.text);
@@ -573,10 +573,10 @@ fn fill_embeddings(
 /// when Ollama isn't running, so the app stays zero-setup.
 fn build_recall_engine(
     conn: &Connection,
-    mut mems: Vec<mw_memory::Memory>,
-) -> mw_memory::engine::BuiltinEngine {
-    use mw_memory::engine::BuiltinEngine;
-    let embedder = std::sync::Arc::new(mw_memory::embed::OllamaEmbedder::default());
+    mut mems: Vec<memorywhale_core::Memory>,
+) -> memorywhale_core::engine::BuiltinEngine {
+    use memorywhale_core::engine::BuiltinEngine;
+    let embedder = std::sync::Arc::new(memorywhale_core::embed::OllamaEmbedder::default());
     if fill_embeddings(conn, &mut mems, embedder.as_ref()).is_ok() {
         // Memories are pre-embedded (from cache); the engine still needs the
         // embedder to embed the query at retrieval time. with_embedder skips
@@ -600,10 +600,10 @@ fn recall_memories(
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        let mems = mw_memory::sqlite::load_memories(&conn);
+        let mems = memorywhale_core::sqlite::load_memories(&conn);
         build_recall_engine(&conn, mems)
     };
-    let q = mw_memory::Query::new(query, Utc::now());
+    let q = memorywhale_core::Query::new(query, Utc::now());
     Ok(engine
         .retrieve(&q, limit.unwrap_or(8))
         .iter()
@@ -622,10 +622,10 @@ fn explain_memory(
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        let mems = mw_memory::sqlite::load_memories(&conn);
+        let mems = memorywhale_core::sqlite::load_memories(&conn);
         build_recall_engine(&conn, mems)
     };
-    let q = mw_memory::Query::new(query, Utc::now());
+    let q = memorywhale_core::Query::new(query, Utc::now());
     Ok(engine.explain(id, &q).as_ref().map(to_hit))
 }
 

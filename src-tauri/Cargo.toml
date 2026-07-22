@@ -7,7 +7,7 @@ license = "MIT"
 edition = "2021"
 default-run = "memorywhale"
 # The desktop app is never published to crates.io (it needs Tauri/GTK/WebKit);
-# this also means its path dependency on mw-memory needs no version.
+# this also means its path dependency on memorywhale-core needs no version.
 publish = false
 
 [lib]
@@ -22,7 +22,7 @@ anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5"
 memorywhale-cli = { path = "../crates/mw-cli" }
-mw-memory = { path = "../crates/mw-memory" }
+memorywhale-core = { path = "../crates/memorywhale-core" }
 regex = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

@@ -369,7 +369,7 @@ impl MemoryEngine for MemPalaceEngine {
         match self.try_retrieve(query, k) {
             Ok(hits) => hits,
             Err(e) => {
-                eprintln!("[mw-memory] mempalace retrieval failed: {e:#}");
+                eprintln!("[memorywhale-core] mempalace retrieval failed: {e:#}");
                 Vec::new()
             }
         }

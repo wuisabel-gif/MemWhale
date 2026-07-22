@@ -1,0 +1,22 @@
+{
+  "task_id": "t12-linker-sqlite",
+  "command": "cargo build -p mw-cli",
+  "query": "undefined symbol sqlite3_open_v2 linker error building mw-cli",
+  "fix_ids": [
+    18
+  ],
+  "fingerprint": "74aa019c",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    18,
+    9,
+    19
+  ],
+  "search_shortcut_at_1": true,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

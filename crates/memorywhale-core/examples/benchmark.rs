@@ -1,6 +1,6 @@
 //! Reproducible, offline recall benchmark for the built-in scorer.
 //!
-//!   cargo run -p mw-memory --example benchmark -- benchmarks/
+//!   cargo run -p memorywhale-core --example benchmark -- benchmarks/
 //!
 //! No network, no API keys, no embedding downloads. Everything is deterministic:
 //! a fixed corpus, a fixed "now" for recency, and a fixed question set with
@@ -8,7 +8,7 @@
 //! byte-identically.
 //!
 //! Compares three retrieval systems over the same corpus:
-//!   1. builtin  — mw-memory's BuiltinEngine (default weights; similarity is now
+//!   1. builtin  — memorywhale-core's BuiltinEngine (default weights; similarity is now
 //!                 SQLite FTS5 BM25 blended with recency/importance/reinforcement/task).
 //!   2. keyword  — a plain substring/keyword-overlap baseline.
 //!   3. fts5     — an in-memory SQLite FTS5 (bm25) index over the same text.
@@ -26,8 +26,8 @@
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use mw_memory::engine::{BuiltinEngine, MemoryEngine};
-use mw_memory::{Memory, Query};
+use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
+use memorywhale_core::{Memory, Query};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 

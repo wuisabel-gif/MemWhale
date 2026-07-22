@@ -1,0 +1,23 @@
+{
+  "task_id": "t19-clippy-clone",
+  "command": "cargo clippy --workspace -- -D warnings",
+  "query": "clippy fails clone on Copy type is redundant with -D warnings",
+  "fix_ids": [
+    27
+  ],
+  "fingerprint": "fd56a647",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    31,
+    7,
+    2,
+    27
+  ],
+  "search_shortcut_at_1": false,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

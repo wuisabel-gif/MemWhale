@@ -169,7 +169,7 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
 
 /// Create the local `mempalace_sync` mapping table if absent. Additive and safe
 /// on a populated DB. `mw_id` is the namespaced memory id (see
-/// [`mw_memory::sqlite::decode_id`]), stable and unique across sources.
+/// [`memorywhale_core::sqlite::decode_id`]), stable and unique across sources.
 pub fn ensure_mempalace_sync(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS mempalace_sync (
@@ -397,6 +397,15 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
         .flatten()
         .unwrap_or(false);
     Ok(ErrorInsight { fingerprint: fingerprint.to_string(), occurrences, resolutions, currently_green })
+}
+
+/// Scoring predicate for the memory-shortcut eval: is any blind-labelled `fix`
+/// among the top-`k` retrieved note ids? `ranked_note_ids` are the *decoded*
+/// bookmark ids (see [`memorywhale_core::sqlite::decode_id`]) in engine rank order.
+/// Trivial by design — the honest work is in retrieval, not scoring — but kept
+/// here (not in the example) so it's exercised by `cargo test`.
+pub fn fix_surfaced(ranked_note_ids: &[i64], fix_ids: &[i64], k: usize) -> bool {
+    ranked_note_ids.iter().take(k).any(|id| fix_ids.contains(id))
 }
 
 fn table_exists(conn: &Connection, table: &str) -> Result<bool, String> {
@@ -841,12 +850,12 @@ pub fn parse_since(spec: &str) -> Result<chrono::Duration, String> {
 /// for `project`, command runs still tagged the legacy way in their notes.
 pub fn scope_memories(
     conn: &Connection,
-    mut mems: Vec<mw_memory::Memory>,
+    mut mems: Vec<memorywhale_core::Memory>,
     project: Option<&str>,
     machine: Option<&str>,
     since: Option<chrono::DateTime<Utc>>,
-) -> Vec<mw_memory::Memory> {
-    use mw_memory::sqlite::{decode_id, Source};
+) -> Vec<memorywhale_core::Memory> {
+    use memorywhale_core::sqlite::{decode_id, Source};
 
     if let Some(cutoff) = since {
         mems.retain(|m| m.created_at >= cutoff);
@@ -1215,6 +1224,58 @@ mod tests {
     }
 
     #[test]
+    fn fix_surfaced_hit_and_miss() {
+        // Fix id present within k → hit; outside k or absent → miss.
+        assert!(fix_surfaced(&[9, 2, 5], &[2], 5));
+        assert!(!fix_surfaced(&[9, 5, 7, 8, 6, 2], &[2], 5)); // fix at rank 6, k=5
+        assert!(!fix_surfaced(&[9, 5, 7], &[2], 5)); // fix not retrieved at all
+    }
+
+    /// End-to-end scoring over the REAL retrieval path (load_memories +
+    /// BuiltinEngine): a task whose fix note is in the corpus scores a hit; a
+    /// task with no matching fix scores a miss. Deterministic (fixed `now`).
+    #[test]
+    fn real_ranking_surfaces_fix_in_corpus() {
+        use chrono::{TimeZone, Utc};
+        use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
+        use memorywhale_core::sqlite::{decode_id, load_memories, Source};
+        use memorywhale_core::Query;
+
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE bookmarks (id INTEGER PRIMARY KEY, label TEXT, created_at TEXT, approved INTEGER DEFAULT 1);
+             INSERT INTO bookmarks (id, label, created_at, approved) VALUES
+                 (2,  'Fixed the E0308 in the camera driver by casting the decoded pixel back to u16 with as u16.', '2026-07-17T12:00:00+00:00', 1),
+                 (26, 'SQLite database is locked SQLITE_BUSY: set PRAGMA journal_mode=WAL and a busy_timeout.', '2026-07-01T12:00:00+00:00', 1),
+                 (7,  'git push rejected non-fast-forward: fixed with git pull --rebase then push.', '2026-07-18T12:00:00+00:00', 1),
+                 (18, 'undefined symbol sqlite3_open_v2 linker error: added rusqlite bundled feature.', '2026-07-08T12:00:00+00:00', 1),
+                 (22, 'openssl-sys build failed: switched reqwest to rustls-tls.', '2026-07-05T12:00:00+00:00', 1),
+                 (31, 'brew install SHA256 mismatch: recomputed the Formula sha256.', '2026-07-13T12:00:00+00:00', 1),
+                 (99, 'Unrelated note about docker COPY and dockerignore patterns.', '2026-07-10T12:00:00+00:00', 1);",
+        )
+        .unwrap();
+
+        let now = Utc.with_ymd_and_hms(2026, 7, 19, 12, 0, 0).unwrap();
+        let rank = |q: &str| -> Vec<i64> {
+            let eng = BuiltinEngine::new(load_memories(&conn));
+            eng.retrieve(&Query::new(q, now), 20)
+                .into_iter()
+                .filter_map(|s| match decode_id(s.memory.id) {
+                    (Source::Note, real) => Some(real),
+                    _ => None,
+                })
+                .collect()
+        };
+
+        // Fix in corpus (#2) → hit within top-5 for its own query.
+        assert!(fix_surfaced(&rank("camera driver expected u16 found u32 mismatch"), &[2], 5));
+        // Selectivity: the camera fix is NOT the top hit for an unrelated query.
+        assert!(!fix_surfaced(&rank("sqlite database is locked SQLITE_BUSY concurrent writes"), &[2], 1));
+        // A failure whose fix isn't in the corpus (empty label set) → always a miss.
+        assert!(!fix_surfaced(&rank("cannot find type GpuContext in this scope wgpu"), &[], 5));
+    }
+
+    #[test]
     fn mempalace_command_reads_config() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = fresh_data_dir("mempalace-cfg");
@@ -1573,11 +1634,11 @@ mod tests {
         // Assert through the REAL retrieval path — the shared loader every
         // surface (mw search, MCP, desktop) goes through — not a re-implemented
         // query, so this test fails if the loader ever drops the approved filter.
-        let loaded = mw_memory::sqlite::load_memories(&conn);
+        let loaded = memorywhale_core::sqlite::load_memories(&conn);
         let visible: Vec<i64> = loaded
             .iter()
-            .filter_map(|m| match mw_memory::sqlite::decode_id(m.id) {
-                (mw_memory::sqlite::Source::Note, id) => Some(id),
+            .filter_map(|m| match memorywhale_core::sqlite::decode_id(m.id) {
+                (memorywhale_core::sqlite::Source::Note, id) => Some(id),
                 _ => None,
             })
             .collect();
@@ -1699,7 +1760,7 @@ mod tests {
         assert_eq!(notes, legacy_notes, "original notes must survive untouched");
 
         // Scoped retrieval now works through the shared loader + scope filter.
-        let mems = mw_memory::sqlite::load_memories(&conn);
+        let mems = memorywhale_core::sqlite::load_memories(&conn);
         assert_eq!(mems.len(), 2);
         let scoped = scope_memories(&conn, mems.clone(), Some("camera-driver"), None, None);
         assert_eq!(scoped.len(), 1);

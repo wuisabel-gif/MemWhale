@@ -1,4 +1,4 @@
-# mw-memory retrieval benchmark
+# memorywhale-core retrieval benchmark
 
 A reproducible, **offline** recall benchmark for the built-in explainable scorer.
 No API keys, no network, no embedding downloads, no local database — a stranger
@@ -7,7 +7,7 @@ with a clean clone runs one command and gets the numbers below, byte-for-byte.
 ## Reproduce
 
 ```bash
-cargo run -p mw-memory --example benchmark -- benchmarks/
+cargo run -p memorywhale-core --example benchmark -- benchmarks/
 ```
 
 That regenerates every file under `benchmarks/results/` (30 per-question
@@ -17,7 +17,7 @@ every file is byte-identical to the committed ones.
 
 ```bash
 # determinism check
-cargo run -q -p mw-memory --example benchmark -- benchmarks/
+cargo run -q -p memorywhale-core --example benchmark -- benchmarks/
 git diff --exit-code benchmarks/results benchmarks/results_intent  # no output = reproduced exactly
 ```
 
@@ -31,7 +31,7 @@ git diff --exit-code benchmarks/results benchmarks/results_intent  # no output =
   obviously fake (e.g. `AKIAFAKEFAKEFAKE1234`).
 - **Two gold sets**, each labeled **blind** — `relevant_ids` written from the
   corpus alone, before running any ranker, so the labels can't drift toward the
-  scorer (the integrity rules live in `crates/mw-memory/examples/README.md`):
+  scorer (the integrity rules live in `crates/memorywhale-core/examples/README.md`):
   - **`questions.json`** — 30 **term-overlap** queries (e.g. *"what was the exact
     E0308 error in the camera driver build"* → item 1). Answerable by pure text
     match. This is the set the lexical baselines are built to win.
@@ -50,7 +50,7 @@ over each set's queries and computed over each system's full ranking of the corp
 
 | # | System    | What it is |
 |---|-----------|------------|
-| 1 | `builtin` | `mw-memory`'s `BuiltinEngine`, default weights (similarity 0.40, recency 0.20, importance 0.15, reinforcement 0.10, task 0.15). **Similarity = SQLite FTS5 BM25** keyword relevance over `(text, tags)` — tags weighted equal to body (1.0/1.0) — *blended* with the four context signals. No embedder attached. |
+| 1 | `builtin` | `memorywhale-core`'s `BuiltinEngine`, default weights (similarity 0.40, recency 0.20, importance 0.15, reinforcement 0.10, task 0.15). **Similarity = SQLite FTS5 BM25** keyword relevance over `(text, tags)` — tags weighted equal to body (1.0/1.0) — *blended* with the four context signals. No embedder attached. |
 | 2 | `keyword` | Plain baseline: rank by how many distinct query terms substring-match the memory text. |
 | 3 | `fts5`    | In-memory **SQLite FTS5** (bm25) index over the memory text **only** — the plain keyword signal, with **none** of the context blending. |
 

@@ -2162,7 +2162,7 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "memorywhale-cli",
- "mw-memory",
+ "memorywhale-core",
  "regex",
  "rusqlite",
  "serde",
@@ -2182,12 +2182,25 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "libc",
- "mw-memory",
+ "memorywhale-core",
  "ratatui",
  "regex",
  "rusqlite",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "memorywhale-core"
+version = "0.2.4"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs 5.0.1",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "ureq",
 ]
 
 [[package]]
@@ -2237,19 +2250,6 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mw-memory"
-version = "0.2.3"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs 5.0.1",
- "rusqlite",
- "serde",
- "serde_json",
- "ureq",
 ]
 
 [[package]]
