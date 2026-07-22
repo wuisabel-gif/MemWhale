@@ -1,0 +1,58 @@
+[
+ {
+  "id": "t01-e0308-camera",
+  "error_text": "error[E0308]: mismatched types --> src/frame.rs:91:19 | expected `u16`, found `u32`",
+  "command": "cargo build -p camera-driver",
+  "gold_fix": "Fixed the E0308 in the camera driver by casting the decoded pixel back to u16 with `as u16` after the shift; the packing math promoted it to u32.",
+  "memory": "Fixed the E0308 in the camera driver by casting the decoded pixel back to u16 with `as u16` after the shift; the packing math promoted it to u32."
+ },
+ {
+  "id": "t02-e0502-borrow",
+  "error_text": "error[E0502]: cannot borrow `self.buffer` as mutable because it is also borrowed as immutable --> src/ring.rs:150",
+  "command": "cargo build -p ring-buffer",
+  "gold_fix": "error[E0502]: cannot borrow `self.buffer` as mutable because it is also borrowed as immutable --> src/ring.rs:142. The iterator over self.buffer held an immutable borrow while push() needed &mut.",
+  "memory": "error[E0502]: cannot borrow `self.buffer` as mutable because it is also borrowed as immutable --> src/ring.rs:142. The iterator over self.buffer held an immutable borrow while push() needed &mut."
+ },
+ {
+  "id": "t03-e0277-serialize",
+  "error_text": "error[E0277]: the trait bound `Frame: Serialize` is not satisfied --> src/api.rs:44",
+  "command": "cargo build -p api",
+  "gold_fix": "error[E0277]: the trait bound `Frame: Serialize` is not satisfied --> src/api.rs:31. Forgot to derive Serialize on the Frame struct before returning it as JSON.",
+  "memory": "error[E0277]: the trait bound `Frame: Serialize` is not satisfied --> src/api.rs:31. Forgot to derive Serialize on the Frame struct before returning it as JSON."
+ },
+ {
+  "id": "t04-e0433-tokio",
+  "error_text": "error[E0433]: failed to resolve: use of undeclared crate or module `tokio` --> src/main.rs:7",
+  "command": "cargo build -p worker",
+  "gold_fix": "error[E0433]: failed to resolve: use of undeclared crate or module `tokio` --> src/main.rs:4. tokio was in dev-dependencies only; moved it to [dependencies].",
+  "memory": "error[E0433]: failed to resolve: use of undeclared crate or module `tokio` --> src/main.rs:4. tokio was in dev-dependencies only; moved it to [dependencies]."
+ },
+ {
+  "id": "t05-e0716-temp",
+  "error_text": "error[E0716]: temporary value dropped while borrowed --> src/config.rs:58",
+  "command": "cargo build -p config-loader",
+  "gold_fix": "error[E0716]: temporary value dropped while borrowed --> src/config.rs:52. Bound `let cfg = &load().unwrap();` to a temporary; assigned to a named let first to extend the lifetime.",
+  "memory": "error[E0716]: temporary value dropped while borrowed --> src/config.rs:52. Bound `let cfg = &load().unwrap();` to a temporary; assigned to a named let first to extend the lifetime."
+ },
+ {
+  "id": "t06-git-nonfastforward",
+  "error_text": "error: failed to push some refs to 'origin'\n ! [rejected]        main -> main (non-fast-forward)",
+  "command": "git push origin main",
+  "gold_fix": "git push rejected: ! [rejected] main -> main (non-fast-forward). error: failed to push some refs. Remote had commits I did not have; fixed with git pull --rebase then push.",
+  "memory": "git push rejected: ! [rejected] main -> main (non-fast-forward). error: failed to push some refs. Remote had commits I did not have; fixed with git pull --rebase then push."
+ },
+ {
+  "id": "t07-git-unrelated-histories",
+  "error_text": "fatal: refusing to merge unrelated histories",
+  "command": "git pull origin main",
+  "gold_fix": "fatal: refusing to merge unrelated histories when pulling the upstream template. Worked around with git pull origin main --allow-unrelated-histories (one time only).",
+  "memory": "fatal: refusing to merge unrelated histories when pulling the upstream template. Worked around with git pull origin main --allow-unrelated-histories (one time only)."
+ },
+ {
+  "id": "t08-git-file-too-big",
+  "error_text": "remote: error: File assets/model.bin is 231.40 MB; this exceeds GitHub's file size limit of 100.00 MB",
+  "command": "git push origin main",
+  "gold_fix": "remote: error: File assets/model.bin is 214.00 MB; this exceeds GitHub's file size limit of 100.00 MB. pre-receive hook declined. Moved the model to Git LFS.",
+  "memory": "remote: error: File assets/model.bin is 214.00 MB; this exceeds GitHub's file size limit of 100.00 MB. pre-receive hook declined. Moved the model to Git LFS."
+ }
+]

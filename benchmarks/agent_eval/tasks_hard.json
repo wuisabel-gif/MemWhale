@@ -1,0 +1,86 @@
+[
+ {
+  "id": "h01-fps-string",
+  "command": "cargo build -p camera-driver",
+  "error_text": "error[E0308]: mismatched types --> src/frame.rs:88 | expected `i32`, found `String`",
+  "gold_fix": "The sensor firmware sends `fps` as a JSON string, not a number; parse it with fps.parse::<i32>()? before use \u2014 do NOT just cast, the value arrives quoted.",
+  "memory": "E0308 in camera-driver: the sensor firmware sends `fps` as a JSON string. Fix: fps.parse::<i32>()? before assigning; a plain `as i32` cast won't compile because the source is a String."
+ },
+ {
+  "id": "h02-ringbuf-pow2",
+  "command": "cargo test -p ring-buffer",
+  "error_text": "thread 'main' panicked at 'index out of bounds: the len is 100 but the index is 100', src/ring.rs:71",
+  "gold_fix": "The ring buffer masks the index with `& (cap - 1)`, so capacity MUST be a power of two; someone set it to 100. Set capacity to 128.",
+  "memory": "ring.rs panic 'index out of bounds': the ring buffer masks with & (cap-1), so cap must be a power of two. Was set to 100 \u2192 set it to 128."
+ },
+ {
+  "id": "h03-flaky-static",
+  "command": "cargo test test_frame_pipeline",
+  "error_text": "test test_frame_pipeline::concurrent_decode ... FAILED (then passed on retry)",
+  "gold_fix": "A shared `static CAMERA_HANDLE` is reused across tests; the fix was to make it thread_local, not to add a retry. Retrying only hides it.",
+  "memory": "Flaky test_frame_pipeline: a shared `static CAMERA_HANDLE` was mutated by concurrent tests. Fix: made CAMERA_HANDLE thread_local. (Adding a retry hid it, didn't fix it.)"
+ },
+ {
+  "id": "h04-jetson-oom",
+  "command": "cargo build --release",
+  "error_text": "c++: fatal error: Killed signal terminated program cc1plus\ncompilation terminated.",
+  "gold_fix": "OOM on the 8GB Jetson during the Tauri/WebKit build: set CARGO_BUILD_JOBS=2 and use the mold linker; the default parallelism exhausts RAM only on that build.",
+  "memory": "Release build 'Killed cc1plus' = OOM on the 8GB Jetson during the Tauri build. Fix: CARGO_BUILD_JOBS=2 + mold linker; default job count OOMs there."
+ },
+ {
+  "id": "h05-serve-token",
+  "command": "curl http://localhost:7071/",
+  "error_text": "401 Unauthorized",
+  "gold_fix": "The systemd unit on the Jetson sets MEMORYWHALE_TOKEN, so mw-serve requires ?token=\u2026; the token is in /etc/memorywhale/token. Append ?token=<that>.",
+  "memory": "mw-serve 401 on the Jetson: the systemd unit exports MEMORYWHALE_TOKEN, so a token is required. Fix: visit with ?token=<value from /etc/memorywhale/token>."
+ },
+ {
+  "id": "h06-pca9685-calib",
+  "command": "./run-servo-test",
+  "error_text": "servo overshoots target angle by ~4% consistently",
+  "gold_fix": "The PCA9685 on our board revision runs ~4% fast; write the CALIB register (0x1A) with the measured offset \u2014 it's a hardware clock drift, not a code bug.",
+  "memory": "Servo overshoot ~4%: the PCA9685 clock on rev-B boards runs fast. Fix: calibrate via CALIB register 0x1A; it's hardware drift, no code change fixes it."
+ },
+ {
+  "id": "h07-db-locked",
+  "command": "mw --live",
+  "error_text": "Error: database is locked",
+  "gold_fix": "A stale `mw --live` process still holds the SQLite lock; kill it (ps aux | grep mw-run). The durable fix already added busy_timeout, but an orphaned recorder still blocks.",
+  "memory": "'database is locked' on mw --live: a stale mw-run recorder holds the lock. Fix: kill the orphaned process (ps aux | grep mw). busy_timeout helps but an orphan still blocks."
+ },
+ {
+  "id": "h08-homebrew-sha",
+  "command": "brew install memorywhale",
+  "error_text": "Error: SHA256 mismatch\nExpected: 1282f3...  Actual: 9a4c1b...",
+  "gold_fix": "You tagged before the release workflow's bump-formula job updated the sha; the formula points at the old tarball. Re-run the release workflow or pull the formula bump from main.",
+  "memory": "brew SHA256 mismatch after release: the formula's sha is bumped by CI AFTER the tag, so a fresh tag briefly has a stale sha. Fix: wait for / re-run the bump-formula job, or git pull main."
+ },
+ {
+  "id": "h09-publish-order",
+  "command": "cargo publish -p memorywhale-cli",
+  "error_text": "error: failed to select a version for the requirement `mw-memory = \"^0.2\"`\ncandidate versions found which didn't match: (none)",
+  "gold_fix": "mw-memory isn't on crates.io yet; publish it FIRST, then memorywhale-cli \u2014 the path dep needs the registry version to exist. (And the CI job needs `set -o pipefail` or it reports success on this failure.)",
+  "memory": "cargo publish 'no matching mw-memory version': publish mw-memory before memorywhale-cli \u2014 the versioned path dep must resolve from crates.io. Also the CI publish step needs pipefail or a failed publish silently passes."
+ },
+ {
+  "id": "h10-migration-skip",
+  "command": "mw search anything",
+  "error_text": "Error: no such column: error_fingerprint",
+  "gold_fix": "An earlier migration pinned user_version to the LATEST constant instead of its own literal, so it jumped the DB past migration 4 and skipped it. Fix the pin to the literal version and re-run.",
+  "memory": "'no such column: error_fingerprint': a migration pinned PRAGMA user_version to LATEST_SCHEMA_VERSION instead of its own literal, skipping migration 4 on some DBs. Fix: pin each migration to its literal version."
+ },
+ {
+  "id": "h11-mempalace-tool",
+  "command": "mw search foo   # engine=mempalace",
+  "error_text": "mw: mempalace unavailable (`mempalace-mcp` does not expose a `search` tool); using the local engine",
+  "gold_fix": "The real MemPalace server's search tool is named `mempalace_search`, not `search`; set `mempalace_tool = \"mempalace_search\"` in config.toml.",
+  "memory": "mempalace 'does not expose a search tool': the real server's tool is mempalace_search, not search. Fix: mempalace_tool = \"mempalace_search\" in config.toml."
+ },
+ {
+  "id": "h12-include-str-publish",
+  "command": "cargo publish -p memorywhale-cli",
+  "error_text": "error: couldn't read src/bin/../../../../linux/shell/memorywhale.sh: No such file or directory",
+  "gold_fix": "include_str! reached outside the crate; cargo publish only packages crate files. Move the shell assets inside crates/mw-cli/ and point include_str! at the in-crate copy.",
+  "memory": "cargo publish 'couldn't read ../../../../linux/shell/...': include_str! reached outside the crate, which the package tarball excludes. Fix: moved the shell hooks into crates/mw-cli/shell/ and pointed include_str! there."
+ }
+]
