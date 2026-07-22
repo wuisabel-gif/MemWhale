@@ -1,6 +1,6 @@
 [package]
 name = "memorywhale"
-version = "0.6.0"
+version = "0.6.2"
 description = "A Rust/Tauri visual second brain for local knowledge graphs"
 authors = ["MemoryWhale"]
 license = "MIT"
