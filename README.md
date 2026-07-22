@@ -79,7 +79,8 @@ all land on the same version.
 **Windows:** run it inside [WSL](https://learn.microsoft.com/windows/wsl/) —
 MemoryWhale is a Linux binary there, so the one-line install above works as-is
 from your WSL shell. (A native Windows build isn't available yet; the session
-recorder relies on Unix `script`.)
+recorder relies on Unix `script`, and a native ConPTY transcript recorder isn't
+implemented — PowerShell shell hooks still capture commands.)
 
 First run: type `mw` — it explains itself and offers to auto-record every new
 terminal. That's the whole setup.

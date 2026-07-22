@@ -1546,7 +1546,14 @@ mod tests {
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         let dir = fresh_data_dir("remember-test");
 
-        let id = remember("the fix: API_KEY=abcdef123456 in .env", Some("/tmp/repo")).unwrap();
+        // A few distinct secret shapes in one note; the fake credentials are
+        // hand-authored, never real. Assert both that the scrub fired AND that
+        // no raw secret survived into the stored row — this is the end-to-end
+        // guarantee `redact()`'s own unit tests can't make.
+        let secrets = ["abcdef123456", "ghp_0123456789abcdefghijABCDEF", "hunter2secret"];
+        let note = "the fix: API_KEY=abcdef123456, token ghp_0123456789abcdefghijABCDEF, \
+                    password: hunter2secret in .env";
+        let id = remember(note, Some("/tmp/repo")).unwrap();
         assert!(id > 0);
 
         let conn = Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
@@ -1558,6 +1565,9 @@ mod tests {
             )
             .unwrap();
         assert!(label.contains("[REDACTED]"), "secret should be redacted: {label}");
+        for secret in secrets {
+            assert!(!label.contains(secret), "raw secret {secret:?} landed in the db row: {label}");
+        }
         assert_eq!(cwd.as_deref(), Some("/tmp/repo"));
 
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
