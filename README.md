@@ -38,7 +38,7 @@ SSH drops, and machine switches. Everything stays on your machine; nothing is
 uploaded.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Capturing a failed build with mw-run, then recalling its exact error later with mw context" width="820" />
+  <img src="assets/demo.gif" alt="Capturing a failed build with mw-run, recording the fix once, then recalling both the error and the fix later with mw search — the same memory an agent reads over MCP" width="820" />
 </p>
 
 **How it differs from shell-history tools (atuin, etc.).** Those sync and search
