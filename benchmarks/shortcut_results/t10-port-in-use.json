@@ -1,0 +1,24 @@
+{
+  "task_id": "t10-port-in-use",
+  "command": "cargo test binds_to_port",
+  "query": "test fails address already in use os error 48 on port 8080",
+  "fix_ids": [
+    37
+  ],
+  "fingerprint": "6b6de7d8",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    37,
+    14,
+    32,
+    15,
+    9
+  ],
+  "search_shortcut_at_1": true,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

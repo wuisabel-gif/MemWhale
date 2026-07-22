@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["src-tauri", "crates/mw-memory", "crates/mw-cli"]
+members = ["src-tauri", "crates/memorywhale-core", "crates/mw-cli"]
 
 # The desktop app (src-tauri) pulls in Tauri/GTK/WebKit; the CLI (crates/mw-cli)
 # is deliberately kept dependency-light so `cargo install` and Jetson (aarch64)

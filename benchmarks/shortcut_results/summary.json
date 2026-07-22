@@ -1,0 +1,24 @@
+{
+  "tasks": 22,
+  "fixable_tasks": 21,
+  "fixed_now": "2026-07-19T12:00:00+00:00",
+  "headline_combined_at_5": 0.9545454545454546,
+  "note": "Retrieval ceiling (proxy for agent solve-rate), not a real LLM-agent eval. without-MCP baseline = 0 by construction. See benchmarks/SHORTCUT_EVAL.md.",
+  "rows": [
+    {
+      "path": "similar_failures",
+      "shortcut_at_1": 0.9090909090909091,
+      "shortcut_at_5": 0.9090909090909091
+    },
+    {
+      "path": "search_memory",
+      "shortcut_at_1": 0.7272727272727273,
+      "shortcut_at_5": 0.9090909090909091
+    },
+    {
+      "path": "combined",
+      "shortcut_at_1": 0.9090909090909091,
+      "shortcut_at_5": 0.9545454545454546
+    }
+  ]
+}

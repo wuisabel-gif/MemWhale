@@ -171,7 +171,7 @@ You get the smaller, evolving memory **and** keep every original word.
 6. **Capture breadth** — beyond chat: commits, errors, PDFs, pages, emails.
 7. **Engine integration** — *shipped*: `MemPalaceEngine` is a real MCP client
    behind the `MemoryEngine` interface, gated on the off-by-default `mempalace`
-   cargo feature (`cargo build -p mw-memory --features mempalace`). The built-in
+   cargo feature (`cargo build -p memorywhale-core --features mempalace`). The built-in
    SQLite engine stays the zero-setup default and the default build gains no
    dependencies.
 8. **Multi-agent** — one user-owned memory shared across Claude / Codex / Gemini.

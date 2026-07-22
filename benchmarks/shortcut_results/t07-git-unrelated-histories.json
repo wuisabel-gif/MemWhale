@@ -1,0 +1,24 @@
+{
+  "task_id": "t07-git-unrelated-histories",
+  "command": "git pull origin main",
+  "query": "refusing to merge unrelated histories when pulling upstream template",
+  "fix_ids": [
+    10
+  ],
+  "fingerprint": "5e50822f",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    9,
+    10,
+    18,
+    2,
+    28
+  ],
+  "search_shortcut_at_1": false,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

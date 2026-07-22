@@ -1,13 +1,13 @@
-// crates/mw-memory/examples/eval.rs
-// Lexical:  cargo run -p mw-memory --example eval -- eval_data.json
+// crates/memorywhale-core/examples/eval.rs
+// Lexical:  cargo run -p memorywhale-core --example eval -- eval_data.json
 // Semantic: start Ollama (`ollama pull nomic-embed-text`), same command.
 //           Falls back to lexical-only automatically if Ollama is unreachable.
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 use chrono::{Duration, Utc};
-use mw_memory::embed::{Embedder, OllamaEmbedder};
-use mw_memory::{scorer::score, Memory, Query, Weights};
+use memorywhale_core::embed::{Embedder, OllamaEmbedder};
+use memorywhale_core::{scorer::score, Memory, Query, Weights};
 use serde::{Deserialize, Serialize};
 
 // ── dataset ──────────────────────────────────────────────────────────────

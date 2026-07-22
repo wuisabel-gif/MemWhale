@@ -1,0 +1,24 @@
+{
+  "task_id": "t15-openssl-sys",
+  "command": "cargo build -p uploader",
+  "query": "openssl-sys build fails could not find OpenSSL installation reqwest",
+  "fix_ids": [
+    22
+  ],
+  "fingerprint": "ada31ac6",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    22,
+    7,
+    33,
+    19,
+    4
+  ],
+  "search_shortcut_at_1": true,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

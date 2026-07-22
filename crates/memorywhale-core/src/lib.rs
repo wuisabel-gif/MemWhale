@@ -1,4 +1,4 @@
-//! `mw-memory` — explainable retrieval for MemoryWhale.
+//! `memorywhale-core` — explainable retrieval for MemoryWhale.
 //!
 //! The differentiator: retrieval that returns not just *which* memories, but
 //! *why* — a blended score over interpretable signals (similarity, recency,

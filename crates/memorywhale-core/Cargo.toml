@@ -1,10 +1,11 @@
 [package]
-name = "mw-memory"
-version = "0.2.3"
+name = "memorywhale-core"
+version = "0.2.4"
 edition = "2021"
 description = "Explainable retrieval for MemoryWhale: a MemoryEngine interface, a built-in scorer that ranks memories with per-signal reasons, and an optional MemPalace backend over MCP."
 license = "MIT"
 repository = "https://github.com/wuisabel-gif/MemWhale"
+readme = "README.md"
 
 [features]
 default = []
@@ -18,7 +19,7 @@ chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ureq = { version = "2", features = ["json"] }
-# The one SQLite loader (mw_memory::sqlite) lives here so the CLI and desktop
+# The one SQLite loader (memorywhale_core::sqlite) lives here so the CLI and desktop
 # share it. bundled = no system libsqlite3 needed (matches the other crates).
 rusqlite = { version = "0.32", features = ["bundled"] }
 

@@ -1,12 +1,12 @@
-// crates/mw-memory/examples/dump_eval.rs
+// crates/memorywhale-core/examples/dump_eval.rs
 //
 // Build an eval_data.json *skeleton* from your real memorywhale.sqlite3, so the
 // eval benchmark (examples/eval.rs) runs against your actual memory instead of a
 // hand-written dataset — where you'd unconsciously write queries your scorer
 // already wins.
 //
-//   cargo run -p mw-memory --example dump_eval > eval_data.json
-//   cargo run -p mw-memory --example dump_eval -- --db /path/to/memorywhale.sqlite3 --limit 100 --queries 8
+//   cargo run -p memorywhale-core --example dump_eval > eval_data.json
+//   cargo run -p memorywhale-core --example dump_eval -- --db /path/to/memorywhale.sqlite3 --limit 100 --queries 8
 //
 // It emits every memory (remembered lessons + command runs) fully, and a set of
 // EMPTY query stubs. You then fill in each query's `text` and, crucially, its

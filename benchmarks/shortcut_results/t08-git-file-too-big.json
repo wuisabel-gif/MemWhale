@@ -1,0 +1,23 @@
+{
+  "task_id": "t08-git-file-too-big",
+  "command": "git push origin main",
+  "query": "push rejected, file exceeds GitHub 100 MB file size limit",
+  "fix_ids": [
+    11
+  ],
+  "fingerprint": "955ff0d8",
+  "occurrences": 0,
+  "resolutions": 0,
+  "similar_failures_recognized": false,
+  "similar_failures_shortcut": false,
+  "search_top5_notes": [
+    7,
+    11,
+    33,
+    3
+  ],
+  "search_shortcut_at_1": false,
+  "search_shortcut_at_5": true,
+  "combined_at_1": false,
+  "combined_at_5": true
+}

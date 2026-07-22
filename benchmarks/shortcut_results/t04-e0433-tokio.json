@@ -1,0 +1,24 @@
+{
+  "task_id": "t04-e0433-tokio",
+  "command": "cargo build -p worker",
+  "query": "use of undeclared crate or module tokio, only in dev-dependencies",
+  "fix_ids": [
+    5
+  ],
+  "fingerprint": "f0620599",
+  "occurrences": 2,
+  "resolutions": 2,
+  "similar_failures_recognized": true,
+  "similar_failures_shortcut": true,
+  "search_top5_notes": [
+    5,
+    15,
+    32,
+    37,
+    33
+  ],
+  "search_shortcut_at_1": true,
+  "search_shortcut_at_5": true,
+  "combined_at_1": true,
+  "combined_at_5": true
+}

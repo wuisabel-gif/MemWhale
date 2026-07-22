@@ -13,7 +13,7 @@
 //   mw --notes "debugging the Jetson build"
 
 use chrono::{DateTime, Utc};
-use mw_memory::engine::MemoryEngine;
+use memorywhale_core::engine::MemoryEngine;
 use regex::Regex;
 use rusqlite::{params, Connection};
 use std::env;
@@ -1648,7 +1648,7 @@ fn rebuild_missing_arguments(conn: &Connection) -> Result<(), String> {
 }
 
 /// Search remembered commands, sessions, and notes — ranked by the explainable
-/// engine (`mw-memory`) rather than a raw LIKE scan, so the best match rises to
+/// engine (`memorywhale-core`) rather than a raw LIKE scan, so the best match rises to
 /// the top with a score and, under `--explain`, the per-signal breakdown behind
 /// it. The everyday "where did I see that error?" command.
 ///
@@ -1736,7 +1736,7 @@ impl Scope {
 /// Render hits from an external engine (MemPalace) — no local ids, so no
 /// `mw replay/show` action or provenance lookup; the reason string already
 /// carries the source ("mempalace semantic score 0.87").
-fn print_external_hits(query: &str, hits: &[mw_memory::ScoredMemory], explain: bool) {
+fn print_external_hits(query: &str, hits: &[memorywhale_core::ScoredMemory], explain: bool) {
     println!("# matches for {query:?}  (mempalace)\n");
     if hits.is_empty() {
         println!("(none)");
@@ -1787,7 +1787,7 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
 
     let mut conn = open_session_db()?;
     memorywhale_cli::migrate(&conn)?; // brings up the mempalace_sync table (v5)
-    let mut mems = mw_memory::sqlite::load_memories(&conn);
+    let mut mems = memorywhale_core::sqlite::load_memories(&conn);
     if limit > 0 && mems.len() > limit {
         mems.truncate(limit);
     }
@@ -1797,7 +1797,7 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
         .iter()
         .filter(|m| !m.text.trim().is_empty())
         .map(|m| {
-            let (source, real_id) = mw_memory::sqlite::decode_id(m.id);
+            let (source, real_id) = memorywhale_core::sqlite::decode_id(m.id);
             let (content, added_by) = drawer_content(&conn, m, source, real_id);
             memorywhale_cli::DesiredDrawer {
                 mw_id: m.id,
@@ -1838,12 +1838,12 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
 
     // Build the op stream: each update deletes its old drawer, then every item
     // adds a fresh one. Adds come back in item order (deletes carry no result).
-    let mut ops: Vec<mw_memory::engine::SyncOp> = Vec::new();
+    let mut ops: Vec<memorywhale_core::engine::SyncOp> = Vec::new();
     for it in &plan.items {
         if let Some(old) = &it.old_drawer_id {
-            ops.push(mw_memory::engine::SyncOp::Delete { drawer_id: old.clone() });
+            ops.push(memorywhale_core::engine::SyncOp::Delete { drawer_id: old.clone() });
         }
-        ops.push(mw_memory::engine::SyncOp::Add {
+        ops.push(memorywhale_core::engine::SyncOp::Add {
             wing: it.wing.clone(),
             room: it.room.clone(),
             content: it.content.clone(),
@@ -1853,15 +1853,15 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
 
     let add_tool = memorywhale_cli::mempalace_add_tool();
     let delete_tool = memorywhale_cli::mempalace_delete_tool();
-    let results = mw_memory::engine::sync_ops(cmd, rest, &add_tool, &delete_tool, &ops)
+    let results = memorywhale_core::engine::sync_ops(cmd, rest, &add_tool, &delete_tool, &ops)
         .map_err(|e| format!("mempalace sync failed: {e:#}"))?;
 
     // New drawer_ids, in the same order as plan.items (one Add each).
     let new_ids: Vec<String> = results
         .into_iter()
         .filter_map(|r| match r {
-            mw_memory::engine::SyncResult::Added { drawer_id } => Some(drawer_id),
-            mw_memory::engine::SyncResult::Deleted => None,
+            memorywhale_core::engine::SyncResult::Added { drawer_id } => Some(drawer_id),
+            memorywhale_core::engine::SyncResult::Deleted => None,
         })
         .collect();
     if new_ids.len() != plan.items.len() {
@@ -1897,14 +1897,14 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
 /// note's author.
 fn drawer_content(
     conn: &Connection,
-    m: &mw_memory::Memory,
-    source: mw_memory::sqlite::Source,
+    m: &memorywhale_core::Memory,
+    source: memorywhale_core::sqlite::Source,
     real_id: i64,
 ) -> (String, String) {
     let tag = format!("[memorywhale {} #{}]", source.tag(), real_id);
     let mut content = format!("{tag}\n{}", m.text);
     let mut added_by = "memorywhale".to_string();
-    if source == mw_memory::sqlite::Source::Note {
+    if source == memorywhale_core::sqlite::Source::Note {
         if let Some((label, author)) = note_meta(conn, real_id) {
             content.push_str(&format!("\n({label})"));
             added_by = author;
@@ -1951,9 +1951,9 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // the builtin engine over local memory, so a misconfig never hard-fails.
     if let Some(argv) = memorywhale_cli::mempalace_command() {
         let (cmd, rest) = argv.split_first().expect("mempalace_command is non-empty");
-        let eng = mw_memory::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec())
+        let eng = memorywhale_core::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec())
             .with_tool(memorywhale_cli::mempalace_search_tool());
-        match eng.try_retrieve(&mw_memory::Query::new(&query, Utc::now()), 20) {
+        match eng.try_retrieve(&memorywhale_core::Query::new(&query, Utc::now()), 20) {
             Ok(hits) => {
                 print_external_hits(&query, &hits, explain);
                 return Ok(());
@@ -1971,7 +1971,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // One loader, one engine — the same code path the desktop Recall panel uses.
     // "now" is supplied here by the caller so scoring stays deterministic.
     let now = Utc::now();
-    let mems = mw_memory::sqlite::load_memories(&conn);
+    let mems = memorywhale_core::sqlite::load_memories(&conn);
     // No flags => `mems` comes back untouched, i.e. exactly the old behaviour.
     let mems = memorywhale_cli::scope_memories(
         &conn,
@@ -1980,8 +1980,8 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         scope.machine.as_deref(),
         scope.cutoff(now),
     );
-    let engine = mw_memory::engine::BuiltinEngine::new(mems);
-    let mut q = mw_memory::Query::new(&query, now);
+    let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
+    let mut q = memorywhale_core::Query::new(&query, now);
     let tags = scope.task_tags();
     if !tags.is_empty() {
         q = q.with_task(tags);
@@ -1994,10 +1994,10 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
     for sm in &hits {
-        let (source, real_id) = mw_memory::sqlite::decode_id(sm.memory.id);
+        let (source, real_id) = memorywhale_core::sqlite::decode_id(sm.memory.id);
         let action = match source {
-            mw_memory::sqlite::Source::Command => format!("  — `mw replay {real_id}`"),
-            mw_memory::sqlite::Source::Session => format!("  — `mw show {real_id}`"),
+            memorywhale_core::sqlite::Source::Command => format!("  — `mw replay {real_id}`"),
+            memorywhale_core::sqlite::Source::Session => format!("  — `mw show {real_id}`"),
             _ => String::new(),
         };
         let snippet = sm
@@ -2010,7 +2010,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         let snippet: String = snippet.chars().take(100).collect();
         // Only remembered notes carry provenance — who wrote this lesson, and when.
         let prov = match source {
-            mw_memory::sqlite::Source::Note => note_provenance(&conn, real_id)
+            memorywhale_core::sqlite::Source::Note => note_provenance(&conn, real_id)
                 .map(|p| format!("  ({p})"))
                 .unwrap_or_default(),
             _ => String::new(),
