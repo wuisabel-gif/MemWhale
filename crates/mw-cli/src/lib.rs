@@ -401,7 +401,7 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
 
 /// Scoring predicate for the memory-shortcut eval: is any blind-labelled `fix`
 /// among the top-`k` retrieved note ids? `ranked_note_ids` are the *decoded*
-/// bookmark ids (see [`mw_memory::sqlite::decode_id`]) in engine rank order.
+/// bookmark ids (see [`memorywhale_core::sqlite::decode_id`]) in engine rank order.
 /// Trivial by design — the honest work is in retrieval, not scoring — but kept
 /// here (not in the example) so it's exercised by `cargo test`.
 pub fn fix_surfaced(ranked_note_ids: &[i64], fix_ids: &[i64], k: usize) -> bool {
@@ -1237,9 +1237,9 @@ mod tests {
     #[test]
     fn real_ranking_surfaces_fix_in_corpus() {
         use chrono::{TimeZone, Utc};
-        use mw_memory::engine::{BuiltinEngine, MemoryEngine};
-        use mw_memory::sqlite::{decode_id, load_memories, Source};
-        use mw_memory::Query;
+        use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
+        use memorywhale_core::sqlite::{decode_id, load_memories, Source};
+        use memorywhale_core::Query;
 
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(

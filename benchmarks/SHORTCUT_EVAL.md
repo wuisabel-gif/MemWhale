@@ -75,7 +75,7 @@ resolution counts, and the top-5 retrieved note ids — is in
 1. **`fix_ids` labelled blind.** Every task's `fix_id` was chosen from
    `corpus.json` alone — the id(s) whose text *states the resolution* — **before
    any retrieval was run**, per the rule in
-   `crates/mw-memory/examples/README.md`. The task set was committed in a
+   `crates/memorywhale-core/examples/README.md`. The task set was committed in a
    separate commit *before* the commit that generated these results, so the
    ordering is auditable in git history.
 2. **No task authored to a ranker quirk.** `error_text` is a realistic re-hit of

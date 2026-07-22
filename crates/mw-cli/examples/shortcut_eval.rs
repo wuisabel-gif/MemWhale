@@ -26,9 +26,9 @@ use std::error::Error;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use memorywhale_cli as mw;
-use mw_memory::engine::{BuiltinEngine, MemoryEngine};
-use mw_memory::sqlite::{decode_id, load_memories, Source};
-use mw_memory::Query;
+use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
+use memorywhale_core::sqlite::{decode_id, load_memories, Source};
+use memorywhale_core::Query;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
