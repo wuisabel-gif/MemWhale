@@ -729,10 +729,7 @@ fn open_session_db() -> Result<Connection, String> {
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
     }
-    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
-    // Provenance (v1) + scope columns (v2) exist before any read or write.
-    memorywhale_cli::migrate(&conn)?;
+    let conn = memorywhale_cli::storage::open_path(&db_path)?;
     Ok(conn)
 }
 
@@ -1287,9 +1284,7 @@ fn show_session(args: &[String]) -> Result<(), String> {
         None => return Err("usage: mw show <id>".to_string()),
     };
 
-    let conn =
-        Connection::open(database_path()?).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
+    let conn = memorywhale_cli::storage::open()?;
 
     let row = conn.query_row(
         "SELECT started_at, cwd, notes, transcript FROM sessions WHERE id = ?1",
@@ -2971,69 +2966,6 @@ fn doctor() -> Result<(), String> {
         );
     }
 
-    Ok(())
-}
-
-fn init_schema(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        "
-        PRAGMA journal_mode = WAL;
-
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY,
-            shell TEXT,
-            cwd TEXT,
-            transcript_path TEXT NOT NULL,
-            transcript TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '',
-            started_at TEXT NOT NULL,
-            ended_at TEXT NOT NULL,
-            byte_count INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'finished'
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
-
-        CREATE TABLE IF NOT EXISTS command_runs (
-            id INTEGER PRIMARY KEY,
-            command TEXT NOT NULL,
-            argv_json TEXT NOT NULL,
-            cwd TEXT,
-            exit_code INTEGER,
-            stdout TEXT NOT NULL DEFAULT '',
-            stderr TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS command_arguments (
-            id INTEGER PRIMARY KEY,
-            command_run_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            value TEXT NOT NULL,
-            FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS bookmarks (
-            id INTEGER PRIMARY KEY,
-            label TEXT NOT NULL,
-            cwd TEXT,
-            created_at TEXT NOT NULL,
-            command_run_id INTEGER,
-            session_id INTEGER
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
-        CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
-        CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
-        CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
-        ",
-    )
-    .map_err(|err| format!("failed to initialize schema: {err}"))?;
-    let _ = conn.execute(
-        "ALTER TABLE sessions ADD COLUMN status TEXT NOT NULL DEFAULT 'finished'",
-        [],
-    );
     Ok(())
 }
 

@@ -1,5 +1,5 @@
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -179,9 +179,7 @@ fn remember_command(
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
     }
 
-    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
-    memorywhale_cli::ensure_error_fingerprint(&conn)?;
+    let conn = memorywhale_cli::storage::open_path(&db_path)?;
     // Fingerprint failures only — a stable key that groups this error with prior
     // occurrences, so `mw context --last-error` can show its history. Computed
     // from the redacted stderr (what we store), so it matches the backfill path.
@@ -229,40 +227,6 @@ fn print_help() {
         "mw-run [--cwd <path>] [--notes <text>] -- <command> [args...]\n\
          mw-run runs a command, shows its output, and saves command/argv/cwd/exit code/stdout/stderr to MemoryWhale."
     );
-}
-
-fn init_schema(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        "
-        PRAGMA journal_mode = WAL;
-        PRAGMA foreign_keys = ON;
-
-        CREATE TABLE IF NOT EXISTS command_runs (
-            id INTEGER PRIMARY KEY,
-            command TEXT NOT NULL,
-            argv_json TEXT NOT NULL,
-            cwd TEXT,
-            exit_code INTEGER,
-            stdout TEXT NOT NULL DEFAULT '',
-            stderr TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS command_arguments (
-            id INTEGER PRIMARY KEY,
-            command_run_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            value TEXT NOT NULL,
-            FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
-        CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
-        CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
-        ",
-    )
-    .map_err(|err| format!("failed to initialize schema: {err}"))
 }
 
 fn database_path() -> Result<PathBuf, String> {

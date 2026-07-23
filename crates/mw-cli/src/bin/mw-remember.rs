@@ -112,8 +112,8 @@ fn run() -> Result<(), String> {
 /// Open the database and make sure the schema is usable.
 ///
 /// Shell hooks fire one writer per command, so several can be creating or
-/// upgrading a brand-new database at the same instant — `PRAGMA journal_mode`
-/// and `ALTER TABLE` both lose races that `busy_timeout` alone doesn't cover.
+/// upgrading a brand-new database at the same instant. Schema initialization
+/// can briefly lose a race even with the shared busy timeout.
 /// Retry briefly rather than dropping the row.
 fn open_ready(db_path: &std::path::Path) -> Result<Connection, String> {
     let mut last = String::new();
@@ -121,15 +121,8 @@ fn open_ready(db_path: &std::path::Path) -> Result<Connection, String> {
         if attempt > 0 {
             std::thread::sleep(std::time::Duration::from_millis(80 * attempt));
         }
-        let conn = match Connection::open(db_path) {
-            Ok(conn) => conn,
-            Err(err) => {
-                last = format!("failed to open db: {err}");
-                continue;
-            }
-        };
-        match init_schema(&conn).and_then(|()| memorywhale_cli::ensure_capture_kind(&conn)) {
-            Ok(()) => return Ok(conn),
+        match memorywhale_cli::storage::open_path(db_path) {
+            Ok(conn) => return Ok(conn),
             Err(err) => last = err,
         }
     }
@@ -140,43 +133,6 @@ fn print_help() {
     println!(
         "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]"
     );
-}
-
-fn init_schema(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        "
-        PRAGMA journal_mode = WAL;
-        -- Shell hooks fire one writer per command, so two can land at once.
-        -- Wait instead of failing: a dropped row is a silently missing memory.
-        PRAGMA busy_timeout = 3000;
-
-        CREATE TABLE IF NOT EXISTS command_runs (
-            id INTEGER PRIMARY KEY,
-            command TEXT NOT NULL,
-            argv_json TEXT NOT NULL,
-            cwd TEXT,
-            exit_code INTEGER,
-            stdout TEXT NOT NULL DEFAULT '',
-            stderr TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL,
-            capture_kind TEXT NOT NULL DEFAULT 'full'
-        );
-
-        CREATE TABLE IF NOT EXISTS command_arguments (
-            id INTEGER PRIMARY KEY,
-            command_run_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            value TEXT NOT NULL,
-            FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
-        CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
-        CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
-        ",
-    )
-    .map_err(|err| format!("failed to initialize schema: {err}"))
 }
 
 fn append_environment_tags(notes: String) -> String {

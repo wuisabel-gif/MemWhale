@@ -11,7 +11,7 @@
 
 use chrono::{DateTime, Utc};
 use regex::Regex;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -68,8 +68,7 @@ pub fn recover_orphans(verbose: bool) -> Result<RecoveryReport, String> {
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("create data dir: {e}"))?;
     }
-    let conn = Connection::open(&db_path).map_err(|e| format!("open db: {e}"))?;
-    init_schema(&conn)?;
+    let conn = memorywhale_cli::storage::open_path(&db_path)?;
 
     let mut recovered = 0;
     let mut deleted_empty = 0;
@@ -176,22 +175,6 @@ pub fn clean_transcript(input: &str) -> String {
     let s = csi.replace_all(&s, "");
     let s = s.replace('\r', "");
     ctrl.replace_all(&s, "").into_owned()
-}
-
-fn init_schema(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, shell TEXT, cwd TEXT,
-            transcript_path TEXT NOT NULL DEFAULT '', transcript TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '', started_at TEXT NOT NULL DEFAULT '',
-            ended_at TEXT NOT NULL DEFAULT '', byte_count INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'finished');",
-    )
-    .map_err(|e| format!("init schema: {e}"))?;
-    let _ = conn.execute(
-        "ALTER TABLE sessions ADD COLUMN status TEXT NOT NULL DEFAULT 'finished'",
-        [],
-    );
-    Ok(())
 }
 
 fn data_base() -> Result<PathBuf, String> {

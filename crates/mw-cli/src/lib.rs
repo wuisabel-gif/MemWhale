@@ -1,6 +1,7 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
 pub mod tui;
+pub mod storage;
 
 use chrono::Utc;
 use regex::Regex;
@@ -1029,8 +1030,7 @@ pub fn remember_as(
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("failed to create data dir: {e}"))?;
     }
-    let conn = Connection::open(&path).map_err(|e| format!("failed to open db: {e}"))?;
-    migrate(&conn)?;
+    let conn = storage::open_path(&path)?;
     let approved = if author_kind == "agent" && review_agent_memories() {
         0
     } else {
