@@ -166,22 +166,20 @@ when to read from (and write to) the memory.
 ## Web dashboard (solo or team)
 
 `mw-serve` serves your memory as a local web page — useful on headless machines
-where the desktop app cannot open, and for teams: run it on the machine that has
-the data, and everyone on the network sees the same errors instead of asking for
-copy-pastes.
+where the desktop app cannot open. It binds to localhost by default so terminal
+history is never exposed to the network accidentally.
 
 ```bash
-mw-serve                       # binds 0.0.0.0:7071
-#   this machine:  http://localhost:7071/
-#   over the LAN:   http://<machine-ip>:7071/   (find the IP with: hostname -I)
+mw-serve                       # binds 127.0.0.1:7071
+#   this machine: http://localhost:7071/
 ```
 
-On a shared or untrusted network, require a token — the first `?token=` visit
-sets a cookie so links keep working:
+LAN access is explicit and requires a token. Open the dashboard normally and
+enter the token in its sign-in form; the token never appears in the URL:
 
 ```bash
-MEMORYWHALE_TOKEN=some-shared-secret mw-serve
-#   open once:  http://<machine-ip>:7071/?token=some-shared-secret
+MEMORYWHALE_TOKEN=some-shared-secret mw-serve --lan
+#   open: http://<machine-ip>:7071/
 ```
 
 The dashboard lists command runs and sessions, opens a readable detail page for
