@@ -51,8 +51,9 @@ linux/systemd/enable-dashboard.sh
 #   stop:   linux/systemd/enable-dashboard.sh --disable
 ```
 
-For LAN access (open the dashboard from another machine), change `--host` to
-`0.0.0.0` in the installed unit and restart it.
+For LAN access (open the dashboard from another machine), add `--lan` and set
+`MEMORYWHALE_TOKEN` in the installed unit, then restart it. `mw-serve` refuses
+an unauthenticated non-loopback bind.
 
 ## Per-command recording vs. whole-session
 
