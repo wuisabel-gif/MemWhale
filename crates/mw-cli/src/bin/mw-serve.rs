@@ -1457,32 +1457,7 @@ fn graph_page() -> String {
     page("Command graph · MemoryWhale", &body)
 }
 
-const GRAPH_JS: &str = r#"
-const cv=document.getElementById('g'),cx=cv.getContext('2d');
-const W=cv.width,H=cv.height,N=DATA.nodes,L=DATA.links;
-if(!N.length){cx.fillStyle='#566273';cx.font='15px sans-serif';cx.fillText('No commands with arguments yet — record some with mw-remember.',24,40);}
-else{
-const idx={},maxW=Math.max(1,...N.map(n=>n.weight||1));
-N.forEach(n=>{idx[n.id]=n;n.x=W/2+(Math.random()-.5)*260;n.y=H/2+(Math.random()-.5)*260;n.vx=0;n.vy=0;n.r=(n.kind==='cmd'?8:4)+14*Math.sqrt((n.weight||1)/maxW);});
-L.forEach(l=>{l.s=idx[l.source];l.t=idx[l.target];});
-function col(n){return n.kind==='cmd'?'#2b43dd':n.kind==='bridge'?'#e9663a':'#10b6c6';}
-function step(){
- for(let i=0;i<N.length;i++)for(let j=i+1;j<N.length;j++){const a=N[i],b=N[j];let dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy)||1;if(d<320){const f=2600/(d*d);a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f;}}
- L.forEach(l=>{if(!l.s||!l.t)return;let dx=l.t.x-l.s.x,dy=l.t.y-l.s.y,d=Math.hypot(dx,dy)||1,f=(d-84)*0.02;l.s.vx+=dx/d*f;l.s.vy+=dy/d*f;l.t.vx-=dx/d*f;l.t.vy-=dy/d*f;});
- N.forEach(n=>{n.vx+=(W/2-n.x)*0.002;n.vy+=(H/2-n.y)*0.002;n.vx*=0.86;n.vy*=0.86;n.x+=n.vx;n.y+=n.vy;n.x=Math.max(30,Math.min(W-30,n.x));n.y=Math.max(30,Math.min(H-30,n.y));});
-}
-function draw(){
- cx.clearRect(0,0,W,H);
- cx.strokeStyle='#d5dee9';cx.lineWidth=1;
- L.forEach(l=>{if(!l.s||!l.t)return;cx.beginPath();cx.moveTo(l.s.x,l.s.y);cx.lineTo(l.t.x,l.t.y);cx.stroke();});
- N.forEach(n=>{cx.beginPath();cx.arc(n.x,n.y,n.r,0,7);cx.fillStyle=col(n);cx.fill();cx.fillStyle='#0f1722';cx.font=(n.kind==='cmd'?'600 12px ':'11px ')+'ui-monospace,monospace';cx.fillText(n.label,n.x+n.r+4,n.y+4);});
-}
-let t=0;function loop(){for(let k=0;k<3;k++)step();draw();if(t++<800)requestAnimationFrame(loop);}
-loop();
-cv.style.cursor='pointer';
-cv.onclick=e=>{const rc=cv.getBoundingClientRect(),sx=W/rc.width,sy=H/rc.height,mx=(e.clientX-rc.left)*sx,my=(e.clientY-rc.top)*sy;let best=null,bd=1e9;N.forEach(n=>{const d=(n.x-mx)**2+(n.y-my)**2;if(d<bd&&d<(n.r+12)*(n.r+12)){bd=d;best=n;}});if(best&&best.kind==='cmd'&&best.name)location.href='/runs/'+encodeURIComponent(best.name);};
-}
-"#;
+const GRAPH_JS: &str = include_str!("mw-serve/graph.js");
 
 fn code_block(text: &str) -> String {
     format!(
@@ -1501,68 +1476,7 @@ fn page(title: &str, body: &str) -> String {
     )
 }
 
-const CSS: &str = r#"
-:root{--ink:#0f1722;--muted:#566273;--line:#e5ebf2;--azure:#2b43dd;--cyan:#10b6c6;--ok:#168a69;--bad:#e9663a;--bg:#f3f7fb;--card:#fff;}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55}
-main{max-width:920px;margin:0 auto;padding:40px 24px 80px}
-a{color:inherit;text-decoration:none}
-.eyebrow{font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--azure);margin-bottom:10px}
-.back{display:inline-block;margin-bottom:18px;color:var(--azure);font:600 .8rem ui-monospace,monospace}
-h1{font-size:2rem;margin:.1em 0 .3em;letter-spacing:-.02em}
-h2{font-size:.95rem;margin:1.8em 0 .6em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.sub{color:var(--muted);margin:0 0 1em}
-.search{display:flex;gap:8px;margin:18px 0 8px}
-.search input{flex:1;border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 12px;font:600 .9rem ui-monospace,monospace;color:var(--ink)}
-.search button{border:0;border-radius:10px;background:var(--azure);color:#fff;padding:10px 14px;font:700 .85rem ui-monospace,monospace;cursor:pointer}
-.list{display:flex;flex-direction:column;gap:8px}
-.tzbar{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:.8rem;color:var(--muted)}
-.tzbar select{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
-.tzbar button{font:inherit;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
-.tzbar button:hover{border-color:var(--azure)}
-.daygroup{margin:1.1em 0}
-.datehead{margin:0 0 .5em;font:600 .8rem ui-monospace,monospace;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:.3em;cursor:pointer;user-select:none}
-.datehead:hover{color:var(--azure)}
-.datehead .gcount{color:var(--muted);font-weight:400;opacity:.7}
-.datehead .gcount::before{content:"· "}
-.row{display:grid;grid-template-columns:90px 1fr 1.2fr 1.4fr;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;transition:border-color .15s}
-.row:hover{border-color:var(--azure)}
-.row .cmd{font:600 .95rem ui-monospace,monospace}
-.row .when{font:.78rem ui-monospace,monospace;color:var(--muted)}
-.row .note{font-size:.85rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.badge{display:inline-block;font:600 .72rem ui-monospace,monospace;padding:4px 10px;border-radius:999px;text-align:center}
-.badge.ok{background:#e6f6ef;color:var(--ok)}
-.badge.bad{background:#fceee7;color:var(--bad)}
-.badge.sess{background:#eaeefe;color:var(--azure)}
-.badge.live{background:#dff9f4;color:#087260}
-.badge.warn{background:#fff4d8;color:#9a5b00}
-.notice{background:#e9fbf7;border:1px solid #b7ebe0;border-left:4px solid var(--cyan);color:#0f5e57;border-radius:10px;padding:12px 14px;margin:0 0 16px;font-weight:650}
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
-.tag{display:inline-flex;align-items:center;background:#fff4d8;color:#9a5b00;border:1px solid #f3d89a;border-radius:999px;padding:2px 8px;font:700 .7rem ui-monospace,monospace}
-.meta{display:flex;flex-wrap:wrap;gap:8px 24px;margin:16px 0;font-size:.9rem;color:var(--muted)}
-.meta span{display:block;font:600 .7rem ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--azure)}
-pre{background:#0b1c25;color:#e3f2f4;padding:16px;border-radius:10px;overflow:auto;font:.85rem/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
-pre.err{color:#ffd9c9}
-.noteblock{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:12px 16px;border-radius:8px}
-.codeblock{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0}
-.codeblock code{font:.9rem ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
-.hints{display:flex;flex-direction:column;gap:10px}
-.hint{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
-.hint p{margin:0 0 6px}
-.empty{color:var(--muted)}
-.glink{color:var(--azure);font-weight:600}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font:600 .85rem ui-monospace,monospace;color:var(--azure)}
-.chip span{background:#eaeefe;border-radius:999px;padding:1px 8px;font-size:.72rem}
-.chip:hover{border-color:var(--azure)}
-canvas{max-width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:8px}
-.legend{display:flex;align-items:center;gap:8px;font:.8rem ui-monospace,monospace;color:var(--muted);margin:4px 0 0}
-.legend .dot{width:11px;height:11px;border-radius:999px;display:inline-block;margin-left:14px}
-.legend .dot.run{background:var(--azure)}
-.legend .dot.arg{background:var(--cyan)}
-.legend .dot.bridge{background:var(--bad)}
-footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);font:.75rem ui-monospace,monospace;color:var(--muted)}
-"#;
+const CSS: &str = include_str!("mw-serve/styles.css");
 
 /// The full command line from stored argv (e.g. "npm run tauri:dev"), falling
 /// back to the bare command name if argv can't be parsed.
