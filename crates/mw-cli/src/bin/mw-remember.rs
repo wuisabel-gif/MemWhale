@@ -74,6 +74,7 @@ fn run() -> Result<(), String> {
     }
 
     let conn = open_ready(&db_path)?;
+    memorywhale_cli::restrict_path_permissions(&db_path, false)?;
     conn.execute(
         "
         INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, capture_kind)
@@ -84,9 +85,9 @@ fn run() -> Result<(), String> {
             argv_json,
             cwd,
             exit_code,
-            memorywhale_cli::redact(&stdout),
-            memorywhale_cli::redact(&stderr),
-            memorywhale_cli::redact(&notes),
+            memorywhale_cli::sanitize_capture(&stdout),
+            memorywhale_cli::sanitize_capture(&stderr),
+            memorywhale_cli::sanitize_capture(&notes),
             created_at,
             capture_kind
         ],

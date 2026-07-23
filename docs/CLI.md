@@ -21,6 +21,7 @@ mw replay 12                          # rerun a saved command run
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
+mw audit                              # inspect capture policy and retained volume
 mw share 5 [-o file.html]             # write a self-contained HTML page of one item to send someone
 mw discard                            # inside a recording: throw the current session away
 mw context [project:name] [--last-error] [--limit N]   # compact failures digest for agents
@@ -147,3 +148,9 @@ MEMORYWHALE_DATA_DIR=/tmp/memorywhale-data mw-run -- echo "saved here"
 Captured stdout/stderr/notes/transcripts are scrubbed for common secret shapes
 (API keys, tokens, `password=`, PEM blocks) before they reach SQLite. Set
 `MEMORYWHALE_NO_REDACT=1` to store raw text.
+
+Captured text fields are limited to 1 MiB by default. Set
+`MEMORYWHALE_MAX_CAPTURE_BYTES` to a positive byte count to tune the limit;
+truncated values include a marker with the stored and original byte counts.
+See [the local data threat model](SECURITY.md) before enabling raw capture or
+sharing exported data.

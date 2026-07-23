@@ -290,7 +290,12 @@ mw status     # capture mode for this directory, and which rule produced it
 ```
 
 Already-recorded memory can be aged out with `mw prune --older-than 90d`
-(add `--dry-run` to see what would go first).
+after previewing the deletion with `--dry-run`. Run `mw audit` to see the
+effective capture rule, configured output limit, retained volume, and the
+highest-volume session sources. Captured text fields are capped at 1 MiB by
+default; `MEMORYWHALE_MAX_CAPTURE_BYTES` sets a different positive byte limit.
+See the [local data threat model](docs/SECURITY.md) for trust boundaries and
+safe operating guidance.
 
 ## Sharing memory across machines
 
