@@ -17,6 +17,15 @@ mw context --last-error  # a paste-ready digest for an AI agent
 mw-serve                 # local web dashboard (works headless, e.g. on a Jetson)
 ```
 
+## Storage boundary
+
+`memorywhale_cli::storage` is the only production owner of the SQLite
+connection policy and base schema. Every CLI binary opens the database through
+that module, which applies WAL mode, foreign keys, a shared busy timeout, the
+canonical tables and indexes, and numbered migrations. Table definitions and
+connection pragmas stay out of individual binaries so every entry point
+converges fresh and partially upgraded databases to the same shape.
+
 Full documentation, the web dashboard, team sharing, and AI-agent integration:
 <https://github.com/wuisabel-gif/MemWhale>.
 

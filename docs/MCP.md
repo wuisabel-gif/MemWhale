@@ -40,6 +40,9 @@ as `"command"`.
 
 All six take a JSON object and return text (JSON-RPC `result.content[].text`).
 Required args are noted; everything else is optional.
+Run `mw-mcp --list-tools` to print the tool names directly from the runtime
+registry. `scripts/check-doc-references.sh` verifies this table and the README
+against that registry.
 
 | Tool | Purpose | Args | Returns |
 | --- | --- | --- | --- |

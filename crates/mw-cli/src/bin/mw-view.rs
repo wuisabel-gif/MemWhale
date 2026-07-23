@@ -111,7 +111,6 @@ fn print_help() {
 
 fn list_all() -> Result<(), String> {
     let conn = open_db()?;
-    init_min_schema(&conn)?;
 
     println!("Sessions (open with `mw-view session <id>`):");
     let mut s = conn
@@ -497,30 +496,8 @@ fn open_in_browser(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn init_min_schema(conn: &Connection) -> Result<(), String> {
-    // Ensure the tables exist so `list` works on a fresh DB without erroring.
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS command_runs (id INTEGER PRIMARY KEY, command TEXT NOT NULL,
-            argv_json TEXT NOT NULL, cwd TEXT, exit_code INTEGER, stdout TEXT NOT NULL DEFAULT '',
-            stderr TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
-         CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY, shell TEXT, cwd TEXT,
-            transcript_path TEXT NOT NULL DEFAULT '', transcript TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '', started_at TEXT NOT NULL DEFAULT '',
-            ended_at TEXT NOT NULL DEFAULT '', byte_count INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'finished');",
-    )
-    .map_err(|e| format!("init schema: {e}"))?;
-    let _ = conn.execute(
-        "ALTER TABLE sessions ADD COLUMN status TEXT NOT NULL DEFAULT 'finished'",
-        [],
-    );
-    Ok(())
-}
-
 fn open_db() -> Result<Connection, String> {
-    let path = database_path()?;
-    let conn = Connection::open(&path).map_err(|e| format!("open db {}: {e}", path.display()))?;
-    Ok(conn)
+    memorywhale_cli::storage::open_path(&database_path()?)
 }
 
 fn views_dir() -> Result<PathBuf, String> {

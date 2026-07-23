@@ -216,14 +216,20 @@ fn bookmarks(conn: &Connection) -> Vec<Memory> {
     // so every reader just filters approved=1 — one rule, no config lookup here.
     // Older DBs predating the provenance migration have no `approved` column;
     // there the prepare fails and we fall back to loading everything.
-    let mut stmt =
-        match conn.prepare("SELECT id, label, created_at FROM bookmarks WHERE approved = 1") {
-            Ok(stmt) => stmt,
-            Err(_) => match conn.prepare("SELECT id, label, created_at FROM bookmarks") {
+    let mut stmt = match conn.prepare(
+        "SELECT id, label, created_at FROM bookmarks WHERE approved = 1 AND status = 'active'",
+    ) {
+        Ok(stmt) => stmt,
+        Err(_) => {
+            match conn.prepare("SELECT id, label, created_at FROM bookmarks WHERE approved = 1") {
                 Ok(stmt) => stmt,
-                Err(_) => return Vec::new(),
-            },
-        };
+                Err(_) => match conn.prepare("SELECT id, label, created_at FROM bookmarks") {
+                    Ok(stmt) => stmt,
+                    Err(_) => return Vec::new(),
+                },
+            }
+        }
+    };
     let rows = stmt.query_map([], |r| {
         Ok((
             r.get::<_, i64>(0)?,
