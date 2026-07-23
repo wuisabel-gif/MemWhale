@@ -1,6 +1,7 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
 pub mod tui;
+pub mod storage;
 
 use chrono::Utc;
 use regex::Regex;
@@ -23,6 +24,22 @@ pub fn data_dir() -> Result<PathBuf, String> {
 /// Path to the local SQLite database.
 pub fn database_path() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("memorywhale.sqlite3"))
+}
+
+/// Restrict a data directory or capture file to the current user on Unix.
+/// Other platforms keep their native ACL behavior.
+pub fn restrict_path_permissions(path: &std::path::Path, directory: bool) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = if directory { 0o700 } else { 0o600 };
+        let permissions = std::fs::Permissions::from_mode(mode);
+        std::fs::set_permissions(path, permissions)
+            .map_err(|e| format!("failed to restrict permissions on {}: {e}", path.display()))?;
+    }
+    #[cfg(not(unix))]
+    let _ = (path, directory);
+    Ok(())
 }
 
 /// Best-effort full-text index over `command_runs` (SQLite FTS5).
@@ -1080,13 +1097,12 @@ pub fn remember_as(
     if !gate.mode.stores_anything() {
         return Err(format!("capture is off for this directory ({}) — nothing saved", gate.source));
     }
-    let text = redact(text);
+    let text = sanitize_capture(text);
     let path = database_path()?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("failed to create data dir: {e}"))?;
     }
-    let conn = Connection::open(&path).map_err(|e| format!("failed to open db: {e}"))?;
-    migrate(&conn)?;
+    let conn = storage::open_path(&path)?;
     let approved = if author_kind == "agent" && review_agent_memories() {
         0
     } else {
@@ -1111,6 +1127,41 @@ pub fn remember_as(
 }
 
 const REDACTED: &str = "[REDACTED]";
+pub const DEFAULT_MAX_CAPTURE_BYTES: usize = 1_048_576;
+
+/// Maximum bytes retained for any individual captured text field.
+///
+/// Set `MEMORYWHALE_MAX_CAPTURE_BYTES` to a positive integer to tune the
+/// limit. The default is 1 MiB per stdout, stderr, note, or transcript field.
+pub fn max_capture_bytes() -> usize {
+    std::env::var("MEMORYWHALE_MAX_CAPTURE_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_MAX_CAPTURE_BYTES)
+}
+
+/// Redact known secret shapes and bound the stored value, adding an explicit
+/// marker when bytes were omitted.
+pub fn sanitize_capture(text: &str) -> String {
+    truncate_capture(&redact(text), max_capture_bytes())
+}
+
+fn truncate_capture(text: &str, limit: usize) -> String {
+    if text.len() <= limit {
+        return text.to_string();
+    }
+    let mut end = limit.min(text.len());
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!(
+        "{}\n[TRUNCATED: stored {} of {} bytes]",
+        &text[..end],
+        end,
+        text.len()
+    )
+}
 
 /// Scrub common secret shapes out of captured text before it lands in SQLite.
 ///
@@ -1524,6 +1575,13 @@ mod tests {
     fn leaves_ordinary_text_alone() {
         let s = "cargo build finished in 3.2s with 0 warnings";
         assert_eq!(redact(s), s);
+    }
+
+    #[test]
+    fn bounded_capture_marks_truncation_without_splitting_utf8() {
+        assert_eq!(truncate_capture("short", 8), "short");
+        let value = truncate_capture("ab🐋cd", 5);
+        assert_eq!(value, "ab\n[TRUNCATED: stored 2 of 8 bytes]");
     }
 
     #[test]

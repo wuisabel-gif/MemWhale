@@ -46,6 +46,7 @@ fn run() -> Result<(), String> {
         Some("memory") => return memory_lifecycle_cmd(&raw_args[1..]),
         Some("rm") => return rm_memory(&raw_args[1..]),
         Some("prune") => return prune_cmd(&raw_args[1..]),
+        Some("audit") => return audit_cmd(),
         Some("share") => return share_cmd(&raw_args[1..]),
         Some("discard") => return discard_cmd(),
         Some("replay") => return replay_command(&raw_args[1..]),
@@ -264,6 +265,7 @@ fn print_help() {
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
          mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
+         mw audit                 report capture policy, retained volume, and high-volume sources\n\
          mw status                print the effective capture mode for this directory and why\n\
          mw share [session|command] <id> [-o file]  write a self-contained HTML page to send to someone\n\
          mw discard               inside a recording: throw the current session away — nothing saved\n\
@@ -493,6 +495,71 @@ fn rm_memory(args: &[String]) -> Result<(), String> {
             Err(e) => return Err(format!("failed to look up command run: {e}")),
         }
     }
+    Ok(())
+}
+
+/// Summarize what is retained so users can spot unexpectedly sensitive or
+/// high-volume capture before deciding what to prune or remove.
+fn audit_cmd() -> Result<(), String> {
+    let cwd = env::current_dir().map_err(|e| format!("failed to resolve current directory: {e}"))?;
+    let rule = memorywhale_cli::capture_rule(&cwd);
+    let db_path = database_path()?;
+    let conn = open_session_db()?;
+    let db_bytes = fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+    let sessions: (i64, i64) = conn
+        .query_row(
+            "SELECT COUNT(*), COALESCE(SUM(byte_count), 0) FROM sessions",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("failed to audit sessions: {e}"))?;
+    let commands: (i64, i64) = conn
+        .query_row(
+            "SELECT COUNT(*), COALESCE(SUM(length(stdout) + length(stderr)), 0) FROM command_runs",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("failed to audit command runs: {e}"))?;
+
+    println!("MemoryWhale privacy audit");
+    println!("  current directory: {}", cwd.display());
+    println!("  capture mode: {} ({})", rule.mode.as_str(), rule.source);
+    println!(
+        "  per-field limit: {} bytes (MEMORYWHALE_MAX_CAPTURE_BYTES)",
+        memorywhale_cli::max_capture_bytes()
+    );
+    println!("  database: {} ({} bytes)", db_path.display(), db_bytes);
+    println!("  sessions: {} ({} raw bytes)", sessions.0, sessions.1);
+    println!("  command runs: {} ({} stored output bytes)", commands.0, commands.1);
+
+    println!("\nHighest-volume session sources:");
+    let mut stmt = conn
+        .prepare(
+            "SELECT COALESCE(NULLIF(cwd, ''), '(unknown)'), COUNT(*), COALESCE(SUM(byte_count), 0)
+             FROM sessions GROUP BY cwd ORDER BY 3 DESC LIMIT 10",
+        )
+        .map_err(|e| format!("failed to group session sources: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })
+        .map_err(|e| format!("failed to read session sources: {e}"))?;
+    let mut found = false;
+    for row in rows {
+        let (source, count, bytes) = row.map_err(|e| format!("failed to read audit row: {e}"))?;
+        println!("  {bytes:>10} bytes  {count:>5} sessions  {source}");
+        found = true;
+    }
+    if !found {
+        println!("  no session captures");
+    }
+
+    println!("\nCleanup: `mw rm <id>` deletes one session and transcript; use");
+    println!("`mw prune --older-than 30d --dry-run` to preview retention cleanup.");
     Ok(())
 }
 
@@ -731,11 +798,10 @@ fn open_session_db() -> Result<Connection, String> {
     let db_path = database_path()?;
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
+        memorywhale_cli::restrict_path_permissions(parent, true)?;
     }
-    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
-    // Provenance (v1) + scope columns (v2) exist before any read or write.
-    memorywhale_cli::migrate(&conn)?;
+    let conn = memorywhale_cli::storage::open_path(&db_path)?;
+    memorywhale_cli::restrict_path_permissions(&db_path, false)?;
     Ok(conn)
 }
 
@@ -1313,9 +1379,7 @@ fn show_session(args: &[String]) -> Result<(), String> {
         None => return Err("usage: mw show <id>".to_string()),
     };
 
-    let conn =
-        Connection::open(database_path()?).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
+    let conn = memorywhale_cli::storage::open()?;
 
     let row = conn.query_row(
         "SELECT started_at, cwd, notes, transcript FROM sessions WHERE id = ?1",
@@ -1412,7 +1476,7 @@ fn clean_transcript(input: &str) -> String {
     let s = s.replace('\r', "");
     let cleaned = ctrl.replace_all(&s, "").into_owned();
     // Scrub secrets before the transcript is stored (env dumps, pasted tokens).
-    memorywhale_cli::redact(&cleaned)
+    memorywhale_cli::sanitize_capture(&cleaned)
 }
 
 /// Send this machine's memory to a teammate: make a clean DB snapshot, scp it
@@ -2997,69 +3061,6 @@ fn doctor() -> Result<(), String> {
         );
     }
 
-    Ok(())
-}
-
-fn init_schema(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        "
-        PRAGMA journal_mode = WAL;
-
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY,
-            shell TEXT,
-            cwd TEXT,
-            transcript_path TEXT NOT NULL,
-            transcript TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '',
-            started_at TEXT NOT NULL,
-            ended_at TEXT NOT NULL,
-            byte_count INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'finished'
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
-
-        CREATE TABLE IF NOT EXISTS command_runs (
-            id INTEGER PRIMARY KEY,
-            command TEXT NOT NULL,
-            argv_json TEXT NOT NULL,
-            cwd TEXT,
-            exit_code INTEGER,
-            stdout TEXT NOT NULL DEFAULT '',
-            stderr TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS command_arguments (
-            id INTEGER PRIMARY KEY,
-            command_run_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            value TEXT NOT NULL,
-            FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS bookmarks (
-            id INTEGER PRIMARY KEY,
-            label TEXT NOT NULL,
-            cwd TEXT,
-            created_at TEXT NOT NULL,
-            command_run_id INTEGER,
-            session_id INTEGER
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
-        CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
-        CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
-        CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
-        ",
-    )
-    .map_err(|err| format!("failed to initialize schema: {err}"))?;
-    let _ = conn.execute(
-        "ALTER TABLE sessions ADD COLUMN status TEXT NOT NULL DEFAULT 'finished'",
-        [],
-    );
     Ok(())
 }
 

@@ -23,6 +23,7 @@ mw rm 5                               # delete a session (+ its transcript); mw 
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
 mw memory stale <id>                  # retire an outdated lesson, preserving its row
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
+mw audit                              # inspect capture policy and retained volume
 mw share 5 [-o file.html]             # write a self-contained HTML page of one item to send someone
 mw discard                            # inside a recording: throw the current session away
 mw context [project:name] [--last-error] [--limit N]   # compact failures digest for agents
@@ -139,7 +140,7 @@ add/update/skip breakdown without contacting the server.
 ## mw-serve / mw-view / mw-recover / mw-mcp
 
 ```bash
-mw-serve [--host addr] [--port n] [--token secret]  # web dashboard
+mw-serve [--lan | --host addr] [--port n] [--token secret]  # web dashboard
 mw-view <id>                                        # open one memory directly
 mw-recover                                          # recover interrupted recordings
 mw-mcp                                              # MCP server for AI agents (stdio): recent_errors, search_memory, get_context, remember, similar_failures, stats — see docs/MCP.md
@@ -159,3 +160,9 @@ MEMORYWHALE_DATA_DIR=/tmp/memorywhale-data mw-run -- echo "saved here"
 Captured stdout/stderr/notes/transcripts are scrubbed for common secret shapes
 (API keys, tokens, `password=`, PEM blocks) before they reach SQLite. Set
 `MEMORYWHALE_NO_REDACT=1` to store raw text.
+
+Captured text fields are limited to 1 MiB by default. Set
+`MEMORYWHALE_MAX_CAPTURE_BYTES` to a positive byte count to tune the limit;
+truncated values include a marker with the stored and original byte counts.
+See [the local data threat model](SECURITY.md) before enabling raw capture or
+sharing exported data.

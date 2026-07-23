@@ -10,7 +10,7 @@
 //   mw-screenshot --command-run-id 12 --notes "Screen after failed cargo check"
 
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -73,8 +73,7 @@ fn run() -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
     }
 
-    let conn = Connection::open(db_path).map_err(|err| format!("failed to open db: {err}"))?;
-    init_schema(&conn)?;
+    let conn = memorywhale_cli::storage::open_path(&db_path)?;
 
     if let Some(run_id) = command_run_id {
         let exists: i64 = conn
@@ -191,40 +190,6 @@ fn capture_screenshot(path: &Path) -> Result<(), String> {
         "screenshot capture failed ({last_err}); on a headless machine with no display this is expected — \
          record the terminal context with mw-remember instead"
     ))
-}
-
-fn init_schema(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        "
-        PRAGMA journal_mode = WAL;
-
-        CREATE TABLE IF NOT EXISTS command_runs (
-            id INTEGER PRIMARY KEY,
-            command TEXT NOT NULL,
-            argv_json TEXT NOT NULL,
-            cwd TEXT,
-            exit_code INTEGER,
-            stdout TEXT NOT NULL DEFAULT '',
-            stderr TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS screenshots (
-            id INTEGER PRIMARY KEY,
-            command_run_id INTEGER,
-            file_path TEXT NOT NULL,
-            cwd TEXT,
-            notes TEXT NOT NULL DEFAULT '',
-            captured_at TEXT NOT NULL,
-            FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE SET NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_screenshots_command_run_id ON screenshots(command_run_id);
-        CREATE INDEX IF NOT EXISTS idx_screenshots_captured_at ON screenshots(captured_at);
-        ",
-    )
-    .map_err(|err| format!("failed to initialize schema: {err}"))
 }
 
 fn memorywhale_dir() -> Result<PathBuf, String> {
