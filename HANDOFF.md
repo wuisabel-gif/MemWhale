@@ -9,20 +9,22 @@ logs, notes, transcripts, and imported text into a searchable knowledge graph. B
 robotics/AI-assisted debugging across machines (e.g. a Jetson + a laptop for USC AUV work)
 where shell history alone loses the full debugging context.
 
-- Rust backend (`src-tauri/`), Tauri desktop shell, SQLite local DB.
+- Rust workspace (`crates/memorywhale-core`, `crates/mw-cli`), Tauri desktop
+  shell (`src-tauri`), and SQLite local DB.
 - React + TypeScript frontend (`src/`, `index.html`).
 - Everything stored locally; nothing is uploaded.
 
 ## Repo layout (IMPORTANT)
-`main` is **flattened at the repo root** — `src-tauri/`, `src/`, `index.html` are directly
-at the top. (Earlier history had the project nested under a `MemoryWhale/` subfolder; that
-nesting caused a lot of git pathspec pain and has been removed.)
+`main` is a Cargo workspace rooted at the repository top level. CLI binaries
+live in `crates/mw-cli/src/bin/`, shared retrieval in
+`crates/memorywhale-core/`, the frontend in `src/`, and the desktop shell in
+`src-tauri/`.
 
 > Gotcha for tools: run `git` from the **repo root**, or use `git ls-tree --full-tree …`.
 > Running `git ls-tree` from a subdirectory only shows that subdir's slice and gives
 > misleading "file not found / empty" results.
 
-## Binaries (`src-tauri/src/bin/`)
+## Binaries (`crates/mw-cli/src/bin/`)
 - `mw-remember` — manual single-command memory. You pass `--exit-code`, `--stdout`,
   `--stderr`, `--notes` and the command after `--`. It does NOT run the command; it just
   records what you tell it. Stores into the `command_runs` + `command_arguments` tables.
@@ -33,6 +35,9 @@ nesting caused a lot of git pathspec pain and has been removed.)
   and `mw global on|off|status` (opt-in auto-record of every new terminal via a guarded
   shell-rc hook — no manual `.bashrc` editing).
 - `mw-run`, `mw-screenshot` — additional helpers (screenshot capture is opt-in, local-only).
+- `mw-serve`, `mw-view`, `mw-recover` — local dashboard, single-memory view,
+  and interrupted-session recovery.
+- `mw-mcp` — the six-tool MCP server.
 
 > Note: `mw.rs`/`mw-run.rs` on `main` were consolidated/refactored during cleanup, so their
 > exact structure may differ from intermediate versions discussed in chat. Read the current
@@ -49,9 +54,8 @@ Memory is **per-machine** and not synced — the Jetson and laptop each have the
 ## Build / run
 ```bash
 export PATH="$HOME/.cargo/bin:$PATH"      # cargo may not be on the default PATH
-cd src-tauri
-cargo build --release --bin mw            # or: mw-remember / mw-run / mw-screenshot
-cargo run --bin mw -- --notes "what I'm debugging"   # records this shell; `exit` to save
+cargo build --release -p memorywhale-cli --bins
+cargo run -p memorywhale-cli --bin mw -- --notes "what I'm debugging"
 # frontend (browser, demo store): npm install && npm run dev
 # desktop app: npm run tauri:dev
 ```

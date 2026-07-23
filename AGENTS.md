@@ -44,17 +44,21 @@ Tag related work across terminals with the same `project:<name>` to group it.
 ### Inspect
 
 - `mw-view <id>` — one memory as a local web page (with suggested next steps).
-- `mw-serve` — dashboard at `http://localhost:7071/` (or over the LAN for headless
-  machines); includes `/graph` and project views.
+- `mw-serve` — dashboard at `http://127.0.0.1:7071/`; includes `/graph` and
+  project views.
 - `mw-recover` — import an interrupted session transcript that didn't save.
 
 ## Repo conventions
 
-- `main` keeps the project flattened at the repo root (`src-tauri/`, `src/`, etc.).
-- Build the helper binaries from `src-tauri`: `cargo build --release --bin <name>`
-  for `mw`, `mw-remember`, `mw-serve`, `mw-view`, `mw-recover`.
+- The Cargo workspace lives at the repository root. The reusable retrieval
+  crate is `crates/memorywhale-core`, CLI sources are in `crates/mw-cli`, the
+  React frontend is in `src`, and `src-tauri` contains only the desktop shell.
+- Build every helper from the repository root with
+  `cargo build --release -p memorywhale-cli --bins`. The binaries are `mw`,
+  `mw-remember`, `mw-run`, `mw-screenshot`, `mw-serve`, `mw-view`,
+  `mw-recover`, and `mw-mcp`.
 - macOS only: after copying a built binary, re-sign it (`codesign --force --sign -
   <path>`) or it gets `Killed: 9`. See `DEBUG.md`.
-- Full usage: `SOP.md`. Setup/troubleshooting: `DEBUG.md`.
+- Full usage: `docs/CLI.md`. Setup/troubleshooting: `DEBUG.md`.
 
 The Claude Code form of this guidance lives in `.claude/skills/memorywhale/`.

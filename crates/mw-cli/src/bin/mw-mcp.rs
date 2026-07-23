@@ -15,6 +15,14 @@ use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--list-tools") {
+        for tool in tool_defs().as_array().into_iter().flatten() {
+            if let Some(name) = tool.get("name").and_then(Value::as_str) {
+                println!("{name}");
+            }
+        }
+        return;
+    }
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
     // Client name from the `initialize` handshake (e.g. "Claude Code"), used to
