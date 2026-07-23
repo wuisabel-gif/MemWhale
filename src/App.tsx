@@ -12,6 +12,7 @@ import {
 import * as d3 from "d3";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { splitCommandLine } from "./commandLine";
 
 type Document = {
   id: number;
@@ -1080,7 +1081,7 @@ function addMockCommand(
   }
 ): TerminalMemory {
   const runId = Math.max(0, ...terminal.runs.map((run) => run.id)) + 1;
-  const argv = splitMockCommand(request.command_line);
+  const argv = splitCommandLine(request.command_line);
   const run: CommandRun = {
     id: runId,
     command: argv[0] ?? request.command_line,
@@ -1160,10 +1161,6 @@ function addMockDocument(graph: GraphPayload, title: string, sourceType: string,
     links,
     nodes
   };
-}
-
-function splitMockCommand(commandLine: string) {
-  return commandLine.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map((part) => part.replace(/^['"]|['"]$/g, "")) ?? [];
 }
 
 function inferTitle(content: string) {

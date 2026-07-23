@@ -2,39 +2,90 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build (Rust + frontend)
+  rust-quality:
+    name: Rust format, lint, and tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Lint non-desktop crates
+        run: cargo clippy -p memorywhale-core -p memorywhale-cli --all-targets -- -D warnings
+      - name: Test non-desktop crates
+        run: cargo test -p memorywhale-core -p memorywhale-cli
 
+  frontend:
+    name: Frontend build, tests, and audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  workspace-build:
+    name: Build workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
       - name: Install Tauri system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
             librsvg2-dev libsoup-3.0-dev
-
       - uses: dtolnay/rust-toolchain@stable
-
       - uses: actions/setup-node@v5
         with:
           node-version: 20
-
-      # The desktop crate embeds dist/ at compile time (generate_context!),
-      # so the frontend must be built before the Rust workspace.
-      - name: Build the frontend
+          cache: npm
+      - name: Build frontend assets
         run: |
-          npm install
+          npm ci
           npm run build
-
-      - name: Build the workspace (desktop app + CLI)
+      - name: Build desktop and CLI workspace
         run: cargo build --workspace
 
-      - name: Test
-        run: cargo test -p memorywhale-core -p memorywhale-cli
+  clean-install:
+    name: Clean CLI install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install from the CLI crate
+        run: cargo install --locked --path crates/mw-cli --root "$RUNNER_TEMP/memorywhale"
+      - name: Verify installed commands
+        shell: bash
+        run: |
+          for b in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+            test -x "$RUNNER_TEMP/memorywhale/bin/$b"
+          done
+          "$RUNNER_TEMP/memorywhale/bin/mw" --help
+
+  dependency-audit:
+    name: Rust dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Audit Cargo.lock
+        run: cargo audit
