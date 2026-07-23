@@ -123,12 +123,7 @@ fn tool_defs() -> Value {
 }
 
 fn open() -> Result<Connection, String> {
-    let path = memorywhale_cli::database_path()?;
-    let conn =
-        Connection::open(&path).map_err(|e| format!("failed to open {}: {e}", path.display()))?;
-    // Ensure bookmarks provenance columns exist so reads below can rely on them.
-    let _ = memorywhale_cli::migrate(&conn);
-    Ok(conn)
+    memorywhale_cli::storage::open()
 }
 
 fn call_tool(name: &str, args: &Value, client_name: Option<&str>) -> Result<String, String> {
@@ -547,20 +542,14 @@ mod tests {
     #[test]
     fn similar_failures_reports_counts_and_pointer() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE command_runs (
-                id INTEGER PRIMARY KEY, command TEXT NOT NULL, argv_json TEXT NOT NULL DEFAULT '[]',
-                cwd TEXT, exit_code INTEGER, stdout TEXT NOT NULL DEFAULT '',
-                stderr TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL DEFAULT '', error_fingerprint TEXT);",
-        )
-        .unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
         let err = "error[E0308]: mismatched types";
         let fp = memorywhale_cli::error_fingerprint("cargo", err).unwrap();
         let insert = |exit: i64, fp: Option<&str>| {
             conn.execute(
-                "INSERT INTO command_runs (command, cwd, exit_code, stderr, error_fingerprint)
-                 VALUES ('cargo', '/tmp/proj', ?1, ?2, ?3)",
+                "INSERT INTO command_runs
+                    (command, argv_json, cwd, exit_code, stderr, error_fingerprint, created_at)
+                 VALUES ('cargo', '[\"cargo\"]', '/tmp/proj', ?1, ?2, ?3, '')",
                 params![exit, err, fp],
             )
             .unwrap();
@@ -597,16 +586,12 @@ mod tests {
 
         // Populated: two runs, one a failure.
         let conn = Connection::open_in_memory().unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
         conn.execute_batch(
-            "CREATE TABLE command_runs (
-                id INTEGER PRIMARY KEY, command TEXT NOT NULL, argv_json TEXT NOT NULL DEFAULT '[]',
-                cwd TEXT, exit_code INTEGER, stdout TEXT NOT NULL DEFAULT '',
-                stderr TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL DEFAULT '', error_fingerprint TEXT);
-             INSERT INTO command_runs (command, exit_code, created_at)
-                 VALUES ('cargo build', 0, '2026-07-20T10:00:00Z');
-             INSERT INTO command_runs (command, exit_code, created_at)
-                 VALUES ('cargo build', 101, '2026-07-21T10:00:00Z');",
+            "INSERT INTO command_runs (command, argv_json, exit_code, created_at)
+                 VALUES ('cargo build', '[]', 0, '2026-07-20T10:00:00Z');
+             INSERT INTO command_runs (command, argv_json, exit_code, created_at)
+                 VALUES ('cargo build', '[]', 101, '2026-07-21T10:00:00Z');",
         )
         .unwrap();
         let v: Value = serde_json::from_str(&stats_summary(&conn, "/tmp/mw.sqlite3")).unwrap();

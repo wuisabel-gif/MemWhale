@@ -1,6 +1,7 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
 pub mod tui;
+pub mod storage;
 
 use chrono::Utc;
 use regex::Regex;
@@ -23,6 +24,22 @@ pub fn data_dir() -> Result<PathBuf, String> {
 /// Path to the local SQLite database.
 pub fn database_path() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("memorywhale.sqlite3"))
+}
+
+/// Restrict a data directory or capture file to the current user on Unix.
+/// Other platforms keep their native ACL behavior.
+pub fn restrict_path_permissions(path: &std::path::Path, directory: bool) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = if directory { 0o700 } else { 0o600 };
+        let permissions = std::fs::Permissions::from_mode(mode);
+        std::fs::set_permissions(path, permissions)
+            .map_err(|e| format!("failed to restrict permissions on {}: {e}", path.display()))?;
+    }
+    #[cfg(not(unix))]
+    let _ = (path, directory);
+    Ok(())
 }
 
 /// Best-effort full-text index over `command_runs` (SQLite FTS5).
@@ -95,7 +112,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 5;
+pub const LATEST_SCHEMA_VERSION: i64 = 6;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -122,6 +139,10 @@ pub const LATEST_SCHEMA_VERSION: i64 = 5;
 /// table (`mw_id` → wing/drawer_id/content_hash) so `mw sync-mempalace` is
 /// idempotent by memory id — edited memories replace their drawer, unchanged
 /// ones are skipped. Additive; safe on a populated DB.
+///
+/// Migration 6 — memory lifecycle: adds `status` and `superseded_by_id` to
+/// bookmarks. Existing memories remain active; stale and superseded memories
+/// retain their evidence while leaving normal retrieval.
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -161,8 +182,19 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
     }
     if version < 5 {
         ensure_mempalace_sync(conn)?;
-        conn.execute_batch(&format!("PRAGMA user_version = {LATEST_SCHEMA_VERSION};"))
+        conn.execute_batch("PRAGMA user_version = 5;")
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 6 {
+        conn.execute_batch(BOOKMARKS_BASE)
+            .map_err(|e| format!("failed to prepare bookmarks table: {e}"))?;
+        add_column_if_missing(conn, "bookmarks", "status", "TEXT NOT NULL DEFAULT 'active'")?;
+        add_column_if_missing(conn, "bookmarks", "superseded_by_id", "INTEGER")?;
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_bookmarks_status ON bookmarks(status);
+             PRAGMA user_version = 6;",
+        )
+        .map_err(|e| format!("failed to migrate memory lifecycle: {e}"))?;
     }
     Ok(())
 }
@@ -894,9 +926,10 @@ pub fn scope_memories(
 }
 
 /// True when agent-written memories should start unapproved and be excluded from
-/// retrieval until approved in the dashboard. Off by default. Enabled by env var
-/// `MEMORYWHALE_REVIEW_AGENT_MEMORIES=1` or a `review_agent_memories = true` line
-/// in `<data dir>/config.toml`.
+/// retrieval until approved in the dashboard. On by default. Set
+/// `MEMORYWHALE_REVIEW_AGENT_MEMORIES=0` or
+/// `review_agent_memories = false` in `<data dir>/config.toml` to opt into
+/// automatic approval.
 pub fn review_agent_memories() -> bool {
     if let Some(v) = std::env::var_os("MEMORYWHALE_REVIEW_AGENT_MEMORIES") {
         return v == "1" || v == "true";
@@ -905,13 +938,14 @@ pub fn review_agent_memories() -> bool {
         .ok()
         .map(|d| d.join("config.toml"))
         .and_then(|p| std::fs::read_to_string(p).ok())
-        .map(|s| {
-            s.lines().any(|l| {
-                let l = l.trim();
-                l.starts_with("review_agent_memories") && l.contains("true")
+        .and_then(|s| {
+            s.lines().find_map(|line| {
+                let (key, value) = line.split_once('=')?;
+                (key.trim() == "review_agent_memories")
+                    .then(|| matches!(value.trim(), "true" | "\"true\"" | "1"))
             })
         })
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 /// Human-readable provenance, e.g. "remembered by Claude Code on 2026-07-12
@@ -999,6 +1033,45 @@ pub fn reject_note(conn: &Connection, id: i64) -> Result<(), String> {
         .map_err(|e| format!("failed to reject note: {e}"))
 }
 
+/// Mark a memory stale without deleting its source evidence.
+pub fn mark_note_stale(conn: &Connection, id: i64) -> Result<(), String> {
+    let changed = conn
+        .execute(
+            "UPDATE bookmarks SET status = 'stale', superseded_by_id = NULL WHERE id = ?1",
+            params![id],
+        )
+        .map_err(|e| format!("failed to mark memory stale: {e}"))?;
+    if changed == 0 {
+        return Err(format!("no memory #{id}"));
+    }
+    Ok(())
+}
+
+/// Retire an old memory in favor of a newer one while preserving both rows.
+pub fn supersede_note(conn: &Connection, old_id: i64, replacement_id: i64) -> Result<(), String> {
+    if old_id == replacement_id {
+        return Err("a memory cannot supersede itself".to_string());
+    }
+    let replacement_exists = conn
+        .query_row("SELECT 1 FROM bookmarks WHERE id = ?1", params![replacement_id], |_| Ok(()))
+        .is_ok();
+    if !replacement_exists {
+        return Err(format!("no replacement memory #{replacement_id}"));
+    }
+    let changed = conn
+        .execute(
+            "UPDATE bookmarks
+             SET status = 'superseded', superseded_by_id = ?2
+             WHERE id = ?1",
+            params![old_id, replacement_id],
+        )
+        .map_err(|e| format!("failed to supersede memory: {e}"))?;
+    if changed == 0 {
+        return Err(format!("no memory #{old_id}"));
+    }
+    Ok(())
+}
+
 /// Save a freeform lesson or conclusion ("the fix was X") into the bookmarks
 /// table — the same store `mw mark` writes to. Records the author as a human;
 /// see [`remember_as`] for agent-attributed writes. Shared by `mw remember` and
@@ -1024,13 +1097,12 @@ pub fn remember_as(
     if !gate.mode.stores_anything() {
         return Err(format!("capture is off for this directory ({}) — nothing saved", gate.source));
     }
-    let text = redact(text);
+    let text = sanitize_capture(text);
     let path = database_path()?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("failed to create data dir: {e}"))?;
     }
-    let conn = Connection::open(&path).map_err(|e| format!("failed to open db: {e}"))?;
-    migrate(&conn)?;
+    let conn = storage::open_path(&path)?;
     let approved = if author_kind == "agent" && review_agent_memories() {
         0
     } else {
@@ -1055,6 +1127,41 @@ pub fn remember_as(
 }
 
 const REDACTED: &str = "[REDACTED]";
+pub const DEFAULT_MAX_CAPTURE_BYTES: usize = 1_048_576;
+
+/// Maximum bytes retained for any individual captured text field.
+///
+/// Set `MEMORYWHALE_MAX_CAPTURE_BYTES` to a positive integer to tune the
+/// limit. The default is 1 MiB per stdout, stderr, note, or transcript field.
+pub fn max_capture_bytes() -> usize {
+    std::env::var("MEMORYWHALE_MAX_CAPTURE_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_MAX_CAPTURE_BYTES)
+}
+
+/// Redact known secret shapes and bound the stored value, adding an explicit
+/// marker when bytes were omitted.
+pub fn sanitize_capture(text: &str) -> String {
+    truncate_capture(&redact(text), max_capture_bytes())
+}
+
+fn truncate_capture(text: &str, limit: usize) -> String {
+    if text.len() <= limit {
+        return text.to_string();
+    }
+    let mut end = limit.min(text.len());
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!(
+        "{}\n[TRUNCATED: stored {} of {} bytes]",
+        &text[..end],
+        end,
+        text.len()
+    )
+}
 
 /// Scrub common secret shapes out of captured text before it lands in SQLite.
 ///
@@ -1471,6 +1578,13 @@ mod tests {
     }
 
     #[test]
+    fn bounded_capture_marks_truncation_without_splitting_utf8() {
+        assert_eq!(truncate_capture("short", 8), "short");
+        let value = truncate_capture("ab🐋cd", 5);
+        assert_eq!(value, "ab\n[TRUNCATED: stored 2 of 8 bytes]");
+    }
+
+    #[test]
     fn opt_out_env_disables() {
         // Not testing the env branch here to avoid global state; ensure a
         // non-secret round-trips unchanged (covers the common path).
@@ -1598,7 +1712,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    // The MCP `remember` tool attributes the lesson to the agent + client name.
+    // The MCP `remember` tool attributes the lesson and defaults it to pending.
     #[test]
     fn mcp_remember_is_agent_attributed() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
@@ -1618,19 +1732,18 @@ mod tests {
         assert_eq!(kind, "agent");
         assert_eq!(name.as_deref(), Some("Claude Code"));
         assert_eq!(sid, Some(41));
-        assert_eq!(approved, 1, "agent memory is approved when review mode is off");
+        assert_eq!(approved, 0, "agent memory is pending review by default");
 
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    // With review mode ON, agent memories start unapproved and are excluded from
-    // the approved-only retrieval query.
+    // Users can explicitly opt into automatic approval.
     #[test]
-    fn review_mode_hides_unapproved_agent_memories() {
+    fn review_opt_out_auto_approves_agent_memories() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = fresh_data_dir("prov-review");
-        std::env::set_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES", "1");
+        std::env::set_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES", "0");
 
         let agent_id = remember_as("unreviewed agent claim", None, "agent", Some("Codex"), None).unwrap();
         let human_id = remember("trusted human note", None).unwrap();
@@ -1639,7 +1752,7 @@ mod tests {
         let agent_approved: i64 = conn
             .query_row("SELECT approved FROM bookmarks WHERE id = ?1", [agent_id], |r| r.get(0))
             .unwrap();
-        assert_eq!(agent_approved, 0, "agent memory pending review");
+        assert_eq!(agent_approved, 1, "explicit opt-out enables automatic approval");
 
         // Assert through the REAL retrieval path — the shared loader every
         // surface (mw search, MCP, desktop) goes through — not a re-implemented
@@ -1653,7 +1766,7 @@ mod tests {
             })
             .collect();
         assert!(visible.contains(&human_id), "human memory visible");
-        assert!(!visible.contains(&agent_id), "unapproved agent memory hidden");
+        assert!(visible.contains(&agent_id), "auto-approved memory visible");
 
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
@@ -1732,6 +1845,50 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM bookmarks WHERE id = ?1", [doomed], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn stale_and_superseded_memories_leave_retrieval_but_keep_evidence() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let insert = |label: &str| {
+            conn.execute(
+                "INSERT INTO bookmarks
+                    (label, created_at, author_kind, approved, status)
+                 VALUES (?1, '2026-07-12T09:00:00Z', 'human', 1, 'active')",
+                params![label],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
+        let stale = insert("old environment advice");
+        let old = insert("use the legacy flag");
+        let replacement = insert("use the replacement flag");
+
+        mark_note_stale(&conn, stale).unwrap();
+        supersede_note(&conn, old, replacement).unwrap();
+
+        let kept: (String, Option<i64>) = conn
+            .query_row(
+                "SELECT status, superseded_by_id FROM bookmarks WHERE id = ?1",
+                [old],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(kept, ("superseded".to_string(), Some(replacement)));
+
+        let visible: Vec<i64> = memorywhale_core::sqlite::load_memories(&conn)
+            .into_iter()
+            .filter_map(|memory| match memorywhale_core::sqlite::decode_id(memory.id) {
+                (memorywhale_core::sqlite::Source::Note, id) => Some(id),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(visible, vec![replacement]);
+        let total: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(total, 3, "lifecycle changes preserve every source row");
     }
 
     // Migration 2 round-trip on a populated pre-scope DB: the legacy
