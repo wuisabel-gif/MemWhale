@@ -10,8 +10,23 @@ permissions:
   contents: write
 
 jobs:
+  preflight:
+    name: Release preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify product and tag versions
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            scripts/check-release-version.sh "$GITHUB_REF_NAME"
+          else
+            scripts/check-release-version.sh
+          fi
+
   binaries:
     name: ${{ matrix.target }}
+    needs: preflight
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -61,6 +76,19 @@ jobs:
           tar czf "$name.tar.gz" "$staging"
           echo "asset=$name.tar.gz" >> "$GITHUB_OUTPUT"
 
+      - name: Smoke-test packaged artifact
+        shell: bash
+        run: |
+          asset="${{ steps.package.outputs.asset }}"
+          ver="${GITHUB_REF_NAME#v}"
+          root="memorywhale-${ver}-${{ matrix.target }}"
+          test "$(tar tzf "$asset" | head -1)" = "$root/"
+          for b in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+            tar tzf "$asset" | grep -qx "$root/bin/$b"
+          done
+          tar tzf "$asset" | grep -qx "$root/README.md"
+          tar tzf "$asset" | grep -qx "$root/LICENSE"
+
       - name: Build .deb
         if: matrix.deb
         run: |
@@ -82,6 +110,7 @@ jobs:
   # `brew install` never lags a release. Last manual release chore, automated.
   bump-formula:
     name: Bump Homebrew formula
+    needs: preflight
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -107,6 +136,7 @@ jobs:
   # is already published, so it never turns a release red for those reasons.
   publish-crate:
     name: Publish to crates.io
+    needs: preflight
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
