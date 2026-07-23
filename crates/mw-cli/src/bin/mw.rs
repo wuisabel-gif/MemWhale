@@ -43,6 +43,7 @@ fn run() -> Result<(), String> {
         Some("list") => return list_sessions(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
         Some("remember") => return remember_cmd(&raw_args[1..]),
+        Some("memory") => return memory_lifecycle_cmd(&raw_args[1..]),
         Some("rm") => return rm_memory(&raw_args[1..]),
         Some("prune") => return prune_cmd(&raw_args[1..]),
         Some("share") => return share_cmd(&raw_args[1..]),
@@ -258,6 +259,8 @@ fn print_help() {
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text>       save a lesson/conclusion, e.g. \"the fix was passing --features vendored-ssl\"\n\
+         mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
+         mw memory supersede <old-id> <new-id>  replace an old lesson with a newer one\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
          mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
@@ -752,6 +755,29 @@ fn mark_bookmark(args: &[String]) -> Result<(), String> {
 /// Save a freeform lesson/conclusion (not tied to a specific command), so you
 /// or an agent can search it back out later with `mw search`/`mw context` or
 /// the MCP `search_memory` tool. Shares storage with `mw mark`.
+fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
+    let conn = open_session_db()?;
+    match args {
+        [action, id] if action == "stale" => {
+            let id = id.parse().map_err(|_| format!("invalid memory id {id:?}"))?;
+            memorywhale_cli::mark_note_stale(&conn, id)?;
+            println!("mw: memory #{id} marked stale; its evidence was preserved.");
+        }
+        [action, old_id, new_id] if action == "supersede" => {
+            let old_id = old_id.parse().map_err(|_| format!("invalid memory id {old_id:?}"))?;
+            let new_id = new_id.parse().map_err(|_| format!("invalid memory id {new_id:?}"))?;
+            memorywhale_cli::supersede_note(&conn, old_id, new_id)?;
+            println!("mw: memory #{old_id} superseded by #{new_id}; both records were preserved.");
+        }
+        _ => {
+            return Err(
+                "usage: mw memory stale <id> | mw memory supersede <old-id> <new-id>".to_string(),
+            )
+        }
+    }
+    Ok(())
+}
+
 fn remember_cmd(args: &[String]) -> Result<(), String> {
     if args.is_empty() {
         return Err("usage: mw remember <text>".to_string());
