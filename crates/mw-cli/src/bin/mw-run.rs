@@ -3,7 +3,7 @@ use rusqlite::{params, Connection};
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
 
@@ -66,7 +66,10 @@ fn run() -> Result<i32, String> {
     let gate = memorywhale_cli::capture_rule_for(cwd.to_str());
     let output = run_and_capture(&command, args, &cwd)?;
     if !gate.mode.stores_anything() {
-        eprintln!("mw-run: capture off for this directory ({}) — nothing saved.", gate.source);
+        eprintln!(
+            "mw-run: capture off for this directory ({}) — nothing saved.",
+            gate.source
+        );
         return Ok(output.exit_code.unwrap_or(1) as i32);
     }
     let (stdout, stderr) = if gate.mode.stores_output() {
@@ -87,11 +90,7 @@ fn run() -> Result<i32, String> {
     Ok(output.exit_code.unwrap_or(1) as i32)
 }
 
-fn run_and_capture(
-    command: &str,
-    args: &[String],
-    cwd: &PathBuf,
-) -> Result<CapturedOutput, String> {
+fn run_and_capture(command: &str, args: &[String], cwd: &Path) -> Result<CapturedOutput, String> {
     let mut child = Command::new(command)
         .args(args)
         .current_dir(cwd)
@@ -164,7 +163,7 @@ fn tee_reader<R: Read>(mut reader: R, stream: StreamKind) -> Result<Vec<u8>, Str
 
 fn remember_command(
     command_parts: &[String],
-    cwd: &PathBuf,
+    cwd: &Path,
     exit_code: Option<i64>,
     stdout: &str,
     stderr: &str,

@@ -87,7 +87,10 @@ fn main() -> Result<()> {
             "--db" => db = args.next().map(PathBuf::from),
             "--limit" => limit = args.next().and_then(|v| v.parse().ok()).unwrap_or(limit),
             "--queries" => {
-                num_queries = args.next().and_then(|v| v.parse().ok()).unwrap_or(num_queries)
+                num_queries = args
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(num_queries)
             }
             other => anyhow::bail!("unknown arg {other:?}; use --db PATH --limit N --queries K"),
         }
@@ -95,8 +98,8 @@ fn main() -> Result<()> {
     let path = db
         .or_else(default_db_path)
         .context("could not resolve a database path; pass --db PATH")?;
-    let conn = Connection::open(&path)
-        .with_context(|| format!("failed to open {}", path.display()))?;
+    let conn =
+        Connection::open(&path).with_context(|| format!("failed to open {}", path.display()))?;
     let now = Utc::now();
 
     let mut memories: Vec<MemSpec> = Vec::new();
@@ -105,12 +108,10 @@ fn main() -> Result<()> {
 
     // Remembered lessons (bookmarks) first — the highest-value memories. The
     // table may not exist on a DB that's only seen command runs.
-    if let Ok(mut stmt) =
-        conn.prepare("SELECT label, created_at FROM bookmarks ORDER BY id DESC")
-    {
-        if let Ok(rows) = stmt.query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-        }) {
+    if let Ok(mut stmt) = conn.prepare("SELECT label, created_at FROM bookmarks ORDER BY id DESC") {
+        if let Ok(rows) =
+            stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        {
             for (label, created_at) in rows.flatten() {
                 let short = label.chars().take(64).collect::<String>();
                 memories.push(MemSpec {
@@ -149,8 +150,7 @@ fn main() -> Result<()> {
         })
         .context("failed to read command_runs")?;
     for row in rows {
-        let (argv_json, exit_code, stderr, notes, created_at, freq) =
-            row.context("row error")?;
+        let (argv_json, exit_code, stderr, notes, created_at, freq) = row.context("row error")?;
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
         let failed = matches!(exit_code, Some(c) if c != 0);
         // Memory text = the command, plus the error tail if it failed (that's

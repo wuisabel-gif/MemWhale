@@ -13,7 +13,7 @@ use std::process::Command;
 // Hand-authored fake credentials — never real. One per shape `secret_patterns`
 // handles: an assignment, a GitHub token, and an AWS access-key id.
 const SECRETS: [&str; 3] = [
-    "hunter2secret",                 // password: <value>
+    "hunter2secret",                  // password: <value>
     "ghp_0123456789abcdefghijABCDEF", // GitHub token
     "AKIAABCDEFGHIJKLMNOP",           // AWS access key id
 ];

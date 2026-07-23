@@ -39,7 +39,11 @@ fn run_bash(home: &Path, cwd: &Path, script: &str, extra: &[(&str, &str)]) {
         .env("MEMORYWHALE_DATA_DIR", home.join("data"))
         .env(
             "PATH",
-            format!("{}:{}", home.join("bin").display(), std::env::var("PATH").unwrap()),
+            format!(
+                "{}:{}",
+                home.join("bin").display(),
+                std::env::var("PATH").unwrap()
+            ),
         )
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
@@ -109,7 +113,10 @@ fn hook_records_command_cwd_and_exit_code() {
     install_hooks(&home);
 
     let rc = fs::read_to_string(home.join(".bashrc")).unwrap();
-    assert!(rc.contains("memorywhale shell hooks"), "rc block missing: {rc}");
+    assert!(
+        rc.contains("memorywhale shell hooks"),
+        "rc block missing: {rc}"
+    );
     // Idempotent: installing twice must not duplicate the block.
     install_hooks(&home);
     let rc2 = fs::read_to_string(home.join(".bashrc")).unwrap();
@@ -192,7 +199,9 @@ fn powershell_hook_block_install_is_idempotent() {
     assert!(mw_hooks_pwsh(&home, "install").status.success());
     let after_twice = fs::read_to_string(&profile).unwrap();
     assert_eq!(
-        after_twice.matches(">>> memorywhale shell hooks >>>").count(),
+        after_twice
+            .matches(">>> memorywhale shell hooks >>>")
+            .count(),
         1,
         "block duplicated on second install"
     );

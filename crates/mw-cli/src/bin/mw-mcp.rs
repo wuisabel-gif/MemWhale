@@ -161,7 +161,11 @@ fn call_tool(name: &str, args: &Value, client_name: Option<&str>) -> Result<Stri
                 .and_then(Value::as_str)
                 .ok_or_else(|| "similar_failures needs an 'error_text'".to_string())?;
             let conn = open()?;
-            Ok(similar_failures_report(&conn, error_text, scope_arg(args, "command")))
+            Ok(similar_failures_report(
+                &conn,
+                error_text,
+                scope_arg(args, "command"),
+            ))
         }
         "stats" => stats(),
         other => Err(format!("unknown tool: {other}")),
@@ -195,7 +199,8 @@ fn recent_errors(limit: i64) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     let mut out = String::new();
     for row in rows {
-        let (argv_json, cwd, exit_code, stderr, notes, created_at) = row.map_err(|e| e.to_string())?;
+        let (argv_json, cwd, exit_code, stderr, notes, created_at) =
+            row.map_err(|e| e.to_string())?;
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
         out.push_str(&format!(
             "- `{}` (exit {}, {})\n  cwd: {}\n  err: {}\n  note: {}\n",
@@ -439,9 +444,18 @@ fn salient_error_line(stderr: &str) -> Option<&str> {
         .lines()
         .find(|l| {
             let l = l.to_lowercase();
-            ["error", "failed", "fatal", "cannot", "no such", "not found", "panic", "exception"]
-                .iter()
-                .any(|kw| l.contains(kw))
+            [
+                "error",
+                "failed",
+                "fatal",
+                "cannot",
+                "no such",
+                "not found",
+                "panic",
+                "exception",
+            ]
+            .iter()
+            .any(|kw| l.contains(kw))
         })
         .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))
         .map(str::trim)
@@ -512,13 +526,19 @@ fn like_fallback(conn: &Connection, line: &str, no_command: bool) -> String {
             })
         })
         .unwrap_or_default();
-    let times = if count == 1 { "once".to_string() } else { format!("{count} times") };
+    let times = if count == 1 {
+        "once".to_string()
+    } else {
+        format!("{count} times")
+    };
     format!("Seen a similar failure {times} by stderr text{why}.{ptr}")
 }
 
 /// Escape LIKE wildcards so a stderr line matches literally (ESCAPE '\').
 fn like_escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+    s.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }
 
 /// Last non-empty line, char-capped (safe on UTF-8).

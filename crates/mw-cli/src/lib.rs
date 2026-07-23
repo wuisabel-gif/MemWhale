@@ -129,7 +129,12 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
     if version < 1 {
         conn.execute_batch(BOOKMARKS_BASE)
             .map_err(|e| format!("failed to prepare bookmarks table: {e}"))?;
-        add_column_if_missing(conn, "bookmarks", "author_kind", "TEXT NOT NULL DEFAULT 'human'")?;
+        add_column_if_missing(
+            conn,
+            "bookmarks",
+            "author_kind",
+            "TEXT NOT NULL DEFAULT 'human'",
+        )?;
         add_column_if_missing(conn, "bookmarks", "author_name", "TEXT")?;
         add_column_if_missing(conn, "bookmarks", "source_session_id", "INTEGER")?;
         add_column_if_missing(conn, "bookmarks", "approved", "INTEGER NOT NULL DEFAULT 1")?;
@@ -191,7 +196,12 @@ pub fn ensure_mempalace_sync(conn: &Connection) -> Result<(), String> {
 /// this directly; it's two pragma queries.
 pub fn ensure_capture_kind(conn: &Connection) -> Result<(), String> {
     if table_exists(conn, "command_runs")? {
-        add_column_if_missing(conn, "command_runs", "capture_kind", "TEXT NOT NULL DEFAULT 'full'")?;
+        add_column_if_missing(
+            conn,
+            "command_runs",
+            "capture_kind",
+            "TEXT NOT NULL DEFAULT 'full'",
+        )?;
     }
     Ok(())
 }
@@ -257,18 +267,26 @@ pub fn normalize_error_line(line: &str) -> String {
         use std::collections::HashMap;
         use std::sync::Mutex;
         static CACHE: OnceLock<Mutex<HashMap<String, &'static Regex>>> = OnceLock::new();
-        let mut map = CACHE.get_or_init(|| Mutex::new(HashMap::new())).lock().unwrap();
-        map.entry(pat.to_string()).or_insert_with(|| {
-            Box::leak(Box::new(Regex::new(pat).expect("static regex")))
-        })
+        let mut map = CACHE
+            .get_or_init(|| Mutex::new(HashMap::new()))
+            .lock()
+            .unwrap();
+        map.entry(pat.to_string())
+            .or_insert_with(|| Box::leak(Box::new(Regex::new(pat).expect("static regex"))))
     }
     let mut s = line.trim().to_string();
     // Order matters: paths and hex before the generic integer mask.
-    s = re(r"(?:[A-Za-z]:)?[/\\][\w.\-/\\]+").replace_all(&s, "<path>").into_owned();
-    s = re(r"\b0x[0-9a-fA-F]+\b").replace_all(&s, "<addr>").into_owned();
+    s = re(r"(?:[A-Za-z]:)?[/\\][\w.\-/\\]+")
+        .replace_all(&s, "<path>")
+        .into_owned();
+    s = re(r"\b0x[0-9a-fA-F]+\b")
+        .replace_all(&s, "<addr>")
+        .into_owned();
     s = re(r":\d+:\d+").replace_all(&s, ":<n>:<n>").into_owned();
     s = re(r":\d+\b").replace_all(&s, ":<n>").into_owned();
-    s = re(r"\b[0-9a-f]{7,}\b").replace_all(&s, "<hash>").into_owned();
+    s = re(r"\b[0-9a-f]{7,}\b")
+        .replace_all(&s, "<hash>")
+        .into_owned();
     s = re(r"\b\d{3,}\b").replace_all(&s, "<n>").into_owned();
     s = re(r"\s+").replace_all(&s, " ").into_owned();
     s.trim().chars().take(200).collect()
@@ -285,9 +303,18 @@ pub fn error_fingerprint(command: &str, stderr: &str) -> Option<String> {
         .lines()
         .find(|l| {
             let l = l.to_lowercase();
-            ["error", "failed", "fatal", "cannot", "no such", "not found", "panic", "exception"]
-                .iter()
-                .any(|kw| l.contains(kw))
+            [
+                "error",
+                "failed",
+                "fatal",
+                "cannot",
+                "no such",
+                "not found",
+                "panic",
+                "exception",
+            ]
+            .iter()
+            .any(|kw| l.contains(kw))
         })
         .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))?;
     let cmd = command.rsplit(['/', '\\']).next().unwrap_or(command);
@@ -329,17 +356,31 @@ pub struct ErrorInsight {
 impl ErrorInsight {
     /// One-line human summary for `mw context --last-error`.
     pub fn summary(&self) -> String {
-        let times = if self.occurrences == 1 { "once".into() } else { format!("{} times", self.occurrences) };
+        let times = if self.occurrences == 1 {
+            "once".into()
+        } else {
+            format!("{} times", self.occurrences)
+        };
         if self.occurrences <= 1 {
             return format!("First time hitting this ({}).", self.fingerprint);
         }
         let outcome = if self.resolutions == 0 {
             "never resolved yet".to_string()
         } else {
-            format!("a later run succeeded {} of {} times", self.resolutions, self.occurrences)
+            format!(
+                "a later run succeeded {} of {} times",
+                self.resolutions, self.occurrences
+            )
         };
-        let now = if self.currently_green { "; the latest run is green" } else { "" };
-        format!("You've hit this {times} — {outcome}{now}. [{}]", self.fingerprint)
+        let now = if self.currently_green {
+            "; the latest run is green"
+        } else {
+            ""
+        };
+        format!(
+            "You've hit this {times} — {outcome}{now}. [{}]",
+            self.fingerprint
+        )
     }
 }
 
@@ -396,7 +437,12 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
         .ok()
         .flatten()
         .unwrap_or(false);
-    Ok(ErrorInsight { fingerprint: fingerprint.to_string(), occurrences, resolutions, currently_green })
+    Ok(ErrorInsight {
+        fingerprint: fingerprint.to_string(),
+        occurrences,
+        resolutions,
+        currently_green,
+    })
 }
 
 /// Scoring predicate for the memory-shortcut eval: is any blind-labelled `fix`
@@ -405,7 +451,10 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
 /// Trivial by design — the honest work is in retrieval, not scoring — but kept
 /// here (not in the example) so it's exercised by `cargo test`.
 pub fn fix_surfaced(ranked_note_ids: &[i64], fix_ids: &[i64], k: usize) -> bool {
-    ranked_note_ids.iter().take(k).any(|id| fix_ids.contains(id))
+    ranked_note_ids
+        .iter()
+        .take(k)
+        .any(|id| fix_ids.contains(id))
 }
 
 fn table_exists(conn: &Connection, table: &str) -> Result<bool, String> {
@@ -428,8 +477,10 @@ fn add_column_if_missing(
         // Two writers (e.g. two shell hooks firing at once on a fresh DB) can
         // both read the column as missing and both try to add it. The loser
         // gets "duplicate column name", which is the outcome we wanted anyway.
-        if let Err(e) = conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
-        {
+        if let Err(e) = conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"),
+            [],
+        ) {
             let msg = e.to_string();
             if !msg.contains("duplicate column") {
                 return Err(format!("failed to add {table}.{column}: {msg}"));
@@ -452,8 +503,11 @@ fn backfill_project_from_notes(conn: &Connection) -> Result<(), String> {
         .collect();
     for (id, notes) in rows {
         if let Some(project) = project_of(&notes) {
-            conn.execute("UPDATE sessions SET project = ?1 WHERE id = ?2", params![project, id])
-                .map_err(|e| format!("failed to backfill session {id}: {e}"))?;
+            conn.execute(
+                "UPDATE sessions SET project = ?1 WHERE id = ?2",
+                params![project, id],
+            )
+            .map_err(|e| format!("failed to backfill session {id}: {e}"))?;
         }
     }
     Ok(())
@@ -578,11 +632,17 @@ pub struct SyncPlan {
 impl SyncPlan {
     /// Count of brand-new drawers.
     pub fn added(&self) -> usize {
-        self.items.iter().filter(|i| i.old_drawer_id.is_none()).count()
+        self.items
+            .iter()
+            .filter(|i| i.old_drawer_id.is_none())
+            .count()
     }
     /// Count of replaced (edited) drawers — also the number of deletes.
     pub fn updated(&self) -> usize {
-        self.items.iter().filter(|i| i.old_drawer_id.is_some()).count()
+        self.items
+            .iter()
+            .filter(|i| i.old_drawer_id.is_some())
+            .count()
     }
 }
 
@@ -593,7 +653,10 @@ pub fn load_sync_map(conn: &Connection) -> Result<HashMap<i64, (String, String)>
         .map_err(|e| format!("failed to read mempalace_sync: {e}"))?;
     let rows = stmt
         .query_map([], |r| {
-            Ok((r.get::<_, i64>(0)?, (r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+            Ok((
+                r.get::<_, i64>(0)?,
+                (r.get::<_, String>(1)?, r.get::<_, String>(2)?),
+            ))
         })
         .map_err(|e| format!("failed to scan mempalace_sync: {e}"))?;
     Ok(rows.filter_map(Result::ok).collect())
@@ -633,7 +696,9 @@ pub fn record_sync(
     rows: &[(i64, String, String, String)], // (mw_id, wing, drawer_id, content_hash)
     synced_at: &str,
 ) -> Result<(), String> {
-    let tx = conn.transaction().map_err(|e| format!("failed to open transaction: {e}"))?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("failed to open transaction: {e}"))?;
     for (mw_id, wing, drawer_id, hash) in rows {
         tx.execute(
             "INSERT OR REPLACE INTO mempalace_sync
@@ -643,7 +708,8 @@ pub fn record_sync(
         )
         .map_err(|e| format!("failed to record sync mapping: {e}"))?;
     }
-    tx.commit().map_err(|e| format!("failed to commit sync mappings: {e}"))
+    tx.commit()
+        .map_err(|e| format!("failed to commit sync mappings: {e}"))
 }
 
 fn config_value(key: &str) -> Option<String> {
@@ -676,7 +742,13 @@ pub enum CaptureMode {
 impl CaptureMode {
     /// Parse a config value, tolerating surrounding quotes/whitespace.
     pub fn parse(value: &str) -> Option<Self> {
-        match value.trim().trim_matches('"').trim().to_ascii_lowercase().as_str() {
+        match value
+            .trim()
+            .trim_matches('"')
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "full" => Some(Self::Full),
             "commands-only" | "commands_only" => Some(Self::CommandsOnly),
             "off" | "none" => Some(Self::Off),
@@ -766,7 +838,9 @@ fn mwignore_rule(dir: &std::path::Path) -> Option<CaptureRule> {
         if let Some(mode) = text.lines().find_map(|line| {
             let line = line.split('#').next().unwrap_or("");
             let (k, v) = line.split_once('=')?;
-            (k.trim() == "capture").then(|| CaptureMode::parse(v)).flatten()
+            (k.trim() == "capture")
+                .then(|| CaptureMode::parse(v))
+                .flatten()
         }) {
             return Some(CaptureRule {
                 mode,
@@ -803,7 +877,7 @@ fn capture_paths_rule(config: &str, dir: &std::path::Path) -> Option<CaptureRule
             continue;
         }
         let depth = prefix.components().count();
-        if best.as_ref().map_or(true, |(d, _)| depth > *d) {
+        if best.as_ref().is_none_or(|(d, _)| depth > *d) {
             best = Some((
                 depth,
                 CaptureRule {
@@ -828,7 +902,9 @@ pub fn parse_since(spec: &str) -> Result<chrono::Duration, String> {
     let spec = spec.trim();
     let bad = || format!("invalid --since {spec:?}; use e.g. 7d, 24h, 2w");
     let unit = spec.chars().last().ok_or_else(bad)?;
-    let n: i64 = spec[..spec.len() - unit.len_utf8()].parse().map_err(|_| bad())?;
+    let n: i64 = spec[..spec.len() - unit.len_utf8()]
+        .parse()
+        .map_err(|_| bad())?;
     if n < 0 {
         return Err(bad());
     }
@@ -987,9 +1063,12 @@ pub fn pending_agent_notes(conn: &Connection) -> Result<Vec<PendingNote>, String
 
 /// Approve a pending note so retrieval includes it (`UPDATE approved = 1`).
 pub fn approve_note(conn: &Connection, id: i64) -> Result<(), String> {
-    conn.execute("UPDATE bookmarks SET approved = 1 WHERE id = ?1", params![id])
-        .map(|_| ())
-        .map_err(|e| format!("failed to approve note: {e}"))
+    conn.execute(
+        "UPDATE bookmarks SET approved = 1 WHERE id = ?1",
+        params![id],
+    )
+    .map(|_| ())
+    .map_err(|e| format!("failed to approve note: {e}"))
 }
 
 /// Reject a pending note by deleting the row.
@@ -1022,7 +1101,10 @@ pub fn remember_as(
     // (`mw mark`, `mw remember`, MCP, the desktop app) routes through here.
     let gate = capture_rule_for(cwd);
     if !gate.mode.stores_anything() {
-        return Err(format!("capture is off for this directory ({}) — nothing saved", gate.source));
+        return Err(format!(
+            "capture is off for this directory ({}) — nothing saved",
+            gate.source
+        ));
     }
     let text = redact(text);
     let path = database_path()?;
@@ -1068,14 +1150,15 @@ pub fn redact(text: &str) -> String {
     }
     let mut out = text.to_string();
     for re in secret_patterns() {
-        out = re.replace_all(&out, |caps: &regex::Captures| {
-            // If the pattern captured a leading "key=" / "key:" label, keep it.
-            match caps.name("label") {
-                Some(label) => format!("{}{}", label.as_str(), REDACTED),
-                None => REDACTED.to_string(),
-            }
-        })
-        .into_owned();
+        out = re
+            .replace_all(&out, |caps: &regex::Captures| {
+                // If the pattern captured a leading "key=" / "key:" label, keep it.
+                match caps.name("label") {
+                    Some(label) => format!("{}{}", label.as_str(), REDACTED),
+                    None => REDACTED.to_string(),
+                }
+            })
+            .into_owned();
     }
     out
 }
@@ -1144,7 +1227,13 @@ where
             libc::sigaddset(&mut set, libc::SIGTERM);
             libc::pthread_sigmask(libc::SIG_BLOCK, &set, std::ptr::null_mut());
             // Ask the kernel to send us SIGTERM when our parent dies.
-            libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM as libc::c_ulong, 0, 0, 0);
+            libc::prctl(
+                libc::PR_SET_PDEATHSIG,
+                libc::SIGTERM as libc::c_ulong,
+                0,
+                0,
+                0,
+            );
         }
         // Race: the parent may have died between our start and prctl. If so we've
         // been reparented (getppid changed, typically to 1) — finalize now.
@@ -1268,11 +1357,23 @@ mod tests {
         };
 
         // Fix in corpus (#2) → hit within top-5 for its own query.
-        assert!(fix_surfaced(&rank("camera driver expected u16 found u32 mismatch"), &[2], 5));
+        assert!(fix_surfaced(
+            &rank("camera driver expected u16 found u32 mismatch"),
+            &[2],
+            5
+        ));
         // Selectivity: the camera fix is NOT the top hit for an unrelated query.
-        assert!(!fix_surfaced(&rank("sqlite database is locked SQLITE_BUSY concurrent writes"), &[2], 1));
+        assert!(!fix_surfaced(
+            &rank("sqlite database is locked SQLITE_BUSY concurrent writes"),
+            &[2],
+            1
+        ));
         // A failure whose fix isn't in the corpus (empty label set) → always a miss.
-        assert!(!fix_surfaced(&rank("cannot find type GpuContext in this scope wgpu"), &[], 5));
+        assert!(!fix_surfaced(
+            &rank("cannot find type GpuContext in this scope wgpu"),
+            &[],
+            5
+        ));
     }
 
     #[test]
@@ -1367,7 +1468,14 @@ mod tests {
             .items
             .iter()
             .enumerate()
-            .map(|(i, it)| (it.mw_id, it.wing.clone(), format!("drawer-{i}"), it.content_hash.clone()))
+            .map(|(i, it)| {
+                (
+                    it.mw_id,
+                    it.wing.clone(),
+                    format!("drawer-{i}"),
+                    it.content_hash.clone(),
+                )
+            })
             .collect();
         record_sync(&mut conn, &rows, "2026-07-20T00:00:00+00:00").unwrap();
 
@@ -1388,7 +1496,12 @@ mod tests {
         let it = &plan.items[0];
         record_sync(
             &mut conn,
-            &[(it.mw_id, it.wing.clone(), "drawer-9".into(), it.content_hash.clone())],
+            &[(
+                it.mw_id,
+                it.wing.clone(),
+                "drawer-9".into(),
+                it.content_hash.clone(),
+            )],
             "2026-07-20T01:00:00+00:00",
         )
         .unwrap();
@@ -1404,7 +1517,10 @@ mod tests {
         let b = "error[E0308]: mismatched types\n --> /tmp/ci/9/src/cam.rs:8:3\nbuild 99fedcba00011 failed";
         let fa = error_fingerprint("cargo", a).unwrap();
         let fb = error_fingerprint("cargo", b).unwrap();
-        assert_eq!(fa, fb, "path/line/hash noise must not change the fingerprint");
+        assert_eq!(
+            fa, fb,
+            "path/line/hash noise must not change the fingerprint"
+        );
     }
 
     #[test]
@@ -1450,7 +1566,10 @@ mod tests {
         insert(101, Some(&fp)); // regressed later
 
         let insight = error_insight(&conn, &fp).unwrap();
-        assert_eq!(insight.occurrences, 3, "three failing runs share the fingerprint");
+        assert_eq!(
+            insight.occurrences, 3,
+            "three failing runs share the fingerprint"
+        );
         // The two failures *before* the success each have a later green run.
         assert_eq!(insight.resolutions, 2);
         assert!(!insight.currently_green, "last run failed again");
@@ -1550,7 +1669,11 @@ mod tests {
         // hand-authored, never real. Assert both that the scrub fired AND that
         // no raw secret survived into the stored row — this is the end-to-end
         // guarantee `redact()`'s own unit tests can't make.
-        let secrets = ["abcdef123456", "ghp_0123456789abcdefghijABCDEF", "hunter2secret"];
+        let secrets = [
+            "abcdef123456",
+            "ghp_0123456789abcdefghijABCDEF",
+            "hunter2secret",
+        ];
         let note = "the fix: API_KEY=abcdef123456, token ghp_0123456789abcdefghijABCDEF, \
                     password: hunter2secret in .env";
         let id = remember(note, Some("/tmp/repo")).unwrap();
@@ -1564,9 +1687,15 @@ mod tests {
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .unwrap();
-        assert!(label.contains("[REDACTED]"), "secret should be redacted: {label}");
+        assert!(
+            label.contains("[REDACTED]"),
+            "secret should be redacted: {label}"
+        );
         for secret in secrets {
-            assert!(!label.contains(secret), "raw secret {secret:?} landed in the db row: {label}");
+            assert!(
+                !label.contains(secret),
+                "raw secret {secret:?} landed in the db row: {label}"
+            );
         }
         assert_eq!(cwd.as_deref(), Some("/tmp/repo"));
 
@@ -1605,8 +1734,14 @@ mod tests {
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         let dir = fresh_data_dir("prov-agent");
 
-        let id = remember_as("E0308 was a string fps field", None, "agent", Some("Claude Code"), Some(41))
-            .unwrap();
+        let id = remember_as(
+            "E0308 was a string fps field",
+            None,
+            "agent",
+            Some("Claude Code"),
+            Some(41),
+        )
+        .unwrap();
         let conn = Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
         let (kind, name, sid, approved): (String, Option<String>, Option<i64>, i64) = conn
             .query_row(
@@ -1618,7 +1753,10 @@ mod tests {
         assert_eq!(kind, "agent");
         assert_eq!(name.as_deref(), Some("Claude Code"));
         assert_eq!(sid, Some(41));
-        assert_eq!(approved, 1, "agent memory is approved when review mode is off");
+        assert_eq!(
+            approved, 1,
+            "agent memory is approved when review mode is off"
+        );
 
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
         let _ = std::fs::remove_dir_all(&dir);
@@ -1632,12 +1770,17 @@ mod tests {
         let dir = fresh_data_dir("prov-review");
         std::env::set_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES", "1");
 
-        let agent_id = remember_as("unreviewed agent claim", None, "agent", Some("Codex"), None).unwrap();
+        let agent_id =
+            remember_as("unreviewed agent claim", None, "agent", Some("Codex"), None).unwrap();
         let human_id = remember("trusted human note", None).unwrap();
 
         let conn = Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
         let agent_approved: i64 = conn
-            .query_row("SELECT approved FROM bookmarks WHERE id = ?1", [agent_id], |r| r.get(0))
+            .query_row(
+                "SELECT approved FROM bookmarks WHERE id = ?1",
+                [agent_id],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(agent_approved, 0, "agent memory pending review");
 
@@ -1653,7 +1796,10 @@ mod tests {
             })
             .collect();
         assert!(visible.contains(&human_id), "human memory visible");
-        assert!(!visible.contains(&agent_id), "unapproved agent memory hidden");
+        assert!(
+            !visible.contains(&agent_id),
+            "unapproved agent memory hidden"
+        );
 
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         std::env::remove_var("MEMORYWHALE_DATA_DIR");
@@ -1689,7 +1835,9 @@ mod tests {
 
         // migrate is idempotent
         migrate(&conn).unwrap();
-        let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(version, LATEST_SCHEMA_VERSION);
     }
 
@@ -1720,7 +1868,11 @@ mod tests {
         // approve flips approved to 1 and empties the queue.
         approve_note(&conn, pending).unwrap();
         let approved: i64 = conn
-            .query_row("SELECT approved FROM bookmarks WHERE id = ?1", [pending], |r| r.get(0))
+            .query_row(
+                "SELECT approved FROM bookmarks WHERE id = ?1",
+                [pending],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(approved, 1);
         assert!(pending_agent_notes(&conn).unwrap().is_empty());
@@ -1729,7 +1881,11 @@ mod tests {
         let doomed = insert("agent to reject", "agent", 0);
         reject_note(&conn, doomed).unwrap();
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM bookmarks WHERE id = ?1", [doomed], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM bookmarks WHERE id = ?1",
+                [doomed],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(count, 0);
     }
@@ -1762,9 +1918,11 @@ mod tests {
         migrate(&conn).unwrap();
 
         let (project, notes): (Option<String>, String) = conn
-            .query_row("SELECT project, notes FROM sessions WHERE id = 1", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
+            .query_row(
+                "SELECT project, notes FROM sessions WHERE id = 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
             .unwrap();
         assert_eq!(project.as_deref(), Some("camera-driver"));
         assert_eq!(notes, legacy_notes, "original notes must survive untouched");
@@ -1779,7 +1937,9 @@ mod tests {
         assert_eq!(scope_memories(&conn, mems, None, None, None).len(), 2);
 
         migrate(&conn).unwrap(); // idempotent
-        let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(version, LATEST_SCHEMA_VERSION);
     }
 
@@ -1810,7 +1970,10 @@ mod tests {
     #[test]
     fn capture_modes_parse() {
         assert_eq!(CaptureMode::parse("\"full\""), Some(CaptureMode::Full));
-        assert_eq!(CaptureMode::parse(" commands-only "), Some(CaptureMode::CommandsOnly));
+        assert_eq!(
+            CaptureMode::parse(" commands-only "),
+            Some(CaptureMode::CommandsOnly)
+        );
         assert_eq!(CaptureMode::parse("OFF"), Some(CaptureMode::Off));
         assert_eq!(CaptureMode::parse("maybe"), None);
         assert!(CaptureMode::Full.stores_output() && CaptureMode::Full.stores_anything());
@@ -1836,8 +1999,14 @@ mod tests {
              \"/nowhere/else\" = \"off\"\n",
             root = root.display()
         );
-        assert_eq!(capture_paths_rule(&config, &root).unwrap().mode, CaptureMode::CommandsOnly);
-        assert_eq!(capture_paths_rule(&config, &nested).unwrap().mode, CaptureMode::Off);
+        assert_eq!(
+            capture_paths_rule(&config, &root).unwrap().mode,
+            CaptureMode::CommandsOnly
+        );
+        assert_eq!(
+            capture_paths_rule(&config, &nested).unwrap().mode,
+            CaptureMode::Off
+        );
         assert!(capture_paths_rule(&config, std::path::Path::new("/tmp")).is_none());
     }
 
@@ -1854,7 +2023,10 @@ mod tests {
 
         std::fs::write(
             data.join("config.toml"),
-            format!("[capture.paths]\n\"{}\" = \"commands-only\"\n", root.display()),
+            format!(
+                "[capture.paths]\n\"{}\" = \"commands-only\"\n",
+                root.display()
+            ),
         )
         .unwrap();
 
@@ -1935,7 +2107,11 @@ mod tests {
 
         let link = root.join("shortcut");
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        assert_eq!(capture_rule(&link).mode, CaptureMode::Off, "symlink must resolve to the gate");
+        assert_eq!(
+            capture_rule(&link).mode,
+            CaptureMode::Off,
+            "symlink must resolve to the gate"
+        );
 
         // And the write path agrees.
         assert!(remember("secret", link.to_str()).is_err());
@@ -1947,14 +2123,22 @@ mod tests {
 
     #[test]
     fn project_tag_is_parsed_out_of_notes() {
-        assert_eq!(project_of("os:macos project:mw-cli runtime:host").as_deref(), Some("mw-cli"));
+        assert_eq!(
+            project_of("os:macos project:mw-cli runtime:host").as_deref(),
+            Some("mw-cli")
+        );
         assert_eq!(project_of("no tags here"), None);
     }
 
     #[test]
     fn provenance_label_formats() {
         assert_eq!(
-            provenance_label("agent", Some("Claude Code"), "2026-07-12T09:00:00Z", Some(41)),
+            provenance_label(
+                "agent",
+                Some("Claude Code"),
+                "2026-07-12T09:00:00Z",
+                Some(41)
+            ),
             "remembered by Claude Code on 2026-07-12 during session #41"
         );
         assert_eq!(

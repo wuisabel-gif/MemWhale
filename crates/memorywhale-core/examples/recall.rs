@@ -26,11 +26,39 @@ fn main() {
     };
 
     let memories = vec![
-        m(143, "I use Rust for systems software.", 0, 27, 0.98, &["rust"]),
+        m(
+            143,
+            "I use Rust for systems software.",
+            0,
+            27,
+            0.98,
+            &["rust"],
+        ),
         m(7, "I ate pizza.", 40, 1, 0.01, &[]),
-        m(22, "Use Tokio for the async runtime.", 3, 6, 0.60, &["rust", "tokio"]),
-        m(31, "Decided to use Postgres instead of SQLite for the API.", 9, 3, 0.55, &["delphin", "db"]),
-        m(58, "Prefer Axum for HTTP services.", 25, 2, 0.40, &["rust", "axum"]),
+        m(
+            22,
+            "Use Tokio for the async runtime.",
+            3,
+            6,
+            0.60,
+            &["rust", "tokio"],
+        ),
+        m(
+            31,
+            "Decided to use Postgres instead of SQLite for the API.",
+            9,
+            3,
+            0.55,
+            &["delphin", "db"],
+        ),
+        m(
+            58,
+            "Prefer Axum for HTTP services.",
+            25,
+            2,
+            0.40,
+            &["rust", "axum"],
+        ),
     ];
 
     // Try semantic mode (local Ollama embeddings); fall back to lexical offline.
@@ -50,15 +78,21 @@ fn main() {
     };
 
     // 1) A query with task context (current work is on "delphin").
-    let q = Query::new(
-        "what database did we choose for the service?",
-        now,
-    )
-    .with_task(vec!["delphin".into()]);
+    let q = Query::new("what database did we choose for the service?", now)
+        .with_task(vec!["delphin".into()]);
 
-    println!("Query: \"{}\"   (engine: {}, task: delphin)\n", q.text, engine.name());
+    println!(
+        "Query: \"{}\"   (engine: {}, task: delphin)\n",
+        q.text,
+        engine.name()
+    );
     for sm in engine.retrieve(&q, 3) {
-        println!("#{:<4} score {:>3}%   \"{}\"", sm.memory.id, sm.percent(), trunc(&sm.memory.text, 56));
+        println!(
+            "#{:<4} score {:>3}%   \"{}\"",
+            sm.memory.id,
+            sm.percent(),
+            trunc(&sm.memory.text, 56)
+        );
         println!("       retrieved because:");
         for r in sm.reasons() {
             println!("         · {r}");

@@ -455,7 +455,10 @@ fn approve_lesson(state: tauri::State<AppState>, id: i64) -> Result<(), AppError
         .lock()
         .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
     memorywhale_cli::migrate(&conn).map_err(AppError::Message)?;
-    conn.execute("UPDATE bookmarks SET approved = 1 WHERE id = ?1", params![id])?;
+    conn.execute(
+        "UPDATE bookmarks SET approved = 1 WHERE id = ?1",
+        params![id],
+    )?;
     Ok(())
 }
 

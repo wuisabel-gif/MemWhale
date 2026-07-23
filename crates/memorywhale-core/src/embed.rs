@@ -42,7 +42,7 @@ pub fn vec_to_bytes(v: &[f32]) -> Vec<u8> {
 /// Decode little-endian f32 bytes back into an embedding. Returns an empty vec
 /// if the byte length isn't a multiple of 4 (corrupt/foreign blob).
 pub fn bytes_to_vec(b: &[u8]) -> Vec<f32> {
-    if b.len() % 4 != 0 {
+    if !b.len().is_multiple_of(4) {
         return Vec::new();
     }
     b.chunks_exact(4)

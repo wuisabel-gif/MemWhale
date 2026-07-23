@@ -141,11 +141,15 @@ struct Row {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let dir = std::env::args().nth(1).unwrap_or_else(|| "benchmarks".into());
+    let dir = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "benchmarks".into());
     let dir = dir.trim_end_matches('/');
-    let corpus: Corpus = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/corpus.json"))?)?;
-    let task_set: TaskSet =
-        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/shortcut_tasks.json"))?)?;
+    let corpus: Corpus =
+        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/corpus.json"))?)?;
+    let task_set: TaskSet = serde_json::from_str(&std::fs::read_to_string(format!(
+        "{dir}/shortcut_tasks.json"
+    ))?)?;
     let now = fixed_now();
 
     // One in-memory DB seeded via the real schema + migrate(), so every retrieval
@@ -223,9 +227,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rate = |x: u32| x as f64 / d;
     // similar_failures is rank-free (a single fingerprint lookup), so @1 == @5.
     let rows = [
-        Row { path: "similar_failures", shortcut_at_1: rate(sf), shortcut_at_5: rate(sf) },
-        Row { path: "search_memory", shortcut_at_1: rate(sm1), shortcut_at_5: rate(sm5) },
-        Row { path: "combined", shortcut_at_1: rate(c1), shortcut_at_5: rate(c5) },
+        Row {
+            path: "similar_failures",
+            shortcut_at_1: rate(sf),
+            shortcut_at_5: rate(sf),
+        },
+        Row {
+            path: "search_memory",
+            shortcut_at_1: rate(sm1),
+            shortcut_at_5: rate(sm5),
+        },
+        Row {
+            path: "combined",
+            shortcut_at_1: rate(c1),
+            shortcut_at_5: rate(c5),
+        },
     ];
 
     #[derive(Serialize)]
@@ -237,7 +253,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         note: &'a str,
         rows: &'a [Row],
     }
-    let fixable = task_set.tasks.iter().filter(|t| !t.fix_ids.is_empty()).count();
+    let fixable = task_set
+        .tasks
+        .iter()
+        .filter(|t| !t.fix_ids.is_empty())
+        .count();
     let summary = Summary {
         tasks: n,
         fixable_tasks: fixable,
@@ -252,10 +272,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         serde_json::to_string_pretty(&summary)? + "\n",
     )?;
 
-    println!("memory-shortcut eval · {n} tasks ({fixable} with a fix in corpus) · now={}", now.date_naive());
+    println!(
+        "memory-shortcut eval · {n} tasks ({fixable} with a fix in corpus) · now={}",
+        now.date_naive()
+    );
     println!("{:<18} {:>10} {:>10}", "path", "shortcut@1", "shortcut@5");
     for r in &rows {
-        println!("{:<18} {:>10.3} {:>10.3}", r.path, r.shortcut_at_1, r.shortcut_at_5);
+        println!(
+            "{:<18} {:>10.3} {:>10.3}",
+            r.path, r.shortcut_at_1, r.shortcut_at_5
+        );
     }
     println!("\nHEADLINE: {:.0}% of recurring failures have their fix surfaced by MemoryWhale (combined@5).", rate(c5) * 100.0);
     println!("per-task results written to {results_dir}/*.json");

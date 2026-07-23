@@ -124,7 +124,10 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
     if store_output {
         eprintln!("mw: recording session to {transcript_str}");
     } else {
-        eprintln!("mw: capture is commands-only here ({}) — no output will be stored.", gate.source);
+        eprintln!(
+            "mw: capture is commands-only here ({}) — no output will be stored.",
+            gate.source
+        );
     }
     if live {
         eprintln!(
@@ -221,8 +224,13 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
         return Ok(());
     }
     let (id, byte_count) = if let Some(id) = live_session {
-        let byte_count =
-            update_session_from_transcript(id, &transcript_path, &ended_at, "finished", store_output)?;
+        let byte_count = update_session_from_transcript(
+            id,
+            &transcript_path,
+            &ended_at,
+            "finished",
+            store_output,
+        )?;
         (id, byte_count)
     } else {
         insert_finished_session(
@@ -302,8 +310,10 @@ fn first_run_welcome() -> Result<(), String> {
     }
     let recorded_before = open_session_db()
         .and_then(|conn| {
-            conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get::<_, i64>(0))
-                .map_err(|err| err.to_string())
+            conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .map_err(|err| err.to_string())
         })
         .map(|count| count > 0)
         .unwrap_or(false);
@@ -474,7 +484,11 @@ fn rm_memory(args: &[String]) -> Result<(), String> {
             Err(e) => return Err(format!("failed to look up session: {e}")),
         }
     } else {
-        match conn.query_row("SELECT 1 FROM command_runs WHERE id = ?1", params![id], |_| Ok(())) {
+        match conn.query_row(
+            "SELECT 1 FROM command_runs WHERE id = ?1",
+            params![id],
+            |_| Ok(()),
+        ) {
             Ok(()) => {
                 let _ = conn.execute(
                     "DELETE FROM command_arguments WHERE command_run_id = ?1",
@@ -603,7 +617,12 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
             sessions.len()
         );
         for (id, path) in &sessions {
-            println!("  session #{id}{}", path.as_deref().map(|p| format!(" -> {p}")).unwrap_or_default());
+            println!(
+                "  session #{id}{}",
+                path.as_deref()
+                    .map(|p| format!(" -> {p}"))
+                    .unwrap_or_default()
+            );
         }
         return Ok(());
     }
@@ -613,7 +632,10 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
     }
-    let _ = conn.execute("DELETE FROM command_runs WHERE created_at < ?1", params![cutoff]);
+    let _ = conn.execute(
+        "DELETE FROM command_runs WHERE created_at < ?1",
+        params![cutoff],
+    );
     println!(
         "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
         sessions.len()
@@ -640,7 +662,9 @@ fn share_cmd(args: &[String]) -> Result<(), String> {
     let mut iter = args.iter();
     while let Some(a) = iter.next() {
         match a.as_str() {
-            "session" | "command" => kind = Some(if a == "session" { "session" } else { "command" }),
+            "session" | "command" => {
+                kind = Some(if a == "session" { "session" } else { "command" })
+            }
             "-o" | "--output" => {
                 output = Some(
                     iter.next()
@@ -649,12 +673,15 @@ fn share_cmd(args: &[String]) -> Result<(), String> {
                 )
             }
             other if other.starts_with('-') => {
-                return Err(format!("unknown option {other:?}; usage: mw share <id> [-o file.html]"))
+                return Err(format!(
+                    "unknown option {other:?}; usage: mw share <id> [-o file.html]"
+                ))
             }
             other => id = Some(other.to_string()),
         }
     }
-    let id = id.ok_or_else(|| "usage: mw share [session|command] <id> [-o file.html]".to_string())?;
+    let id =
+        id.ok_or_else(|| "usage: mw share [session|command] <id> [-o file.html]".to_string())?;
     let output = output.unwrap_or_else(|| format!("memory-{id}.html"));
 
     let mut cmd = Command::new(sibling_binary("mw-view"));
@@ -686,8 +713,13 @@ fn start_live_sync(id: i64, transcript_path: PathBuf, store_output: bool) -> Liv
                 break;
             }
             let ended_at = Utc::now().to_rfc3339();
-            let _ =
-                update_session_from_transcript(id, &transcript_path, &ended_at, "recording", store_output);
+            let _ = update_session_from_transcript(
+                id,
+                &transcript_path,
+                &ended_at,
+                "recording",
+                store_output,
+            );
         }
     });
     LiveSync { stop, handle }
@@ -1022,7 +1054,9 @@ fn powershell_profile(home: &Path) -> PathBuf {
 /// `explicit` is an optional shell argument (`mw hooks install pwsh`); when
 /// absent we fall back to `$SHELL` detection. PowerShell is never in `$SHELL`,
 /// so it must be requested explicitly.
-fn hook_target(explicit: Option<&str>) -> Result<(&'static str, PathBuf, PathBuf, &'static str), String> {
+fn hook_target(
+    explicit: Option<&str>,
+) -> Result<(&'static str, PathBuf, PathBuf, &'static str), String> {
     let home = dirs::home_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
     let hooks_dir = memorywhale_dir()?;
     let name = match explicit {
@@ -1047,13 +1081,23 @@ fn hook_target(explicit: Option<&str>) -> Result<(&'static str, PathBuf, PathBuf
             HOOK_FISH,
         ))
     } else if name.contains("zsh") {
-        Ok(("zsh", home.join(".zshrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
-    } else if explicit.map_or(false, |a| !a.contains("bash")) {
+        Ok((
+            "zsh",
+            home.join(".zshrc"),
+            hooks_dir.join("memorywhale.sh"),
+            HOOK_SH,
+        ))
+    } else if explicit.is_some_and(|a| !a.contains("bash")) {
         Err(format!(
             "unknown shell {name:?}; supported: bash, zsh, fish, pwsh/powershell"
         ))
     } else {
-        Ok(("bash", home.join(".bashrc"), hooks_dir.join("memorywhale.sh"), HOOK_SH))
+        Ok((
+            "bash",
+            home.join(".bashrc"),
+            hooks_dir.join("memorywhale.sh"),
+            HOOK_SH,
+        ))
     }
 }
 
@@ -1113,7 +1157,8 @@ fn hooks_install(shell_arg: Option<&str>) -> Result<(), String> {
         .ok_or_else(|| "hook path is not valid UTF-8".to_string())?;
 
     if let Some(parent) = rc_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
     }
     let existing = fs::read_to_string(&rc_path).unwrap_or_default();
     // Idempotent: strip any previous block first, then append exactly one.
@@ -1122,12 +1167,15 @@ fn hooks_install(shell_arg: Option<&str>) -> Result<(), String> {
         updated.push('\n');
     }
     updated.push_str(&hook_block(shell, hook_str));
-    fs::write(&rc_path, updated).map_err(|e| format!("failed to update {}: {e}", rc_path.display()))?;
+    fs::write(&rc_path, updated)
+        .map_err(|e| format!("failed to update {}: {e}", rc_path.display()))?;
 
     println!("mw: lightweight shell hooks INSTALLED ({shell}).");
     println!("  rc file: {}", rc_path.display());
     println!("  hook:    {hook_str}");
-    println!("  Records command, cwd, exit code and duration. No output — use `mw --live` for that.");
+    println!(
+        "  Records command, cwd, exit code and duration. No output — use `mw --live` for that."
+    );
     println!("  Open a NEW terminal to start capturing.");
     Ok(())
 }
@@ -1143,9 +1191,15 @@ fn hooks_uninstall(shell_arg: Option<&str>) -> Result<(), String> {
     }
     let _ = fs::remove_file(&hook_path);
     if changed {
-        println!("mw: shell hooks REMOVED from {} ({shell}).", rc_path.display());
+        println!(
+            "mw: shell hooks REMOVED from {} ({shell}).",
+            rc_path.display()
+        );
     } else {
-        println!("mw: no shell hook block found in {} — nothing to do.", rc_path.display());
+        println!(
+            "mw: no shell hook block found in {} — nothing to do.",
+            rc_path.display()
+        );
     }
     Ok(())
 }
@@ -1157,7 +1211,7 @@ fn shell_rc_path() -> Result<PathBuf, String> {
     let is_zsh = shell
         .rsplit('/')
         .next()
-        .map_or(false, |name| name.contains("zsh"));
+        .is_some_and(|name| name.contains("zsh"));
     Ok(home.join(if is_zsh { ".zshrc" } else { ".bashrc" }))
 }
 
@@ -1274,7 +1328,11 @@ fn global_status() -> Result<(), String> {
     let cwd = env::current_dir().unwrap_or_default();
     let gate = memorywhale_cli::capture_rule(&cwd);
     println!();
-    println!("capture mode here ({}): {}", cwd.display(), gate.mode.as_str());
+    println!(
+        "capture mode here ({}): {}",
+        cwd.display(),
+        gate.mode.as_str()
+    );
     println!("  rule: {}", gate.source);
     Ok(())
 }
@@ -1347,7 +1405,11 @@ fn list_sessions(args: &[String]) -> Result<(), String> {
         .map_err(|err| format!("failed to query sessions: {err}"))?;
     let rows = stmt
         .query_map(
-            params![scope.project.as_deref(), scope.machine.as_deref(), since.as_deref()],
+            params![
+                scope.project.as_deref(),
+                scope.machine.as_deref(),
+                since.as_deref()
+            ],
             |r| {
                 Ok((
                     r.get::<_, i64>(0)?,
@@ -1775,7 +1837,12 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
     while let Some(a) = iter.next() {
         match a.as_str() {
             "--wing" => wing = iter.next().ok_or("--wing needs a value")?.clone(),
-            "--limit" => limit = iter.next().and_then(|v| v.parse().ok()).ok_or("--limit needs a number")?,
+            "--limit" => {
+                limit = iter
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .ok_or("--limit needs a number")?
+            }
             "--dry-run" => dry_run = true,
             other => return Err(format!("unexpected argument {other:?}; run mw --help")),
         }
@@ -1841,7 +1908,9 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
     let mut ops: Vec<memorywhale_core::engine::SyncOp> = Vec::new();
     for it in &plan.items {
         if let Some(old) = &it.old_drawer_id {
-            ops.push(memorywhale_core::engine::SyncOp::Delete { drawer_id: old.clone() });
+            ops.push(memorywhale_core::engine::SyncOp::Delete {
+                drawer_id: old.clone(),
+            });
         }
         ops.push(memorywhale_core::engine::SyncOp::Add {
             wing: it.wing.clone(),
@@ -1877,7 +1946,14 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
         .items
         .iter()
         .zip(&new_ids)
-        .map(|(it, id)| (it.mw_id, it.wing.clone(), id.clone(), it.content_hash.clone()))
+        .map(|(it, id)| {
+            (
+                it.mw_id,
+                it.wing.clone(),
+                id.clone(),
+                it.content_hash.clone(),
+            )
+        })
         .collect();
     memorywhale_cli::record_sync(&mut conn, &rows, &synced_at)?;
 
@@ -1943,7 +2019,11 @@ fn search_memory(args: &[String]) -> Result<(), String> {
                 .to_string(),
         );
     }
-    let query = terms.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
+    let query = terms
+        .iter()
+        .map(|s| s.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
 
     // External semantic engine (MemPalace), if the user opted in via config. It
     // ranks server-side over its own corpus, so the local scope filters don't
@@ -2202,8 +2282,11 @@ fn git_fix_cmd(args: &[String]) -> Result<(), String> {
             }
 
             // Has this exact class of failure shown up before (or been solved)?
-            let like_params: Vec<String> =
-                pattern.search_terms.iter().map(|term| format!("%{term}%")).collect();
+            let like_params: Vec<String> = pattern
+                .search_terms
+                .iter()
+                .map(|term| format!("%{term}%"))
+                .collect();
             let cmd_clauses: Vec<String> = (1..=like_params.len())
                 .map(|i| format!("(stderr LIKE ?{i} OR stdout LIKE ?{i})"))
                 .collect();
@@ -2215,9 +2298,11 @@ fn git_fix_cmd(args: &[String]) -> Result<(), String> {
             );
             let mut past_ids = Vec::new();
             if let Ok(mut stmt) = conn.prepare(&cmd_sql) {
-                if let Ok(rows) = stmt.query_map(rusqlite::params_from_iter(like_params.iter()), |r| {
-                    Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
-                }) {
+                if let Ok(rows) = stmt
+                    .query_map(rusqlite::params_from_iter(like_params.iter()), |r| {
+                        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+                    })
+                {
                     past_ids.extend(rows.flatten());
                 }
             }
@@ -2231,9 +2316,11 @@ fn git_fix_cmd(args: &[String]) -> Result<(), String> {
             );
             let mut lessons = Vec::new();
             if let Ok(mut stmt) = conn.prepare(&bm_sql) {
-                if let Ok(rows) = stmt.query_map(rusqlite::params_from_iter(like_params.iter()), |r| {
-                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-                }) {
+                if let Ok(rows) = stmt
+                    .query_map(rusqlite::params_from_iter(like_params.iter()), |r| {
+                        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                    })
+                {
                     lessons.extend(rows.flatten());
                 }
             }
@@ -2362,7 +2449,12 @@ fn agent_cmd(args: &[String]) -> Result<(), String> {
             any = true;
         }
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
-        println!("- `{}` (exit {}, {})", argv.join(" "), code.unwrap_or(-1), at);
+        println!(
+            "- `{}` (exit {}, {})",
+            argv.join(" "),
+            code.unwrap_or(-1),
+            at
+        );
         let tail = stderr
             .lines()
             .rev()
@@ -2424,7 +2516,11 @@ fn resolve_chat_url(spec: &str) -> String {
 }
 
 fn open_url(url: &str) {
-    let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
     let _ = Command::new(opener)
         .arg(url)
         .stdout(std::process::Stdio::null())
@@ -2514,12 +2610,10 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
         .ok();
 
     if failure.is_none() && question.is_empty() {
-        return Err(
-            "no failed commands in memory and no question given.\n\
+        return Err("no failed commands in memory and no question given.\n\
              Usage: mw ask [question]. Record failures with auto-record (`mw global on`)\n\
              or `mw-run -- <command>`, then `mw ask` packages the latest one."
-                .to_string(),
-        );
+            .to_string());
     }
 
     // Words to find related history/lessons: from the error tail + the question.
@@ -2543,11 +2637,12 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
     terms.dedup();
 
     // Similar past failures (FTS if available, else LIKE on the first term).
-    let mut similar: Vec<(String, Option<i64>, String, Option<String>, String)> = Vec::new();
+    type SimilarFailure = (String, Option<i64>, String, Option<String>, String);
+    let mut similar: Vec<SimilarFailure> = Vec::new();
     let exclude_id = failure.as_ref().map(|f| f.0).unwrap_or(-1);
     if !terms.is_empty() {
         let _ = memorywhale_cli::ensure_fts(&conn);
-        let collect = |sql: &str, param: &str| -> Vec<(String, Option<i64>, String, Option<String>, String)> {
+        let collect = |sql: &str, param: &str| -> Vec<SimilarFailure> {
             let mut out = Vec::new();
             if let Ok(mut stmt) = conn.prepare(sql) {
                 if let Ok(rows) = stmt.query_map(params![param, exclude_id], |r| {
@@ -2599,9 +2694,9 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
         if let Ok(mut stmt) = conn.prepare(
             "SELECT label, created_at FROM bookmarks WHERE label LIKE ?1 ORDER BY id DESC LIMIT 3",
         ) {
-            if let Ok(rows) =
-                stmt.query_map(params![format!("%{t}%")], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-            {
+            if let Ok(rows) = stmt.query_map(params![format!("%{t}%")], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            }) {
                 for row in rows.flatten() {
                     if !lessons.iter().any(|(l, _)| l == &row.0) {
                         lessons.push(row);
@@ -2642,7 +2737,11 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
         }
         p.push_str(&format!("Exit code: {}\n", exit_code.unwrap_or(-1)));
         p.push_str(&format!("When:      {created_at}\n\n"));
-        let err_blob = if stderr.trim().is_empty() { stdout } else { stderr };
+        let err_blob = if stderr.trim().is_empty() {
+            stdout
+        } else {
+            stderr
+        };
         p.push_str(&format!("```\n{}\n```\n\n", cap_blob(err_blob, 4000)));
     }
     if !similar.is_empty() {
@@ -2678,7 +2777,14 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)),
         ) {
             let lines: Vec<&str> = transcript.lines().collect();
-            let tail_lines = lines.iter().rev().take(60).rev().cloned().collect::<Vec<_>>().join("\n");
+            let tail_lines = lines
+                .iter()
+                .rev()
+                .take(60)
+                .rev()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
             p.push_str(&format!(
                 "## Tail of my current session (#{id})\n```\n{}\n```\n\n",
                 cap_blob(&tail_lines, 3000)
@@ -2697,10 +2803,18 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
     let approx_tokens = p.chars().count() / 4;
     eprintln!(
         "mw: packaged {}{} similar failure(s), {} saved lesson(s){}",
-        if failure.is_some() { "the last failure, " } else { "" },
+        if failure.is_some() {
+            "the last failure, "
+        } else {
+            ""
+        },
         similar.len(),
         lessons.len(),
-        if include_session { ", + session tail" } else { "" }
+        if include_session {
+            ", + session tail"
+        } else {
+            ""
+        }
     );
     if copy_to_clipboard(&p) {
         eprintln!("mw: ~{approx_tokens} tokens copied to clipboard — paste at {chat_url} (Cmd-V)");
@@ -2772,16 +2886,19 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
         )
         .map_err(|err| format!("failed to prepare context query: {err}"))?;
     let rows = stmt
-        .query_map(params![like.as_deref(), if last_error { 1 } else { limit }], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                r.get::<_, Option<String>>(1)?,
-                r.get::<_, Option<i64>>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, String>(4)?,
-                r.get::<_, String>(5)?,
-            ))
-        })
+        .query_map(
+            params![like.as_deref(), if last_error { 1 } else { limit }],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<i64>>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
+                ))
+            },
+        )
         .map_err(|err| format!("failed to read command runs: {err}"))?;
 
     let mut any = false;
@@ -2908,13 +3025,12 @@ fn doctor() -> Result<(), String> {
     // Data dir writable?
     match memorywhale_dir() {
         Ok(dir) => {
-            let writable = fs::create_dir_all(&dir).is_ok()
-                && {
-                    let probe = dir.join(".doctor-write-test");
-                    let r = fs::write(&probe, b"ok").is_ok();
-                    let _ = fs::remove_file(&probe);
-                    r
-                };
+            let writable = fs::create_dir_all(&dir).is_ok() && {
+                let probe = dir.join(".doctor-write-test");
+                let r = fs::write(&probe, b"ok").is_ok();
+                let _ = fs::remove_file(&probe);
+                r
+            };
             if writable {
                 ok("data dir", dir.display().to_string());
             } else {
@@ -2965,9 +3081,7 @@ fn doctor() -> Result<(), String> {
     } else {
         warn(
             "auto-record",
-            format!(
-                "off (enabled: {enabled}, wired: {wired}) — run `mw global on` to enable"
-            ),
+            format!("off (enabled: {enabled}, wired: {wired}) — run `mw global on` to enable"),
         );
     }
 

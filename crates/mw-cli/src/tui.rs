@@ -63,8 +63,13 @@ impl App {
     /// Reload the pending-review queue and keep the selection in range.
     fn refresh_pending(&mut self) {
         self.pending = crate::pending_agent_notes(&self.conn).unwrap_or_default();
-        let sel = self.review_state.selected().unwrap_or(0).min(self.pending.len().saturating_sub(1));
-        self.review_state.select((!self.pending.is_empty()).then_some(sel));
+        let sel = self
+            .review_state
+            .selected()
+            .unwrap_or(0)
+            .min(self.pending.len().saturating_sub(1));
+        self.review_state
+            .select((!self.pending.is_empty()).then_some(sel));
     }
 
     fn toggle_review(&mut self) {
@@ -81,12 +86,17 @@ impl App {
         }
         let len = self.pending.len() as isize;
         let cur = self.review_state.selected().unwrap_or(0) as isize;
-        self.review_state.select(Some((cur + delta).rem_euclid(len) as usize));
+        self.review_state
+            .select(Some((cur + delta).rem_euclid(len) as usize));
     }
 
     /// Approve (`a`) or reject (`d`) the selected pending note, then refresh.
     fn review_action(&mut self, approve: bool) {
-        let Some(note) = self.review_state.selected().and_then(|i| self.pending.get(i)) else {
+        let Some(note) = self
+            .review_state
+            .selected()
+            .and_then(|i| self.pending.get(i))
+        else {
             return;
         };
         let id = note.id;
@@ -111,8 +121,12 @@ impl App {
     fn recompute(&mut self) {
         let q = Query::new(&self.query, self.now);
         let mut hits = self.engine.retrieve(&q, MAX_RESULTS);
-        let terms: Vec<String> =
-            self.query.to_lowercase().split_whitespace().map(String::from).collect();
+        let terms: Vec<String> = self
+            .query
+            .to_lowercase()
+            .split_whitespace()
+            .map(String::from)
+            .collect();
         if !terms.is_empty() {
             hits.retain(|sm| {
                 let text = sm.memory.text.to_lowercase();
@@ -130,7 +144,8 @@ impl App {
         }
         let len = self.results.len() as isize;
         let cur = self.state.selected().unwrap_or(0) as isize;
-        self.state.select(Some((cur + delta).rem_euclid(len) as usize));
+        self.state
+            .select(Some((cur + delta).rem_euclid(len) as usize));
     }
 
     fn selected(&self) -> Option<&ScoredMemory> {
@@ -181,14 +196,22 @@ fn render(app: &mut App, f: &mut Frame) {
             "REVIEW MODE — approve/reject agent-written memories",
             Style::default().fg(Color::Yellow),
         )]))
-        .block(Block::default().borders(Borders::ALL).title(" MemoryWhale "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" MemoryWhale "),
+        )
     } else {
         Paragraph::new(Line::from(vec![
             Span::styled("search ", Style::default().fg(Color::Cyan)),
             Span::raw(&app.query),
             Span::styled("▏", Style::default().fg(Color::Cyan)), // cursor
         ]))
-        .block(Block::default().borders(Borders::ALL).title(" MemoryWhale "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" MemoryWhale "),
+        )
     };
     f.render_widget(search, rows[0]);
 
@@ -213,8 +236,14 @@ fn render(app: &mut App, f: &mut Frame) {
         .map(|sm| {
             let (source, _) = decode_id(sm.memory.id);
             ListItem::new(Line::from(vec![
-                Span::styled(format!("{:>3}% ", sm.percent()), Style::default().fg(Color::Cyan)),
-                Span::styled(format!("{:<8} ", source.tag()), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("{:>3}% ", sm.percent()),
+                    Style::default().fg(Color::Cyan),
+                ),
+                Span::styled(
+                    format!("{:<8} ", source.tag()),
+                    Style::default().fg(Color::DarkGray),
+                ),
                 Span::raw(snippet(&sm.memory.text, 48)),
             ]))
         })
@@ -231,14 +260,22 @@ fn render(app: &mut App, f: &mut Frame) {
 
     // Detail of the selected memory.
     let detail = match app.selected() {
-        None => Paragraph::new("(no matches — try a different search, or capture some commands first)"),
+        None => {
+            Paragraph::new("(no matches — try a different search, or capture some commands first)")
+        }
         Some(sm) => {
             let (source, id) = decode_id(sm.memory.id);
             let mut lines = vec![
                 Line::from(vec![
-                    Span::styled(format!("[{}] ", source.tag()), Style::default().fg(Color::Yellow)),
+                    Span::styled(
+                        format!("[{}] ", source.tag()),
+                        Style::default().fg(Color::Yellow),
+                    ),
                     Span::styled(format!("#{id}  "), Style::default().fg(Color::DarkGray)),
-                    Span::styled(format!("{}% match", sm.percent()), Style::default().fg(Color::Cyan)),
+                    Span::styled(
+                        format!("{}% match", sm.percent()),
+                        Style::default().fg(Color::Cyan),
+                    ),
                 ]),
                 Line::from(""),
             ];
@@ -248,15 +285,24 @@ fn render(app: &mut App, f: &mut Frame) {
             let reasons = sm.reasons();
             if !reasons.is_empty() {
                 lines.push(Line::from(""));
-                lines.push(Line::styled("why this ranked here:", Style::default().fg(Color::DarkGray)));
+                lines.push(Line::styled(
+                    "why this ranked here:",
+                    Style::default().fg(Color::DarkGray),
+                ));
                 for r in reasons {
-                    lines.push(Line::styled(format!("  • {r}"), Style::default().fg(Color::DarkGray)));
+                    lines.push(Line::styled(
+                        format!("  • {r}"),
+                        Style::default().fg(Color::DarkGray),
+                    ));
                 }
             }
             Paragraph::new(lines).wrap(Wrap { trim: false })
         }
     };
-    f.render_widget(detail.block(Block::default().borders(Borders::ALL).title(" detail ")), body[1]);
+    f.render_widget(
+        detail.block(Block::default().borders(Borders::ALL).title(" detail ")),
+        body[1],
+    );
 
     render_status_and_keys(app, f, &rows);
 
@@ -283,7 +329,11 @@ fn render_review(app: &mut App, f: &mut Frame, area: ratatui::layout::Rect) {
             ),
         ])
         .wrap(Wrap { trim: false })
-        .block(Block::default().borders(Borders::ALL).title(" pending review "));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" pending review "),
+        );
         f.render_widget(msg, area);
         return;
     }
@@ -294,19 +344,24 @@ fn render_review(app: &mut App, f: &mut Frame, area: ratatui::layout::Rect) {
         .map(|note| {
             ListItem::new(vec![
                 Line::from(vec![
-                    Span::styled(format!("#{:<4} ", note.id), Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        format!("#{:<4} ", note.id),
+                        Style::default().fg(Color::DarkGray),
+                    ),
                     Span::raw(snippet(&note.label, 60)),
                 ]),
-                Line::styled(format!("      {}", note.provenance()), Style::default().fg(Color::Yellow)),
+                Line::styled(
+                    format!("      {}", note.provenance()),
+                    Style::default().fg(Color::Yellow),
+                ),
             ])
         })
         .collect();
     let list = List::new(items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!(" {} awaiting review — a approve · d reject ", app.pending.len())),
-        )
+        .block(Block::default().borders(Borders::ALL).title(format!(
+            " {} awaiting review — a approve · d reject ",
+            app.pending.len()
+        )))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol("▶ ");
     f.render_stateful_widget(list, area, &mut app.review_state);
@@ -413,7 +468,10 @@ fn render_help(f: &mut Frame) {
         row("Backspace", "delete a search character"),
         row("Enter", "reveal the selected item's shell command"),
         row("Tab", "toggle review mode (approve/reject agent memories)"),
-        row("a / d", "in review mode: approve / reject the selected memory"),
+        row(
+            "a / d",
+            "in review mode: approve / reject the selected memory",
+        ),
         row("F1", "toggle this help"),
         row("Esc / Ctrl-c", "quit"),
         Line::from(""),
@@ -426,7 +484,10 @@ fn render_help(f: &mut Frame) {
             Style::default().fg(Color::DarkGray),
         ),
         Line::from(""),
-        Line::styled("  press Esc or F1 to close", Style::default().fg(Color::Yellow)),
+        Line::styled(
+            "  press Esc or F1 to close",
+            Style::default().fg(Color::Yellow),
+        ),
     ];
     let popup = Paragraph::new(lines).wrap(Wrap { trim: false }).block(
         Block::default()
@@ -439,7 +500,9 @@ fn render_help(f: &mut Frame) {
 
 fn event_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<(), String> {
     loop {
-        terminal.draw(|f| render(app, f)).map_err(|e| format!("draw failed: {e}"))?;
+        terminal
+            .draw(|f| render(app, f))
+            .map_err(|e| format!("draw failed: {e}"))?;
         let Event::Key(key) = event::read().map_err(|e| format!("input failed: {e}"))? else {
             continue;
         };
@@ -510,8 +573,8 @@ fn event_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<
 
 /// Entry point for `mw tui`.
 pub fn run() -> Result<(), String> {
-    let conn =
-        Connection::open(crate::database_path()?).map_err(|e| format!("failed to open memory db: {e}"))?;
+    let conn = Connection::open(crate::database_path()?)
+        .map_err(|e| format!("failed to open memory db: {e}"))?;
     let _ = crate::migrate(&conn);
     let mems = load_memories(&conn);
     if mems.is_empty() {
@@ -577,13 +640,24 @@ mod tests {
 
     #[test]
     fn empty_query_browses_all_typing_narrows() {
-        let mut app = app_with(&[(1, "cargo build failed"), (2, "git push rejected"), (3, "cargo test flaky")]);
+        let mut app = app_with(&[
+            (1, "cargo build failed"),
+            (2, "git push rejected"),
+            (3, "cargo test flaky"),
+        ]);
         assert_eq!(app.results.len(), 3, "empty query shows everything");
 
         app.query = "cargo".into();
         app.recompute();
-        assert_eq!(app.results.len(), 2, "narrows to memories containing the term");
-        assert!(app.results.iter().all(|sm| sm.memory.text.contains("cargo")));
+        assert_eq!(
+            app.results.len(),
+            2,
+            "narrows to memories containing the term"
+        );
+        assert!(app
+            .results
+            .iter()
+            .all(|sm| sm.memory.text.contains("cargo")));
 
         app.query = "nonexistent".into();
         app.recompute();
@@ -596,9 +670,17 @@ mod tests {
         let mut app = app_with(&[(1, "a"), (2, "b"), (3, "c")]);
         assert_eq!(app.state.selected(), Some(0));
         app.move_sel(-1);
-        assert_eq!(app.state.selected(), Some(2), "up from the top wraps to the bottom");
+        assert_eq!(
+            app.state.selected(),
+            Some(2),
+            "up from the top wraps to the bottom"
+        );
         app.move_sel(1);
-        assert_eq!(app.state.selected(), Some(0), "down from the bottom wraps to the top");
+        assert_eq!(
+            app.state.selected(),
+            Some(0),
+            "down from the bottom wraps to the top"
+        );
     }
 
     #[test]
@@ -630,7 +712,10 @@ mod tests {
 
     #[test]
     fn review_pane_shows_pending_provenance_and_ad_hints() {
-        let conn = conn_with_pending(&[("cache the tokenizer", "Claude Code"), ("retry on 429", "Codex")]);
+        let conn = conn_with_pending(&[
+            ("cache the tokenizer", "Claude Code"),
+            ("retry on 429", "Codex"),
+        ]);
         let mut app = App::new(BuiltinEngine::new(vec![mem(1, "seed")]), conn);
         app.review = true;
         app.refresh_pending();
@@ -640,8 +725,14 @@ mod tests {
         terminal.draw(|f| render(&mut app, f)).unwrap();
         let text = buffer_text(terminal.backend().buffer());
         assert!(text.contains("REVIEW MODE"), "review banner shown");
-        assert!(text.contains("cache the tokenizer"), "pending item label shown");
-        assert!(text.contains("remembered by Claude Code"), "provenance shown");
+        assert!(
+            text.contains("cache the tokenizer"),
+            "pending item label shown"
+        );
+        assert!(
+            text.contains("remembered by Claude Code"),
+            "provenance shown"
+        );
         assert!(text.contains("approve"), "a=approve hint shown");
         assert!(text.contains("reject"), "d=reject hint shown");
     }
@@ -656,7 +747,10 @@ mod tests {
         let mut terminal = Terminal::new(TestBackend::new(120, 20)).unwrap();
         terminal.draw(|f| render(&mut app, f)).unwrap();
         let text = buffer_text(terminal.backend().buffer());
-        assert!(text.contains("no memories awaiting review"), "empty state shown");
+        assert!(
+            text.contains("no memories awaiting review"),
+            "empty state shown"
+        );
     }
 
     #[test]

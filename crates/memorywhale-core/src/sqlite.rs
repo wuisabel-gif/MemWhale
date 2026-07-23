@@ -138,20 +138,29 @@ fn command_runs(conn: &Connection) -> Vec<Memory> {
         *counts.entry(cmd.to_lowercase()).or_insert(0) += 1;
     }
     runs.into_iter()
-        .map(|(id, command, argv_json, notes, stderr, exit_code, created)| {
-            let when = parse_ts(&created);
-            let ok = exit_code == Some(0);
-            Memory {
-                id: CMD_NS + id,
-                text: format!("{command} {argv_json} {notes} {stderr}"),
-                created_at: when,
-                last_used: when,
-                mentions: *counts.get(&command.to_lowercase()).unwrap_or(&1),
-                importance: if exit_code.unwrap_or(0) != 0 { 0.65 } else { 0.4 },
-                tags: vec!["command".into(), if ok { "ok".into() } else { "error".into() }],
-                embedding: None,
-            }
-        })
+        .map(
+            |(id, command, argv_json, notes, stderr, exit_code, created)| {
+                let when = parse_ts(&created);
+                let ok = exit_code == Some(0);
+                Memory {
+                    id: CMD_NS + id,
+                    text: format!("{command} {argv_json} {notes} {stderr}"),
+                    created_at: when,
+                    last_used: when,
+                    mentions: *counts.get(&command.to_lowercase()).unwrap_or(&1),
+                    importance: if exit_code.unwrap_or(0) != 0 {
+                        0.65
+                    } else {
+                        0.4
+                    },
+                    tags: vec![
+                        "command".into(),
+                        if ok { "ok".into() } else { "error".into() },
+                    ],
+                    embedding: None,
+                }
+            },
+        )
         .collect()
 }
 
@@ -169,7 +178,10 @@ fn agent_turns(conn: &Connection) -> Vec<Memory> {
         ))
     });
     let Ok(rows) = rows else { return Vec::new() };
-    let turns: Vec<_> = rows.flatten().filter(|(_, _, _, t)| !t.trim().is_empty()).collect();
+    let turns: Vec<_> = rows
+        .flatten()
+        .filter(|(_, _, _, t)| !t.trim().is_empty())
+        .collect();
     let mut counts: HashMap<String, u32> = HashMap::new();
     for (_, _, _, t) in &turns {
         *counts.entry(t.trim().to_lowercase()).or_insert(0) += 1;
@@ -204,15 +216,14 @@ fn bookmarks(conn: &Connection) -> Vec<Memory> {
     // so every reader just filters approved=1 — one rule, no config lookup here.
     // Older DBs predating the provenance migration have no `approved` column;
     // there the prepare fails and we fall back to loading everything.
-    let mut stmt = match conn
-        .prepare("SELECT id, label, created_at FROM bookmarks WHERE approved = 1")
-    {
-        Ok(stmt) => stmt,
-        Err(_) => match conn.prepare("SELECT id, label, created_at FROM bookmarks") {
+    let mut stmt =
+        match conn.prepare("SELECT id, label, created_at FROM bookmarks WHERE approved = 1") {
             Ok(stmt) => stmt,
-            Err(_) => return Vec::new(),
-        },
-    };
+            Err(_) => match conn.prepare("SELECT id, label, created_at FROM bookmarks") {
+                Ok(stmt) => stmt,
+                Err(_) => return Vec::new(),
+            },
+        };
     let rows = stmt.query_map([], |r| {
         Ok((
             r.get::<_, i64>(0)?,
@@ -242,7 +253,8 @@ fn bookmarks(conn: &Connection) -> Vec<Memory> {
 /// Recorded terminal sessions (CLI). `text` = notes + cleaned transcript, so
 /// the same content `mw search` used to LIKE-match still drives similarity.
 fn sessions(conn: &Connection) -> Vec<Memory> {
-    let Ok(mut stmt) = conn.prepare("SELECT id, notes, transcript, started_at FROM sessions") else {
+    let Ok(mut stmt) = conn.prepare("SELECT id, notes, transcript, started_at FROM sessions")
+    else {
         return Vec::new();
     };
     let rows = stmt.query_map([], |r| {
@@ -303,7 +315,10 @@ mod tests {
         assert!(mems.iter().any(|m| decode_id(m.id) == (Source::Command, 1)));
         assert!(mems.iter().any(|m| decode_id(m.id) == (Source::Note, 1)));
         // recurring command is reinforced.
-        let cmd = mems.iter().find(|m| decode_id(m.id) == (Source::Command, 1)).unwrap();
+        let cmd = mems
+            .iter()
+            .find(|m| decode_id(m.id) == (Source::Command, 1))
+            .unwrap();
         assert_eq!(cmd.mentions, 2);
     }
 
@@ -335,12 +350,21 @@ mod tests {
         let desktop = BuiltinEngine::new(load_memories(&conn));
         let q = Query::new("linker failure", now);
 
-        let cli_rank: Vec<(i64, u32)> =
-            cli.retrieve(&q, 20).iter().map(|s| (s.memory.id, s.percent())).collect();
-        let desktop_rank: Vec<(i64, u32)> =
-            desktop.retrieve(&q, 20).iter().map(|s| (s.memory.id, s.percent())).collect();
+        let cli_rank: Vec<(i64, u32)> = cli
+            .retrieve(&q, 20)
+            .iter()
+            .map(|s| (s.memory.id, s.percent()))
+            .collect();
+        let desktop_rank: Vec<(i64, u32)> = desktop
+            .retrieve(&q, 20)
+            .iter()
+            .map(|s| (s.memory.id, s.percent()))
+            .collect();
 
-        assert_eq!(cli_rank, desktop_rank, "CLI and desktop must rank identically");
+        assert_eq!(
+            cli_rank, desktop_rank,
+            "CLI and desktop must rank identically"
+        );
         // The bookmark that literally names the linker failure should top it.
         assert_eq!(decode_id(cli_rank[0].0).0, Source::Note);
     }

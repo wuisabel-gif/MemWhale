@@ -119,7 +119,11 @@ fn similarity_signal(
             weight,
             score,
             applicable: true,
-            detail: format!("{}% keyword match ({})", pct(score), bm25_source(query, memory)),
+            detail: format!(
+                "{}% keyword match ({})",
+                pct(score),
+                bm25_source(query, memory)
+            ),
         };
     }
     // Lexical fallback (no index available).
@@ -178,10 +182,7 @@ fn reinforcement_signal(memory: &Memory, weight: f32) -> Signal {
         weight,
         score,
         applicable: true,
-        detail: format!(
-            "mentioned {}×",
-            memory.mentions
-        ),
+        detail: format!("mentioned {}×", memory.mentions),
     }
 }
 
@@ -262,10 +263,39 @@ fn tokenize(text: &str) -> HashSet<String> {
 fn is_stopword(w: &str) -> bool {
     matches!(
         w,
-        "the" | "and" | "for" | "are" | "you" | "your" | "with" | "что" | "this"
-            | "that" | "what" | "use" | "using" | "have" | "has" | "was" | "were"
-            | "from" | "into" | "out" | "how" | "why" | "when" | "where" | "who"
-            | "can" | "does" | "did" | "but" | "not" | "all" | "any" | "our"
+        "the"
+            | "and"
+            | "for"
+            | "are"
+            | "you"
+            | "your"
+            | "with"
+            | "что"
+            | "this"
+            | "that"
+            | "what"
+            | "use"
+            | "using"
+            | "have"
+            | "has"
+            | "was"
+            | "were"
+            | "from"
+            | "into"
+            | "out"
+            | "how"
+            | "why"
+            | "when"
+            | "where"
+            | "who"
+            | "can"
+            | "does"
+            | "did"
+            | "but"
+            | "not"
+            | "all"
+            | "any"
+            | "our"
     )
 }
 
@@ -292,7 +322,14 @@ mod tests {
     use super::*;
     use chrono::{Duration, TimeZone, Utc};
 
-    fn mem(id: i64, text: &str, days_old: i64, mentions: u32, importance: f32, tags: &[&str]) -> Memory {
+    fn mem(
+        id: i64,
+        text: &str,
+        days_old: i64,
+        mentions: u32,
+        importance: f32,
+        tags: &[&str],
+    ) -> Memory {
         let now = Utc.with_ymd_and_hms(2026, 6, 27, 12, 0, 0).unwrap();
         Memory {
             id,
@@ -318,9 +355,26 @@ mod tests {
     fn rust_beats_pizza_for_systems_query() {
         let w = Weights::default();
         let q = Query::new("what language do I use for systems programming?", now());
-        let rust = score(&mem(1, "I use Rust for systems programming.", 0, 27, 0.98, &["rust"]), &q, &w, None);
+        let rust = score(
+            &mem(
+                1,
+                "I use Rust for systems programming.",
+                0,
+                27,
+                0.98,
+                &["rust"],
+            ),
+            &q,
+            &w,
+            None,
+        );
         let pizza = score(&mem(2, "I ate pizza.", 40, 1, 0.01, &[]), &q, &w, None);
-        assert!(rust.score > pizza.score, "rust {} should beat pizza {}", rust.score, pizza.score);
+        assert!(
+            rust.score > pizza.score,
+            "rust {} should beat pizza {}",
+            rust.score,
+            pizza.score
+        );
         assert!(rust.percent() > 50);
     }
 
@@ -357,7 +411,12 @@ mod tests {
     fn reasons_are_ordered_and_nonempty() {
         let w = Weights::default();
         let q = Query::new("rust systems", now());
-        let s = score(&mem(1, "I use Rust for systems work.", 0, 27, 0.98, &["rust"]), &q, &w, None);
+        let s = score(
+            &mem(1, "I use Rust for systems work.", 0, 27, 0.98, &["rust"]),
+            &q,
+            &w,
+            None,
+        );
         let reasons = s.reasons();
         assert!(!reasons.is_empty());
     }
@@ -371,7 +430,11 @@ mod tests {
         let m = mem(1, "totally unrelated text", 0, 1, 0.5, &[]);
         let s = score_with_lexical(&m, &q, &w, None, Some(0.9));
         let sim = s.signals.iter().find(|x| x.name == "similarity").unwrap();
-        assert!((sim.score - 0.9).abs() < 1e-6, "override should win: {}", sim.score);
+        assert!(
+            (sim.score - 0.9).abs() < 1e-6,
+            "override should win: {}",
+            sim.score
+        );
         assert!(sim.detail.contains("BM25"));
     }
 
@@ -391,7 +454,11 @@ mod tests {
         let sp = score(&postgres, &q, &w, Some(&q_emb));
         let sz = score(&pizza, &q, &w, Some(&q_emb));
         let sim_p = sp.signals.iter().find(|s| s.name == "similarity").unwrap();
-        assert!(sim_p.score > 0.9, "postgres semantic sim should be high: {}", sim_p.score);
+        assert!(
+            sim_p.score > 0.9,
+            "postgres semantic sim should be high: {}",
+            sim_p.score
+        );
         assert!(sp.score > sz.score);
         assert!(sim_p.detail.contains("semantic"));
     }

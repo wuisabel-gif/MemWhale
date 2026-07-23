@@ -40,8 +40,11 @@ fn setup(tag: &str) -> (PathBuf, PathBuf, i64) {
 /// `update_session_from_transcript(.., "interrupted")`: flip the row's status.
 fn finalize_interrupted(db_path: &Path, id: i64) {
     let conn = Connection::open(db_path).unwrap();
-    conn.execute("UPDATE sessions SET status = 'interrupted' WHERE id = ?1", [id])
-        .unwrap();
+    conn.execute(
+        "UPDATE sessions SET status = 'interrupted' WHERE id = ?1",
+        [id],
+    )
+    .unwrap();
 }
 
 fn poll_status(db_path: &Path, id: i64, want: &str, timeout: Duration) -> String {
@@ -50,7 +53,9 @@ fn poll_status(db_path: &Path, id: i64, want: &str, timeout: Duration) -> String
     while Instant::now() < deadline {
         let conn = Connection::open(db_path).unwrap();
         got = conn
-            .query_row("SELECT status FROM sessions WHERE id = ?1", [id], |r| r.get(0))
+            .query_row("SELECT status FROM sessions WHERE id = ?1", [id], |r| {
+                r.get(0)
+            })
             .unwrap();
         if got == want {
             break;
@@ -112,7 +117,10 @@ fn interrupted_on_parent_death_via_pipe_eof() {
     unsafe { libc::waitpid(middle, &mut status, 0) };
 
     let got = poll_status(&db_path, id, "interrupted", Duration::from_secs(5));
-    assert_eq!(got, "interrupted", "row must be finalized as interrupted after parent death (pipe EOF)");
+    assert_eq!(
+        got, "interrupted",
+        "row must be finalized as interrupted after parent death (pipe EOF)"
+    );
     let _ = std::fs::remove_dir_all(db_path.parent().unwrap());
 }
 
@@ -143,6 +151,9 @@ fn interrupted_on_parent_death_via_prctl() {
     let got = poll_status(&db_path, id, "interrupted", Duration::from_secs(5));
     let mut status = 0;
     unsafe { libc::waitpid(middle, &mut status, 0) };
-    assert_eq!(got, "interrupted", "row must be finalized as interrupted after parent death (prctl)");
+    assert_eq!(
+        got, "interrupted",
+        "row must be finalized as interrupted after parent death (prctl)"
+    );
     let _ = std::fs::remove_dir_all(db_path.parent().unwrap());
 }

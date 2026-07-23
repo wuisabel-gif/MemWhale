@@ -110,7 +110,10 @@ fn server_lists_and_calls_all_six_tools_on_empty_db() {
         .filter_map(|t| t.get("name").and_then(Value::as_str))
         .collect();
     for tool in TOOLS {
-        assert!(names.contains(&tool), "tools/list missing {tool}: {names:?}");
+        assert!(
+            names.contains(&tool),
+            "tools/list missing {tool}: {names:?}"
+        );
     }
     assert_eq!(names.len(), 6, "expected exactly 6 tools, got {names:?}");
 
@@ -118,8 +121,15 @@ fn server_lists_and_calls_all_six_tools_on_empty_db() {
     for (i, tool) in TOOLS.iter().enumerate() {
         let id = 3 + i as i64;
         let resp = &by_id[&id];
-        assert_eq!(resp["id"].as_i64(), Some(id), "{tool}: id not echoed: {resp}");
-        assert!(resp.get("error").is_none(), "{tool} returned an error: {resp}");
+        assert_eq!(
+            resp["id"].as_i64(),
+            Some(id),
+            "{tool}: id not echoed: {resp}"
+        );
+        assert!(
+            resp.get("error").is_none(),
+            "{tool} returned an error: {resp}"
+        );
         assert!(resp.get("result").is_some(), "{tool} has no result: {resp}");
     }
 

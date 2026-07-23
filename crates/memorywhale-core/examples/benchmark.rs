@@ -8,8 +8,8 @@
 //! byte-identically.
 //!
 //! Compares three retrieval systems over the same corpus:
-//!   1. builtin  — memorywhale-core's BuiltinEngine (default weights; similarity is now
-//!                 SQLite FTS5 BM25 blended with recency/importance/reinforcement/task).
+//!   1. builtin  — BuiltinEngine with FTS5 BM25, recency, importance,
+//!      reinforcement, and task relevance.
 //!   2. keyword  — a plain substring/keyword-overlap baseline.
 //!   3. fts5     — an in-memory SQLite FTS5 (bm25) index over the same text.
 //!
@@ -142,8 +142,9 @@ fn rank_fts5(conn: &Connection, memories: &[Memory], q: &QuerySpec) -> rusqlite:
 
     let mut ranked: Vec<i64> = Vec::new();
     if !match_expr.is_empty() {
-        let mut stmt =
-            conn.prepare("SELECT rowid FROM mem_fts WHERE mem_fts MATCH ?1 ORDER BY bm25(mem_fts), rowid")?;
+        let mut stmt = conn.prepare(
+            "SELECT rowid FROM mem_fts WHERE mem_fts MATCH ?1 ORDER BY bm25(mem_fts), rowid",
+        )?;
         let rows = stmt.query_map([&match_expr], |r| r.get::<_, i64>(0))?;
         for id in rows {
             ranked.push(id?);
@@ -273,7 +274,10 @@ fn print_table(label: &str, questions: usize, now: DateTime<Utc>, rows: &[Row]) 
         questions,
         now.date_naive()
     );
-    println!("{:<10} {:>10} {:>10} {:>8}", "system", "recall@1", "recall@5", "MRR");
+    println!(
+        "{:<10} {:>10} {:>10} {:>8}",
+        "system", "recall@1", "recall@5", "MRR"
+    );
     for r in rows {
         println!(
             "{:<10} {:>10.3} {:>10.3} {:>8.3}",
@@ -283,9 +287,12 @@ fn print_table(label: &str, questions: usize, now: DateTime<Utc>, rows: &[Row]) 
 }
 
 fn main() -> anyhow::Result<()> {
-    let dir = std::env::args().nth(1).unwrap_or_else(|| "benchmarks".into());
+    let dir = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "benchmarks".into());
     let dir = dir.trim_end_matches('/');
-    let corpus: Corpus = serde_json::from_str(&std::fs::read_to_string(format!("{dir}/corpus.json"))?)?;
+    let corpus: Corpus =
+        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/corpus.json"))?)?;
 
     let now = fixed_now();
     let memories: Vec<Memory> = corpus
@@ -316,7 +323,14 @@ fn main() -> anyhow::Result<()> {
     // Set 1: pure term-overlap gold set → results/.
     let text_rows = run_set(dir, "results", "questions.json", &conn, &memories, now)?;
     // Set 2: intent gold set → results_intent/.
-    let intent_rows = run_set(dir, "results_intent", "questions_intent.json", &conn, &memories, now)?;
+    let intent_rows = run_set(
+        dir,
+        "results_intent",
+        "questions_intent.json",
+        &conn,
+        &memories,
+        now,
+    )?;
 
     let count = |file: &str| -> usize {
         std::fs::read_to_string(format!("{dir}/{file}"))
@@ -326,9 +340,25 @@ fn main() -> anyhow::Result<()> {
             .unwrap_or(0)
     };
 
-    println!("recall benchmark · {} memories · now={}", memories.len(), now.date_naive());
-    print_table("term-overlap set (results/)", count("questions.json"), now, &text_rows);
-    print_table("intent set (results_intent/)", count("questions_intent.json"), now, &intent_rows);
-    println!("\nper-question results written to {dir}/results/*.json and {dir}/results_intent/*.json");
+    println!(
+        "recall benchmark · {} memories · now={}",
+        memories.len(),
+        now.date_naive()
+    );
+    print_table(
+        "term-overlap set (results/)",
+        count("questions.json"),
+        now,
+        &text_rows,
+    );
+    print_table(
+        "intent set (results_intent/)",
+        count("questions_intent.json"),
+        now,
+        &intent_rows,
+    );
+    println!(
+        "\nper-question results written to {dir}/results/*.json and {dir}/results_intent/*.json"
+    );
     Ok(())
 }

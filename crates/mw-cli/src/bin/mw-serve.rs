@@ -137,7 +137,11 @@ fn handle(mut stream: TcpStream) {
     if reader.read_line(&mut request_line).is_err() {
         return;
     }
-    let raw_path = request_line.split_whitespace().nth(1).unwrap_or("/").to_string();
+    let raw_path = request_line
+        .split_whitespace()
+        .nth(1)
+        .unwrap_or("/")
+        .to_string();
 
     // Read headers (only need Cookie for auth); stop at the blank line.
     let mut cookie = String::new();
@@ -165,9 +169,16 @@ fn handle(mut stream: TcpStream) {
     match query_param(&raw_path, "tz") {
         Some(tz) => {
             set_display_tz(parse_tz(&tz));
-            cookies.push(format!("mw_tz={tz}; Path=/; SameSite=Strict; Max-Age=31536000"));
+            cookies.push(format!(
+                "mw_tz={tz}; Path=/; SameSite=Strict; Max-Age=31536000"
+            ));
         }
-        None => set_display_tz(cookie_tz.as_deref().map(parse_tz).unwrap_or(DisplayTz::Local)),
+        None => set_display_tz(
+            cookie_tz
+                .as_deref()
+                .map(parse_tz)
+                .unwrap_or(DisplayTz::Local),
+        ),
     }
 
     // Optional shared-token gate. A valid ?token= sets a cookie so links keep working.
@@ -178,13 +189,17 @@ fn handle(mut stream: TcpStream) {
             .filter_map(|c| c.trim().strip_prefix("mw_token="))
             .any(|v| v == want);
         if via_query {
-            cookies.push(format!("mw_token={want}; Path=/; HttpOnly; SameSite=Strict"));
+            cookies.push(format!(
+                "mw_token={want}; Path=/; HttpOnly; SameSite=Strict"
+            ));
         } else if !via_cookie {
-            let body =
-                page("Unauthorized", "<p>This dashboard requires a token. Append <code>?token=…</code> to the URL.</p>");
+            let body = page(
+                "Unauthorized",
+                "<p>This dashboard requires a token. Append <code>?token=…</code> to the URL.</p>",
+            );
             let response = format!(
                 "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                body.as_bytes().len()
+                body.len()
             );
             let _ = stream.write_all(response.as_bytes());
             let _ = stream.write_all(body.as_bytes());
@@ -199,7 +214,7 @@ fn handle(mut stream: TcpStream) {
         .collect();
     let response = format!(
         "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n{cookie_header}Connection: close\r\n\r\n",
-        body.as_bytes().len()
+        body.len()
     );
     let _ = stream.write_all(response.as_bytes());
     let _ = stream.write_all(body.as_bytes());
@@ -505,9 +520,9 @@ fn repo_counts(conn: &Connection) -> HashMap<String, i64> {
     }
     let roots = discovered_repo_roots(conn);
     if let Ok(mut stmt) = conn.prepare("SELECT cwd, transcript FROM sessions") {
-        if let Ok(it) =
-            stmt.query_map([], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, String>(1)?)))
-        {
+        if let Ok(it) = stmt.query_map([], |r| {
+            Ok((r.get::<_, Option<String>>(0)?, r.get::<_, String>(1)?))
+        }) {
             for (cwd, transcript) in it.flatten() {
                 for name in session_repos(&cwd, &transcript, &roots) {
                     *counts.entry(name).or_insert(0) += 1;
@@ -523,8 +538,7 @@ fn project_of(notes: &str) -> Option<String> {
     re.captures(notes).map(|c| c[1].to_string())
 }
 
-/// Count how many command runs + sessions belong to each project tag.
-
+// Count how many command runs + sessions belong to each project tag.
 fn search_results(conn: &Connection, query: &str) -> String {
     let needle = format!("%{}%", query.trim());
     let mut out = String::new();
@@ -642,7 +656,7 @@ enum DisplayTz {
 }
 
 thread_local! {
-    static DISPLAY_TZ: std::cell::Cell<DisplayTz> = std::cell::Cell::new(DisplayTz::Local);
+    static DISPLAY_TZ: std::cell::Cell<DisplayTz> = const { std::cell::Cell::new(DisplayTz::Local) };
 }
 
 fn set_display_tz(tz: DisplayTz) {
@@ -798,7 +812,7 @@ fn session_row(
     status: &str,
 ) -> String {
     let badge_class = match status {
-        "recording" if session_age_seconds(ended_at).map_or(false, |age| age <= 30) => "live",
+        "recording" if session_age_seconds(ended_at).is_some_and(|age| age <= 30) => "live",
         "recording" | "interrupted" => "warn",
         _ => "sess",
     };
@@ -966,11 +980,7 @@ fn repo_page(raw_name: &str) -> String {
             ))
         }) {
             for (id, cmd, argv_json, code, at, notes, cwd) in it.flatten() {
-                let in_repo = cwd
-                    .as_deref()
-                    .and_then(repo_of)
-                    .map(|(_, n)| n)
-                    .as_deref()
+                let in_repo = cwd.as_deref().and_then(repo_of).map(|(_, n)| n).as_deref()
                     == Some(name.as_str());
                 if !in_repo {
                     continue;
@@ -1007,7 +1017,10 @@ fn repo_page(raw_name: &str) -> String {
                 if !session_repos(&cwd, &transcript, &roots).contains(&name) {
                     continue;
                 }
-                items.push((at.clone(), session_row(id, &at, &ended_at, bytes, &notes, &status)));
+                items.push((
+                    at.clone(),
+                    session_row(id, &at, &ended_at, bytes, &notes, &status),
+                ));
             }
         }
     }
@@ -1015,14 +1028,19 @@ fn repo_page(raw_name: &str) -> String {
     items.sort_by(|a, b| b.0.cmp(&a.0)); // newest first
 
     let mut body = String::from("<a class=\"back\" href=\"/\">← all memory</a>\n");
-    body.push_str(&format!("<div class=\"eyebrow\">repo</div>\n<h1>{}</h1>\n", esc(&name)));
+    body.push_str(&format!(
+        "<div class=\"eyebrow\">repo</div>\n<h1>{}</h1>\n",
+        esc(&name)
+    ));
     body.push_str(&format!(
         "<p class=\"sub\">{} memory item(s) in this repository, newest first. A session that also touched another repo appears under that one too.</p>\n",
         items.len()
     ));
     body.push_str("<div class=\"list\">\n");
     if items.is_empty() {
-        body.push_str("<p class=\"empty\">Nothing recorded in a working directory under this repo yet.</p>");
+        body.push_str(
+            "<p class=\"empty\">Nothing recorded in a working directory under this repo yet.</p>",
+        );
     }
     for (_, row) in items {
         body.push_str(&row);

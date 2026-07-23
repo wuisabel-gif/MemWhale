@@ -172,7 +172,9 @@ impl BuiltinEngine {
     /// Embed the query text if an embedder is attached (best-effort).
     #[cfg(feature = "embeddings")]
     fn query_embedding(&self, query: &Query) -> Option<Vec<f32>> {
-        self.embedder.as_ref().and_then(|e| e.embed(&query.text).ok())
+        self.embedder
+            .as_ref()
+            .and_then(|e| e.embed(&query.text).ok())
     }
 
     /// No embedder without the feature — retrieval is always lexical/BM25.
@@ -204,7 +206,13 @@ impl MemoryEngine for BuiltinEngine {
             .memories
             .iter()
             .map(|m| {
-                score_with_lexical(m, query, &self.weights, qe.as_deref(), sims.get(&m.id).copied())
+                score_with_lexical(
+                    m,
+                    query,
+                    &self.weights,
+                    qe.as_deref(),
+                    sims.get(&m.id).copied(),
+                )
             })
             .collect();
         scored.sort_by(|a, b| {
@@ -223,12 +231,15 @@ impl MemoryEngine for BuiltinEngine {
         } else {
             HashMap::new()
         };
-        self.memories
-            .iter()
-            .find(|m| m.id == id)
-            .map(|m| {
-                score_with_lexical(m, query, &self.weights, qe.as_deref(), sims.get(&m.id).copied())
-            })
+        self.memories.iter().find(|m| m.id == id).map(|m| {
+            score_with_lexical(
+                m,
+                query,
+                &self.weights,
+                qe.as_deref(),
+                sims.get(&m.id).copied(),
+            )
+        })
     }
 }
 
@@ -293,11 +304,7 @@ impl MemPalaceEngine {
                 .iter()
                 .any(|t| t.get("name").and_then(serde_json::Value::as_str) == Some(&self.tool))
             {
-                anyhow::bail!(
-                    "`{}` does not expose a `{}` tool",
-                    self.command,
-                    self.tool
-                );
+                anyhow::bail!("`{}` does not expose a `{}` tool", self.command, self.tool);
             }
         }
         let text = client.call_tool(
@@ -317,8 +324,8 @@ fn map_hits(payload: &str, query: &Query) -> anyhow::Result<Vec<ScoredMemory>> {
     use anyhow::Context;
     use serde_json::Value;
 
-    let parsed: Value = serde_json::from_str(payload)
-        .context("mempalace search result was not JSON")?;
+    let parsed: Value =
+        serde_json::from_str(payload).context("mempalace search result was not JSON")?;
     let hits = match &parsed {
         Value::Array(a) => a.clone(),
         Value::Object(o) => o
@@ -448,7 +455,12 @@ pub fn checkpoint(
     // The summary is JSON with added/duplicates/errors arrays; tolerate shape
     // drift by counting whatever arrays are present rather than requiring them.
     let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
-    let count = |k: &str| v.get(k).and_then(Value::as_array).map(Vec::len).unwrap_or(0);
+    let count = |k: &str| {
+        v.get(k)
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .unwrap_or(0)
+    };
     Ok(CheckpointOutcome {
         added: count("added"),
         duplicates: count("duplicates"),
@@ -500,7 +512,12 @@ pub fn sync_ops(
     let mut out = Vec::with_capacity(ops.len());
     for op in ops {
         match op {
-            SyncOp::Add { wing, room, content, added_by } => {
+            SyncOp::Add {
+                wing,
+                room,
+                content,
+                added_by,
+            } => {
                 let text = client.call_tool(
                     add_tool,
                     json!({"wing": wing, "room": room, "content": content, "added_by": added_by}),
@@ -535,9 +552,36 @@ mod tests {
     fn sample() -> Vec<Memory> {
         let n = now();
         vec![
-            Memory { id: 143, text: "I use Rust for systems software.".into(), created_at: n - Duration::days(20), last_used: n, mentions: 27, importance: 0.98, tags: vec!["rust".into()], embedding: None },
-            Memory { id: 7, text: "I ate pizza.".into(), created_at: n - Duration::days(40), last_used: n - Duration::days(40), mentions: 1, importance: 0.01, tags: vec![], embedding: None },
-            Memory { id: 22, text: "Use Tokio for async runtime.".into(), created_at: n - Duration::days(5), last_used: n - Duration::days(3), mentions: 6, importance: 0.6, tags: vec!["rust".into(), "tokio".into()], embedding: None },
+            Memory {
+                id: 143,
+                text: "I use Rust for systems software.".into(),
+                created_at: n - Duration::days(20),
+                last_used: n,
+                mentions: 27,
+                importance: 0.98,
+                tags: vec!["rust".into()],
+                embedding: None,
+            },
+            Memory {
+                id: 7,
+                text: "I ate pizza.".into(),
+                created_at: n - Duration::days(40),
+                last_used: n - Duration::days(40),
+                mentions: 1,
+                importance: 0.01,
+                tags: vec![],
+                embedding: None,
+            },
+            Memory {
+                id: 22,
+                text: "Use Tokio for async runtime.".into(),
+                created_at: n - Duration::days(5),
+                last_used: n - Duration::days(3),
+                mentions: 6,
+                importance: 0.6,
+                tags: vec!["rust".into(), "tokio".into()],
+                embedding: None,
+            },
         ]
     }
 
@@ -559,13 +603,29 @@ mod tests {
         let q = Query::new("pizza", now());
 
         let matching = eng.explain(7, &q).unwrap(); // "I ate pizza."
-        let sim_m = matching.signals.iter().find(|s| s.name == "similarity").unwrap();
-        assert!(sim_m.detail.contains("BM25"), "should use BM25: {}", sim_m.detail);
-        assert!(sim_m.score > 0.0, "matching memory sim should fire: {}", sim_m.score);
+        let sim_m = matching
+            .signals
+            .iter()
+            .find(|s| s.name == "similarity")
+            .unwrap();
+        assert!(
+            sim_m.detail.contains("BM25"),
+            "should use BM25: {}",
+            sim_m.detail
+        );
+        assert!(
+            sim_m.score > 0.0,
+            "matching memory sim should fire: {}",
+            sim_m.score
+        );
 
         let non = eng.explain(143, &q).unwrap(); // "I use Rust for systems software."
         let sim_n = non.signals.iter().find(|s| s.name == "similarity").unwrap();
-        assert_eq!(sim_n.score, 0.0, "non-matching sim should be 0: {}", sim_n.score);
+        assert_eq!(
+            sim_n.score, 0.0,
+            "non-matching sim should be 0: {}",
+            sim_n.score
+        );
         assert!(sim_m.score > sim_n.score);
     }
 
@@ -576,18 +636,58 @@ mod tests {
         // higher BM25 similarity — and the reason must name the tag source.
         let n = now();
         let mems = vec![
-            Memory { id: 1, text: "the recall test failed sometimes on CI".into(), created_at: n, last_used: n, mentions: 0, importance: 0.0, tags: vec!["flaky".into()], embedding: None },
-            Memory { id: 2, text: "flaky pastry notes: butter, layers, oven temperature, resting time, and folds".into(), created_at: n, last_used: n, mentions: 0, importance: 0.0, tags: vec![], embedding: None },
+            Memory {
+                id: 1,
+                text: "the recall test failed sometimes on CI".into(),
+                created_at: n,
+                last_used: n,
+                mentions: 0,
+                importance: 0.0,
+                tags: vec!["flaky".into()],
+                embedding: None,
+            },
+            Memory {
+                id: 2,
+                text:
+                    "flaky pastry notes: butter, layers, oven temperature, resting time, and folds"
+                        .into(),
+                created_at: n,
+                last_used: n,
+                mentions: 0,
+                importance: 0.0,
+                tags: vec![],
+                embedding: None,
+            },
         ];
         let eng = BuiltinEngine::new(mems);
         let q = Query::new("flaky", n);
         let a = eng.explain(1, &q).unwrap();
         let b = eng.explain(2, &q).unwrap();
-        let sim = |s: &ScoredMemory| s.signals.iter().find(|x| x.name == "similarity").unwrap().clone();
+        let sim = |s: &ScoredMemory| {
+            s.signals
+                .iter()
+                .find(|x| x.name == "similarity")
+                .unwrap()
+                .clone()
+        };
         let (sa, sb) = (sim(&a), sim(&b));
-        assert!(sa.score > 0.0 && sb.score > 0.0, "both should match: {} {}", sa.score, sb.score);
-        assert!(sa.score > sb.score, "tag hit ({}) should outrank weaker body hit ({})", sa.score, sb.score);
-        assert!(sa.detail.contains("tag"), "reason should name the tag source: {}", sa.detail);
+        assert!(
+            sa.score > 0.0 && sb.score > 0.0,
+            "both should match: {} {}",
+            sa.score,
+            sb.score
+        );
+        assert!(
+            sa.score > sb.score,
+            "tag hit ({}) should outrank weaker body hit ({})",
+            sa.score,
+            sb.score
+        );
+        assert!(
+            sa.detail.contains("tag"),
+            "reason should name the tag source: {}",
+            sa.detail
+        );
     }
 
     #[test]
@@ -627,7 +727,10 @@ mod tests {
     #[cfg(all(feature = "mempalace", unix))]
     #[test]
     fn mempalace_talks_to_a_fake_server() {
-        let script = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake-mempalace-mcp.sh");
+        let script = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/fake-mempalace-mcp.sh"
+        );
         let eng = MemPalaceEngine::new("sh", vec![script.to_string()]);
         let hits = eng.try_retrieve(&Query::new("rust", now()), 10).unwrap();
         assert_eq!(hits.len(), 2);
@@ -638,15 +741,32 @@ mod tests {
     #[cfg(all(feature = "mempalace", unix))]
     #[test]
     fn checkpoint_pushes_and_parses_the_summary() {
-        let script =
-            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake-mempalace-checkpoint.sh");
+        let script = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/fake-mempalace-checkpoint.sh"
+        );
         let items = vec![
-            Drawer { wing: "memorywhale".into(), room: "command".into(), content: "cargo build failed".into() },
-            Drawer { wing: "memorywhale".into(), room: "note".into(), content: "the fix was X".into() },
+            Drawer {
+                wing: "memorywhale".into(),
+                room: "command".into(),
+                content: "cargo build failed".into(),
+            },
+            Drawer {
+                wing: "memorywhale".into(),
+                room: "note".into(),
+                content: "the fix was X".into(),
+            },
         ];
         let out = checkpoint("sh", &[script.to_string()], "mempalace_checkpoint", &items).unwrap();
         // Fixture reports two added, one duplicate, no errors.
-        assert_eq!(out, CheckpointOutcome { added: 2, duplicates: 1, errors: 0 });
+        assert_eq!(
+            out,
+            CheckpointOutcome {
+                added: 2,
+                duplicates: 1,
+                errors: 0
+            }
+        );
     }
 
     /// One session, mixed delete+add ops against a fake server: deletes succeed
@@ -654,8 +774,10 @@ mod tests {
     #[cfg(all(feature = "mempalace", unix))]
     #[test]
     fn sync_ops_adds_and_deletes_over_one_session() {
-        let script =
-            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fake-mempalace-sync.sh");
+        let script = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/fake-mempalace-sync.sh"
+        );
         let ops = vec![
             SyncOp::Add {
                 wing: "memorywhale".into(),
@@ -663,7 +785,9 @@ mod tests {
                 content: "first".into(),
                 added_by: "you".into(),
             },
-            SyncOp::Delete { drawer_id: "old-1".into() },
+            SyncOp::Delete {
+                drawer_id: "old-1".into(),
+            },
             SyncOp::Add {
                 wing: "memorywhale".into(),
                 room: "note".into(),
