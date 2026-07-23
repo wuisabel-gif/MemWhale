@@ -3,10 +3,13 @@
 mw-serve \- serve the MemoryWhale memory store as a local web dashboard
 .SH SYNOPSIS
 .B mw-serve
+.RI [ --lan ]
 .RI [ --host
 .IR addr ]
 .RI [ --port
 .IR n ]
+.RI [ --token
+.IR secret ]
 .SH DESCRIPTION
 .B mw-serve
 runs a small, dependency-free HTTP server that renders the local MemoryWhale
@@ -24,11 +27,15 @@ interrupted before its database row was written.
 .TP
 .BI "--host " addr
 Address to bind. Default
-.BR 0.0.0.0 ,
-which makes the dashboard reachable from other machines on the LAN (for
-example, opening a Jetson's dashboard from a laptop browser). Use
-.B 127.0.0.1
-to restrict it to localhost.
+.BR 127.0.0.1 .
+.TP
+.B --lan
+Bind to
+.BR 0.0.0.0 .
+LAN access requires
+.B MEMORYWHALE_TOKEN
+or
+.BR --token .
 .TP
 .BI "--port " n
 TCP port to listen on. Default
@@ -36,10 +43,10 @@ TCP port to listen on. Default
 .SH EXAMPLES
 .TP
 Localhost only:
-.B mw-serve --host 127.0.0.1
+.B mw-serve
 .TP
-Reachable on the LAN at port 8080:
-.B mw-serve --host 0.0.0.0 --port 8080
+Authenticated LAN access at port 8080:
+.B MEMORYWHALE_TOKEN=shared-secret mw-serve --lan --port 8080
 .SH SEE ALSO
 .BR mw (1),
 .BR mw-remember (1)

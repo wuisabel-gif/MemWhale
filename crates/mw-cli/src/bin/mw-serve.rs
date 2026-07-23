@@ -7,9 +7,9 @@
 // at http://<machine-ip>:<port>/. Everything stays local; nothing is uploaded.
 //
 // Usage:
-//   mw-serve                 serve on 0.0.0.0:7071
+//   mw-serve                 serve on 127.0.0.1:7071
+//   MEMORYWHALE_TOKEN=... mw-serve --lan  serve on the LAN with authentication
 //   mw-serve --port 8080     serve on a different port
-//   mw-serve --host 127.0.0.1  bind to localhost only
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use regex::Regex;
@@ -17,7 +17,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -35,31 +35,16 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let mut host = "0.0.0.0".to_string();
-    let mut port: u16 = 7071;
-    let mut token = std::env::var("MEMORYWHALE_TOKEN").unwrap_or_default();
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--help" | "-h" => {
-                println!(
-                    "mw-serve [--host <addr>] [--port <n>] [--token <secret>]  — serve memory as a web dashboard"
-                );
-                return Ok(());
-            }
-            "--host" => host = args.next().unwrap_or(host),
-            "--port" => {
-                port = args
-                    .next()
-                    .and_then(|v| v.parse().ok())
-                    .ok_or("--port needs a number")?;
-            }
-            "--token" => token = args.next().unwrap_or_default(),
-            other => return Err(format!("unknown option {other:?}; run mw-serve --help")),
-        }
+    let config = parse_server_args(std::env::args().skip(1))?;
+    if config.help {
+        println!(
+            "mw-serve [--lan | --host <addr>] [--port <n>] [--token <secret>]  — serve memory as a web dashboard"
+        );
+        return Ok(());
     }
-    if !token.is_empty() {
-        let _ = AUTH_TOKEN.set(token);
+    validate_server_config(&config)?;
+    if !config.token.is_empty() {
+        let _ = AUTH_TOKEN.set(config.token.clone());
     }
 
     let db = database_path()?;
@@ -100,19 +85,19 @@ fn run() -> Result<(), String> {
         Err(e) => eprintln!("mw-serve: recovery skipped: {e}"),
     }
 
-    let listener = TcpListener::bind((host.as_str(), port))
-        .map_err(|e| format!("failed to bind {host}:{port}: {e}"))?;
+    let listener = TcpListener::bind((config.host.as_str(), config.port))
+        .map_err(|e| format!("failed to bind {}:{}: {e}", config.host, config.port))?;
 
     println!("MemoryWhale dashboard serving from {}", db.display());
-    println!("  local:   http://localhost:{port}/");
-    if host == "0.0.0.0" {
-        println!("  network: http://<this-machine-ip>:{port}/  (find it with: hostname -I)");
+    println!("  local:   http://localhost:{}/", config.port);
+    if !is_loopback_host(&config.host) {
+        println!(
+            "  network: http://<this-machine-ip>:{}/  (find it with: hostname -I)",
+            config.port
+        );
     }
-    if let Some(t) = AUTH_TOKEN.get() {
-        println!("  auth:    token required — open http://localhost:{port}/?token={t} once");
-    } else if host == "0.0.0.0" {
-        println!("  note:    no token set — anyone on this network can read your memory.");
-        println!("           set MEMORYWHALE_TOKEN or --token to require one.");
+    if AUTH_TOKEN.get().is_some() {
+        println!("  auth:    token required — enter it in the dashboard sign-in form");
     }
     println!("Press Ctrl-C to stop.");
 
@@ -127,6 +112,63 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct ServerConfig {
+    host: String,
+    port: u16,
+    token: String,
+    help: bool,
+}
+
+fn parse_server_args<I>(args: I) -> Result<ServerConfig, String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut host = "127.0.0.1".to_string();
+    let mut port = 7071;
+    let mut token = std::env::var("MEMORYWHALE_TOKEN").unwrap_or_default();
+    let mut help = false;
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--help" | "-h" => {
+                help = true;
+                break;
+            }
+            "--lan" => host = "0.0.0.0".to_string(),
+            "--host" => host = args.next().ok_or("--host needs an address")?,
+            "--port" => {
+                port = args
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .ok_or("--port needs a number")?;
+            }
+            "--token" => token = args.next().unwrap_or_default(),
+            other => return Err(format!("unknown option {other:?}; run mw-serve --help")),
+        }
+    }
+    Ok(ServerConfig {
+        host,
+        port,
+        token,
+        help,
+    })
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    matches!(host, "127.0.0.1" | "::1" | "localhost")
+}
+
+fn validate_server_config(config: &ServerConfig) -> Result<(), String> {
+    if !config.help && !is_loopback_host(&config.host) && config.token.is_empty() {
+        return Err(
+            "refusing unauthenticated non-loopback bind; set MEMORYWHALE_TOKEN or --token"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 fn handle(mut stream: TcpStream) {
     let read_stream = match stream.try_clone() {
         Ok(s) => s,
@@ -137,10 +179,13 @@ fn handle(mut stream: TcpStream) {
     if reader.read_line(&mut request_line).is_err() {
         return;
     }
-    let raw_path = request_line.split_whitespace().nth(1).unwrap_or("/").to_string();
+    let mut request_parts = request_line.split_whitespace();
+    let method = request_parts.next().unwrap_or("GET").to_string();
+    let raw_path = request_parts.next().unwrap_or("/").to_string();
 
-    // Read headers (only need Cookie for auth); stop at the blank line.
+    // Read the cookie and body length; stop at the blank line.
     let mut cookie = String::new();
+    let mut content_length = 0usize;
     loop {
         let mut line = String::new();
         if reader.read_line(&mut line).is_err() || line == "\r\n" || line == "\n" || line.is_empty()
@@ -153,7 +198,18 @@ fn handle(mut stream: TcpStream) {
         {
             cookie = rest.1.trim().to_string();
         }
+        if let Some(rest) = line
+            .split_once(':')
+            .filter(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+        {
+            content_length = rest.1.trim().parse().unwrap_or(0).min(4096);
+        }
     }
+    let mut request_body = vec![0; content_length];
+    if reader.read_exact(&mut request_body).is_err() {
+        return;
+    }
+    let request_body = String::from_utf8_lossy(&request_body);
 
     let mut cookies: Vec<String> = Vec::new();
 
@@ -165,23 +221,49 @@ fn handle(mut stream: TcpStream) {
     match query_param(&raw_path, "tz") {
         Some(tz) => {
             set_display_tz(parse_tz(&tz));
-            cookies.push(format!("mw_tz={tz}; Path=/; SameSite=Strict; Max-Age=31536000"));
+            cookies.push(format!(
+                "mw_tz={tz}; Path=/; SameSite=Strict; Max-Age=31536000"
+            ));
         }
-        None => set_display_tz(cookie_tz.as_deref().map(parse_tz).unwrap_or(DisplayTz::Local)),
+        None => set_display_tz(
+            cookie_tz
+                .as_deref()
+                .map(parse_tz)
+                .unwrap_or(DisplayTz::Local),
+        ),
     }
 
-    // Optional shared-token gate. A valid ?token= sets a cookie so links keep working.
+    // Optional shared-token gate. Sign in with a POST body so the token never
+    // appears in browser history, server logs, or copied dashboard URLs.
     if let Some(want) = AUTH_TOKEN.get() {
-        let via_query = query_param(&raw_path, "token").as_deref() == Some(want.as_str());
         let via_cookie = cookie
             .split(';')
             .filter_map(|c| c.trim().strip_prefix("mw_token="))
             .any(|v| v == want);
-        if via_query {
-            cookies.push(format!("mw_token={want}; Path=/; HttpOnly; SameSite=Strict"));
+        let login_attempt = method == "POST" && raw_path == "/login";
+        let supplied = form_param(&request_body, "token");
+        if login_attempt && supplied.as_deref() == Some(want.as_str()) {
+            cookies.push(format!(
+                "mw_token={want}; Path=/; HttpOnly; SameSite=Strict"
+            ));
+            let response = format!(
+                "HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                cookies.last().unwrap()
+            );
+            let _ = stream.write_all(response.as_bytes());
+            return;
         } else if !via_cookie {
-            let body =
-                page("Unauthorized", "<p>This dashboard requires a token. Append <code>?token=…</code> to the URL.</p>");
+            let message = if login_attempt {
+                "<p>That token was not accepted.</p>"
+            } else {
+                "<p>This dashboard requires a token.</p>"
+            };
+            let body = page(
+                "Sign in",
+                &format!(
+                    "{message}<form method=\"post\" action=\"/login\"><label>Shared token <input type=\"password\" name=\"token\" autocomplete=\"current-password\" required></label> <button type=\"submit\">Sign in</button></form>"
+                ),
+            );
             let response = format!(
                 "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                 body.as_bytes().len()
@@ -203,6 +285,10 @@ fn handle(mut stream: TcpStream) {
     );
     let _ = stream.write_all(response.as_bytes());
     let _ = stream.write_all(body.as_bytes());
+}
+
+fn form_param(body: &str, key: &str) -> Option<String> {
+    query_param(&format!("?{body}"), key)
 }
 
 fn route(raw_path: &str) -> (&'static str, String) {
@@ -505,9 +591,9 @@ fn repo_counts(conn: &Connection) -> HashMap<String, i64> {
     }
     let roots = discovered_repo_roots(conn);
     if let Ok(mut stmt) = conn.prepare("SELECT cwd, transcript FROM sessions") {
-        if let Ok(it) =
-            stmt.query_map([], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, String>(1)?)))
-        {
+        if let Ok(it) = stmt.query_map([], |r| {
+            Ok((r.get::<_, Option<String>>(0)?, r.get::<_, String>(1)?))
+        }) {
             for (cwd, transcript) in it.flatten() {
                 for name in session_repos(&cwd, &transcript, &roots) {
                     *counts.entry(name).or_insert(0) += 1;
@@ -966,11 +1052,7 @@ fn repo_page(raw_name: &str) -> String {
             ))
         }) {
             for (id, cmd, argv_json, code, at, notes, cwd) in it.flatten() {
-                let in_repo = cwd
-                    .as_deref()
-                    .and_then(repo_of)
-                    .map(|(_, n)| n)
-                    .as_deref()
+                let in_repo = cwd.as_deref().and_then(repo_of).map(|(_, n)| n).as_deref()
                     == Some(name.as_str());
                 if !in_repo {
                     continue;
@@ -1007,7 +1089,10 @@ fn repo_page(raw_name: &str) -> String {
                 if !session_repos(&cwd, &transcript, &roots).contains(&name) {
                     continue;
                 }
-                items.push((at.clone(), session_row(id, &at, &ended_at, bytes, &notes, &status)));
+                items.push((
+                    at.clone(),
+                    session_row(id, &at, &ended_at, bytes, &notes, &status),
+                ));
             }
         }
     }
@@ -1015,14 +1100,19 @@ fn repo_page(raw_name: &str) -> String {
     items.sort_by(|a, b| b.0.cmp(&a.0)); // newest first
 
     let mut body = String::from("<a class=\"back\" href=\"/\">← all memory</a>\n");
-    body.push_str(&format!("<div class=\"eyebrow\">repo</div>\n<h1>{}</h1>\n", esc(&name)));
+    body.push_str(&format!(
+        "<div class=\"eyebrow\">repo</div>\n<h1>{}</h1>\n",
+        esc(&name)
+    ));
     body.push_str(&format!(
         "<p class=\"sub\">{} memory item(s) in this repository, newest first. A session that also touched another repo appears under that one too.</p>\n",
         items.len()
     ));
     body.push_str("<div class=\"list\">\n");
     if items.is_empty() {
-        body.push_str("<p class=\"empty\">Nothing recorded in a working directory under this repo yet.</p>");
+        body.push_str(
+            "<p class=\"empty\">Nothing recorded in a working directory under this repo yet.</p>",
+        );
     }
     for (_, row) in items {
         body.push_str(&row);
@@ -1708,6 +1798,37 @@ fn init_min_schema(conn: &Connection) -> Result<(), String> {
         [],
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dashboard_defaults_to_loopback() {
+        let config = parse_server_args(Vec::<String>::new()).unwrap();
+        assert_eq!(config.host, "127.0.0.1");
+        assert_eq!(config.port, 7071);
+        assert!(validate_server_config(&config).is_ok());
+    }
+
+    #[test]
+    fn lan_requires_authentication() {
+        let mut config = parse_server_args(["--lan".to_string()]).unwrap();
+        config.token.clear();
+        assert!(validate_server_config(&config).is_err());
+        config.token = "shared-secret".to_string();
+        assert!(validate_server_config(&config).is_ok());
+    }
+
+    #[test]
+    fn token_is_read_from_form_body_not_query_string() {
+        assert_eq!(
+            form_param("token=shared%20secret", "token").as_deref(),
+            Some("shared secret")
+        );
+        assert!(form_param("other=value", "token").is_none());
+    }
 }
 
 /// Import every session `.log` that has no row yet (interrupted recordings).
