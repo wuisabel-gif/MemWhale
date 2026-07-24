@@ -1782,6 +1782,30 @@ mod tests {
         dir
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn local_data_permissions_are_restricted() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = fresh_data_dir("permissions");
+        let file = dir.join("memorywhale.sqlite3");
+        std::fs::write(&file, b"fixture").unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o777)).unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o666)).unwrap();
+
+        restrict_path_permissions(&dir, true).unwrap();
+        restrict_path_permissions(&file, false).unwrap();
+
+        let dir_mode = std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777;
+        let file_mode = std::fs::metadata(&file).unwrap().permissions().mode() & 0o777;
+        assert_eq!(dir_mode, 0o700);
+        assert_eq!(file_mode, 0o600);
+
+        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn remember_writes_and_redacts() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());

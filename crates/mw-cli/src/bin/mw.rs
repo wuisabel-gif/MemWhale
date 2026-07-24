@@ -47,6 +47,7 @@ fn run() -> Result<(), String> {
         Some("rm") => return rm_memory(&raw_args[1..]),
         Some("prune") => return prune_cmd(&raw_args[1..]),
         Some("audit") => return audit_cmd(),
+        Some("forget-repo") => return forget_repository_cmd(&raw_args[1..]),
         Some("share") => return share_cmd(&raw_args[1..]),
         Some("discard") => return discard_cmd(),
         Some("replay") => return replay_command(&raw_args[1..]),
@@ -274,6 +275,7 @@ fn print_help() {
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
          mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
          mw audit                 report capture policy, retained volume, and high-volume sources\n\
+         mw forget-repo [path] [--dry-run|--yes]  preview or delete everything captured for one repository\n\
          mw status                print the effective capture mode for this directory and why\n\
          mw share [session|command] <id> [-o file]  write a self-contained HTML page to send to someone\n\
          mw discard               inside a recording: throw the current session away — nothing saved\n\
@@ -578,6 +580,93 @@ fn audit_cmd() -> Result<(), String> {
 
     println!("\nCleanup: `mw rm <id>` deletes one session and transcript; use");
     println!("`mw prune --older-than 30d --dry-run` to preview retention cleanup.");
+    Ok(())
+}
+
+/// Preview or delete every memory whose working directory is inside one
+/// repository. Actual deletion requires `--yes`; the default is a dry run.
+fn forget_repository_cmd(args: &[String]) -> Result<(), String> {
+    let mut path: Option<PathBuf> = None;
+    let mut confirmed = false;
+    for arg in args {
+        match arg.as_str() {
+            "--yes" => confirmed = true,
+            "--dry-run" => {}
+            value if value.starts_with('-') => {
+                return Err(format!(
+                    "unknown option {value:?}; usage: mw forget-repo [path] [--dry-run|--yes]"
+                ))
+            }
+            value if path.is_none() => path = Some(PathBuf::from(value)),
+            value => {
+                return Err(format!(
+                    "unexpected path {value:?}; usage: mw forget-repo [path] [--dry-run|--yes]"
+                ))
+            }
+        }
+    }
+
+    let requested = match path {
+        Some(path) if path.is_absolute() => path,
+        Some(path) => env::current_dir()
+            .map_err(|e| format!("failed to resolve current directory: {e}"))?
+            .join(path),
+        None => {
+            env::current_dir().map_err(|e| format!("failed to resolve current directory: {e}"))?
+        }
+    };
+    let root = fs::canonicalize(&requested)
+        .map_err(|e| format!("failed to resolve repository {}: {e}", requested.display()))?;
+    if !root.is_dir() {
+        return Err(format!(
+            "repository path is not a directory: {}",
+            root.display()
+        ));
+    }
+
+    let mut conn = open_session_db()?;
+    let plan = memorywhale_cli::storage::plan_repository_deletion(&conn, &root)?;
+    println!("MemoryWhale repository deletion preview");
+    println!("  repository: {}", plan.root.display());
+    println!("  sessions: {}", plan.sessions);
+    println!("  command runs: {}", plan.command_runs);
+    println!("  bookmarks: {}", plan.bookmarks);
+    println!("  screenshots: {}", plan.screenshots);
+    println!("  managed capture files: {}", plan.managed_files.len());
+
+    if plan.total_rows() == 0 {
+        println!("mw: no captured memory matched this repository.");
+        return Ok(());
+    }
+    if !confirmed {
+        println!(
+            "mw: dry run only; rerun with `mw forget-repo {} --yes` to delete these records.",
+            plan.root.display()
+        );
+        return Ok(());
+    }
+
+    memorywhale_cli::storage::execute_repository_deletion(&mut conn, &plan)?;
+    let mut file_failures = 0usize;
+    for path in &plan.managed_files {
+        match fs::remove_file(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                eprintln!("mw: warning: could not remove {}: {error}", path.display());
+                file_failures += 1;
+            }
+        }
+    }
+    println!(
+        "mw: deleted {} database row(s) and {} managed capture file(s) for {}.",
+        plan.total_rows(),
+        plan.managed_files.len().saturating_sub(file_failures),
+        plan.root.display()
+    );
+    if file_failures > 0 {
+        eprintln!("mw: warning: {file_failures} managed capture file(s) could not be removed.");
+    }
     Ok(())
 }
 

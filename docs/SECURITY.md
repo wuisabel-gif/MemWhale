@@ -29,6 +29,9 @@ need the same protection as shell history or an unencrypted developer backup.
   highest-volume session sources.
 - Use `mw rm` for individual deletion and `mw prune --older-than <window>` for
   retention cleanup. Preview bulk cleanup with `--dry-run`.
+- Use `mw forget-repo [path]` to preview everything associated with one
+  repository tree, then repeat with `--yes` to remove its sessions, commands,
+  bookmarks, screenshots, sync mappings, and managed capture files.
 
 For a sensitive repository, prefer preventing capture over relying on
 redaction or later deletion.

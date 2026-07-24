@@ -21,6 +21,7 @@ mw replay 12                          # rerun a saved command run
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
+mw forget-repo [path] [--dry-run|--yes] # preview/delete everything captured under one repository
 mw memory stale <id>                  # retire an outdated lesson, preserving its row
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
 mw audit                              # inspect capture policy and retained volume
