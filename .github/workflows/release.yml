@@ -92,14 +92,15 @@ jobs:
           asset="${{ steps.package.outputs.asset }}"
           ver="$(awk -F'"' '/^version = / { print $2; exit }' crates/mw-cli/Cargo.toml)"
           root="memorywhale-${ver}-${{ matrix.target }}"
-          test "$(tar tzf "$asset" | head -1)" = "$root/"
+          tar tzf "$asset" > archive-contents.txt
+          test "$(head -1 archive-contents.txt)" = "$root/"
           for b in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
-            tar tzf "$asset" | grep -qx "$root/bin/$b"
+            grep -Fxq "$root/bin/$b" archive-contents.txt
           done
-          tar tzf "$asset" | grep -qx "$root/README.md"
-          tar tzf "$asset" | grep -qx "$root/CHANGELOG.md"
-          tar tzf "$asset" | grep -qx "$root/SECURITY.md"
-          tar tzf "$asset" | grep -qx "$root/LICENSE"
+          grep -Fxq "$root/README.md" archive-contents.txt
+          grep -Fxq "$root/CHANGELOG.md" archive-contents.txt
+          grep -Fxq "$root/SECURITY.md" archive-contents.txt
+          grep -Fxq "$root/LICENSE" archive-contents.txt
 
       - name: Build .deb
         if: matrix.deb
