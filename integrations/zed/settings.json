@@ -1,0 +1,9 @@
+{
+  "context_servers": {
+    "memorywhale": {
+      "command": "mw-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}
