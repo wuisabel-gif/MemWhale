@@ -1,0 +1,18 @@
+# Add this under `extensions:` in ~/.config/goose/config.yaml to give Goose
+# access to MemoryWhale's memory via MCP (tools: recent_errors, search_memory,
+# get_context, remember). Or use the wizard: `goose configure` -> Add Extension
+# -> Command-line Extension.
+#
+# `mw-mcp` must be on PATH (the standard MemoryWhale install). For a non-default
+# database, add MEMORYWHALE_DATA_DIR under `envs`.
+extensions:
+  memorywhale:
+    type: stdio
+    name: memorywhale
+    cmd: mw-mcp
+    args: []
+    enabled: true
+    timeout: 300
+    env_keys: []
+    envs: {}
+    description: "MemoryWhale persistent local memory"
