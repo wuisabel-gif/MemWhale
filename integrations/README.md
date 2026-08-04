@@ -26,9 +26,10 @@ file differs. Per-client setup (config + a "when to use it" rule):
 - **Cursor** → [`cursor/`](cursor/README.md)
 - **VS Code / GitHub Copilot** (agent mode) → [`vscode/`](vscode/README.md)
 - **Windsurf** → [`windsurf/`](windsurf/README.md)
+- **Zed** → [`zed/`](zed/README.md)
 - **Codex CLI** → [`codex/`](codex/README.md)
 - **OpenClaw** → [`openclaw/`](openclaw/README.md)
-- **Any other MCP client** (Zed, Cline, Continue, …) — add a stdio server whose
+- **Any other MCP client** (Cline, Continue, …) — add a stdio server whose
   command is `mw-mcp` (no arguments). It honours `MEMORYWHALE_DATA_DIR` like the
   rest of the CLI.
 
