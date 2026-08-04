@@ -1,0 +1,6 @@
+{
+  "name": "memorywhale",
+  "command": "mw-mcp",
+  "args": [],
+  "custom": true
+}

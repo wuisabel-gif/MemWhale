@@ -28,6 +28,7 @@ file differs. Per-client setup (config + a "when to use it" rule):
 - **Windsurf** → [`windsurf/`](windsurf/README.md)
 - **Codex CLI** → [`codex/`](codex/README.md)
 - **OpenClaw** → [`openclaw/`](openclaw/README.md)
+- **CrowClaw** → [`crowclaw/`](crowclaw/README.md)
 - **Goose** (Block) → [`goose/`](goose/README.md)
 - **Claude Desktop** → [`claude-desktop/`](claude-desktop/README.md)
 - **Cline** (VS Code) → [`cline/`](cline/README.md)
