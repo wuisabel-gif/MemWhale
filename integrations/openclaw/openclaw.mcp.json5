@@ -1,0 +1,19 @@
+// Merge this block into your OpenClaw config (`~/.openclaw/openclaw.json`, JSON5
+// is accepted) to give OpenClaw agents access to MemoryWhale's memory via MCP
+// (tools: recent_errors, search_memory, get_context, remember).
+//
+// `mw-mcp` must be on PATH (the standard MemoryWhale install); otherwise use its
+// absolute path as `command`. For a non-default database, add:
+//   env: { MEMORYWHALE_DATA_DIR: "/path/to/dir" }
+//
+// Equivalent one-liner:  openclaw mcp add memorywhale --command mw-mcp
+{
+  mcp: {
+    servers: {
+      memorywhale: {
+        command: "mw-mcp",
+        enabled: true,
+      },
+    },
+  },
+}
