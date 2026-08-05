@@ -61,9 +61,17 @@ pub fn decode_id(id: i64) -> (Source, i64) {
 }
 
 fn parse_ts(ts: &str) -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339(ts)
-        .map(|d| d.with_timezone(&Utc))
-        .unwrap_or_else(|_| Utc::now())
+    match DateTime::parse_from_rfc3339(ts) {
+        Ok(d) => d.with_timezone(&Utc),
+        Err(e) => {
+            // A malformed timestamp must not masquerade as `now()`: that would
+            // give a corrupted row an unearned recency boost (recency halves by
+            // age, so "now" ranks highest) and silently hide the corruption.
+            // Fall back to the Unix epoch so the row sorts as oldest, and warn.
+            eprintln!("memorywhale: unparseable timestamp {ts:?} ({e}); treating as epoch");
+            DateTime::from_timestamp(0, 0).unwrap_or_default()
+        }
+    }
 }
 
 /// Load everything MemoryWhale remembers as scorable memories, tolerant of any
@@ -311,6 +319,22 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    #[test]
+    fn parse_ts_valid_roundtrips_and_malformed_falls_back_to_epoch() {
+        // Valid RFC3339 parses to the same instant.
+        assert_eq!(
+            parse_ts("2026-06-20T12:00:00+00:00"),
+            DateTime::parse_from_rfc3339("2026-06-20T12:00:00+00:00")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
+        // Malformed must NOT become `now()` — it becomes the epoch, so a
+        // corrupted row sorts as oldest instead of newest.
+        let epoch = DateTime::from_timestamp(0, 0).unwrap();
+        assert_eq!(parse_ts("not-a-timestamp"), epoch);
+        assert_eq!(parse_ts(""), epoch);
     }
 
     #[test]
