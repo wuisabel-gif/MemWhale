@@ -89,6 +89,13 @@ jobs:
           tar tzf "$asset" | grep -qx "$root/README.md"
           tar tzf "$asset" | grep -qx "$root/LICENSE"
 
+      - name: Checksum tarball
+        shell: bash
+        run: |
+          asset="${{ steps.package.outputs.asset }}"
+          shasum -a 256 "$asset" > "$asset.sha256"
+          cat "$asset.sha256"
+
       - name: Build .deb
         if: matrix.deb
         run: |
@@ -104,6 +111,7 @@ jobs:
           generate_release_notes: true
           files: |
             ${{ steps.package.outputs.asset }}
+            ${{ steps.package.outputs.asset }}.sha256
             *.deb
 
   # Update Formula/memorywhale.rb on main to point at the new tag, so
