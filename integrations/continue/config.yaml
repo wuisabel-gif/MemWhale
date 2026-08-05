@@ -1,0 +1,11 @@
+# Add this mcpServers block to ~/.continue/config.yaml to give Continue access
+# to MemoryWhale's memory via MCP (tools: recent_errors, search_memory,
+# get_context, remember). mcpServers entries are LIST items — the leading dash
+# matters, and don't mix tabs with spaces.
+#
+# `mw-mcp` must be on PATH (the standard MemoryWhale install). For a non-default
+# database, add an `env` map with MEMORYWHALE_DATA_DIR.
+mcpServers:
+  - name: memorywhale
+    command: mw-mcp
+    args: []

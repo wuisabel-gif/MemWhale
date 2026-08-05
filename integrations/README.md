@@ -30,7 +30,10 @@ file differs. Per-client setup (config + a "when to use it" rule):
 - **OpenClaw** → [`openclaw/`](openclaw/README.md)
 - **Goose** (Block) → [`goose/`](goose/README.md)
 - **Claude Desktop** → [`claude-desktop/`](claude-desktop/README.md)
-- **Any other MCP client** (Zed, Cline, Continue, …) — add a stdio server whose
+- **Cline** (VS Code) → [`cline/`](cline/README.md)
+- **Continue** (VS Code / JetBrains) → [`continue/`](continue/README.md)
+- **Gemini CLI** (Google) → [`gemini-cli/`](gemini-cli/README.md)
+- **Any other MCP client** (Zed, …) — add a stdio server whose
   command is `mw-mcp` (no arguments). It honours `MEMORYWHALE_DATA_DIR` like the
   rest of the CLI.
 
