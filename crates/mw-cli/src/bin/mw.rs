@@ -59,6 +59,7 @@ fn run() -> Result<(), String> {
         Some("agent") => return agent_cmd(&raw_args[1..]),
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
+        Some("explain") => return explain_cmd(&raw_args[1..]),
         Some("tui") => return memorywhale_cli::tui::run(),
         Some("sync-mempalace") => return sync_mempalace(&raw_args[1..]),
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
@@ -284,6 +285,7 @@ fn print_help() {
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
          mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw tui                   interactive terminal browser: type to search, arrow keys to move, Enter to reveal the command\n\
          mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]  sync local memories into a running MemPalace server, idempotent by memory id (needs mempalace_command in config)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
@@ -2196,9 +2198,10 @@ fn search_memory(args: &[String]) -> Result<(), String> {
             _ => String::new(),
         };
         println!(
-            "{:>3}%  [{}] {}{}{}",
+            "{:>3}%  [{}] #{} {}{}{}",
             sm.percent(),
             source.tag(),
+            sm.memory.id,
             snippet,
             action,
             prov
@@ -2931,6 +2934,57 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
 
 /// Print a compact, token-budgeted digest of recent memory for an AI agent to
 /// read: recent failed commands (with short error tails) and recent sessions.
+/// `mw explain <id> [query text]` — the per-signal score breakdown for one
+/// memory. The differentiator: not just *that* a memory ranks, but *why*
+/// (recency, importance, reinforcement, and — when query text is supplied —
+/// similarity / keyword overlap). Ids are the namespaced ids shown by
+/// `mw search`.
+fn explain_cmd(args: &[String]) -> Result<(), String> {
+    let (scope, args) = Scope::take(args)?;
+    let Some((id_arg, rest)) = args.split_first() else {
+        return Err("usage: mw explain <id> [query text]".to_string());
+    };
+    let id: i64 = id_arg.parse().map_err(|_| {
+        format!(
+            "invalid id {id_arg:?}: expected a numeric memory id (see the ids from `mw search`)"
+        )
+    })?;
+    let query_text = rest
+        .iter()
+        .map(|s| s.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    // Same loader + engine the Recall panel and `mw search` use, so the
+    // breakdown matches what ranking actually did. "now" is fixed here so
+    // scoring stays deterministic.
+    let conn = open_session_db()?;
+    let now = Utc::now();
+    let mems = memorywhale_core::sqlite::load_memories(&conn);
+    let mems = memorywhale_cli::scope_memories(
+        &conn,
+        mems,
+        scope.project.as_deref(),
+        scope.machine.as_deref(),
+        scope.cutoff(now),
+    );
+    let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
+    let mut q = memorywhale_core::Query::new(&query_text, now);
+    let tags = scope.task_tags();
+    if !tags.is_empty() {
+        q = q.with_task(tags);
+    }
+    match engine.explain(id, &q) {
+        Some(sm) => {
+            print!("{}", sm.explain());
+            Ok(())
+        }
+        None => Err(format!(
+            "no memory with id {id} (list ids with `mw search`)"
+        )),
+    }
+}
+
 fn context_cmd(args: &[String]) -> Result<(), String> {
     let mut project: Option<String> = None;
     let mut last_error = false;
