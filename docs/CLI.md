@@ -18,7 +18,7 @@ mw explain 1000000001                 # why this memory ranks: per-signal breakd
 mw tui                                # interactive terminal browser (type to search, Enter to act, F1 help, Esc quit)
 mw git-fix                            # diagnose the last failed git command: what, why, the fix
 mw mark "before the risky flash"      # bookmark the current debugging moment
-mw remember "the fix was passing --features vendored-ssl"  # save a lesson/conclusion
+mw remember "the fix was passing --features vendored-ssl"  # save a lesson/conclusion (warns on a near-duplicate; add --force to save anyway)
 mw replay 12                          # rerun a saved command run
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run

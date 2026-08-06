@@ -268,7 +268,7 @@ fn print_help() {
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
-         mw remember <text>       save a lesson/conclusion, e.g. \"the fix was passing --features vendored-ssl\"\n\
+         mw remember <text> [--force]  save a lesson/conclusion (warns on a near-duplicate; --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
          mw memory supersede <old-id> <new-id>  replace an old lesson with a newer one\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
@@ -889,13 +889,40 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
 }
 
 fn remember_cmd(args: &[String]) -> Result<(), String> {
-    if args.is_empty() {
-        return Err("usage: mw remember <text>".to_string());
+    let force = args.iter().any(|a| a == "--force");
+    let text = args
+        .iter()
+        .filter(|a| a.as_str() != "--force")
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if text.trim().is_empty() {
+        return Err("usage: mw remember <text> [--force]".to_string());
     }
-    let text = args.join(" ");
     let cwd = env::current_dir()
         .ok()
         .and_then(|path| path.to_str().map(ToOwned::to_owned));
+
+    // Store-time duplicate check: don't silently pile up the same lesson twice.
+    // Read-only — never merges or deletes; `--force` keeps both. If the db can't
+    // be opened here, skip the check and let `remember` surface the real error.
+    if !force {
+        if let Ok(conn) = open_session_db() {
+            let mems = memorywhale_core::sqlite::load_memories(&conn);
+            if let Some((sim, existing)) = memorywhale_cli::nearest_similar(&mems, &text) {
+                if sim >= memorywhale_cli::DEDUP_SIMILARITY {
+                    let snippet: String = existing.text.chars().take(100).collect();
+                    return Err(format!(
+                        "a similar memory already exists (#{} · {:.0}% overlap):\n  \"{}\"\nnot saved (near-duplicate). Re-run with `mw remember --force` to save it anyway.",
+                        existing.id,
+                        sim * 100.0,
+                        memorywhale_cli::redact(&snippet),
+                    ));
+                }
+            }
+        }
+    }
+
     let id = memorywhale_cli::remember(&text, cwd.as_deref())?;
     // Echo back what was actually stored (redacted), not the raw input.
     println!("mw: remembered #{id}: {}", memorywhale_cli::redact(&text));

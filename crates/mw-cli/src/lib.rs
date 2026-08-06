@@ -1006,6 +1006,53 @@ pub fn scope_memories(
     mems
 }
 
+/// Word set (lowercased, alphanumeric tokens) for textual-overlap comparison.
+fn word_set(s: &str) -> std::collections::HashSet<String> {
+    s.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Jaccard overlap of two word sets: |A∩B| / |A∪B|, in `[0,1]`.
+fn jaccard(a: &std::collections::HashSet<String>, b: &std::collections::HashSet<String>) -> f32 {
+    let union = a.union(b).count();
+    if union == 0 {
+        return 0.0;
+    }
+    a.intersection(b).count() as f32 / union as f32
+}
+
+/// The existing memory with the highest textual overlap to `text`, and that
+/// overlap score in `[0,1]`. Used for store-time duplicate detection.
+///
+/// Deliberately uses Jaccard word-overlap, not the engine's BM25 "similarity":
+/// BM25 scores an exact duplicate near zero on a small corpus (shared terms
+/// carry no discriminative weight), which is the opposite of what dedup needs.
+/// Returns `None` when there is nothing overlapping to compare against.
+pub fn nearest_similar(
+    mems: &[memorywhale_core::Memory],
+    text: &str,
+) -> Option<(f32, memorywhale_core::Memory)> {
+    let want = word_set(text);
+    if want.is_empty() {
+        return None;
+    }
+    mems.iter()
+        .map(|m| (jaccard(&want, &word_set(&m.text)), m))
+        .filter(|(sim, _)| *sim > 0.0)
+        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(sim, m)| (sim, m.clone()))
+}
+
+/// Overlap at or above which `mw remember` treats a new lesson as a probable
+/// duplicate and asks the user to confirm with `--force`. 1.0 = identical word
+/// set; ~0.5 = a loose paraphrase. Set to catch near-identical saves while
+/// leaving genuine paraphrases through.
+// ponytail: single threshold constant — make it configurable only if users ask.
+pub const DEDUP_SIMILARITY: f32 = 0.7;
+
 /// Inline `key:value` filters for `mw search` (e.g. `tag:infra after:2026-01-01`).
 #[derive(Debug, Default, PartialEq)]
 pub struct SearchFilters {
@@ -1542,6 +1589,40 @@ mod tests {
             tags: tags.iter().map(|s| s.to_string()).collect(),
             embedding: None,
         }
+    }
+
+    #[test]
+    fn nearest_similar_flags_duplicates_not_unrelated() {
+        let mems = vec![
+            mem(3_000_000_001, &["note"], "2026-06-01T00:00:00Z"),
+            mem(3_000_000_002, &["note"], "2026-06-02T00:00:00Z"),
+        ];
+        let mut mems = mems;
+        mems[0].text = "the fix was passing --features vendored-ssl".into();
+        mems[1].text = "linker error: missing -lstdc++ on the jetson".into();
+
+        // Exact text → overlap 1.0, matched to the right memory.
+        let (sim, hit) =
+            nearest_similar(&mems, "the fix was passing --features vendored-ssl").unwrap();
+        assert!(
+            (sim - 1.0).abs() < 1e-6,
+            "exact match should be 1.0, got {sim}"
+        );
+        assert_eq!(hit.id, 3_000_000_001);
+        assert!(sim >= DEDUP_SIMILARITY);
+
+        // Partial overlap (a couple shared words) → below the dedup threshold.
+        let (sim2, _) = nearest_similar(&mems, "the fix for the jetson").unwrap();
+        assert!(
+            sim2 > 0.0 && sim2 < DEDUP_SIMILARITY,
+            "partial overlap should be between 0 and the threshold, got {sim2}"
+        );
+
+        // No shared words → None (nothing to dedup against, so the save proceeds).
+        assert!(nearest_similar(&mems, "completely unrelated kubernetes ingress").is_none());
+        // Empty corpus / empty text → None.
+        assert!(nearest_similar(&[], "anything").is_none());
+        assert!(nearest_similar(&mems, "   ").is_none());
     }
 
     #[test]
