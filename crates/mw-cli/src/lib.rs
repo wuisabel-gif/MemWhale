@@ -1006,6 +1006,98 @@ pub fn scope_memories(
     mems
 }
 
+/// Inline `key:value` filters for `mw search` (e.g. `tag:infra after:2026-01-01`).
+#[derive(Debug, Default, PartialEq)]
+pub struct SearchFilters {
+    /// All must be present on a memory (AND), matched case-insensitively.
+    pub tags: Vec<String>,
+    /// Any may match (OR): command|session|note|document|conversation.
+    pub sources: Vec<String>,
+    /// created_at on or after this day (start of day, UTC).
+    pub after: Option<chrono::DateTime<Utc>>,
+    /// created_at on or before this day (end of day, UTC).
+    pub before: Option<chrono::DateTime<Utc>>,
+    /// Cap on the number of ranked results.
+    pub limit: Option<usize>,
+}
+
+/// The source names accepted by `source:` — the same strings `Source::tag()` emits.
+pub const SEARCH_SOURCES: [&str; 5] = ["command", "session", "note", "document", "conversation"];
+
+fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
+    let d = chrono::NaiveDate::parse_from_str(val, "%Y-%m-%d")
+        .map_err(|_| format!("invalid date in {kind}:{val} — use YYYY-MM-DD"))?;
+    // `after` is inclusive from the start of the day; `before` through its end.
+    let (h, m, s) = if kind == "before" {
+        (23, 59, 59)
+    } else {
+        (0, 0, 0)
+    };
+    Ok(d.and_hms_opt(h, m, s)
+        .expect("0/23:59:59 is always valid")
+        .and_utc())
+}
+
+/// Split search args into inline `key:value` filters and the remaining
+/// free-text query. Unknown `key:` prefixes are treated as query text.
+pub fn parse_search_filters(terms: &[&str]) -> Result<(SearchFilters, String), String> {
+    let mut f = SearchFilters::default();
+    let mut query: Vec<&str> = Vec::new();
+    for t in terms {
+        if let Some(v) = t.strip_prefix("tag:") {
+            if !v.is_empty() {
+                f.tags.push(v.to_lowercase());
+            }
+        } else if let Some(v) = t.strip_prefix("source:") {
+            let v = v.to_lowercase();
+            if !SEARCH_SOURCES.contains(&v.as_str()) {
+                return Err(format!(
+                    "unknown source:{v} — use one of {}",
+                    SEARCH_SOURCES.join("|")
+                ));
+            }
+            f.sources.push(v);
+        } else if let Some(v) = t.strip_prefix("after:") {
+            f.after = Some(parse_filter_day("after", v)?);
+        } else if let Some(v) = t.strip_prefix("before:") {
+            f.before = Some(parse_filter_day("before", v)?);
+        } else if let Some(v) = t.strip_prefix("limit:") {
+            f.limit = Some(
+                v.parse()
+                    .map_err(|_| format!("invalid limit:{v} — expected a number"))?,
+            );
+        } else {
+            query.push(t);
+        }
+    }
+    Ok((f, query.join(" ")))
+}
+
+/// Apply the value filters to the memory set. The `limit` is applied later to
+/// the ranked hits, not here.
+pub fn filter_memories(
+    mut mems: Vec<memorywhale_core::Memory>,
+    f: &SearchFilters,
+) -> Vec<memorywhale_core::Memory> {
+    use memorywhale_core::sqlite::decode_id;
+    if let Some(a) = f.after {
+        mems.retain(|m| m.created_at >= a);
+    }
+    if let Some(b) = f.before {
+        mems.retain(|m| m.created_at <= b);
+    }
+    if !f.tags.is_empty() {
+        mems.retain(|m| {
+            let have: Vec<String> = m.tags.iter().map(|t| t.to_lowercase()).collect();
+            f.tags.iter().all(|want| have.iter().any(|h| h == want))
+        });
+    }
+    if !f.sources.is_empty() {
+        mems.retain(|m| f.sources.iter().any(|s| s == decode_id(m.id).0.tag()));
+    }
+    mems
+}
+
 /// True when agent-written memories should start unapproved and be excluded from
 /// retrieval until approved in the dashboard. On by default. Set
 /// `MEMORYWHALE_REVIEW_AGENT_MEMORIES=0` or
@@ -1434,6 +1526,78 @@ mod tests {
         assert!(fix_surfaced(&[9, 2, 5], &[2], 5));
         assert!(!fix_surfaced(&[9, 5, 7, 8, 6, 2], &[2], 5)); // fix at rank 6, k=5
         assert!(!fix_surfaced(&[9, 5, 7], &[2], 5)); // fix not retrieved at all
+    }
+
+    fn mem(id: i64, tags: &[&str], created: &str) -> memorywhale_core::Memory {
+        let when = chrono::DateTime::parse_from_rfc3339(created)
+            .unwrap()
+            .with_timezone(&Utc);
+        memorywhale_core::Memory {
+            id,
+            text: "x".into(),
+            created_at: when,
+            last_used: when,
+            mentions: 1,
+            importance: 0.5,
+            tags: tags.iter().map(|s| s.to_string()).collect(),
+            embedding: None,
+        }
+    }
+
+    #[test]
+    fn parse_search_filters_splits_filters_from_query() {
+        let (f, q) =
+            parse_search_filters(&["docker", "after:2026-01-01", "tag:Infra", "source:command"])
+                .unwrap();
+        assert_eq!(q, "docker");
+        assert_eq!(f.tags, vec!["infra"]); // lowercased
+        assert_eq!(f.sources, vec!["command"]);
+        assert!(f.after.is_some());
+        // Unknown prefixes stay as query text; a bare word too.
+        let (f2, q2) = parse_search_filters(&["ratio:1", "hello"]).unwrap();
+        assert!(f2.tags.is_empty());
+        assert_eq!(q2, "ratio:1 hello");
+    }
+
+    #[test]
+    fn parse_search_filters_rejects_bad_values() {
+        assert!(parse_search_filters(&["before:nope"]).is_err());
+        assert!(parse_search_filters(&["source:banana"]).is_err());
+        assert!(parse_search_filters(&["limit:x"]).is_err());
+    }
+
+    #[test]
+    fn filter_memories_applies_tag_source_and_dates() {
+        // ids: 1_000_000_001 -> Command, 3_000_000_001 -> Note.
+        let mems = vec![
+            mem(1_000_000_001, &["command", "infra"], "2026-02-01T00:00:00Z"),
+            mem(3_000_000_001, &["note"], "2026-06-01T00:00:00Z"),
+        ];
+
+        // tag: keeps only the infra-tagged command.
+        let f = SearchFilters {
+            tags: vec!["infra".into()],
+            ..Default::default()
+        };
+        let out = filter_memories(mems.clone(), &f);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, 1_000_000_001);
+
+        // source:note keeps only the note.
+        let f = SearchFilters {
+            sources: vec!["note".into()],
+            ..Default::default()
+        };
+        assert_eq!(filter_memories(mems.clone(), &f)[0].id, 3_000_000_001);
+
+        // after:2026-03-01 drops the February command.
+        let f = SearchFilters {
+            after: parse_search_filters(&["after:2026-03-01"]).unwrap().0.after,
+            ..Default::default()
+        };
+        let out = filter_memories(mems.clone(), &f);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, 3_000_000_001);
     }
 
     /// End-to-end scoring over the REAL retrieval path (load_memories +

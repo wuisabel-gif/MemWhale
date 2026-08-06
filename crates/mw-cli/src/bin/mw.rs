@@ -284,7 +284,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw tui                   interactive terminal browser: type to search, arrow keys to move, Enter to reveal the command\n\
          mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]  sync local memories into a running MemPalace server, idempotent by memory id (needs mempalace_command in config)\n\
@@ -2114,18 +2114,24 @@ fn note_meta(conn: &Connection, id: i64) -> Option<(String, String)> {
 fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
-    let terms: Vec<&String> = args.iter().filter(|a| a.as_str() != "--explain").collect();
-    if terms.is_empty() {
+    let terms: Vec<&str> = args
+        .iter()
+        .map(|s| s.as_str())
+        .filter(|a| *a != "--explain")
+        .collect();
+    // Pull inline `tag:`/`source:`/`before:`/`after:`/`limit:` filters out of the
+    // terms; whatever's left is the free-text query.
+    let (filters, query) = memorywhale_cli::parse_search_filters(&terms)?;
+    let has_filter = !filters.tags.is_empty()
+        || !filters.sources.is_empty()
+        || filters.before.is_some()
+        || filters.after.is_some();
+    if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }
-    let query = terms
-        .iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<_>>()
-        .join(" ");
 
     // External semantic engine (MemPalace), if the user opted in via config. It
     // ranks server-side over its own corpus, so the local scope filters don't
@@ -2162,13 +2168,16 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         scope.machine.as_deref(),
         scope.cutoff(now),
     );
+    // Inline tag:/source:/before:/after: filters narrow the set before ranking.
+    let mems = memorywhale_cli::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(&query, now);
     let tags = scope.task_tags();
     if !tags.is_empty() {
         q = q.with_task(tags);
     }
-    let hits = engine.retrieve(&q, 20);
+    // limit:N caps the ranked results; default matches the previous behaviour.
+    let hits = engine.retrieve(&q, filters.limit.unwrap_or(20));
 
     println!("# matches for {query:?}  (ranked)\n");
     if hits.is_empty() {
