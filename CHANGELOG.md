@@ -22,8 +22,8 @@ Product version `0.7.0`; `memorywhale-core` `0.3.0`.
 - **Memory links** — `mw link <a> <b> [rel:<type>]`, `mw unlink`, and
   `mw links <id>` to build and inspect a typed graph between memories. (#104)
 - **MCP client integrations** under `integrations/`: OpenClaw, CrowClaw, Goose,
-  Claude Desktop, Cline, Continue, and Gemini CLI — each `mw-mcp` plugs in with
-  no new code.
+  Claude Desktop, Cline, Continue, Gemini CLI, and Zed — each `mw-mcp` plugs in
+  with no new code.
 - GitHub issue and pull-request templates encoding the project's contribution
   rules.
 
