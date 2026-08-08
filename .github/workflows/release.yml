@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   preflight:
@@ -82,12 +83,16 @@ jobs:
           asset="${{ steps.package.outputs.asset }}"
           ver="${GITHUB_REF_NAME#v}"
           root="memorywhale-${ver}-${{ matrix.target }}"
-          test "$(tar tzf "$asset" | head -1)" = "$root/"
+          # Read the tarball listing once. Piping `tar tzf` into head/grep -q
+          # closes the pipe early, which SIGPIPEs GNU tar (Linux) and fails the
+          # step under `pipefail`; here-strings avoid that.
+          listing="$(tar tzf "$asset")"
+          test "$(head -1 <<< "$listing")" = "$root/"
           for b in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
-            tar tzf "$asset" | grep -qx "$root/bin/$b"
+            grep -qx "$root/bin/$b" <<< "$listing"
           done
-          tar tzf "$asset" | grep -qx "$root/README.md"
-          tar tzf "$asset" | grep -qx "$root/LICENSE"
+          grep -qx "$root/README.md" <<< "$listing"
+          grep -qx "$root/LICENSE" <<< "$listing"
 
       - name: Checksum tarball
         shell: bash
@@ -121,11 +126,16 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    # Never let a formula-bump hiccup fail the release; the binaries and crate
+    # matter more, and the bump lands via PR below.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
         with:
           ref: main
-      - name: Point formula at ${{ github.ref_name }}
+      - name: Open a formula-bump PR for ${{ github.ref_name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz"
           sha=$(curl -fsSL "$url" | shasum -a 256 | cut -d' ' -f1)
@@ -134,10 +144,17 @@ jobs:
             echo "formula already points at ${GITHUB_REF_NAME} — nothing to do."
             exit 0
           fi
+          # main is protected, so open a PR instead of pushing to it directly.
+          branch="homebrew-bump-${GITHUB_REF_NAME}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
           git commit -am "Set Homebrew formula to ${GITHUB_REF_NAME}"
-          git push origin main
+          git push -f origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Set Homebrew formula to ${GITHUB_REF_NAME}" \
+            --body "Automated Homebrew formula bump for ${GITHUB_REF_NAME}." \
+            || gh pr edit "$branch" --title "Set Homebrew formula to ${GITHUB_REF_NAME}"
 
   # Publish the CLI crate to crates.io once per release. Runs once (not in the
   # matrix above). Skips gracefully if the token secret isn't set or the version
