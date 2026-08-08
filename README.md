@@ -121,6 +121,17 @@ selection as a lesson) — in [integrations/neovim/](integrations/neovim/README.
 and all the helper binaries (`mw-run`, `mw-serve`, `mw-mcp`, …), with flags and
 examples.
 
+## Meet your whale
+
+<p align="center">
+  <img src="assets/pet-demo.gif" alt="mw pet — a whale whose mood reflects your memory store" width="420" />
+</p>
+
+`mw pet` prints a whale whose mood tracks your store — **well-fed** when you've
+saved something today, **content** within the week, **sleepy** when memory goes
+stale, **hungry** when it's empty. `mw pet --watch` lets it swim (Ctrl-C to stop).
+It's read-only — just a friendly readout of how alive your memory is.
+
 ## AI agents
 
 Coding agents forget everything between sessions. `mw-mcp` is a Model Context
