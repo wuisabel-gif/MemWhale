@@ -15,6 +15,8 @@ mw show 1                             # print the full transcript of a session
 mw search "linker error"              # search commands, output, notes, transcripts
 mw search docker after:2026-01-01 tag:infra   # filter results: tag:X, source:command|session|note|document|conversation, before:/after:YYYY-MM-DD, limit:N
 mw explain 1000000001                 # why this memory ranks: per-signal breakdown (ids come from `mw search`)
+mw link 1000000001 3000000001 rel:fixed-by   # link two memories (typed edge; ids from `mw search`)
+mw links 1000000001                   # show a memory's linked neighbors (both directions); mw unlink <a> <b> removes
 mw tui                                # interactive terminal browser (type to search, Enter to act, F1 help, Esc quit)
 mw git-fix                            # diagnose the last failed git command: what, why, the fix
 mw mark "before the risky flash"      # bookmark the current debugging moment

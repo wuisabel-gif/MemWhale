@@ -112,7 +112,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 7;
+pub const LATEST_SCHEMA_VERSION: i64 = 8;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -214,7 +214,113 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         conn.execute_batch("PRAGMA user_version = 7;")
             .map_err(|e| format!("failed to migrate memory ttl: {e}"))?;
     }
+    if version < 8 {
+        // Typed edges between memories (namespaced ids), so recall can traverse
+        // relationships instead of scoring isolated items. Directed; neighbor
+        // lookups walk both directions.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS memory_links (
+                 from_id    INTEGER NOT NULL,
+                 to_id      INTEGER NOT NULL,
+                 relation   TEXT NOT NULL DEFAULT 'related',
+                 created_at TEXT,
+                 PRIMARY KEY (from_id, to_id, relation)
+             );
+             CREATE INDEX IF NOT EXISTS idx_memory_links_to ON memory_links(to_id);
+             PRAGMA user_version = 8;",
+        )
+        .map_err(|e| format!("failed to migrate memory links: {e}"))?;
+    }
     Ok(())
+}
+
+/// A neighbor of a memory in the link graph: the other memory's id, the
+/// relation label, and which way the edge points (`out` = this→other).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Link {
+    pub other_id: i64,
+    pub relation: String,
+    pub outgoing: bool,
+}
+
+/// Create a typed directed edge `from_id -> to_id`. Idempotent (same triple is a
+/// no-op). Returns whether a new edge was added.
+pub fn add_link(
+    conn: &Connection,
+    from_id: i64,
+    to_id: i64,
+    relation: &str,
+    now_rfc3339: &str,
+) -> Result<bool, String> {
+    if from_id == to_id {
+        return Err("a memory can't be linked to itself".to_string());
+    }
+    let changed = conn
+        .execute(
+            "INSERT OR IGNORE INTO memory_links (from_id, to_id, relation, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![from_id, to_id, relation, now_rfc3339],
+        )
+        .map_err(|e| format!("failed to link memories: {e}"))?;
+    Ok(changed > 0)
+}
+
+/// Remove edges between two memories in the given direction. When `relation` is
+/// `None`, all relations for that direction are removed. Returns the count.
+pub fn remove_link(
+    conn: &Connection,
+    from_id: i64,
+    to_id: i64,
+    relation: Option<&str>,
+) -> Result<usize, String> {
+    let n = match relation {
+        Some(rel) => conn.execute(
+            "DELETE FROM memory_links WHERE from_id = ?1 AND to_id = ?2 AND relation = ?3",
+            params![from_id, to_id, rel],
+        ),
+        None => conn.execute(
+            "DELETE FROM memory_links WHERE from_id = ?1 AND to_id = ?2",
+            params![from_id, to_id],
+        ),
+    }
+    .map_err(|e| format!("failed to unlink memories: {e}"))?;
+    Ok(n)
+}
+
+/// All neighbors of `id` — outgoing (`id -> other`) and incoming (`other -> id`).
+pub fn neighbors(conn: &Connection, id: i64) -> Result<Vec<Link>, String> {
+    let mut out = Vec::new();
+    let mut stmt = conn
+        .prepare("SELECT to_id, relation FROM memory_links WHERE from_id = ?1")
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    let rows = stmt
+        .query_map(params![id], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    for (other_id, relation) in rows.flatten() {
+        out.push(Link {
+            other_id,
+            relation,
+            outgoing: true,
+        });
+    }
+    let mut stmt = conn
+        .prepare("SELECT from_id, relation FROM memory_links WHERE to_id = ?1")
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    let rows = stmt
+        .query_map(params![id], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    for (other_id, relation) in rows.flatten() {
+        out.push(Link {
+            other_id,
+            relation,
+            outgoing: false,
+        });
+    }
+    Ok(out)
 }
 
 /// Set (or clear, with `None`) a note's expiry. `expires_at` is RFC3339.
@@ -1623,6 +1729,34 @@ mod tests {
             tags: tags.iter().map(|s| s.to_string()).collect(),
             embedding: None,
         }
+    }
+
+    #[test]
+    fn links_are_idempotent_directional_and_removable() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let now = "2026-06-01T00:00:00Z";
+
+        // First add creates the edge; a duplicate is a no-op.
+        assert!(add_link(&conn, 10, 20, "fixed-by", now).unwrap());
+        assert!(!add_link(&conn, 10, 20, "fixed-by", now).unwrap());
+        // Self-links are rejected.
+        assert!(add_link(&conn, 10, 10, "related", now).is_err());
+
+        // Neighbors: 10 sees it outgoing, 20 sees it incoming.
+        let from_10 = neighbors(&conn, 10).unwrap();
+        assert_eq!(from_10.len(), 1);
+        assert!(
+            from_10[0].outgoing && from_10[0].other_id == 20 && from_10[0].relation == "fixed-by"
+        );
+        let from_20 = neighbors(&conn, 20).unwrap();
+        assert_eq!(from_20.len(), 1);
+        assert!(!from_20[0].outgoing && from_20[0].other_id == 10);
+
+        // Remove is directional and counts what it deleted.
+        assert_eq!(remove_link(&conn, 10, 20, None).unwrap(), 1);
+        assert!(neighbors(&conn, 10).unwrap().is_empty());
+        assert_eq!(remove_link(&conn, 10, 20, None).unwrap(), 0);
     }
 
     #[test]

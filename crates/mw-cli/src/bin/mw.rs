@@ -60,6 +60,9 @@ fn run() -> Result<(), String> {
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
         Some("explain") => return explain_cmd(&raw_args[1..]),
+        Some("link") => return link_cmd(&raw_args[1..]),
+        Some("unlink") => return unlink_cmd(&raw_args[1..]),
+        Some("links") => return links_cmd(&raw_args[1..]),
         Some("tui") => return memorywhale_cli::tui::run(),
         Some("sync-mempalace") => return sync_mempalace(&raw_args[1..]),
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
@@ -286,6 +289,9 @@ fn print_help() {
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
          mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
+         mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
+         mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
+         mw links <id>            show a memory's linked neighbors (both directions)\n\
          mw tui                   interactive terminal browser: type to search, arrow keys to move, Enter to reveal the command\n\
          mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]  sync local memories into a running MemPalace server, idempotent by memory id (needs mempalace_command in config)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
@@ -3042,6 +3048,100 @@ fn explain_cmd(args: &[String]) -> Result<(), String> {
             "no memory with id {id} (list ids with `mw search`)"
         )),
     }
+}
+
+/// Load every memory keyed by its namespaced id — used to validate link targets
+/// and to render neighbor text.
+fn memory_map(
+    conn: &rusqlite::Connection,
+) -> std::collections::HashMap<i64, memorywhale_core::Memory> {
+    memorywhale_core::sqlite::load_memories(conn)
+        .into_iter()
+        .map(|m| (m.id, m))
+        .collect()
+}
+
+fn parse_link_id(arg: &str) -> Result<i64, String> {
+    arg.parse().map_err(|_| {
+        format!("invalid id {arg:?}: expected a numeric memory id (see the ids from `mw search`)")
+    })
+}
+
+/// `mw link <a> <b> [rel:<type>]` — create a typed edge between two memories.
+fn link_cmd(args: &[String]) -> Result<(), String> {
+    let rel = args
+        .iter()
+        .find_map(|a| a.strip_prefix("rel:"))
+        .filter(|r| !r.is_empty())
+        .unwrap_or("related");
+    let ids: Vec<&String> = args.iter().filter(|a| !a.starts_with("rel:")).collect();
+    let (a, b) = match ids.as_slice() {
+        [a, b] => (parse_link_id(a)?, parse_link_id(b)?),
+        _ => return Err("usage: mw link <a> <b> [rel:<type>]".to_string()),
+    };
+    let conn = open_session_db()?;
+    let known = memory_map(&conn);
+    for id in [a, b] {
+        if !known.contains_key(&id) {
+            return Err(format!(
+                "no memory with id {id} (list ids with `mw search`)"
+            ));
+        }
+    }
+    let added = memorywhale_cli::add_link(&conn, a, b, rel, &Utc::now().to_rfc3339())?;
+    if added {
+        println!("mw: linked #{a} -> #{b} [{rel}]");
+    } else {
+        println!("mw: #{a} -> #{b} [{rel}] already linked");
+    }
+    Ok(())
+}
+
+/// `mw unlink <a> <b> [rel:<type>]` — remove edge(s) between two memories.
+fn unlink_cmd(args: &[String]) -> Result<(), String> {
+    let rel = args.iter().find_map(|a| a.strip_prefix("rel:"));
+    let ids: Vec<&String> = args.iter().filter(|a| !a.starts_with("rel:")).collect();
+    let (a, b) = match ids.as_slice() {
+        [a, b] => (parse_link_id(a)?, parse_link_id(b)?),
+        _ => return Err("usage: mw unlink <a> <b> [rel:<type>]".to_string()),
+    };
+    let conn = open_session_db()?;
+    let removed = memorywhale_cli::remove_link(&conn, a, b, rel)?;
+    if removed == 0 {
+        return Err(format!("no link #{a} -> #{b} to remove"));
+    }
+    println!("mw: unlinked #{a} -> #{b} ({removed} edge(s))");
+    Ok(())
+}
+
+/// `mw links <id>` — show a memory's neighbors (both directions).
+fn links_cmd(args: &[String]) -> Result<(), String> {
+    let id = match args {
+        [id] => parse_link_id(id)?,
+        _ => return Err("usage: mw links <id>".to_string()),
+    };
+    let conn = open_session_db()?;
+    let map = memory_map(&conn);
+    if !map.contains_key(&id) {
+        return Err(format!(
+            "no memory with id {id} (list ids with `mw search`)"
+        ));
+    }
+    let links = memorywhale_cli::neighbors(&conn, id)?;
+    if links.is_empty() {
+        println!("mw: no links for #{id}");
+        return Ok(());
+    }
+    println!("# links for #{id}\n");
+    for l in links {
+        let arrow = if l.outgoing { "->" } else { "<-" };
+        let text = map
+            .get(&l.other_id)
+            .map(|m| m.text.chars().take(70).collect::<String>())
+            .unwrap_or_else(|| "(memory no longer present)".to_string());
+        println!("  {arrow} #{} [{}] {}", l.other_id, l.relation, text);
+    }
+    Ok(())
 }
 
 fn context_cmd(args: &[String]) -> Result<(), String> {
