@@ -3210,7 +3210,7 @@ fn pet_frame(s: &PetSnapshot, tick: u64) -> String {
         ("sleepy", "- -")
     };
     // Digesting after a sweep: a spout puff when there are expired memories.
-    let spouting = tick % 4 == 0 && (s.days <= 7 || s.expired > 0);
+    let spouting = tick.is_multiple_of(4) && (s.days <= 7 || s.expired > 0);
     let spout = if spouting {
         format!("{g}~*~{r}")
     } else {
@@ -3246,7 +3246,7 @@ fn pet_cmd(args: &[String]) -> Result<(), String> {
         let mut snap = pet_snapshot(&conn);
         let mut tick: u64 = 0;
         loop {
-            if tick % 10 == 0 {
+            if tick.is_multiple_of(10) {
                 snap = pet_snapshot(&conn); // refresh the store every ~2.5s
             }
             print!("\x1b[2J\x1b[H{}", pet_frame(&snap, tick));
