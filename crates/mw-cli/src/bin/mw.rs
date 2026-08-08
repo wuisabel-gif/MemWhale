@@ -63,6 +63,7 @@ fn run() -> Result<(), String> {
         Some("link") => return link_cmd(&raw_args[1..]),
         Some("unlink") => return unlink_cmd(&raw_args[1..]),
         Some("links") => return links_cmd(&raw_args[1..]),
+        Some("pet") => return pet_cmd(&raw_args[1..]),
         Some("tui") => return memorywhale_cli::tui::run(),
         Some("sync-mempalace") => return sync_mempalace(&raw_args[1..]),
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
@@ -292,6 +293,7 @@ fn print_help() {
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
          mw links <id>            show a memory's linked neighbors (both directions)\n\
+         mw pet [--watch]         a whale whose mood reflects your memory store (--watch animates it)\n\
          mw tui                   interactive terminal browser: type to search, arrow keys to move, Enter to reveal the command\n\
          mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]  sync local memories into a running MemPalace server, idempotent by memory id (needs mempalace_command in config)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
@@ -3141,6 +3143,119 @@ fn links_cmd(args: &[String]) -> Result<(), String> {
             .unwrap_or_else(|| "(memory no longer present)".to_string());
         println!("  {arrow} #{} [{}] {}", l.other_id, l.relation, text);
     }
+    Ok(())
+}
+
+/// A read-only snapshot of the store that drives the pet's mood.
+struct PetSnapshot {
+    total: usize,
+    /// Days since the most recently used memory (999 if the store is empty).
+    days: i64,
+    links: i64,
+    expired: i64,
+}
+
+fn pet_snapshot(conn: &rusqlite::Connection) -> PetSnapshot {
+    let mems = memorywhale_core::sqlite::load_memories(conn);
+    let total = mems.len();
+    let now = Utc::now();
+    let days = mems
+        .iter()
+        .map(|m| (now - m.last_used).num_days())
+        .min()
+        .unwrap_or(999);
+    let links = conn
+        .query_row("SELECT COUNT(*) FROM memory_links", [], |r| r.get(0))
+        .unwrap_or(0);
+    let expired = conn
+        .query_row(
+            "SELECT COUNT(*) FROM bookmarks WHERE status = 'expired'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    PetSnapshot {
+        total,
+        days,
+        links,
+        expired,
+    }
+}
+
+/// Render one frame of the whale. `tick` animates the swim/spout/blink; pass 0
+/// for a still snapshot.
+fn pet_frame(s: &PetSnapshot, tick: u64) -> String {
+    // Colors, unless NO_COLOR is set.
+    let color = std::env::var_os("NO_COLOR").is_none();
+    let (b, g, y, dim, r) = if color {
+        (
+            "\x1b[38;5;27m",
+            "\x1b[38;5;36m",
+            "\x1b[33m",
+            "\x1b[2m",
+            "\x1b[0m",
+        )
+    } else {
+        ("", "", "", "", "")
+    };
+
+    let blink = tick % 6 == 5;
+    let (mood, eye) = if s.total == 0 {
+        ("hungry", if blink { "- -" } else { "· ·" })
+    } else if s.days <= 1 {
+        ("well-fed", if blink { "- -" } else { "^ ^" })
+    } else if s.days <= 7 {
+        ("content", if blink { "- -" } else { "o o" })
+    } else {
+        ("sleepy", "- -")
+    };
+    // Digesting after a sweep: a spout puff when there are expired memories.
+    let spouting = tick % 4 == 0 && (s.days <= 7 || s.expired > 0);
+    let spout = if spouting {
+        format!("{g}~*~{r}")
+    } else {
+        "   ".to_string()
+    };
+    let swim = " ".repeat((tick % 12) as usize);
+    let last = if s.days <= 1 {
+        "today".to_string()
+    } else if s.days < 999 {
+        format!("{}d ago", s.days)
+    } else {
+        "never".to_string()
+    };
+
+    format!(
+        "\n  {y}MemoryWhale{r} {dim}·{r} {g}{mood}{r}   {dim}🧠 {} · 🔗 {} · 🕐 {last}{r}\n\n\
+         {swim}   {spout}\n\
+         {swim} {b}.-\"\"\"-.{r}\n\
+         {swim}{b}.'  {eye}   `.{r}\n\
+         {swim}{b}|   \\_/   |{r}\n\
+         {swim} {b}`.,___,.'{r}\n\
+         {g}~^~^~^~^~^~^~^~^~^~^~^~^~^~{r}\n",
+        s.total, s.links,
+    )
+}
+
+/// `mw pet [--watch]` — a whale whose mood reflects your memory store.
+/// One-shot by default; `--watch` animates it (Ctrl-C to stop). Read-only.
+fn pet_cmd(args: &[String]) -> Result<(), String> {
+    let conn = open_session_db()?;
+    if args.iter().any(|a| a == "--watch") {
+        use std::io::Write;
+        let mut snap = pet_snapshot(&conn);
+        let mut tick: u64 = 0;
+        loop {
+            if tick % 10 == 0 {
+                snap = pet_snapshot(&conn); // refresh the store every ~2.5s
+            }
+            print!("\x1b[2J\x1b[H{}", pet_frame(&snap, tick));
+            let _ = std::io::stdout().flush();
+            thread::sleep(Duration::from_millis(250));
+            tick += 1;
+        }
+    }
+    println!("{}", pet_frame(&pet_snapshot(&conn), 0));
     Ok(())
 }
 
