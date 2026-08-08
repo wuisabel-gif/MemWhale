@@ -101,7 +101,12 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
          CREATE INDEX IF NOT EXISTS idx_screenshots_command_run_id ON screenshots(command_run_id);
          CREATE INDEX IF NOT EXISTS idx_screenshots_captured_at ON screenshots(captured_at);",
     )
-    .map_err(|e| format!("failed to initialize database indexes: {e}"))
+    .map_err(|e| format!("failed to initialize database indexes: {e}"))?;
+
+    // Sweep TTL-expired notes on every open so retrieval stops surfacing them
+    // (their rows are preserved). Best-effort — never fails an open.
+    crate::expire_due_notes(conn, &chrono::Utc::now().to_rfc3339());
+    Ok(())
 }
 
 #[cfg(test)]

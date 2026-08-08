@@ -112,7 +112,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 6;
+pub const LATEST_SCHEMA_VERSION: i64 = 7;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -206,7 +206,41 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         )
         .map_err(|e| format!("failed to migrate memory lifecycle: {e}"))?;
     }
+    if version < 7 {
+        // Optional TTL: a note with a past `expires_at` is swept to status
+        // 'expired' on open, so it drops out of retrieval while its row (the
+        // original evidence) is preserved. NULL = never expires.
+        add_column_if_missing(conn, "bookmarks", "expires_at", "TEXT")?;
+        conn.execute_batch("PRAGMA user_version = 7;")
+            .map_err(|e| format!("failed to migrate memory ttl: {e}"))?;
+    }
     Ok(())
+}
+
+/// Set (or clear, with `None`) a note's expiry. `expires_at` is RFC3339.
+pub fn set_note_expiry(conn: &Connection, id: i64, expires_at: Option<&str>) -> Result<(), String> {
+    let changed = conn
+        .execute(
+            "UPDATE bookmarks SET expires_at = ?2 WHERE id = ?1",
+            params![id, expires_at],
+        )
+        .map_err(|e| format!("failed to set expiry: {e}"))?;
+    if changed == 0 {
+        return Err(format!("no memory #{id}"));
+    }
+    Ok(())
+}
+
+/// Sweep notes whose TTL has passed to status 'expired' (best-effort, additive).
+/// Returns how many were expired. Called on DB open so retrieval — which filters
+/// `status = 'active'` — stops surfacing them without deleting the evidence.
+pub fn expire_due_notes(conn: &Connection, now_rfc3339: &str) -> usize {
+    conn.execute(
+        "UPDATE bookmarks SET status = 'expired'
+         WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at <= ?1",
+        params![now_rfc3339],
+    )
+    .unwrap_or(0)
 }
 
 /// Create the local `mempalace_sync` mapping table if absent. Additive and safe
@@ -1589,6 +1623,34 @@ mod tests {
             tags: tags.iter().map(|s| s.to_string()).collect(),
             embedding: None,
         }
+    }
+
+    #[test]
+    fn expire_due_notes_sweeps_only_past_ttls() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO bookmarks (id, label, created_at, approved, status, expires_at) VALUES
+               (1, 'past',     '2026-01-01T00:00:00Z', 1, 'active', '2026-01-02T00:00:00Z'),
+               (2, 'future',   '2026-01-01T00:00:00Z', 1, 'active', '2999-01-01T00:00:00Z'),
+               (3, 'noexpiry', '2026-01-01T00:00:00Z', 1, 'active', NULL);",
+        )
+        .unwrap();
+        let expired = expire_due_notes(&conn, "2026-06-01T00:00:00Z");
+        assert_eq!(expired, 1, "only the past-TTL note should expire");
+        let status = |id: i64| -> String {
+            conn.query_row(
+                "SELECT status FROM bookmarks WHERE id=?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(status(1), "expired"); // TTL passed
+        assert_eq!(status(2), "active"); // TTL in the future
+        assert_eq!(status(3), "active"); // no TTL
+                                         // Idempotent: a second sweep changes nothing.
+        assert_eq!(expire_due_notes(&conn, "2026-06-01T00:00:00Z"), 0);
     }
 
     #[test]

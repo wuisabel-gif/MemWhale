@@ -268,7 +268,7 @@ fn print_help() {
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
-         mw remember <text> [--force]  save a lesson/conclusion (warns on a near-duplicate; --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
+         mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
          mw memory supersede <old-id> <new-id>  replace an old lesson with a newer one\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
@@ -890,15 +890,25 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
 
 fn remember_cmd(args: &[String]) -> Result<(), String> {
     let force = args.iter().any(|a| a == "--force");
+    let ttl_spec = args.iter().find_map(|a| a.strip_prefix("ttl:"));
     let text = args
         .iter()
-        .filter(|a| a.as_str() != "--force")
+        .filter(|a| a.as_str() != "--force" && !a.starts_with("ttl:"))
         .map(String::as_str)
         .collect::<Vec<_>>()
         .join(" ");
     if text.trim().is_empty() {
-        return Err("usage: mw remember <text> [--force]".to_string());
+        return Err("usage: mw remember <text> [ttl:7d] [--force]".to_string());
     }
+    // Validate the TTL before saving so a bad duration never leaves a note behind.
+    let expires_at = match ttl_spec {
+        Some(spec) => {
+            let d = memorywhale_cli::parse_since(spec)
+                .map_err(|_| format!("invalid ttl:{spec}; use e.g. 7d, 24h, 2w"))?;
+            Some((Utc::now() + d).to_rfc3339())
+        }
+        None => None,
+    };
     let cwd = env::current_dir()
         .ok()
         .and_then(|path| path.to_str().map(ToOwned::to_owned));
@@ -924,8 +934,21 @@ fn remember_cmd(args: &[String]) -> Result<(), String> {
     }
 
     let id = memorywhale_cli::remember(&text, cwd.as_deref())?;
+    if let Some(exp) = &expires_at {
+        if let Ok(conn) = open_session_db() {
+            let _ = memorywhale_cli::set_note_expiry(&conn, id, Some(exp));
+        }
+    }
     // Echo back what was actually stored (redacted), not the raw input.
-    println!("mw: remembered #{id}: {}", memorywhale_cli::redact(&text));
+    let suffix = expires_at
+        .as_deref()
+        .map(|e| format!(" (expires {})", &e[..10.min(e.len())]))
+        .unwrap_or_default();
+    println!(
+        "mw: remembered #{id}: {}{}",
+        memorywhale_cli::redact(&text),
+        suffix
+    );
     Ok(())
 }
 
