@@ -21,6 +21,8 @@ Product version `0.7.0`; `memorywhale-core` `0.3.0`.
   preserved. (#103)
 - **Memory links** — `mw link <a> <b> [rel:<type>]`, `mw unlink`, and
   `mw links <id>` to build and inspect a typed graph between memories. (#104)
+- **`mw pet`** — a whale whose mood reflects your store (well-fed / content /
+  sleepy / hungry); `mw pet --watch` animates it. Read-only. (#118)
 - **MCP client integrations** under `integrations/`: OpenClaw, CrowClaw, Goose,
   Claude Desktop, Cline, Continue, Gemini CLI, and Zed — each `mw-mcp` plugs in
   with no new code.
