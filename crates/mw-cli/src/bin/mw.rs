@@ -39,6 +39,10 @@ fn main() {
 fn run() -> Result<(), String> {
     let raw_args: Vec<String> = env::args().skip(1).collect();
     match raw_args.first().map(String::as_str) {
+        Some("--version") | Some("-V") => {
+            println!("mw {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
         Some("show") => return show_session(&raw_args[1..]),
         Some("list") => return list_sessions(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
@@ -269,6 +273,7 @@ fn print_help() {
     println!(
         "mw [--notes <text>]      record a whole shell session until you exit\n\
          mw --live [--notes <text>]  autosave the session to SQLite while it is still running\n\
+         mw --version | -V          print the current MemoryWhale version\n\
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
