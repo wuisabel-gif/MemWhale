@@ -1,0 +1,43 @@
+name: Memory audit
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  memory-audit:
+    name: Audit and search memory
+    runs-on: ubuntu-latest
+    env:
+      MEMORYWHALE_DATA_DIR: ${{ runner.temp }}/memorywhale
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build MemoryWhale CLI
+        run: cargo build --locked --release -p memorywhale-cli --bins
+
+      - name: Run privacy audit
+        run: |
+          mkdir -p "$MEMORYWHALE_DATA_DIR"
+          target/release/mw audit
+
+      - name: Verify memory capture and retrieval
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$MEMORYWHALE_DATA_DIR"
+          target/release/mw-remember \
+            --cwd "$GITHUB_WORKSPACE" \
+            --exit-code 0 \
+            --stdout "github action memory smoke test" \
+            --stderr "" \
+            --notes "pull request memory retrieval check" \
+            --capture-kind hook \
+            -- printf 'github action memory smoke test\n'
+          target/release/mw search "github action memory smoke test" | grep -F "github action memory smoke test"
