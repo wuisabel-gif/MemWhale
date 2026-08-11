@@ -43,20 +43,17 @@ Run frontend checks:
 ```bash
 npm run build
 ```
-
-Run Rust checks:
+Run Rust formatting checks:
 
 ```bash
-cd src-tauri
-cargo fmt
-cargo check
+cargo fmt --all -- --check
+
 ```
 
 Try the terminal memory helper:
 
 ```bash
-cd src-tauri
-cargo run --bin mw-remember -- --help
+cargo run -p memorywhale-cli --bin mw-remember -- --help
 ```
 
 ## Contribution Rules
@@ -83,7 +80,11 @@ cargo run --bin mw-remember -- --help
 
 - The change preserves or improves local-first behavior.
 - Command/log memory remains searchable.
+- `npm test` passes when frontend code changes.
 - `npm run build` passes when frontend code changes.
-- `cargo fmt` and `cargo check` pass when Rust code changes.
+- `cargo fmt --all -- --check` passes when Rust code changes.
+- `cargo clippy -p memorywhale-core -p memorywhale-cli --all-targets -- -D warnings` passes when Rust code changes.
+- `cargo test -p memorywhale-core -p memorywhale-cli` passes when Rust code changes.
+- `cargo build --workspace` passes for workspace changes.
 - Documentation is updated for user-facing behavior.
 
