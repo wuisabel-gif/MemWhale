@@ -41,13 +41,17 @@ npm run tauri:dev
 Run frontend checks:
 
 ```bash
+npm test
 npm run build
 ```
-Run Rust formatting checks:
+
+Run Rust checks:
 
 ```bash
 cargo fmt --all -- --check
-
+cargo clippy -p memorywhale-core -p memorywhale-cli --all-targets -- -D warnings
+cargo test -p memorywhale-core -p memorywhale-cli
+cargo build --workspace
 ```
 
 Try the terminal memory helper:
@@ -87,4 +91,3 @@ cargo run -p memorywhale-cli --bin mw-remember -- --help
 - `cargo test -p memorywhale-core -p memorywhale-cli` passes when Rust code changes.
 - `cargo build --workspace` passes for workspace changes.
 - Documentation is updated for user-facing behavior.
-

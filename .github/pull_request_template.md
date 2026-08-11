@@ -12,8 +12,12 @@ Closes #
 
 ## Verification
 <!-- How you know it works. Paste output/screenshots where useful. -->
-- [ ] `npm run build` passes
-- [ ] `cargo fmt` + `cargo check` pass (in `src-tauri/`)
+- [ ] `npm test` passes when frontend code changes
+- [ ] `npm run build` passes when frontend code changes
+- [ ] `cargo fmt --all -- --check` passes when Rust code changes
+- [ ] `cargo clippy -p memorywhale-core -p memorywhale-cli --all-targets -- -D warnings` passes when Rust code changes
+- [ ] `cargo test -p memorywhale-core -p memorywhale-cli` passes when Rust code changes
+- [ ] `cargo build --workspace` passes for workspace changes
 - [ ] Tested locally against my own MemoryWhale data
 
 ## Contribution rules checklist
