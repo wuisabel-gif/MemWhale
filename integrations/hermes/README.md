@@ -19,7 +19,19 @@ the configuration file.
 
 ## Connect MemoryWhale
 
-Hermes' MCP management command can register the local server directly:
+The MemoryWhale CLI can update Hermes' configuration safely while preserving
+existing settings and MCP servers:
+
+```bash
+mw integrate hermes
+```
+
+The command honours `HERMES_HOME` and otherwise writes to
+`~/.hermes/config.yaml`. It is idempotent, validates existing YAML before
+changing it, and refuses malformed configuration without overwriting it.
+
+Alternatively, Hermes' MCP management command can register the local server
+directly:
 
 ```bash
 hermes mcp add memorywhale --command mw-mcp

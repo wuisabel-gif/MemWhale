@@ -7,8 +7,9 @@ labels: documentation, good first issue
 
 ## Summary
 <!-- Which tool, and confirm it speaks MCP (can run a local stdio server). -->
-`<tool>` supports MCP servers, so it can use MemoryWhale's four tools
-(`recent_errors`, `search_memory`, `get_context`, `remember`). Add
+`<tool>` supports MCP servers, so it can use MemoryWhale's six tools
+(`recent_errors`, `search_memory`, `get_context`, `remember`,
+`similar_failures`, `stats`). Add
 `integrations/<tool>/`.
 
 ## Why it's a good first issue

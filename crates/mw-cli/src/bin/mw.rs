@@ -75,6 +75,7 @@ fn run() -> Result<(), String> {
         Some("global") => return global_cmd(&raw_args[1..]),
         Some("status") => return global_status(),
         Some("hooks") => return hooks_cmd(&raw_args[1..]),
+        Some("integrate") => return integrate_cmd(&raw_args[1..]),
         Some("--help") | Some("-h") => {
             print_help();
             return Ok(());
@@ -308,11 +309,29 @@ fn print_help() {
          mw doctor                check the install: data dir, database, `script`, and hook status\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
+         mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
          Raw transcript: <data_local>/MemoryWhale/sessions/\n\
          Metadata + cleaned transcript: <data_local>/MemoryWhale/memorywhale.sqlite3 (sessions table)"
     );
+}
+
+fn integrate_cmd(args: &[String]) -> Result<(), String> {
+    match args.first().map(String::as_str) {
+        Some("hermes") if args.len() == 1 => {
+            let config_path = memorywhale_cli::hermes::install()?;
+            println!(
+                "MemoryWhale added to Hermes Agent in {}",
+                config_path.display()
+            );
+            Ok(())
+        }
+        Some(other) => Err(format!(
+            "unsupported integration {other:?}; usage: mw integrate hermes"
+        )),
+        None => Err("usage: mw integrate hermes".to_string()),
+    }
 }
 
 /// Shown only on a genuine cold start: no hook wired and nothing recorded yet.
