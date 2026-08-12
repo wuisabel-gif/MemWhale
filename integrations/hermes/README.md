@@ -95,10 +95,22 @@ MemoryWhale MCP configuration above unchanged. The responsibilities remain
 separate:
 
 ```text
-Kimi K3 (model)
-  -> Hermes Agent (reasoning and MCP client)
-  -> mw-mcp
-  -> local MemoryWhale SQLite database
+             ┌────────────────────┐
+             │    Hermes Agent    │
+             │                    │
+Kimi K3 ───► │  reasoning/model   │
+             │                    │
+             │     MCP client     │
+             └─────────┬──────────┘
+                       │
+                       ▼
+                    mw-mcp
+                       │
+                       ▼
+                   MemoryWhale
+                       │
+                       ▼
+              local SQLite database
 ```
 
 The exact Kimi model identifier and credentials depend on the provider. Do not
