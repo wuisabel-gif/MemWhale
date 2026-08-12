@@ -8,12 +8,12 @@ tools="$(cargo run --quiet -p memorywhale-cli --bin mw-mcp -- --list-tools)"
 count=0
 while IFS= read -r tool; do
   [[ -n "$tool" ]] || continue
-  grep -Fq "\`$tool\`" docs/MCP.md
-  grep -Fq "\`$tool\`" README.md
+  grep -Fq "\`$tool\`" docs/reference/mcp.md
+  grep -Fq "\`$tool\`" integrations/README.md
   count=$((count + 1))
 done <<< "$tools"
 
-documented_count="$(sed -n '/^| `.*` |/p' docs/MCP.md | wc -l | tr -d ' ')"
+documented_count="$(sed -n '/^| `.*` |/p' docs/reference/mcp.md | wc -l | tr -d ' ')"
 if [[ "$count" -ne "$documented_count" ]]; then
   echo "MCP tool count differs: runtime=$count docs=$documented_count" >&2
   exit 1
@@ -21,7 +21,7 @@ fi
 
 for binary in crates/mw-cli/src/bin/*.rs; do
   name="$(basename "$binary" .rs)"
-  grep -Fq "$name" docs/CLI.md
+  grep -Fq "$name" docs/reference/cli.md
 done
 
 if grep -Eq 'Binaries \\(`src-tauri/src/bin/`\\)|Build the helper binaries from `src-tauri`' \

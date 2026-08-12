@@ -4,6 +4,26 @@ MemoryWhale is a local-first terminal memory system. Contributions should make
 technical memory more durable, searchable, and useful across sessions and
 machines.
 
+## Project Scope
+
+A feature belongs in MemoryWhale if it improves **capturing, preserving,
+retrieving, or sharing development experience** while respecting the
+local-first model.
+
+Use the four architectural areas in [docs/architecture.md](docs/architecture.md)
+when placing a change:
+
+- **Capture:** shell, command, session, and verified agent-hook ingestion.
+- **Memory:** durable evidence, lessons, provenance, retention, and SQLite.
+- **Retrieval:** search, context, recent errors, and failure similarity.
+- **Interfaces:** CLI, MCP, TUI, web, desktop, and thin client integrations.
+
+Client-specific configuration belongs under `integrations/` and should not add
+agent-specific behavior to core. Autonomous coding-agent behavior, model
+provider routing, and unrelated personal-memory features are outside the
+project's responsibility. Proposals that add remote storage or cross-cut the
+local privacy model need architectural discussion before implementation.
+
 ## What This Project Values
 
 - Preserve exact command and error history.
@@ -79,6 +99,11 @@ cargo run -p memorywhale-cli --bin mw-remember -- --help
 5. Explain why the change matters.
    A good change should connect back to the core problem: terminal history and
    debugging context disappear too easily.
+
+6. Keep integrations thin.
+   Integrations configure an external client at the `mw-mcp` or CLI seam. Use
+   [integrations/TEMPLATE.md](integrations/TEMPLATE.md), declare only verified
+   capabilities, and do not describe MCP access as automatic execution capture.
 
 ## Pull Request Checklist
 

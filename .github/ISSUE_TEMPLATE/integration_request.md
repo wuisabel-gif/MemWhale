@@ -20,7 +20,8 @@ No Rust.
    server whose command is `mw-mcp`.
 2. **Verify the exact config format/location against the tool's current docs** —
    don't assume; formats change between versions.
-3. Add a `README.md` mirroring an existing one: register the server, the
-   `mw-mcp`-on-PATH note, `MEMORYWHALE_DATA_DIR` for a non-default DB, and a
-   "when to use it" instruction for the tool's rules/system-prompt file.
+3. Add a `README.md` using `integrations/TEMPLATE.md`: declare verified
+   capabilities, register the server, include the `mw-mcp`-on-PATH note,
+   document `MEMORYWHALE_DATA_DIR` for a non-default DB, and distinguish MCP
+   access from automatic execution capture.
 4. List the tool in `integrations/README.md`.
