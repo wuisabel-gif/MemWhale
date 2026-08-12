@@ -37,6 +37,9 @@ data directory. Do not treat an application token passed to a same-user stdio
 process as an independent boundary: that process can commonly inspect the
 environment or read the underlying files directly.
 
+For broader guidance on protecting captured terminal data, see the
+[local data threat model](../SECURITY.md).
+
 ## Wire it into an agent
 
 Claude Code, one line:
