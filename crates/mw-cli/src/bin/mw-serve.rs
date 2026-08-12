@@ -20,12 +20,41 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 static STARTUP_NOTICE: OnceLock<String> = OnceLock::new();
 // Optional shared token gating the dashboard. Empty = open (no auth).
 static AUTH_TOKEN: OnceLock<String> = OnceLock::new();
+
+const IO_TIMEOUT: Duration = Duration::from_secs(10);
+const MAX_CONNECTIONS: usize = 64;
+const MAX_REQUEST_LINE_BYTES: usize = 8 * 1024;
+const MAX_HEADER_LINE_BYTES: usize = 8 * 1024;
+const MAX_HEADER_BYTES: usize = 32 * 1024;
+const MAX_HEADER_COUNT: usize = 100;
+const MAX_BODY_BYTES: usize = 4096;
+static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
+
+struct ConnectionGuard;
+
+impl ConnectionGuard {
+    fn acquire() -> Option<Self> {
+        ACTIVE_CONNECTIONS
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                (n < MAX_CONNECTIONS).then_some(n + 1)
+            })
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        ACTIVE_CONNECTIONS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 
 fn main() {
     if let Err(err) = run() {
@@ -104,7 +133,16 @@ fn run() -> Result<(), String> {
     for stream in listener.incoming() {
         match stream {
             Ok(s) => {
-                std::thread::spawn(move || handle(s));
+                let _ = s.set_read_timeout(Some(IO_TIMEOUT));
+                let _ = s.set_write_timeout(Some(IO_TIMEOUT));
+                let Some(connections) = ConnectionGuard::acquire() else {
+                    let _ = write_error(&s, "503 Service Unavailable");
+                    continue;
+                };
+                std::thread::spawn(move || {
+                    let _connections = connections;
+                    handle(s);
+                });
             }
             Err(e) => eprintln!("mw-serve: connection error: {e}"),
         }
@@ -175,38 +213,97 @@ fn handle(mut stream: TcpStream) {
         Err(_) => return,
     };
     let mut reader = BufReader::new(read_stream);
-    let mut request_line = String::new();
-    if reader.read_line(&mut request_line).is_err() {
-        return;
-    }
-    let mut request_parts = request_line.split_whitespace();
-    let method = request_parts.next().unwrap_or("GET").to_string();
-    let raw_path = request_parts.next().unwrap_or("/").to_string();
+    let request_line = match read_limited_line(&mut reader, MAX_REQUEST_LINE_BYTES) {
+        Ok(Some(line)) => line,
+        Ok(None) => return,
+        Err(error) => {
+            let _ = write_error(&stream, error.status());
+            return;
+        }
+    };
+    let (method, raw_path) = match parse_request_line(&request_line) {
+        Ok(parts) => parts,
+        Err(_) => {
+            let _ = write_error(&stream, "400 Bad Request");
+            return;
+        }
+    };
 
     // Read the cookie and body length; stop at the blank line.
     let mut cookie = String::new();
     let mut content_length = 0usize;
+    let mut saw_content_length = false;
+    let mut header_bytes = 0usize;
+    let mut header_count = 0usize;
     loop {
-        let mut line = String::new();
-        if reader.read_line(&mut line).is_err() || line == "\r\n" || line == "\n" || line.is_empty()
-        {
+        let line = match read_limited_line(&mut reader, MAX_HEADER_LINE_BYTES) {
+            Ok(Some(line)) => line,
+            Ok(None) => {
+                let _ = write_error(&stream, "400 Bad Request");
+                return;
+            }
+            Err(error) => {
+                let _ = write_error(&stream, error.status());
+                return;
+            }
+        };
+        header_bytes = match header_bytes.checked_add(line.len()) {
+            Some(n) if n <= MAX_HEADER_BYTES => n,
+            _ => {
+                let _ = write_error(&stream, "431 Request Header Fields Too Large");
+                return;
+            }
+        };
+        if line == "\r\n" || line == "\n" || line.is_empty() {
             break;
         }
-        if let Some(rest) = line
-            .split_once(':')
-            .filter(|(k, _)| k.eq_ignore_ascii_case("cookie"))
-        {
-            cookie = rest.1.trim().to_string();
+        header_count += 1;
+        if header_count > MAX_HEADER_COUNT {
+            let _ = write_error(&stream, "431 Request Header Fields Too Large");
+            return;
         }
-        if let Some(rest) = line
-            .split_once(':')
-            .filter(|(k, _)| k.eq_ignore_ascii_case("content-length"))
-        {
-            content_length = rest.1.trim().parse().unwrap_or(0).min(4096);
+        let Some((header_name, header_value)) = line.trim_end_matches(['\r', '\n']).split_once(':')
+        else {
+            let _ = write_error(&stream, "400 Bad Request");
+            return;
+        };
+        if header_name.eq_ignore_ascii_case("cookie") {
+            cookie = header_value.trim().to_string();
+        }
+        if header_name.eq_ignore_ascii_case("content-length") {
+            if saw_content_length {
+                let _ = write_error(&stream, "400 Bad Request");
+                return;
+            }
+            saw_content_length = true;
+            content_length = match header_value.trim().parse::<usize>() {
+                Ok(n) if n <= MAX_BODY_BYTES => n,
+                Err(_) => {
+                    let _ = write_error(&stream, "400 Bad Request");
+                    return;
+                }
+                _ => {
+                    let _ = write_error(&stream, "413 Payload Too Large");
+                    return;
+                }
+            };
+        }
+        if header_name.eq_ignore_ascii_case("transfer-encoding") {
+            let _ = write_error(&stream, "400 Bad Request");
+            return;
         }
     }
     let mut request_body = vec![0; content_length];
-    if reader.read_exact(&mut request_body).is_err() {
+    if let Err(error) = reader.read_exact(&mut request_body) {
+        let status = if matches!(
+            error.kind(),
+            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+        ) {
+            "408 Request Timeout"
+        } else {
+            "400 Bad Request"
+        };
+        let _ = write_error(&stream, status);
         return;
     }
     let request_body = String::from_utf8_lossy(&request_body);
@@ -285,6 +382,65 @@ fn handle(mut stream: TcpStream) {
     );
     let _ = stream.write_all(response.as_bytes());
     let _ = stream.write_all(body.as_bytes());
+}
+
+#[derive(Debug)]
+enum LineError {
+    Io(std::io::Error),
+    TooLong,
+    InvalidUtf8,
+    Unterminated,
+}
+
+impl LineError {
+    fn status(&self) -> &'static str {
+        match self {
+            Self::Io(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+                "408 Request Timeout"
+            }
+            Self::TooLong => "431 Request Header Fields Too Large",
+            Self::Io(_) | Self::InvalidUtf8 | Self::Unterminated => "400 Bad Request",
+        }
+    }
+}
+
+fn read_limited_line<R: BufRead>(
+    reader: &mut R,
+    limit: usize,
+) -> Result<Option<String>, LineError> {
+    let mut bytes = Vec::new();
+    let read = reader
+        .take((limit + 1) as u64)
+        .read_until(b'\n', &mut bytes)
+        .map_err(LineError::Io)?;
+    if bytes.len() > limit {
+        return Err(LineError::TooLong);
+    }
+    if read == 0 {
+        return Ok(None);
+    }
+    if bytes.last() != Some(&b'\n') {
+        return Err(LineError::Unterminated);
+    }
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|_| LineError::InvalidUtf8)
+}
+
+fn write_error(stream: &TcpStream, status: &str) -> std::io::Result<()> {
+    let response = format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    stream.try_clone()?.write_all(response.as_bytes())
+}
+
+fn parse_request_line(line: &str) -> Result<(String, String), ()> {
+    let mut parts = line.split_whitespace();
+    let method = parts.next().ok_or(())?;
+    let path = parts.next().ok_or(())?;
+    let version = parts.next().ok_or(())?;
+    if parts.next().is_some() || version != "HTTP/1.1" || method.is_empty() || path.is_empty() {
+        return Err(());
+    }
+    Ok((method.to_string(), path.to_string()))
 }
 
 fn form_param(body: &str, key: &str) -> Option<String> {
@@ -1821,6 +1977,7 @@ fn memorywhale_dir() -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Shutdown;
 
     #[test]
     fn dashboard_defaults_to_loopback() {
@@ -1846,5 +2003,83 @@ mod tests {
             Some("shared secret")
         );
         assert!(form_param("other=value", "token").is_none());
+    }
+
+    #[test]
+    fn limited_lines_reject_oversized_input() {
+        let mut reader = &b"abcdef\n"[..];
+        assert!(matches!(
+            read_limited_line(&mut reader, 5),
+            Err(LineError::TooLong)
+        ));
+    }
+
+    #[test]
+    fn limited_lines_accept_complete_input() {
+        let mut reader = &b"GET / HTTP/1.1\r\n"[..];
+        assert_eq!(
+            read_limited_line(&mut reader, 64).unwrap().as_deref(),
+            Some("GET / HTTP/1.1\r\n")
+        );
+    }
+
+    #[test]
+    fn limited_lines_reject_unterminated_input() {
+        let mut reader = &b"GET / HTTP/1.1"[..];
+        assert!(matches!(
+            read_limited_line(&mut reader, 64),
+            Err(LineError::Unterminated)
+        ));
+    }
+
+    #[test]
+    fn request_line_requires_http11_shape() {
+        assert_eq!(
+            parse_request_line("GET / HTTP/1.1\r\n").unwrap(),
+            ("GET".into(), "/".into())
+        );
+        assert!(parse_request_line("GET /\r\n").is_err());
+        assert!(parse_request_line("GET / HTTP/2\r\n").is_err());
+        assert!(parse_request_line("GET / HTTP/1.1 extra\r\n").is_err());
+    }
+
+    fn raw_response(request: &[u8]) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            handle(stream);
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        client.write_all(request).unwrap();
+        client.shutdown(Shutdown::Write).unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        worker.join().unwrap();
+        response
+    }
+
+    #[test]
+    fn parser_returns_bounded_errors_for_hostile_requests() {
+        let malformed = raw_response(b"GET /\r\n\r\n");
+        assert!(malformed.starts_with("HTTP/1.1 400 Bad Request"));
+
+        let oversized = format!(
+            "GET / HTTP/1.1\r\nX: {}\r\n\r\n",
+            "x".repeat(MAX_HEADER_LINE_BYTES)
+        );
+        assert!(raw_response(oversized.as_bytes()).starts_with("HTTP/1.1 431 "));
+
+        let transfer = raw_response(b"GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n");
+        assert!(transfer.starts_with("HTTP/1.1 400 Bad Request"));
+
+        let too_large = format!(
+            "POST /login HTTP/1.1\r\nContent-Length: {}\r\n\r\n",
+            MAX_BODY_BYTES + 1
+        );
+        assert!(raw_response(too_large.as_bytes()).starts_with("HTTP/1.1 413 Payload Too Large"));
     }
 }
