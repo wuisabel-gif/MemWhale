@@ -31,7 +31,9 @@ args: []
 
 The exact surrounding schema depends on the client. No arguments are required.
 To select another database, set `MEMORYWHALE_DATA_DIR` in the server's
-environment.
+environment. This scopes the client to a store but is not an access-control
+mechanism. Before granting an agent access, review the canonical
+[local stdio trust model](../../docs/reference/mcp.md#trust-model).
 
 ## Verify
 
