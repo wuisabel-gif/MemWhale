@@ -1,0 +1,3 @@
+mcp_servers:
+  memorywhale:
+    command: "mw-mcp"

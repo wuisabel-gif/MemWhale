@@ -1,5 +1,6 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
+pub mod hermes;
 pub mod storage;
 pub mod tui;
 
@@ -112,7 +113,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 6;
+pub const LATEST_SCHEMA_VERSION: i64 = 8;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -206,7 +207,147 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         )
         .map_err(|e| format!("failed to migrate memory lifecycle: {e}"))?;
     }
+    if version < 7 {
+        // Optional TTL: a note with a past `expires_at` is swept to status
+        // 'expired' on open, so it drops out of retrieval while its row (the
+        // original evidence) is preserved. NULL = never expires.
+        add_column_if_missing(conn, "bookmarks", "expires_at", "TEXT")?;
+        conn.execute_batch("PRAGMA user_version = 7;")
+            .map_err(|e| format!("failed to migrate memory ttl: {e}"))?;
+    }
+    if version < 8 {
+        // Typed edges between memories (namespaced ids), so recall can traverse
+        // relationships instead of scoring isolated items. Directed; neighbor
+        // lookups walk both directions.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS memory_links (
+                 from_id    INTEGER NOT NULL,
+                 to_id      INTEGER NOT NULL,
+                 relation   TEXT NOT NULL DEFAULT 'related',
+                 created_at TEXT,
+                 PRIMARY KEY (from_id, to_id, relation)
+             );
+             CREATE INDEX IF NOT EXISTS idx_memory_links_to ON memory_links(to_id);
+             PRAGMA user_version = 8;",
+        )
+        .map_err(|e| format!("failed to migrate memory links: {e}"))?;
+    }
     Ok(())
+}
+
+/// A neighbor of a memory in the link graph: the other memory's id, the
+/// relation label, and which way the edge points (`out` = this→other).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Link {
+    pub other_id: i64,
+    pub relation: String,
+    pub outgoing: bool,
+}
+
+/// Create a typed directed edge `from_id -> to_id`. Idempotent (same triple is a
+/// no-op). Returns whether a new edge was added.
+pub fn add_link(
+    conn: &Connection,
+    from_id: i64,
+    to_id: i64,
+    relation: &str,
+    now_rfc3339: &str,
+) -> Result<bool, String> {
+    if from_id == to_id {
+        return Err("a memory can't be linked to itself".to_string());
+    }
+    let changed = conn
+        .execute(
+            "INSERT OR IGNORE INTO memory_links (from_id, to_id, relation, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![from_id, to_id, relation, now_rfc3339],
+        )
+        .map_err(|e| format!("failed to link memories: {e}"))?;
+    Ok(changed > 0)
+}
+
+/// Remove edges between two memories in the given direction. When `relation` is
+/// `None`, all relations for that direction are removed. Returns the count.
+pub fn remove_link(
+    conn: &Connection,
+    from_id: i64,
+    to_id: i64,
+    relation: Option<&str>,
+) -> Result<usize, String> {
+    let n = match relation {
+        Some(rel) => conn.execute(
+            "DELETE FROM memory_links WHERE from_id = ?1 AND to_id = ?2 AND relation = ?3",
+            params![from_id, to_id, rel],
+        ),
+        None => conn.execute(
+            "DELETE FROM memory_links WHERE from_id = ?1 AND to_id = ?2",
+            params![from_id, to_id],
+        ),
+    }
+    .map_err(|e| format!("failed to unlink memories: {e}"))?;
+    Ok(n)
+}
+
+/// All neighbors of `id` — outgoing (`id -> other`) and incoming (`other -> id`).
+pub fn neighbors(conn: &Connection, id: i64) -> Result<Vec<Link>, String> {
+    let mut out = Vec::new();
+    let mut stmt = conn
+        .prepare("SELECT to_id, relation FROM memory_links WHERE from_id = ?1")
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    let rows = stmt
+        .query_map(params![id], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    for (other_id, relation) in rows.flatten() {
+        out.push(Link {
+            other_id,
+            relation,
+            outgoing: true,
+        });
+    }
+    let mut stmt = conn
+        .prepare("SELECT from_id, relation FROM memory_links WHERE to_id = ?1")
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    let rows = stmt
+        .query_map(params![id], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("failed to read links: {e}"))?;
+    for (other_id, relation) in rows.flatten() {
+        out.push(Link {
+            other_id,
+            relation,
+            outgoing: false,
+        });
+    }
+    Ok(out)
+}
+
+/// Set (or clear, with `None`) a note's expiry. `expires_at` is RFC3339.
+pub fn set_note_expiry(conn: &Connection, id: i64, expires_at: Option<&str>) -> Result<(), String> {
+    let changed = conn
+        .execute(
+            "UPDATE bookmarks SET expires_at = ?2 WHERE id = ?1",
+            params![id, expires_at],
+        )
+        .map_err(|e| format!("failed to set expiry: {e}"))?;
+    if changed == 0 {
+        return Err(format!("no memory #{id}"));
+    }
+    Ok(())
+}
+
+/// Sweep notes whose TTL has passed to status 'expired' (best-effort, additive).
+/// Returns how many were expired. Called on DB open so retrieval — which filters
+/// `status = 'active'` — stops surfacing them without deleting the evidence.
+pub fn expire_due_notes(conn: &Connection, now_rfc3339: &str) -> usize {
+    conn.execute(
+        "UPDATE bookmarks SET status = 'expired'
+         WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at <= ?1",
+        params![now_rfc3339],
+    )
+    .unwrap_or(0)
 }
 
 /// Create the local `mempalace_sync` mapping table if absent. Additive and safe
@@ -1006,6 +1147,145 @@ pub fn scope_memories(
     mems
 }
 
+/// Word set (lowercased, alphanumeric tokens) for textual-overlap comparison.
+fn word_set(s: &str) -> std::collections::HashSet<String> {
+    s.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Jaccard overlap of two word sets: |A∩B| / |A∪B|, in `[0,1]`.
+fn jaccard(a: &std::collections::HashSet<String>, b: &std::collections::HashSet<String>) -> f32 {
+    let union = a.union(b).count();
+    if union == 0 {
+        return 0.0;
+    }
+    a.intersection(b).count() as f32 / union as f32
+}
+
+/// The existing memory with the highest textual overlap to `text`, and that
+/// overlap score in `[0,1]`. Used for store-time duplicate detection.
+///
+/// Deliberately uses Jaccard word-overlap, not the engine's BM25 "similarity":
+/// BM25 scores an exact duplicate near zero on a small corpus (shared terms
+/// carry no discriminative weight), which is the opposite of what dedup needs.
+/// Returns `None` when there is nothing overlapping to compare against.
+pub fn nearest_similar(
+    mems: &[memorywhale_core::Memory],
+    text: &str,
+) -> Option<(f32, memorywhale_core::Memory)> {
+    let want = word_set(text);
+    if want.is_empty() {
+        return None;
+    }
+    mems.iter()
+        .map(|m| (jaccard(&want, &word_set(&m.text)), m))
+        .filter(|(sim, _)| *sim > 0.0)
+        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(sim, m)| (sim, m.clone()))
+}
+
+/// Overlap at or above which `mw remember` treats a new lesson as a probable
+/// duplicate and asks the user to confirm with `--force`. 1.0 = identical word
+/// set; ~0.5 = a loose paraphrase. Set to catch near-identical saves while
+/// leaving genuine paraphrases through.
+// ponytail: single threshold constant — make it configurable only if users ask.
+pub const DEDUP_SIMILARITY: f32 = 0.7;
+
+/// Inline `key:value` filters for `mw search` (e.g. `tag:infra after:2026-01-01`).
+#[derive(Debug, Default, PartialEq)]
+pub struct SearchFilters {
+    /// All must be present on a memory (AND), matched case-insensitively.
+    pub tags: Vec<String>,
+    /// Any may match (OR): command|session|note|document|conversation.
+    pub sources: Vec<String>,
+    /// created_at on or after this day (start of day, UTC).
+    pub after: Option<chrono::DateTime<Utc>>,
+    /// created_at on or before this day (end of day, UTC).
+    pub before: Option<chrono::DateTime<Utc>>,
+    /// Cap on the number of ranked results.
+    pub limit: Option<usize>,
+}
+
+/// The source names accepted by `source:` — the same strings `Source::tag()` emits.
+pub const SEARCH_SOURCES: [&str; 5] = ["command", "session", "note", "document", "conversation"];
+
+fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
+    let d = chrono::NaiveDate::parse_from_str(val, "%Y-%m-%d")
+        .map_err(|_| format!("invalid date in {kind}:{val} — use YYYY-MM-DD"))?;
+    // `after` is inclusive from the start of the day; `before` through its end.
+    let (h, m, s) = if kind == "before" {
+        (23, 59, 59)
+    } else {
+        (0, 0, 0)
+    };
+    Ok(d.and_hms_opt(h, m, s)
+        .expect("0/23:59:59 is always valid")
+        .and_utc())
+}
+
+/// Split search args into inline `key:value` filters and the remaining
+/// free-text query. Unknown `key:` prefixes are treated as query text.
+pub fn parse_search_filters(terms: &[&str]) -> Result<(SearchFilters, String), String> {
+    let mut f = SearchFilters::default();
+    let mut query: Vec<&str> = Vec::new();
+    for t in terms {
+        if let Some(v) = t.strip_prefix("tag:") {
+            if !v.is_empty() {
+                f.tags.push(v.to_lowercase());
+            }
+        } else if let Some(v) = t.strip_prefix("source:") {
+            let v = v.to_lowercase();
+            if !SEARCH_SOURCES.contains(&v.as_str()) {
+                return Err(format!(
+                    "unknown source:{v} — use one of {}",
+                    SEARCH_SOURCES.join("|")
+                ));
+            }
+            f.sources.push(v);
+        } else if let Some(v) = t.strip_prefix("after:") {
+            f.after = Some(parse_filter_day("after", v)?);
+        } else if let Some(v) = t.strip_prefix("before:") {
+            f.before = Some(parse_filter_day("before", v)?);
+        } else if let Some(v) = t.strip_prefix("limit:") {
+            f.limit = Some(
+                v.parse()
+                    .map_err(|_| format!("invalid limit:{v} — expected a number"))?,
+            );
+        } else {
+            query.push(t);
+        }
+    }
+    Ok((f, query.join(" ")))
+}
+
+/// Apply the value filters to the memory set. The `limit` is applied later to
+/// the ranked hits, not here.
+pub fn filter_memories(
+    mut mems: Vec<memorywhale_core::Memory>,
+    f: &SearchFilters,
+) -> Vec<memorywhale_core::Memory> {
+    use memorywhale_core::sqlite::decode_id;
+    if let Some(a) = f.after {
+        mems.retain(|m| m.created_at >= a);
+    }
+    if let Some(b) = f.before {
+        mems.retain(|m| m.created_at <= b);
+    }
+    if !f.tags.is_empty() {
+        mems.retain(|m| {
+            let have: Vec<String> = m.tags.iter().map(|t| t.to_lowercase()).collect();
+            f.tags.iter().all(|want| have.iter().any(|h| h == want))
+        });
+    }
+    if !f.sources.is_empty() {
+        mems.retain(|m| f.sources.iter().any(|s| s == decode_id(m.id).0.tag()));
+    }
+    mems
+}
+
 /// True when agent-written memories should start unapproved and be excluded from
 /// retrieval until approved in the dashboard. On by default. Set
 /// `MEMORYWHALE_REVIEW_AGENT_MEMORIES=0` or
@@ -1434,6 +1714,168 @@ mod tests {
         assert!(fix_surfaced(&[9, 2, 5], &[2], 5));
         assert!(!fix_surfaced(&[9, 5, 7, 8, 6, 2], &[2], 5)); // fix at rank 6, k=5
         assert!(!fix_surfaced(&[9, 5, 7], &[2], 5)); // fix not retrieved at all
+    }
+
+    fn mem(id: i64, tags: &[&str], created: &str) -> memorywhale_core::Memory {
+        let when = chrono::DateTime::parse_from_rfc3339(created)
+            .unwrap()
+            .with_timezone(&Utc);
+        memorywhale_core::Memory {
+            id,
+            text: "x".into(),
+            created_at: when,
+            last_used: when,
+            mentions: 1,
+            importance: 0.5,
+            tags: tags.iter().map(|s| s.to_string()).collect(),
+            embedding: None,
+        }
+    }
+
+    #[test]
+    fn links_are_idempotent_directional_and_removable() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        let now = "2026-06-01T00:00:00Z";
+
+        // First add creates the edge; a duplicate is a no-op.
+        assert!(add_link(&conn, 10, 20, "fixed-by", now).unwrap());
+        assert!(!add_link(&conn, 10, 20, "fixed-by", now).unwrap());
+        // Self-links are rejected.
+        assert!(add_link(&conn, 10, 10, "related", now).is_err());
+
+        // Neighbors: 10 sees it outgoing, 20 sees it incoming.
+        let from_10 = neighbors(&conn, 10).unwrap();
+        assert_eq!(from_10.len(), 1);
+        assert!(
+            from_10[0].outgoing && from_10[0].other_id == 20 && from_10[0].relation == "fixed-by"
+        );
+        let from_20 = neighbors(&conn, 20).unwrap();
+        assert_eq!(from_20.len(), 1);
+        assert!(!from_20[0].outgoing && from_20[0].other_id == 10);
+
+        // Remove is directional and counts what it deleted.
+        assert_eq!(remove_link(&conn, 10, 20, None).unwrap(), 1);
+        assert!(neighbors(&conn, 10).unwrap().is_empty());
+        assert_eq!(remove_link(&conn, 10, 20, None).unwrap(), 0);
+    }
+
+    #[test]
+    fn expire_due_notes_sweeps_only_past_ttls() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO bookmarks (id, label, created_at, approved, status, expires_at) VALUES
+               (1, 'past',     '2026-01-01T00:00:00Z', 1, 'active', '2026-01-02T00:00:00Z'),
+               (2, 'future',   '2026-01-01T00:00:00Z', 1, 'active', '2999-01-01T00:00:00Z'),
+               (3, 'noexpiry', '2026-01-01T00:00:00Z', 1, 'active', NULL);",
+        )
+        .unwrap();
+        let expired = expire_due_notes(&conn, "2026-06-01T00:00:00Z");
+        assert_eq!(expired, 1, "only the past-TTL note should expire");
+        let status = |id: i64| -> String {
+            conn.query_row(
+                "SELECT status FROM bookmarks WHERE id=?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(status(1), "expired"); // TTL passed
+        assert_eq!(status(2), "active"); // TTL in the future
+        assert_eq!(status(3), "active"); // no TTL
+                                         // Idempotent: a second sweep changes nothing.
+        assert_eq!(expire_due_notes(&conn, "2026-06-01T00:00:00Z"), 0);
+    }
+
+    #[test]
+    fn nearest_similar_flags_duplicates_not_unrelated() {
+        let mems = vec![
+            mem(3_000_000_001, &["note"], "2026-06-01T00:00:00Z"),
+            mem(3_000_000_002, &["note"], "2026-06-02T00:00:00Z"),
+        ];
+        let mut mems = mems;
+        mems[0].text = "the fix was passing --features vendored-ssl".into();
+        mems[1].text = "linker error: missing -lstdc++ on the jetson".into();
+
+        // Exact text → overlap 1.0, matched to the right memory.
+        let (sim, hit) =
+            nearest_similar(&mems, "the fix was passing --features vendored-ssl").unwrap();
+        assert!(
+            (sim - 1.0).abs() < 1e-6,
+            "exact match should be 1.0, got {sim}"
+        );
+        assert_eq!(hit.id, 3_000_000_001);
+        assert!(sim >= DEDUP_SIMILARITY);
+
+        // Partial overlap (a couple shared words) → below the dedup threshold.
+        let (sim2, _) = nearest_similar(&mems, "the fix for the jetson").unwrap();
+        assert!(
+            sim2 > 0.0 && sim2 < DEDUP_SIMILARITY,
+            "partial overlap should be between 0 and the threshold, got {sim2}"
+        );
+
+        // No shared words → None (nothing to dedup against, so the save proceeds).
+        assert!(nearest_similar(&mems, "completely unrelated kubernetes ingress").is_none());
+        // Empty corpus / empty text → None.
+        assert!(nearest_similar(&[], "anything").is_none());
+        assert!(nearest_similar(&mems, "   ").is_none());
+    }
+
+    #[test]
+    fn parse_search_filters_splits_filters_from_query() {
+        let (f, q) =
+            parse_search_filters(&["docker", "after:2026-01-01", "tag:Infra", "source:command"])
+                .unwrap();
+        assert_eq!(q, "docker");
+        assert_eq!(f.tags, vec!["infra"]); // lowercased
+        assert_eq!(f.sources, vec!["command"]);
+        assert!(f.after.is_some());
+        // Unknown prefixes stay as query text; a bare word too.
+        let (f2, q2) = parse_search_filters(&["ratio:1", "hello"]).unwrap();
+        assert!(f2.tags.is_empty());
+        assert_eq!(q2, "ratio:1 hello");
+    }
+
+    #[test]
+    fn parse_search_filters_rejects_bad_values() {
+        assert!(parse_search_filters(&["before:nope"]).is_err());
+        assert!(parse_search_filters(&["source:banana"]).is_err());
+        assert!(parse_search_filters(&["limit:x"]).is_err());
+    }
+
+    #[test]
+    fn filter_memories_applies_tag_source_and_dates() {
+        // ids: 1_000_000_001 -> Command, 3_000_000_001 -> Note.
+        let mems = vec![
+            mem(1_000_000_001, &["command", "infra"], "2026-02-01T00:00:00Z"),
+            mem(3_000_000_001, &["note"], "2026-06-01T00:00:00Z"),
+        ];
+
+        // tag: keeps only the infra-tagged command.
+        let f = SearchFilters {
+            tags: vec!["infra".into()],
+            ..Default::default()
+        };
+        let out = filter_memories(mems.clone(), &f);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, 1_000_000_001);
+
+        // source:note keeps only the note.
+        let f = SearchFilters {
+            sources: vec!["note".into()],
+            ..Default::default()
+        };
+        assert_eq!(filter_memories(mems.clone(), &f)[0].id, 3_000_000_001);
+
+        // after:2026-03-01 drops the February command.
+        let f = SearchFilters {
+            after: parse_search_filters(&["after:2026-03-01"]).unwrap().0.after,
+            ..Default::default()
+        };
+        let out = filter_memories(mems.clone(), &f);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, 3_000_000_001);
     }
 
     /// End-to-end scoring over the REAL retrieval path (load_memories +

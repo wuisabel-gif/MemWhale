@@ -1,27 +1,56 @@
-# AI agent integrations
+# MemoryWhale integrations
 
-Give an AI coding agent both sides of memory: it can *read* what already
-failed, and it can *write down* what it figured out.
+Integrations are thin adapters between external tools and MemoryWhale's public
+interfaces. They do not define the core product: capture, memory, and retrieval
+remain client-neutral.
 
-## 1. MCP server (recommended) — the agent reads and writes
+## Capability definitions
 
-`mw-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server
-over stdio. Register it once and the agent gets four native tools — no
-copy-paste:
+- **Context export:** a person can paste output from `mw context` into any tool.
+- **MCP memory access:** the client can read and explicitly write local memory
+  through the `mw-mcp` stdio server.
+- **Automatic execution capture:** a verified client mechanism records commands
+  or tool results without wrapping each command manually.
+- **Memory-use guidance:** a rule, skill, or documented instruction tells the
+  client when to consult or update MemoryWhale.
 
-- `recent_errors` — recent failed commands with their error output
-- `search_memory` — search commands, output, notes, and remembered lessons
-- `get_context` — a compact digest of recent failures, optionally per project
-- `remember` — save a conclusion ("the fix was X") for its future self to find
+MCP memory access is not automatic execution capture. Unless the matrix says
+otherwise, commands run by a client are recorded only through normal terminal
+capture or an explicitly installed hook.
 
-Claude Code:
+## Capability matrix
+
+The values below describe files in this repository, not assumed client
+features.
+
+| Client | MCP memory access | Auto-capture | Guidance | Setup |
+| --- | --- | --- | --- | --- |
+| Any stdio MCP client | Yes | No | Client-specific | [Generic MCP](generic-mcp/README.md) |
+| Claude Code | Yes | Yes, optional `PostToolUse` hook | Yes, optional skill | [Hook and skill](claude-code/) |
+| Claude Desktop | Yes | No | No | [Guide](claude-desktop/README.md) |
+| Cline | Yes | No | Yes | [Guide](cline/README.md) |
+| Codex CLI | Yes | No | Yes | [Guide](codex/README.md) |
+| Continue | Yes | No | Yes | [Guide](continue/README.md) |
+| CrowClaw | Yes | No | Yes | [Guide](crowclaw/README.md) |
+| Cursor | Yes | No | Yes | [Guide](cursor/README.md) |
+| Gemini CLI | Yes | No | Yes | [Guide](gemini-cli/README.md) |
+| Goose | Yes | No | Yes | [Guide](goose/README.md) |
+| Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |
+| OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
+| VS Code / GitHub Copilot | Yes | No | Yes | [Guide](vscode/README.md) |
+| Windsurf | Yes | No | Yes | [Guide](windsurf/README.md) |
+| Zed | Yes | No | Yes | [Guide](zed/README.md) |
+| Neovim plugin | No; uses the CLI directly | No | Commands only | [Guide](neovim/README.md) |
+
+Every tool can still use context export:
 
 ```bash
-claude mcp add memorywhale -- mw-mcp
+mw context --last-error
 ```
 
-The same `mw-mcp` server plugs into every MCP-speaking client — only the config
-file differs. Per-client setup (config + a "when to use it" rule):
+## MCP interface
+
+`mw-mcp` exposes six tools over newline-delimited JSON-RPC 2.0 on stdio:
 
 - **Cursor** → [`cursor/`](cursor/README.md)
 - **VS Code / GitHub Copilot** (agent mode) → [`vscode/`](vscode/README.md)
@@ -33,69 +62,27 @@ file differs. Per-client setup (config + a "when to use it" rule):
   command is `mw-mcp` (no arguments). It honours `MEMORYWHALE_DATA_DIR` like the
   rest of the CLI.
 
-Quick check that it responds:
+The [MCP reference](../docs/reference/mcp.md) is authoritative for parameters
+and responses. A transport-level check is:
 
 ```bash
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
 ```
 
-## 2. Claude Code hook — auto-capture what the agent runs
+## Claude Code automatic capture
 
-The MCP server above is how the agent *reads and writes lessons*. This hook is
-how its *commands* get captured automatically, the same way `mw global on`
-auto-records your own terminals — without it, memory only grows when you
-manually run `mw`/`mw-run`.
+The optional
+[`claude-code/hooks/mw-record.py`](claude-code/hooks/mw-record.py)
+`PostToolUse` hook captures Claude Code Bash calls through `mw-remember`. It is
+separate from MCP: MCP lets the client retrieve and explicitly save memory,
+while the hook records observed execution.
 
-[`claude-code/hooks/mw-record.py`](claude-code/hooks/mw-record.py) is a
-`PostToolUse` hook: after Claude Code runs a Bash command, it saves the
-command, its output, and its exit status into MemoryWhale via `mw-remember`
-(so it's redacted like everything else). Non-Bash tool calls are ignored, and
-any failure here is swallowed — it can never block the agent's tool call.
+The optional [`claude-code/memorywhale/SKILL.md`](claude-code/memorywhale/SKILL.md)
+teaches Claude Code when to search and save memory. Both require explicit
+installation and neither is needed for ordinary terminal capture.
 
-Add to your project's `.claude/settings.json` (or `~/.claude/settings.json`
-for every project):
+## Adding or updating an integration
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /absolute/path/to/MemWhale/integrations/claude-code/hooks/mw-record.py"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Requires `mw-remember` on `PATH` (it's part of the standard install). Combine
-with the skill below and the `remember` MCP tool, and the agent's failures and
-conclusions both accumulate automatically — next week's session inherits this
-week's debugging.
-
-## 3. Claude Code skill
-
-[`claude-code/memorywhale/SKILL.md`](claude-code/memorywhale/SKILL.md) teaches
-Claude Code *when* to reach for the memory (recurring failures, "how did we fix
-this last time"). Install it by copying (or symlinking) the folder into your
-skills directory:
-
-```bash
-cp -r integrations/claude-code/memorywhale ~/.claude/skills/
-```
-
-The skill uses the MCP tools when connected and falls back to the `mw context`
-CLI otherwise, so it's useful with or without the MCP server.
-
-## Without any of these
-
-`mw context` prints a compact, paste-ready digest for any agent or chat:
-
-```bash
-mw context --last-error
-```
+Use [`TEMPLATE.md`](TEMPLATE.md). Verify the current client configuration from
+an authoritative source, declare capabilities from repository evidence, and
+keep client-specific behavior out of MemoryWhale core.

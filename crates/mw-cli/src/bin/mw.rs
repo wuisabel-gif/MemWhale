@@ -39,6 +39,10 @@ fn main() {
 fn run() -> Result<(), String> {
     let raw_args: Vec<String> = env::args().skip(1).collect();
     match raw_args.first().map(String::as_str) {
+        Some("--version") | Some("-V") => {
+            println!("mw {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
         Some("show") => return show_session(&raw_args[1..]),
         Some("list") => return list_sessions(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
@@ -59,6 +63,11 @@ fn run() -> Result<(), String> {
         Some("agent") => return agent_cmd(&raw_args[1..]),
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
+        Some("explain") => return explain_cmd(&raw_args[1..]),
+        Some("link") => return link_cmd(&raw_args[1..]),
+        Some("unlink") => return unlink_cmd(&raw_args[1..]),
+        Some("links") => return links_cmd(&raw_args[1..]),
+        Some("pet") => return pet_cmd(&raw_args[1..]),
         Some("tui") => return memorywhale_cli::tui::run(),
         Some("sync-mempalace") => return sync_mempalace(&raw_args[1..]),
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
@@ -66,6 +75,7 @@ fn run() -> Result<(), String> {
         Some("global") => return global_cmd(&raw_args[1..]),
         Some("status") => return global_status(),
         Some("hooks") => return hooks_cmd(&raw_args[1..]),
+        Some("integrate") => return integrate_cmd(&raw_args[1..]),
         Some("--help") | Some("-h") => {
             print_help();
             return Ok(());
@@ -264,10 +274,11 @@ fn print_help() {
     println!(
         "mw [--notes <text>]      record a whole shell session until you exit\n\
          mw --live [--notes <text>]  autosave the session to SQLite while it is still running\n\
+         mw --version | -V          print the current MemoryWhale version\n\
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
-         mw remember <text>       save a lesson/conclusion, e.g. \"the fix was passing --features vendored-ssl\"\n\
+         mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
          mw memory supersede <old-id> <new-id>  replace an old lesson with a newer one\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
@@ -283,7 +294,12 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
+         mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
+         mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
+         mw links <id>            show a memory's linked neighbors (both directions)\n\
+         mw pet [--watch]         a whale whose mood reflects your memory store (--watch animates it)\n\
          mw tui                   interactive terminal browser: type to search, arrow keys to move, Enter to reveal the command\n\
          mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]  sync local memories into a running MemPalace server, idempotent by memory id (needs mempalace_command in config)\n\
          mw git-fix [id]          diagnose the last failed git command (or one by id): what happened, the fix, seen before?\n\
@@ -293,11 +309,29 @@ fn print_help() {
          mw doctor                check the install: data dir, database, `script`, and hook status\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
+         mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
          Raw transcript: <data_local>/MemoryWhale/sessions/\n\
          Metadata + cleaned transcript: <data_local>/MemoryWhale/memorywhale.sqlite3 (sessions table)"
     );
+}
+
+fn integrate_cmd(args: &[String]) -> Result<(), String> {
+    match args.first().map(String::as_str) {
+        Some("hermes") if args.len() == 1 => {
+            let config_path = memorywhale_cli::hermes::install()?;
+            println!(
+                "MemoryWhale added to Hermes Agent in {}",
+                config_path.display()
+            );
+            Ok(())
+        }
+        Some(other) => Err(format!(
+            "unsupported integration {other:?}; usage: mw integrate hermes"
+        )),
+        None => Err("usage: mw integrate hermes".to_string()),
+    }
 }
 
 /// Shown only on a genuine cold start: no hook wired and nothing recorded yet.
@@ -887,16 +921,66 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
 }
 
 fn remember_cmd(args: &[String]) -> Result<(), String> {
-    if args.is_empty() {
-        return Err("usage: mw remember <text>".to_string());
+    let force = args.iter().any(|a| a == "--force");
+    let ttl_spec = args.iter().find_map(|a| a.strip_prefix("ttl:"));
+    let text = args
+        .iter()
+        .filter(|a| a.as_str() != "--force" && !a.starts_with("ttl:"))
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if text.trim().is_empty() {
+        return Err("usage: mw remember <text> [ttl:7d] [--force]".to_string());
     }
-    let text = args.join(" ");
+    // Validate the TTL before saving so a bad duration never leaves a note behind.
+    let expires_at = match ttl_spec {
+        Some(spec) => {
+            let d = memorywhale_cli::parse_since(spec)
+                .map_err(|_| format!("invalid ttl:{spec}; use e.g. 7d, 24h, 2w"))?;
+            Some((Utc::now() + d).to_rfc3339())
+        }
+        None => None,
+    };
     let cwd = env::current_dir()
         .ok()
         .and_then(|path| path.to_str().map(ToOwned::to_owned));
+
+    // Store-time duplicate check: don't silently pile up the same lesson twice.
+    // Read-only — never merges or deletes; `--force` keeps both. If the db can't
+    // be opened here, skip the check and let `remember` surface the real error.
+    if !force {
+        if let Ok(conn) = open_session_db() {
+            let mems = memorywhale_core::sqlite::load_memories(&conn);
+            if let Some((sim, existing)) = memorywhale_cli::nearest_similar(&mems, &text) {
+                if sim >= memorywhale_cli::DEDUP_SIMILARITY {
+                    let snippet: String = existing.text.chars().take(100).collect();
+                    return Err(format!(
+                        "a similar memory already exists (#{} · {:.0}% overlap):\n  \"{}\"\nnot saved (near-duplicate). Re-run with `mw remember --force` to save it anyway.",
+                        existing.id,
+                        sim * 100.0,
+                        memorywhale_cli::redact(&snippet),
+                    ));
+                }
+            }
+        }
+    }
+
     let id = memorywhale_cli::remember(&text, cwd.as_deref())?;
+    if let Some(exp) = &expires_at {
+        if let Ok(conn) = open_session_db() {
+            let _ = memorywhale_cli::set_note_expiry(&conn, id, Some(exp));
+        }
+    }
     // Echo back what was actually stored (redacted), not the raw input.
-    println!("mw: remembered #{id}: {}", memorywhale_cli::redact(&text));
+    let suffix = expires_at
+        .as_deref()
+        .map(|e| format!(" (expires {})", &e[..10.min(e.len())]))
+        .unwrap_or_default();
+    println!(
+        "mw: remembered #{id}: {}{}",
+        memorywhale_cli::redact(&text),
+        suffix
+    );
     Ok(())
 }
 
@@ -2112,18 +2196,24 @@ fn note_meta(conn: &Connection, id: i64) -> Option<(String, String)> {
 fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
-    let terms: Vec<&String> = args.iter().filter(|a| a.as_str() != "--explain").collect();
-    if terms.is_empty() {
+    let terms: Vec<&str> = args
+        .iter()
+        .map(|s| s.as_str())
+        .filter(|a| *a != "--explain")
+        .collect();
+    // Pull inline `tag:`/`source:`/`before:`/`after:`/`limit:` filters out of the
+    // terms; whatever's left is the free-text query.
+    let (filters, query) = memorywhale_cli::parse_search_filters(&terms)?;
+    let has_filter = !filters.tags.is_empty()
+        || !filters.sources.is_empty()
+        || filters.before.is_some()
+        || filters.after.is_some();
+    if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--explain] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }
-    let query = terms
-        .iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<_>>()
-        .join(" ");
 
     // External semantic engine (MemPalace), if the user opted in via config. It
     // ranks server-side over its own corpus, so the local scope filters don't
@@ -2160,13 +2250,16 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         scope.machine.as_deref(),
         scope.cutoff(now),
     );
+    // Inline tag:/source:/before:/after: filters narrow the set before ranking.
+    let mems = memorywhale_cli::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(&query, now);
     let tags = scope.task_tags();
     if !tags.is_empty() {
         q = q.with_task(tags);
     }
-    let hits = engine.retrieve(&q, 20);
+    // limit:N caps the ranked results; default matches the previous behaviour.
+    let hits = engine.retrieve(&q, filters.limit.unwrap_or(20));
 
     println!("# matches for {query:?}  (ranked)\n");
     if hits.is_empty() {
@@ -2196,9 +2289,10 @@ fn search_memory(args: &[String]) -> Result<(), String> {
             _ => String::new(),
         };
         println!(
-            "{:>3}%  [{}] {}{}{}",
+            "{:>3}%  [{}] #{} {}{}{}",
             sm.percent(),
             source.tag(),
+            sm.memory.id,
             snippet,
             action,
             prov
@@ -2931,6 +3025,264 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
 
 /// Print a compact, token-budgeted digest of recent memory for an AI agent to
 /// read: recent failed commands (with short error tails) and recent sessions.
+/// `mw explain <id> [query text]` — the per-signal score breakdown for one
+/// memory. The differentiator: not just *that* a memory ranks, but *why*
+/// (recency, importance, reinforcement, and — when query text is supplied —
+/// similarity / keyword overlap). Ids are the namespaced ids shown by
+/// `mw search`.
+fn explain_cmd(args: &[String]) -> Result<(), String> {
+    let (scope, args) = Scope::take(args)?;
+    let Some((id_arg, rest)) = args.split_first() else {
+        return Err("usage: mw explain <id> [query text]".to_string());
+    };
+    let id: i64 = id_arg.parse().map_err(|_| {
+        format!(
+            "invalid id {id_arg:?}: expected a numeric memory id (see the ids from `mw search`)"
+        )
+    })?;
+    let query_text = rest
+        .iter()
+        .map(|s| s.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    // Same loader + engine the Recall panel and `mw search` use, so the
+    // breakdown matches what ranking actually did. "now" is fixed here so
+    // scoring stays deterministic.
+    let conn = open_session_db()?;
+    let now = Utc::now();
+    let mems = memorywhale_core::sqlite::load_memories(&conn);
+    let mems = memorywhale_cli::scope_memories(
+        &conn,
+        mems,
+        scope.project.as_deref(),
+        scope.machine.as_deref(),
+        scope.cutoff(now),
+    );
+    let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
+    let mut q = memorywhale_core::Query::new(&query_text, now);
+    let tags = scope.task_tags();
+    if !tags.is_empty() {
+        q = q.with_task(tags);
+    }
+    match engine.explain(id, &q) {
+        Some(sm) => {
+            print!("{}", sm.explain());
+            Ok(())
+        }
+        None => Err(format!(
+            "no memory with id {id} (list ids with `mw search`)"
+        )),
+    }
+}
+
+/// Load every memory keyed by its namespaced id — used to validate link targets
+/// and to render neighbor text.
+fn memory_map(
+    conn: &rusqlite::Connection,
+) -> std::collections::HashMap<i64, memorywhale_core::Memory> {
+    memorywhale_core::sqlite::load_memories(conn)
+        .into_iter()
+        .map(|m| (m.id, m))
+        .collect()
+}
+
+fn parse_link_id(arg: &str) -> Result<i64, String> {
+    arg.parse().map_err(|_| {
+        format!("invalid id {arg:?}: expected a numeric memory id (see the ids from `mw search`)")
+    })
+}
+
+/// `mw link <a> <b> [rel:<type>]` — create a typed edge between two memories.
+fn link_cmd(args: &[String]) -> Result<(), String> {
+    let rel = args
+        .iter()
+        .find_map(|a| a.strip_prefix("rel:"))
+        .filter(|r| !r.is_empty())
+        .unwrap_or("related");
+    let ids: Vec<&String> = args.iter().filter(|a| !a.starts_with("rel:")).collect();
+    let (a, b) = match ids.as_slice() {
+        [a, b] => (parse_link_id(a)?, parse_link_id(b)?),
+        _ => return Err("usage: mw link <a> <b> [rel:<type>]".to_string()),
+    };
+    let conn = open_session_db()?;
+    let known = memory_map(&conn);
+    for id in [a, b] {
+        if !known.contains_key(&id) {
+            return Err(format!(
+                "no memory with id {id} (list ids with `mw search`)"
+            ));
+        }
+    }
+    let added = memorywhale_cli::add_link(&conn, a, b, rel, &Utc::now().to_rfc3339())?;
+    if added {
+        println!("mw: linked #{a} -> #{b} [{rel}]");
+    } else {
+        println!("mw: #{a} -> #{b} [{rel}] already linked");
+    }
+    Ok(())
+}
+
+/// `mw unlink <a> <b> [rel:<type>]` — remove edge(s) between two memories.
+fn unlink_cmd(args: &[String]) -> Result<(), String> {
+    let rel = args.iter().find_map(|a| a.strip_prefix("rel:"));
+    let ids: Vec<&String> = args.iter().filter(|a| !a.starts_with("rel:")).collect();
+    let (a, b) = match ids.as_slice() {
+        [a, b] => (parse_link_id(a)?, parse_link_id(b)?),
+        _ => return Err("usage: mw unlink <a> <b> [rel:<type>]".to_string()),
+    };
+    let conn = open_session_db()?;
+    let removed = memorywhale_cli::remove_link(&conn, a, b, rel)?;
+    if removed == 0 {
+        return Err(format!("no link #{a} -> #{b} to remove"));
+    }
+    println!("mw: unlinked #{a} -> #{b} ({removed} edge(s))");
+    Ok(())
+}
+
+/// `mw links <id>` — show a memory's neighbors (both directions).
+fn links_cmd(args: &[String]) -> Result<(), String> {
+    let id = match args {
+        [id] => parse_link_id(id)?,
+        _ => return Err("usage: mw links <id>".to_string()),
+    };
+    let conn = open_session_db()?;
+    let map = memory_map(&conn);
+    if !map.contains_key(&id) {
+        return Err(format!(
+            "no memory with id {id} (list ids with `mw search`)"
+        ));
+    }
+    let links = memorywhale_cli::neighbors(&conn, id)?;
+    if links.is_empty() {
+        println!("mw: no links for #{id}");
+        return Ok(());
+    }
+    println!("# links for #{id}\n");
+    for l in links {
+        let arrow = if l.outgoing { "->" } else { "<-" };
+        let text = map
+            .get(&l.other_id)
+            .map(|m| m.text.chars().take(70).collect::<String>())
+            .unwrap_or_else(|| "(memory no longer present)".to_string());
+        println!("  {arrow} #{} [{}] {}", l.other_id, l.relation, text);
+    }
+    Ok(())
+}
+
+/// A read-only snapshot of the store that drives the pet's mood.
+struct PetSnapshot {
+    total: usize,
+    /// Days since the most recently used memory (999 if the store is empty).
+    days: i64,
+    links: i64,
+    expired: i64,
+}
+
+fn pet_snapshot(conn: &rusqlite::Connection) -> PetSnapshot {
+    let mems = memorywhale_core::sqlite::load_memories(conn);
+    let total = mems.len();
+    let now = Utc::now();
+    let days = mems
+        .iter()
+        .map(|m| (now - m.last_used).num_days())
+        .min()
+        .unwrap_or(999);
+    let links = conn
+        .query_row("SELECT COUNT(*) FROM memory_links", [], |r| r.get(0))
+        .unwrap_or(0);
+    let expired = conn
+        .query_row(
+            "SELECT COUNT(*) FROM bookmarks WHERE status = 'expired'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    PetSnapshot {
+        total,
+        days,
+        links,
+        expired,
+    }
+}
+
+/// Render one frame of the whale. `tick` animates the swim/spout/blink; pass 0
+/// for a still snapshot.
+fn pet_frame(s: &PetSnapshot, tick: u64) -> String {
+    // Colors, unless NO_COLOR is set.
+    let color = std::env::var_os("NO_COLOR").is_none();
+    let (b, g, y, dim, r) = if color {
+        (
+            "\x1b[38;5;27m",
+            "\x1b[38;5;36m",
+            "\x1b[33m",
+            "\x1b[2m",
+            "\x1b[0m",
+        )
+    } else {
+        ("", "", "", "", "")
+    };
+
+    let blink = tick % 6 == 5;
+    let (mood, eye) = if s.total == 0 {
+        ("hungry", if blink { "- -" } else { "· ·" })
+    } else if s.days <= 1 {
+        ("well-fed", if blink { "- -" } else { "^ ^" })
+    } else if s.days <= 7 {
+        ("content", if blink { "- -" } else { "o o" })
+    } else {
+        ("sleepy", "- -")
+    };
+    // Digesting after a sweep: a spout puff when there are expired memories.
+    let spouting = tick.is_multiple_of(4) && (s.days <= 7 || s.expired > 0);
+    let spout = if spouting {
+        format!("{g}~*~{r}")
+    } else {
+        "   ".to_string()
+    };
+    let swim = " ".repeat((tick % 12) as usize);
+    let last = if s.days <= 1 {
+        "today".to_string()
+    } else if s.days < 999 {
+        format!("{}d ago", s.days)
+    } else {
+        "never".to_string()
+    };
+
+    format!(
+        "\n  {y}MemoryWhale{r} {dim}·{r} {g}{mood}{r}   {dim}🧠 {} · 🔗 {} · 🕐 {last}{r}\n\n\
+         {swim}   {spout}\n\
+         {swim} {b}.-\"\"\"-.{r}\n\
+         {swim}{b}.'  {eye}   `.{r}\n\
+         {swim}{b}|   \\_/   |{r}\n\
+         {swim} {b}`.,___,.'{r}\n\
+         {g}~^~^~^~^~^~^~^~^~^~^~^~^~^~{r}\n",
+        s.total, s.links,
+    )
+}
+
+/// `mw pet [--watch]` — a whale whose mood reflects your memory store.
+/// One-shot by default; `--watch` animates it (Ctrl-C to stop). Read-only.
+fn pet_cmd(args: &[String]) -> Result<(), String> {
+    let conn = open_session_db()?;
+    if args.iter().any(|a| a == "--watch") {
+        use std::io::Write;
+        let mut snap = pet_snapshot(&conn);
+        let mut tick: u64 = 0;
+        loop {
+            if tick.is_multiple_of(10) {
+                snap = pet_snapshot(&conn); // refresh the store every ~2.5s
+            }
+            print!("\x1b[2J\x1b[H{}", pet_frame(&snap, tick));
+            let _ = std::io::stdout().flush();
+            thread::sleep(Duration::from_millis(250));
+            tick += 1;
+        }
+    }
+    println!("{}", pet_frame(&pet_snapshot(&conn), 0));
+    Ok(())
+}
+
 fn context_cmd(args: &[String]) -> Result<(), String> {
     let mut project: Option<String> = None;
     let mut last_error = false;

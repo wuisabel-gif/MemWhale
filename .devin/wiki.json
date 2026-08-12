@@ -1,0 +1,41 @@
+{
+  "repo_notes": [
+    {
+      "content": "Keep the product name as MemoryWhale (repository: MemWhale). Treat the repository source at the indexed commit as authoritative. Use valid Mermaid syntax with quoted labels and avoid malformed citations such as NaN-NaN or empty source URLs. Do not describe Unix file permission modes as ACLs."
+    }
+  ],
+  "pages": [
+    {
+      "title": "MemoryWhale Overview",
+      "page_notes": [
+        {
+          "content": "Fix all Mermaid diagrams so they render successfully. Use quoted Mermaid node labels. Explicitly list all six MCP tools: recent_errors, search_memory, get_context, remember, similar_failures, and stats."
+        }
+      ]
+    },
+    {
+      "title": "Privacy, Security, and Data Management",
+      "page_notes": [
+        {
+          "content": "Describe filesystem hardening accurately: Unix directories use mode 0700 and files use mode 0600. Do not call these ACLs. Keep the warning that redaction is mitigation, not a security boundary."
+        }
+      ]
+    },
+    {
+      "title": "MCP Protocol and Tool Reference",
+      "page_notes": [
+        {
+          "content": "Document all six tools and their current parameters from crates/mw-cli/src/bin/mw-mcp.rs. Use direct GitHub source links with valid line ranges."
+        }
+      ]
+    },
+    {
+      "title": "CI, Testing, and Development Workflow",
+      "page_notes": [
+        {
+          "content": "Use direct links to .github/workflows/ci.yml and test files. Do not emit NaN-NaN line ranges or empty citation URLs. Distinguish checks that run in CI from scripts that are only documented."
+        }
+      ]
+    }
+  ]
+}

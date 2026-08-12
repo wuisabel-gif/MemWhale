@@ -4,382 +4,129 @@
 
 <h1 align="center">MemoryWhale</h1>
 
+<p align="center"><strong>Persistent local debugging memory for developers and coding agents.</strong></p>
+
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
   <a href="https://github.com/wuisabel-gif/MemWhale/releases"><img src="https://img.shields.io/github/v/release/wuisabel-gif/MemWhale?color=2b43dd&label=release" alt="release"/></a>
   <a href="https://crates.io/crates/memorywhale-cli"><img src="https://img.shields.io/crates/v/memorywhale-cli?color=2b43dd&label=crates.io" alt="crates.io"/></a>
-  <a href="https://deepwiki.com/wuisabel-gif/MemWhale"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"/></a>
   <img src="https://img.shields.io/badge/license-MIT-2b43dd" alt="license MIT"/>
-  <img src="https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white" alt="Rust"/>
-  <img src="https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white" alt="SQLite"/>
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="local-first, nothing uploaded"/>
-  <img src="https://img.shields.io/badge/Runs%20on-Jetson-76B900?logo=nvidia&logoColor=white" alt="Runs on Jetson"/>
 </p>
 
-<p align="center">
-  🐬 <b>Sibling project:</b> <a href="https://github.com/wuisabel-gif/Delphin">Delphin</a> — the duplex communication layer (talk to your agent while it thinks). MemoryWhale is the memory layer — see <a href="ECOSYSTEM.md">ECOSYSTEM.md</a>.
-</p>
+MemoryWhale records what actually happened while you debug: commands, output,
+failures, and the fixes that worked. It stores that evidence in local SQLite so
+you and your coding agents can find it after the terminal, SSH connection, or
+agent session is gone.
 
-**MemoryWhale is persistent, local memory for developers and their coding
-agents.** It records what actually happened in your terminal — the commands,
-their output, the errors, and the fixes that worked — into local SQLite, then
-serves it back: to you, and to your AI agent over the Model Context Protocol.
+## Why MemoryWhale
 
-```bash
-claude mcp add memorywhale -- mw-mcp   # your agent can now recall past failures + the fixes that worked
-```
+- **Remember what actually happened.** Preserve the command, environment,
+  output, failure, and lesson—not only a shell-history line.
+- **Use one memory across coding agents.** Any compatible stdio MCP client can
+  read and write the same local memory through `mw-mcp`.
+- **Keep development history local.** MemoryWhale works without an account,
+  hosted service, or per-token memory bill.
 
-Shell history remembers command *lines*. It loses the debugging *situation* —
-the machine, the working directory, the exact flags, the error output, and the
-note about what the attempt meant. When the terminal crashes, the SSH session
-drops, or the scrollback scrolls away, that context is gone — and you (or your
-agent) re-debug what was already solved. MemoryWhale keeps it, across crashes,
-SSH drops, and machine switches. Everything stays on your machine; nothing is
-uploaded.
-
-<p align="center">
-  <img src="assets/demo.gif" alt="Capturing a failed build with mw-run, recording the fix once, then recalling both the error and the fix later with mw search — the same memory an agent reads over MCP" width="820" />
-</p>
-
-**How it differs from shell-history tools (atuin, etc.).** Those sync and search
-your command *lines* — fast, and worth using. MemoryWhale records the *outcomes*:
-full output, the errors, and the fixes and lessons you saved — and serves them to
-coding agents via MCP so a failure you already solved doesn't get re-debugged.
-They're complementary: keep atuin for history search; add MemoryWhale for memory.
+MemoryWhale records development experience, not everything. It is a debugging
+memory layer, not an autonomous coding agent, a general-purpose personal memory
+system, or a replacement for project documentation.
 
 ## Install
 
-Prebuilt binaries for Linux x86_64/aarch64 (incl. Jetson) and macOS — no Rust
-toolchain needed:
+Prebuilt binaries are available for Linux x86_64/aarch64 and macOS:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
 ```
 
-Installs into `~/.local/bin` (override with `PREFIX=/usr/local`). Other routes:
+Or install with Cargo or Homebrew:
 
 ```bash
-# cargo (builds the CLI only — no Tauri/GTK)
 cargo install memorywhale-cli
 
-# Homebrew (macOS/Linux)
 brew tap wuisabel-gif/memorywhale https://github.com/wuisabel-gif/MemWhale
 brew install memorywhale
 ```
 
-Debian/Ubuntu/Jetson: grab the `.deb` from the
-[releases page](https://github.com/wuisabel-gif/MemWhale/releases) and
-`sudo apt install ./memorywhale_*.deb`.
+Windows users can run MemoryWhale inside
+[WSL](https://learn.microsoft.com/windows/wsl/). See the
+[getting-started guide](docs/guides/getting-started.md) for package installs,
+PATH setup, and platform notes.
 
-All three install paths stay in sync via the release workflow — one tag
-produces the prebuilt binaries, bumps the Homebrew formula, and publishes to
-crates.io, so `install.sh`, `brew install`, and `cargo install memorywhale-cli`
-all land on the same version.
-
-**Windows:** run it inside [WSL](https://learn.microsoft.com/windows/wsl/) —
-MemoryWhale is a Linux binary there, so the one-line install above works as-is
-from your WSL shell. (A native Windows build isn't available yet; the session
-recorder relies on Unix `script`, and a native ConPTY transcript recorder isn't
-implemented — PowerShell shell hooks still capture commands.)
-
-First run: type `mw` — it explains itself and offers to auto-record every new
-terminal. That's the whole setup.
-
-## Sixty-second tour
+## Sixty-second example
 
 ```bash
-mw --notes "Jetson build debugging"   # record a whole shell session (exit to stop)
-mw --live                             # same, but autosaved — survives SSH drops
-mw-run -- cargo check                 # run one command, capture its output + exit code
-mw list && mw show 1                  # inspect recorded sessions
-mw search "linker error"              # find it across commands, output, and transcripts
-mw tui                                # interactive terminal browser — type to search, Enter to act
-mw remember "the fix was X"           # save a conclusion so it doesn't get re-derived
-mw git-fix                            # diagnose the last failed git command: what, why, the fix
-mw context --last-error               # the most recent failure, with its exact error
-mw-serve                              # web dashboard (works headless, e.g. on a Jetson)
+mw global on                         # capture future interactive shell commands
+mw-run -- cargo check                # capture one command and its output
+mw remember "the linker needed libssl-dev"
+mw search "linker error"             # recover the failure and its fix
+mw context --last-error              # compact context for any agent or chat
 ```
 
-`mw tui` opens an interactive terminal browser — no web page, no server. Type
-to search (ranked live), arrow keys to move, **Enter** to reveal the
-`mw replay`/`mw show` command for the selected memory, **F1** for help, **Esc**
-to quit. The detail pane shows the full memory plus *why* it ranked where it
-did.
+For longer work, `mw --live` records a crash-resistant shell session. `mw tui`
+opens an interactive terminal browser, while `mw-serve` starts the local web
+dashboard.
 
-Every command run stores the command, each argument as a searchable row, the
-cwd, exit code, stdout, stderr, and your notes. Captured output is scrubbed for
-common secret shapes (tokens, keys, `password=`) before it reaches SQLite.
+## How it works
 
-`mw git-fix` recognizes common git failures — push rejected, merge conflicts,
-a dirty working tree, diverged branches, SSH auth — from output MemoryWhale
-already captured, and tells you whether you've hit this exact one before (or
-already solved it via `mw remember`). There's a **Neovim plugin** too —
-`:MwAsk`, `:MwGitFix`, `:MwSearch`, and `:MwRemember` (which can save a visual
-selection as a lesson) — in [integrations/neovim/](integrations/neovim/README.md).
+```text
+CAPTURE                 MEMORY                 RETRIEVAL
+shell / mw-run ──────► local SQLite ────────► search / context
+agent hooks ─────────► evidence + lessons ──► similar failures
+                                                   │
+                                              INTERFACES
+                                      CLI / MCP / TUI / Web / Desktop
+```
 
-📖 **Full command reference:** [docs/CLI.md](docs/CLI.md) — every `mw` subcommand
-and all the helper binaries (`mw-run`, `mw-serve`, `mw-mcp`, …), with flags and
-examples.
+Capture and retrieval are independent. MCP gives an agent access to existing
+memory; it does not automatically record normal terminal activity. See the
+[architecture](docs/architecture.md) and
+[capture concept](docs/concepts/capture.md) for the complete model.
 
-## AI agents
+## Works with your coding agent
 
-Coding agents forget everything between sessions. `mw-mcp` is a Model Context
-Protocol server over your local memory — register it once and Claude Code /
-Codex / Cursor can query past failures directly instead of re-deriving them,
-and can write down what they figure out:
+`mw-mcp` is the common integration seam: a local stdio MCP server exposing six
+memory tools. Existing guides cover Claude Code, Claude Desktop, Cursor, VS
+Code / GitHub Copilot, Windsurf, Zed, Codex CLI, Cline, Continue, Gemini CLI,
+Goose, OpenClaw, CrowClaw, Hermes Agent, and other compatible clients.
 
 ```bash
 claude mcp add memorywhale -- mw-mcp
 ```
 
-That gives the agent six tools: `recent_errors`, `search_memory`,
-`get_context`, `remember`, `similar_failures`, and `stats` — `similar_failures` lets it paste
-an error it just hit and learn, from observed exit codes, how many times that
-exact failure was seen and how often a later run resolved it. And once it works
-out *why* something failed, it can save that conclusion for its future self (or
-a teammate) to find later, the same way you'd type:
+Clients do not all provide the same capabilities. MCP supports memory access;
+automatic execution capture requires a client-specific hook. The
+[integration matrix](integrations/README.md) distinguishes access, capture, and
+memory-use guidance and links every verified setup guide.
 
-```bash
-mw remember "the E0308 in camera-driver was the fps field being a string; fix: parse it as i32"
-```
+## Who is MemoryWhale for?
 
-> **MemoryWhale surfaces the known fix for 95% of recurring failures** (combined
-> `shortcut@5` over 22 scenarios) — a retrieval ceiling, not a solve-rate. See
-> the offline [memory-shortcut eval](benchmarks/SHORTCUT_EVAL.md).
+MemoryWhale is for developers whose debugging context is scattered across
+terminal scrollback, shell history, machines, and temporary agent sessions. It
+is especially useful when you:
 
-Or bring your own AI — no API key, no per-token billing. Every "AI in your
-terminal" tool wants an API key that meters you by the token; `mw ask` instead
-uses the flat-rate chat subscription you already pay for (ChatGPT Plus, Claude
-Pro — effectively unlimited for daily debugging). It packages the last failure
-(exact error + similar past failures + saved lessons) into one prompt on your
-clipboard and opens chatgpt.com; you press paste:
-
-```bash
-mw ask                          # or: mw ask "why does this keep breaking"
-mw context --last-error         # smaller digest, same idea, no browser
-```
-
-See [integrations/](integrations/README.md) for the MCP tools, a Claude Code
-hook that auto-records every command the agent runs, and a skill that knows
-when to read from (and write to) the memory.
-
-## Web dashboard (solo or team)
-
-`mw-serve` serves your memory as a local web page — useful on headless machines
-where the desktop app cannot open. It binds to localhost by default so terminal
-history is never exposed to the network accidentally.
-
-```bash
-mw-serve                       # binds 127.0.0.1:7071
-#   this machine: http://localhost:7071/
-```
-
-LAN access is explicit and requires a token. Open the dashboard normally and
-enter the token in its sign-in form; the token never appears in the URL:
-
-```bash
-MEMORYWHALE_TOKEN=some-shared-secret mw-serve --lan
-#   open: http://<machine-ip>:7071/
-```
-
-The dashboard lists command runs and sessions, opens a readable detail page for
-each (with suggested next steps mined from your history), auto-recovers
-interrupted recordings on startup, and includes a `/graph` view: each command is
-a node **sized by how often you ran it**, and arguments shared by two or more
-commands become **bridges** (orange) that reveal which tools share a workflow.
-
-<p align="center">
-  <img src="assets/knowledge-graph.svg" alt="MemoryWhale knowledge graph" width="560" />
-</p>
-
-## Projects across terminals
-
-Each `mw` records one terminal. Tag related sessions with the same
-`project:<name>` in the notes and the dashboard merges them into one
-time-ordered timeline:
-
-```bash
-mw --notes "project:pop_playlist git history"     # terminal 1
-mw --notes "project:pop_playlist server testing"  # terminal 2
-```
-
-To auto-record every new terminal without typing `mw`, use `mw global on`
-(`mw global off` to stop). Full operating procedure: [SOP.md](SOP.md).
-
-## Two capture tiers: shell hooks vs `mw --live`
-
-MemoryWhale captures at two levels. They layer — you can run both.
-
-```bash
-mw hooks install       # lightweight, always on, every shell
-mw hooks install pwsh  # PowerShell (not in $SHELL, so name it explicitly)
-mw hooks uninstall     # removes exactly the managed block it added
-```
-
-| | Shell hooks (`mw hooks install`) | Full capture (`mw --live`, `mw-run`) |
-| --- | --- | --- |
-| Always on | Yes, every interactive shell | Per terminal / per command |
-| Records | Command line, working directory, exit code, duration | All of that **plus the full output transcript** |
-| Does **not** record | stdout, stderr, screen content, TUI redraws | — |
-| Cost | One detached write per command, no `script` pty | A pty wrapper for the session |
-| Row marker | `command_runs.capture_kind = 'hook'` | `capture_kind = 'full'` |
-
-Everything lands in the same SQLite database and the same `command_runs`
-table, so `mw search`, `mw context` and the dashboard see hook rows alongside
-full-capture rows. `capture_kind` is how you tell them apart.
-
-How they layer:
-
-- **Hooks are the index.** Always-on, cheap, so you can always answer *what did
-  I run, where, and did it work?* — even months later.
-- **`mw --live` is the recording.** Start it when you're about to do something
-  you'll want to re-read: a gnarly debug session, a deploy, a pairing session.
-- **No double capture.** While a full `mw` session is running it exports
-  `MW_RECORDING=1`; the hook sees that and skips logging entirely, so a command
-  is never recorded twice.
-- **Capture gates apply to both.** A directory gated `off` (via `.mwignore` or
-  `[capture.paths]`) produces zero hook rows — the gate is checked before the
-  database is even opened.
-
-Supported shells: zsh (`preexec`/`precmd`), bash (`DEBUG` trap +
-`PROMPT_COMMAND`), fish (`fish_postexec`), and PowerShell (a wrapped `prompt`
-function; install with `mw hooks install pwsh`).
-The hook fails silently by design: a locked or missing database, a missing
-binary, a bad path — none of it blocks or breaks your prompt, and your `$?` is
-preserved. Turn it off for one shell with `export MW_HOOK_OFF=1`.
-
-## Capture gates: never record certain directories
-
-Some directories should never end up in your memory. Capture gates decide, per
-directory, how much may be stored — and they are enforced *before* anything is
-written to SQLite, not cleaned up afterwards.
-
-| Mode | What is stored |
-| --- | --- |
-| `full` | Everything (the default, unchanged). |
-| `commands-only` | What ran, where, exit code, and timing — no stdout/stderr or transcript. |
-| `off` | Nothing at all. |
-
-Drop a `.mwignore` file at the root of a directory tree:
-
-```toml
-# ~/finances/.mwignore
-capture = "off"
-```
-
-…or gate paths globally in `<data dir>/config.toml`:
-
-```toml
-machine = "laptop"
-
-[capture.paths]
-"~/finances" = "off"
-"~/work/client-repo" = "commands-only"
-```
-
-Precedence: the nearest `.mwignore` walking **up** from your working directory,
-then the longest matching prefix under `[capture.paths]`, then `full`. Paths are
-resolved through symlinks, so a shortcut into a gated tree stays gated.
-
-Check what applies where you are:
-
-```bash
-mw status     # capture mode for this directory, and which rule produced it
-```
-
-Already-recorded memory can be aged out with `mw prune --older-than 90d`
-after previewing the deletion with `--dry-run`. Run `mw audit` to see the
-effective capture rule, configured output limit, retained volume, and the
-highest-volume session sources. Captured text fields are capped at 1 MiB by
-default; `MEMORYWHALE_MAX_CAPTURE_BYTES` sets a different positive byte limit.
-See the [local data threat model](docs/SECURITY.md) for trust boundaries and
-safe operating guidance.
-
-## Sharing memory across machines
-
-Memory is local per machine, but you can move it:
-
-```bash
-mw export project:demo   # bundle: Markdown + JSON + a SQLite copy
-mw import path/to/bundle # merge into this machine (skips duplicates)
-mw push jetson           # snapshot → scp → remote mw import, any ssh host
-mw pull jetson           # the reverse: copy a machine's memory here and merge it
-```
-
-Nothing goes through a third party; it's your own `scp`/`ssh`.
-
-## Why I built it
-
-I was running the same robotics repo on two machines — a Jetson and my laptop —
-for USC Autonomous Underwater Vehicle work. The codebase was shared, but the
-terminal history was not. Commands, errors, build logs, and debugging attempts
-lived on whichever machine happened to run them.
-
-That became a real problem for AI-assisted debugging and team collaboration. If
-a teammate asked why something failed, I could not always retrieve the terminal
-scrollback that explained it. If the terminal shut down or the machine changed,
-the exact context disappeared: what command ran, what flags, what error came
-back, what had already been tried.
-
-The goal is simple: make the terminal feel like it has long-term memory, so I
-can search old attempts, recover exact errors after shutdowns, and give an AI
-agent enough history to continue debugging instead of starting over.
-
-## Developing
-
-The repo is a Cargo workspace: `crates/mw-cli` (the CLI, no GUI dependencies),
-`crates/memorywhale-core` (retrieval), and `src-tauri` (the desktop app).
-
-```bash
-cargo build -p memorywhale-cli            # CLI only — fast, no GTK/WebKit needed
-npm install && npm run tauri:dev # full desktop app (needs Tauri system deps)
-```
-
-- Linux/Jetson system deps, shell hook, systemd dashboard service, completions,
-  man pages: [linux/README.md](linux/README.md) (`linux/install.sh --all`)
-- Real problems hit while setting up on a Jetson, and the fixes:
-  [DEBUG.md](DEBUG.md)
-- Reproducible offline retrieval benchmark (no API keys), 37-item
-  terminal-session corpus, two blind-labeled gold sets: the built-in scorer uses
-  **SQLite FTS5 BM25** for keyword relevance and blends in recency/importance/
-  reinforcement/task. On the 18-query **intent** set (where context, not wording,
-  decides the answer) it leads every baseline — **recall@1 = 0.67, recall@5 =
-  0.92** vs FTS5's 0.42 / 0.69; on the 30-query pure term-overlap set the lexical
-  baselines still win, as designed. See
-  [benchmarks/BENCHMARKS.md](benchmarks/BENCHMARKS.md) for both tables and the
-  one-line reproduce command.
+- debug builds, dependencies, Git, environments, or deployments;
+- use coding agents across sessions or switch between tools;
+- work over SSH or across multiple development machines;
+- want recurring failures and their fixes to remain searchable;
+- prefer local storage over a hosted memory service.
 
 ## Documentation
 
-- [docs/CLI.md](docs/CLI.md) — full command reference for every `mw*` binary.
-- [docs/MCP.md](docs/MCP.md) — wire the `mw-mcp` server into an agent; the six tools it exposes.
-- [VISION.md](VISION.md) — where the project is headed and why.
-- [PHILOSOPHY.md](PHILOSOPHY.md) — the communication and memory ideas behind it.
-- [ECOSYSTEM.md](ECOSYSTEM.md) — how the pieces (CLI, dashboard, integrations) fit together.
-- [CONSTITUTION.md](CONSTITUTION.md) — governance for users, contributors, maintainers, and AI agents.
-- [SOP.md](SOP.md) — standard operating procedure for building and releasing.
-- [HANDOFF.md](HANDOFF.md) — context handoff notes for picking up the work.
-- [benchmarks/BENCHMARKS.md](benchmarks/BENCHMARKS.md) — the offline retrieval benchmark and how to reproduce it.
-- [integrations/README.md](integrations/README.md) — editor/tool integrations.
-- [linux/README.md](linux/README.md) — Linux/Jetson system deps, shell hook, systemd service, completions, man pages.
+- [Documentation map](docs/README.md)
+- [Getting started](docs/guides/getting-started.md)
+- [Terminal capture](docs/guides/terminal-capture.md)
+- [Agent memory](docs/guides/agent-memory.md)
+- [CLI reference](docs/reference/cli.md)
+- [MCP reference](docs/reference/mcp.md)
+- [Security and local threat model](docs/SECURITY.md)
+- [Integration guides and capability matrix](integrations/README.md)
 
-## Attribution and learning sources
+## Contributing
 
-MemoryWhale was built after studying two original projects:
+MemoryWhale accepts changes that improve capturing, preserving, retrieving, or
+sharing development experience. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the
+scope rule, development commands, and pull-request checklist.
 
-- **CodeWhale** by **Hmbown**: <https://github.com/Hmbown/CodeWhale>
-- **MemPalace** by the **MemPalace project**: <https://github.com/MemPalace/mempalace>
-
-CodeWhale taught me how a Rust-first developer tool can organize terminal
-workflows, command execution, safety boundaries, and agent-facing runtime
-ideas. MemPalace taught me local-first memory: keeping technical context on
-your own machine, where you can still search it months later. MemoryWhale is my
-own project built from those lessons; it does not vendor those repositories.
-
-## Project governance
-
-- [Philosophy](PHILOSOPHY.md) — the communication and memory ideas behind the project.
-- [Contributing](CONTRIBUTING.md) — how to make useful changes.
-- [Code of Conduct](CODE_OF_CONDUCT.md) — the standard for collaboration.
-- [Constitution](CONSTITUTION.md) — governs users, contributors, maintainers,
-  and AI agents alike, under the same principles, duties, and protections.
+Licensed under the [MIT License](LICENSE).

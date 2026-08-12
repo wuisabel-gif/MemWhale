@@ -36,6 +36,34 @@ trap 'rm -rf "$tmp"' EXIT
 
 echo "==> Downloading $asset ($tag)…"
 curl -fSL "$url" -o "$tmp/$asset"
+
+# Verify the download against the release's published SHA256 checksum. Releases
+# from v0.7.0 on ship "<asset>.sha256"; older releases have none, so we skip
+# (with a warning) rather than fail. A checksum mismatch is always fatal.
+echo "==> Verifying checksum…"
+if curl -fsSL "$url.sha256" -o "$tmp/$asset.sha256" 2>/dev/null; then
+  expected="$(cut -d' ' -f1 "$tmp/$asset.sha256")"
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "$tmp/$asset" | cut -d' ' -f1)"
+  elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$tmp/$asset" | cut -d' ' -f1)"
+  else
+    actual=""
+    echo "   WARNING: no sha256 tool (sha256sum/shasum) found; cannot verify." >&2
+  fi
+  if [ -n "$actual" ]; then
+    if [ "$actual" != "$expected" ]; then
+      echo "   CHECKSUM MISMATCH — refusing to install." >&2
+      echo "   expected: $expected" >&2
+      echo "   actual:   $actual" >&2
+      exit 1
+    fi
+    echo "   OK ($expected)"
+  fi
+else
+  echo "   NOTE: no published checksum for $tag; skipping verification." >&2
+fi
+
 tar xzf "$tmp/$asset" -C "$tmp"
 
 mkdir -p "$BIN_DIR"
