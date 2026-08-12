@@ -6,13 +6,16 @@ failed, and it can *write down* what it figured out.
 ## 1. MCP server (recommended) — the agent reads and writes
 
 `mw-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server
-over stdio. Register it once and the agent gets four native tools — no
+over stdio. Register it once and the agent gets six native tools — no
 copy-paste:
 
 - `recent_errors` — recent failed commands with their error output
 - `search_memory` — search commands, output, notes, and remembered lessons
 - `get_context` — a compact digest of recent failures, optionally per project
 - `remember` — save a conclusion ("the fix was X") for its future self to find
+- `similar_failures` — check whether an error recurred and whether later runs
+  resolved it
+- `stats` — inspect store health and memory counts
 
 Claude Code:
 
@@ -35,6 +38,7 @@ file differs. Per-client setup (config + a "when to use it" rule):
 - **Cline** (VS Code) → [`cline/`](cline/README.md)
 - **Continue** (VS Code / JetBrains) → [`continue/`](continue/README.md)
 - **Gemini CLI** (Google) → [`gemini-cli/`](gemini-cli/README.md)
+- **Hermes Agent** → [`hermes/`](hermes/README.md)
 - **Any other MCP client** — add a stdio server whose
   command is `mw-mcp` (no arguments). It honours `MEMORYWHALE_DATA_DIR` like the
   rest of the CLI.

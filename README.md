@@ -170,9 +170,10 @@ mw ask                          # or: mw ask "why does this keep breaking"
 mw context --last-error         # smaller digest, same idea, no browser
 ```
 
-See [integrations/](integrations/README.md) for the MCP tools, a Claude Code
-hook that auto-records every command the agent runs, and a skill that knows
-when to read from (and write to) the memory.
+See [integrations/](integrations/README.md) for the MCP tools and setup guides,
+including [Hermes Agent](integrations/hermes/README.md), plus a Claude Code hook
+that auto-records every command the agent runs and a skill that knows when to
+read from (and write to) the memory.
 
 ## Web dashboard (solo or team)
 
