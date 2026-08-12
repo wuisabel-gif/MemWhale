@@ -62,8 +62,9 @@ mw context --last-error
   command is `mw-mcp` (no arguments). It honours `MEMORYWHALE_DATA_DIR` like the
   rest of the CLI.
 
-The [MCP reference](../docs/reference/mcp.md) is authoritative for parameters
-and responses. A transport-level check is:
+The [MCP reference](../docs/reference/mcp.md) is authoritative for parameters,
+responses, and the [local stdio trust model](../docs/reference/mcp.md#trust-model).
+A transport-level check is:
 
 ```bash
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp

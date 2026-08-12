@@ -12,6 +12,31 @@ If you're working from a source checkout, the binary is
 your PATH (see the README's Install section). It reads the same local database
 as the `mw` CLI — nothing leaves your machine.
 
+## Trust model
+
+`mw-mcp` is a local stdio process: the MCP client starts it and communicates
+over its standard input and output. It does not listen on a network port and
+has no separate protocol authentication. The spawning process and the
+permissions of the operating-system user establish the local trust context.
+
+A process running as the same OS user may already be able to read the
+MemoryWhale database and environment. MCP access nevertheless matters because
+it gives an agent a supported interface for retrieving terminal evidence and
+for writing agent-authored memories through `remember`.
+
+| Actor | Capability | Exposure | Mitigation | Residual limitation |
+| --- | --- | --- | --- | --- |
+| Configured MCP client or agent | Call all six `mw-mcp` tools | Reads can reveal commands, paths, output, errors, and saved lessons | Grant MCP access only to clients you trust with the selected store; prevent sensitive capture where possible | Tool access cannot make already captured sensitive evidence non-sensitive |
+| Agent using `remember` | Add a lesson that can influence later retrieval | Incorrect or adversarial memories can bias future context | Review agent-authored memories and remove entries that are not supported by evidence | Review reduces poisoning risk but does not prove a memory is correct |
+| Other process running as the same OS user | Read files available to that user and potentially start `mw-mcp` | The local database is not isolated from peer same-user processes | Run untrusted agents under a separate OS identity or stronger sandbox | OS-user separation is only one boundary and may not satisfy every threat model |
+| Client configured with `MEMORYWHALE_DATA_DIR` | Select a different MemoryWhale store | Accidental mixing of client data can be reduced | Use a dedicated directory, ideally with a separate OS identity and restrictive filesystem permissions | The variable scopes storage; it is not authentication or an access-control mechanism |
+
+Treat the client process as trusted for the store it can reach. For stronger
+isolation, use a separate OS identity or sandbox with a separately protected
+data directory. Do not treat an application token passed to a same-user stdio
+process as an independent boundary: that process can commonly inspect the
+environment or read the underlying files directly.
+
 ## Wire it into an agent
 
 Claude Code, one line:
