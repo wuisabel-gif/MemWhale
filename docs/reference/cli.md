@@ -30,6 +30,7 @@ mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noi
 mw memory stale <id>                  # retire an outdated lesson, preserving its row
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
 mw audit                              # inspect capture policy and retained volume
+mw integrate hermes                   # register mw-mcp in Hermes Agent's config
 mw share 5 [-o file.html]             # write a self-contained HTML page of one item to send someone
 mw discard                            # inside a recording: throw the current session away
 mw context [project:name] [--last-error] [--limit N]   # compact failures digest for agents

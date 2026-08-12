@@ -1,5 +1,6 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
+pub mod hermes;
 pub mod storage;
 pub mod tui;
 

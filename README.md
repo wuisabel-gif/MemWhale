@@ -89,7 +89,7 @@ memory; it does not automatically record normal terminal activity. See the
 `mw-mcp` is the common integration seam: a local stdio MCP server exposing six
 memory tools. Existing guides cover Claude Code, Claude Desktop, Cursor, VS
 Code / GitHub Copilot, Windsurf, Zed, Codex CLI, Cline, Continue, Gemini CLI,
-Goose, OpenClaw, CrowClaw, and other compatible clients.
+Goose, OpenClaw, CrowClaw, Hermes Agent, and other compatible clients.
 
 ```bash
 claude mcp add memorywhale -- mw-mcp
