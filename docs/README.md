@@ -28,7 +28,7 @@ The repository documentation is organized by the question a reader is asking.
 ## Design and policy
 
 - [Architecture](architecture.md)
-- [Security and local threat model](security.md)
+- [Security and local threat model](SECURITY.md)
 - [Limitations](limitations.md)
 - [Integration matrix and client guides](../integrations/README.md)
 

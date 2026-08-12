@@ -10,4 +10,4 @@
 - MemoryWhale is local-first and does not silently synchronize between machines.
 
 Use the [integration matrix](../integrations/README.md) for client-specific
-capabilities and the [security guide](security.md) for the local threat model.
+capabilities and the [security guide](SECURITY.md) for the local threat model.

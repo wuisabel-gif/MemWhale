@@ -120,7 +120,7 @@ is especially useful when you:
 - [Agent memory](docs/guides/agent-memory.md)
 - [CLI reference](docs/reference/cli.md)
 - [MCP reference](docs/reference/mcp.md)
-- [Security and local threat model](docs/security.md)
+- [Security and local threat model](docs/SECURITY.md)
 - [Integration guides and capability matrix](integrations/README.md)
 
 ## Contributing

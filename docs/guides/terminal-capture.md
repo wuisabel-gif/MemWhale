@@ -15,4 +15,4 @@ it.
 Terminal output can contain credentials, private paths, hostnames, and source
 text. MemoryWhale scrubs common secret shapes, but regex redaction is not a
 security boundary. Use capture gates and scoped deletion, and review the
-[security guide](../security.md) before recording sensitive work.
+[security guide](../SECURITY.md) before recording sensitive work.

@@ -170,5 +170,5 @@ Captured stdout/stderr/notes/transcripts are scrubbed for common secret shapes
 Captured text fields are limited to 1 MiB by default. Set
 `MEMORYWHALE_MAX_CAPTURE_BYTES` to a positive byte count to tune the limit;
 truncated values include a marker with the stored and original byte counts.
-See [the local data threat model](../security.md) before enabling raw capture or
+See [the local data threat model](../SECURITY.md) before enabling raw capture or
 sharing exported data.
