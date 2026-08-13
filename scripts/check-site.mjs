@@ -11,6 +11,7 @@ const expect = (condition, message) => {
 expect(!html.includes("v0.3.0"), "landing page contains stale v0.3.0 copy");
 expect(!/fonts\.(googleapis|gstatic)\.com/.test(html), "landing page loads third-party fonts");
 expect(!/break-reminder|break-toast|Notification|bag-charm|Whale swag|Break reminder/i.test(html), "removed break or merchandise content remains");
+expect(!html.includes("never leaves your machine"), "landing page makes an absolute data-location claim");
 expect(html.includes("prefers-reduced-motion"), "reduced-motion CSS is missing");
 expect(html.includes(":focus-visible"), "keyboard focus styling is missing");
 expect(html.includes("Capture → memory → retrieval"), "capture-to-recall demo is missing");

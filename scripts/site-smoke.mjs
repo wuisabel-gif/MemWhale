@@ -20,7 +20,10 @@ try {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    await page.goto(baseUrl, { waitUntil: "networkidle" });
+    const response = await page.goto(baseUrl, { waitUntil: "networkidle" });
+    if (!response || !response.ok()) {
+      failures.push(`${name}: page did not load successfully (${response?.status() ?? "no response"})`);
+    }
     await page.screenshot({ path: `${artifactDir}/${name}.png`, fullPage: true });
     const heading = await page.locator("h1").innerText();
     const requiredSections = ["#demo", "#data", "#security", "#run"];

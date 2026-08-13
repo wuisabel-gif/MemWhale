@@ -43,6 +43,10 @@ jobs:
         run: |
           python3 -m http.server 4173 --directory . > "$RUNNER_TEMP/memorywhale-site.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/memorywhale-site.pid"
+          for attempt in {1..20}; do
+            curl --fail --silent --show-error http://127.0.0.1:4173/index.html >/dev/null && break
+            sleep 1
+          done
           npm run test:site:browser
       - name: Upload landing-page smoke artifacts
         if: failure()
