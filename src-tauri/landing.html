@@ -287,9 +287,9 @@
       .hero-visual {
         position: absolute;
         top: 78px;
-        right: -178px;
+        right: 0;
         z-index: 0;
-        width: min(980px, 64vw);
+        width: min(900px, 58vw);
         min-height: 540px;
         overflow: hidden;
         border: 1px solid rgba(169, 237, 226, 0.16);
@@ -493,10 +493,10 @@
 
       .floating-terminal {
         position: absolute;
-        right: 18px;
+        right: clamp(18px, 3vw, 34px);
         bottom: 18px;
         z-index: 2;
-        width: min(360px, calc(100% - 36px));
+        width: min(340px, calc(100% - 52px));
         backdrop-filter: blur(14px);
       }
 
@@ -891,7 +891,9 @@
         }
 
         h1 {
-          font-size: clamp(3rem, 18vw, 4.7rem);
+          max-width: 100%;
+          font-size: clamp(2.75rem, 14.5vw, 3.8rem);
+          overflow-wrap: break-word;
         }
 
         .hero-visual {
