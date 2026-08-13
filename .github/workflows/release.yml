@@ -110,14 +110,26 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          # Auto-generate "What's Changed" notes from commits since the last
-          # release, so a tagged release is never published with an empty body.
-          # (Edit the release afterward for curated highlights.)
-          generate_release_notes: true
           files: |
             ${{ steps.package.outputs.asset }}
             ${{ steps.package.outputs.asset }}.sha256
             *.deb
+
+  # Generate release notes exactly once. The binary matrix above uploads four
+  # platform variants; enabling generated notes in every matrix job duplicates
+  # the same changelog section once per upload.
+  release-notes:
+    name: Generate release notes
+    needs: [preflight, binaries]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Generate one release note body
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
 
   # Update Formula/memorywhale.rb on main to point at the new tag, so
   # `brew install` never lags a release. Last manual release chore, automated.
