@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 struct AppState {
@@ -154,7 +154,6 @@ pub fn run() {
         .manage(AppState { db: Mutex::new(db) })
         .invoke_handler(tauri::generate_handler![
             import_text,
-            import_file,
             get_graph,
             search_memory,
             remember_command_run,
@@ -289,26 +288,6 @@ fn database_path() -> anyhow::Result<PathBuf> {
         .or_else(dirs::home_dir)
         .ok_or_else(|| anyhow::anyhow!("could not resolve a local data directory"))?;
     Ok(base.join("MemoryWhale").join("memorywhale.sqlite3"))
-}
-
-#[tauri::command]
-fn import_file(state: tauri::State<AppState>, path: String) -> Result<Document, AppError> {
-    let path_buf = PathBuf::from(path);
-    let content = fs::read_to_string(&path_buf)?;
-    let title = path_buf
-        .file_stem()
-        .and_then(|name| name.to_str())
-        .unwrap_or("Imported document")
-        .to_string();
-    let source_type = source_type_for_path(&path_buf);
-    save_document(
-        &state,
-        ImportRequest {
-            title: Some(title),
-            source_type,
-            content,
-        },
-    )
 }
 
 #[tauri::command]
@@ -1092,20 +1071,6 @@ fn row_to_command_argument(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandA
         position: row.get(2)?,
         value: row.get(3)?,
     })
-}
-
-fn source_type_for_path(path: &Path) -> String {
-    match path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("")
-        .to_lowercase()
-        .as_str()
-    {
-        "md" | "markdown" => "markdown".to_string(),
-        "txt" => "text".to_string(),
-        _ => "text".to_string(),
-    }
 }
 
 fn split_command_line(input: &str) -> Vec<String> {
