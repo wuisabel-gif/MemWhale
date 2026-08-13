@@ -36,6 +36,7 @@ features.
 | Gemini CLI | Yes | No | Yes | [Guide](gemini-cli/README.md) |
 | Goose | Yes | No | Yes | [Guide](goose/README.md) |
 | Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |
+| Jan Desktop | Yes | No | No | [Guide](jan/README.md) |
 | OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |
 | VS Code / GitHub Copilot | Yes | No | Yes | [Guide](vscode/README.md) |
