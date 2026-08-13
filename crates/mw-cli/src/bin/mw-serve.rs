@@ -314,13 +314,15 @@ fn handle(mut stream: TcpStream) {
     // otherwise fall back to the cookie, else the server's local time.
     let cookie_tz = cookie
         .split(';')
-        .find_map(|c| c.trim().strip_prefix("mw_tz=").map(str::to_string));
-    match query_param(&raw_path, "tz") {
+        .find_map(|c| c.trim().strip_prefix("mw_tz=").map(str::to_string))
+        .filter(|tz| cookie_value_is_safe(tz));
+    match query_param(&raw_path, "tz").filter(|tz| cookie_value_is_safe(tz)) {
         Some(tz) => {
             set_display_tz(parse_tz(&tz));
-            cookies.push(format!(
-                "mw_tz={tz}; Path=/; SameSite=Strict; Max-Age=31536000"
-            ));
+            if let Some(c) = set_cookie("mw_tz", &tz, "; Path=/; SameSite=Strict; Max-Age=31536000")
+            {
+                cookies.push(c);
+            }
         }
         None => set_display_tz(
             cookie_tz
@@ -340,12 +342,14 @@ fn handle(mut stream: TcpStream) {
         let login_attempt = method == "POST" && raw_path == "/login";
         let supplied = form_param(&request_body, "token");
         if login_attempt && supplied.as_deref() == Some(want.as_str()) {
-            cookies.push(format!(
-                "mw_token={want}; Path=/; HttpOnly; SameSite=Strict"
-            ));
+            if let Some(c) = set_cookie("mw_token", want, "; Path=/; HttpOnly; SameSite=Strict") {
+                cookies.push(c);
+            }
+            let Some(token_cookie) = cookies.last() else {
+                return;
+            };
             let response = format!(
-                "HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                cookies.last().unwrap()
+                "HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: {token_cookie}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
             );
             let _ = stream.write_all(response.as_bytes());
             return;
@@ -920,6 +924,20 @@ fn parse_tz(s: &str) -> DisplayTz {
             .unwrap_or(DisplayTz::Local),
         _ => DisplayTz::Local,
     }
+}
+
+fn cookie_value_is_safe(s: &str) -> bool {
+    !s.bytes().any(|b| b.is_ascii_control())
+}
+
+/// Build a Set-Cookie value only if both name and value are free of control
+/// characters. This prevents response splitting/header injection through
+/// cookie values.
+fn set_cookie(name: &str, value: &str, attrs: &str) -> Option<String> {
+    if !cookie_value_is_safe(name) || !cookie_value_is_safe(value) {
+        return None;
+    }
+    Some(format!("{name}={value}{attrs}"))
 }
 
 fn parse_ts(ts: &str) -> Option<DateTime<FixedOffset>> {
@@ -2081,5 +2099,40 @@ mod tests {
             MAX_BODY_BYTES + 1
         );
         assert!(raw_response(too_large.as_bytes()).starts_with("HTTP/1.1 413 Payload Too Large"));
+    }
+
+    #[test]
+    fn safe_cookie_values_reject_control_characters() {
+        assert!(cookie_value_is_safe("utc"));
+        assert!(cookie_value_is_safe("-08:00"));
+        assert!(!cookie_value_is_safe("utc\r\nX:1"));
+        assert!(!cookie_value_is_safe("foo\x7f"));
+    }
+
+    #[test]
+    fn malicious_tz_does_not_emit_cookie() {
+        let mut cookies: Vec<String> = Vec::new();
+        let tz = "UTC\r\nX-Injected: yes";
+        if let Some(c) = set_cookie("mw_tz", tz, "; Path=/; SameSite=Strict; Max-Age=31536000") {
+            cookies.push(c);
+        }
+        assert!(cookies.is_empty());
+        let header: String = cookies
+            .iter()
+            .map(|c| format!("Set-Cookie: {c}\r\n"))
+            .collect();
+        assert!(!header.contains("X-Injected"));
+        assert!(!header.contains("\r\n\r\n"));
+    }
+
+    #[test]
+    fn valid_tz_emits_safe_cookie() {
+        let c = set_cookie(
+            "mw_tz",
+            "utc",
+            "; Path=/; SameSite=Strict; Max-Age=31536000",
+        )
+        .unwrap();
+        assert_eq!(c, "mw_tz=utc; Path=/; SameSite=Strict; Max-Age=31536000");
     }
 }
