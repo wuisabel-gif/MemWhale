@@ -53,6 +53,13 @@ mw context --last-error
 
 `mw-mcp` exposes six tools over newline-delimited JSON-RPC 2.0 on stdio:
 
+- `recent_errors`
+- `search_memory`
+- `get_context`
+- `remember`
+- `similar_failures`
+- `stats`
+
 - **Cursor** → [`cursor/`](cursor/README.md)
 - **VS Code / GitHub Copilot** (agent mode) → [`vscode/`](vscode/README.md)
 - **Windsurf** → [`windsurf/`](windsurf/README.md)
