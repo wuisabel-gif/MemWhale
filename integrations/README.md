@@ -36,6 +36,7 @@ features.
 | Gemini CLI | Yes | No | Yes | [Guide](gemini-cli/README.md) |
 | Goose | Yes | No | Yes | [Guide](goose/README.md) |
 | Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |
+| Jan Desktop | Yes | No | No | [Guide](jan/README.md) |
 | OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
 | VS Code / GitHub Copilot | Yes | No | Yes | [Guide](vscode/README.md) |
 | Windsurf | Yes | No | Yes | [Guide](windsurf/README.md) |
@@ -51,6 +52,13 @@ mw context --last-error
 ## MCP interface
 
 `mw-mcp` exposes six tools over newline-delimited JSON-RPC 2.0 on stdio:
+
+- `recent_errors`
+- `search_memory`
+- `get_context`
+- `remember`
+- `similar_failures`
+- `stats`
 
 - **Cursor** → [`cursor/`](cursor/README.md)
 - **VS Code / GitHub Copilot** (agent mode) → [`vscode/`](vscode/README.md)
