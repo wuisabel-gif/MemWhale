@@ -746,7 +746,61 @@ fn dashboard(query: &str) -> String {
     }
     body.push_str("</div>\n");
 
+    body.push_str(&integrations_section());
+
     page("MemoryWhale — terminal memory", &body)
+}
+
+/// Supported client integrations, mirroring the capability matrix in
+/// `integrations/README.md`. Keep the two in sync when adding a client.
+/// (display name, matrix slug for the guide link, MCP support badge)
+const INTEGRATIONS: &[(&str, &str, &str)] = &[
+    ("Claude Code", "claude-code", "MCP · capture"),
+    ("Claude Desktop", "claude-desktop", "MCP"),
+    ("Cline", "cline", "MCP"),
+    ("CodeWhale", "codewhale", "MCP"),
+    ("Codex CLI", "codex", "MCP"),
+    ("Continue", "continue", "MCP"),
+    ("CrowClaw", "crowclaw", "MCP"),
+    ("Cursor", "cursor", "MCP"),
+    ("Gemini CLI", "gemini-cli", "MCP"),
+    ("Goose", "goose", "MCP"),
+    ("Hermes Agent", "hermes", "MCP"),
+    ("Jan Desktop", "jan", "MCP"),
+    ("OpenClaw", "openclaw", "MCP"),
+    ("OpenCode", "opencode", "MCP"),
+    ("Pi coding agent", "pi", "unverified"),
+    ("Rho", "rho", "MCP"),
+    ("VS Code / Copilot", "vscode", "MCP"),
+    ("Windsurf", "windsurf", "MCP"),
+    ("Zed", "zed", "MCP"),
+    ("Neovim plugin", "neovim", "CLI"),
+    ("Any stdio MCP client", "generic-mcp", "MCP"),
+];
+
+/// The integration-support grid on the dashboard: one cell per client with a
+/// letter-mark icon and its MCP support level, linking to the setup guide.
+fn integrations_section() -> String {
+    let mut cells = String::new();
+    for (name, slug, badge) in INTEGRATIONS {
+        // Letter-mark icon: first alnum characters of the display name.
+        let mark: String = name
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .take(2)
+            .collect::<String>()
+            .to_uppercase();
+        cells.push_str(&format!(
+            "<a class=\"icell\" href=\"https://github.com/wuisabel-gif/MemWhale/tree/main/integrations/{slug}\" title=\"{name} setup guide\">\
+<span class=\"imark\" aria-hidden=\"true\">{mark}</span><span class=\"iname\">{}</span><span class=\"ibadge{}\">{badge}</span></a>\n",
+            esc(name),
+            if *badge == "unverified" { " off" } else { "" },
+        ));
+    }
+    format!(
+        "<h2>Integrations</h2>\n<p class=\"sub\">MemoryWhale plugs into these coding agents and editors — \
+each cell links to its setup guide in the repository.</p>\n<div class=\"igrid\">\n{cells}</div>\n"
+    )
 }
 
 /// Extract a `project:<name>` tag from a notes string, if present.
@@ -2262,5 +2316,25 @@ mod tests {
         // Set-Cookie extras are still appended for normal routes.
         let r2 = response("200 OK", "x", "Set-Cookie: mw_tz=utc\r\n");
         assert!(r2.contains("Set-Cookie: mw_tz=utc"));
+    }
+
+    #[test]
+    fn integrations_section_has_a_guide_link_for_every_client() {
+        let html = integrations_section();
+        assert_eq!(INTEGRATIONS.len(), 21);
+        for (name, slug, badge) in INTEGRATIONS {
+            assert!(html.contains(&format!(
+                "href=\"https://github.com/wuisabel-gif/MemWhale/tree/main/integrations/{slug}\""
+            )));
+            assert!(html.contains(&format!("<span class=\"iname\">{}</span>", esc(name))));
+            if *badge == "unverified" {
+                assert!(html.contains("class=\"ibadge off\">unverified"));
+            }
+        }
+        assert_eq!(html.matches("class=\"icell\"").count(), INTEGRATIONS.len());
+        assert_eq!(
+            html.matches("aria-hidden=\"true\"").count(),
+            INTEGRATIONS.len()
+        );
     }
 }

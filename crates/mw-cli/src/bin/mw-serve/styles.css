@@ -51,6 +51,14 @@ pre.err{color:#ffd9c9}
 .chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font:600 .85rem ui-monospace,monospace;color:var(--azure)}
 .chip span{background:#eaeefe;border-radius:999px;padding:1px 8px;font-size:.72rem}
 .chip:hover{border-color:var(--azure)}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
+.icell{display:flex;flex-direction:column;align-items:flex-start;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-decoration:none;color:inherit}
+.icell:hover{border-color:var(--azure)}
+.icell:focus-visible{outline:3px solid var(--azure);outline-offset:2px}
+.imark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:#eaeefe;color:var(--azure);font:700 .82rem ui-monospace,monospace;letter-spacing:.04em}
+.iname{font:600 .85rem ui-monospace,monospace;color:var(--ink)}
+.ibadge{display:inline-block;font:600 .68rem ui-monospace,monospace;background:#e6f6ef;color:var(--ok);border-radius:999px;padding:2px 8px}
+.ibadge.off{background:#fff4d8;color:#9a5b00}
 canvas{max-width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:8px}
 .legend{display:flex;align-items:center;gap:8px;font:.8rem ui-monospace,monospace;color:var(--muted);margin:4px 0 0}
 .legend .dot{width:11px;height:11px;border-radius:999px;display:inline-block;margin-left:14px}
