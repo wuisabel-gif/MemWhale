@@ -32,8 +32,9 @@ active development; check that file if a field or command changes.
 
 CodeWhale reads MCP servers from `~/.codewhale/mcp.json` (the path can be
 overridden with the `mcp_config_path` setting or the `DEEPSEEK_MCP_CONFIG`
-environment variable). The file accepts a `servers` object (a `mcpServers`
-key also works).
+environment variable; `~/.deepseek/mcp.json` is still read as a legacy
+fallback when the CodeWhale file is absent). The file accepts a `servers`
+object (a `mcpServers` key also works).
 
 Add MemoryWhale as a local stdio server:
 
