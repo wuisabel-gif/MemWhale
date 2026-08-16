@@ -74,6 +74,17 @@ cargo test -p memorywhale-core -p memorywhale-cli
 cargo build --workspace
 ```
 
+Run repository consistency checks:
+
+```bash
+bash scripts/check-release-version.sh
+bash scripts/check-doc-references.sh
+```
+
+The release-version check keeps the CLI, npm, lockfile, and Tauri versions in
+sync. The documentation-reference check verifies the MCP tool list and CLI
+binary names against the runtime and reference docs.
+
 Try the terminal memory helper:
 
 ```bash

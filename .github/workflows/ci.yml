@@ -21,6 +21,8 @@ jobs:
         run: cargo clippy -p memorywhale-core -p memorywhale-cli --all-targets -- -D warnings
       - name: Test non-desktop crates
         run: cargo test -p memorywhale-core -p memorywhale-cli
+      - name: Check documentation references
+        run: bash scripts/check-doc-references.sh
 
   frontend:
     name: Frontend build, tests, and audit
@@ -35,6 +37,8 @@ jobs:
         run: npm ci
       - name: Test
         run: npm test
+      - name: Check release version consistency
+        run: bash scripts/check-release-version.sh
       - name: Check landing page contracts
         run: npm run test:site
       - name: Install browser for landing-page smoke test
