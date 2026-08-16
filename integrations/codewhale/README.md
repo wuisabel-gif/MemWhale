@@ -145,11 +145,13 @@ the paths above.
 
 ## Security
 
-`mw-mcp` is a local stdio process with full read/write access to the connected
-MemoryWhale database. Review the canonical
-[local stdio trust model](../../docs/reference/mcp.md#trust-model) before
-connecting a store that contains sensitive output. `MEMORYWHALE_DATA_DIR`
-selects a store; it is not an access-control mechanism.
+`mw-mcp` is read-mostly: of its six tools, `remember` is the only one that
+writes, and it saves a single note. The other five only read. Review the
+canonical [local stdio trust model](../../docs/reference/mcp.md#trust-model)
+before connecting a store that contains sensitive output. Note that these MCP
+tool permissions are separate from process-level filesystem permissions: the
+OS user that spawns `mw-mcp` remains the file-level trust boundary.
+`MEMORYWHALE_DATA_DIR` selects a store; it is not an access-control mechanism.
 
 ## Troubleshooting
 
@@ -166,5 +168,7 @@ selects a store; it is not an access-control mechanism.
 
 Remove the `"memorywhale"` entry from `~/.codewhale/mcp.json` (or run
 `codewhale-tui mcp remove memorywhale`, or `/mcp remove memorywhale` in the
-TUI) and run `/mcp reload`. This does not delete the MemoryWhale database;
-use `mw rm` or the documented retention commands for data lifecycle.
+TUI), then run `/mcp reload` in each TUI session. Running headless
+`codewhale exec` processes do not hot-reload MCP configuration — restart them
+after removing the entry. This does not delete the MemoryWhale database; use
+`mw rm` or the documented retention commands for data lifecycle.
