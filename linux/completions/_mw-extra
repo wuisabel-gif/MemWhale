@@ -6,6 +6,7 @@ _mw_extra() {
   case $service in
     mw-serve)
       _arguments \
+        '--lan[serve on the LAN (bind 0.0.0.0)]' \
         '--host[bind address]:addr:' \
         '--port[port]:port:' \
         '--token[require a shared token]:token:' \

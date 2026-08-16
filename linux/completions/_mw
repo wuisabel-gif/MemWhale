@@ -13,14 +13,14 @@ _mw() {
     'show:print the full transcript of a session'
     'mark:bookmark the current debugging moment'
     'remember:save a lesson or conclusion for later'
+    'memory:retire or replace a saved lesson (stale/supersede)'
     'rm:delete a saved session or command run'
     'prune:delete empty auto-recorded sessions'
+    'audit:inspect capture policy and retained volume'
     'share:write a self-contained HTML page to send to someone'
     'discard:inside a recording, throw the current session away'
     'replay:rerun a saved command run'
     'demo:seed a small demo dataset'
-    'search:search commands, output, notes, and transcripts'
-    'git-fix:diagnose the last failed git command'
     'export:export memory to a bundle (Markdown + JSON + SQLite)'
     'import:merge another machine'\''s exported memory'
     'push:send this machine'\''s memory to a teammate over SSH'
@@ -28,8 +28,20 @@ _mw() {
     'context:print a compact digest for an AI agent'
     'agent:export a session as text to paste into an agent'
     'ask:package the last failure for ChatGPT/Claude (clipboard)'
+    'search:search commands, output, notes, and transcripts'
+    'explain:why this memory ranks: per-signal breakdown'
+    'link:link two memories (typed edge)'
+    'unlink:remove a typed edge between two memories'
+    'links:show a memory'\''s linked neighbors in both directions'
+    'pet:snapshot your memory whale'\''s growth (--watch animates)'
+    'tui:interactive terminal browser'
+    'sync-mempalace:mirror memories into MemPalace'
+    'git-fix:diagnose the last failed git command'
     'doctor:check the install'
     'global:auto-record every new terminal (on/off/status)'
+    'status:show global auto-record state'
+    'hooks:install or remove shell auto-record hooks'
+    'integrate:register the MCP server with a host (hermes)'
   )
 
   if (( CURRENT == 2 )); then
@@ -37,6 +49,7 @@ _mw() {
       '--live[autosave the session to SQLite while running]' \
       '--notes[attach a note to this session]:note:' \
       '(-h --help)'{-h,--help}'[show help]' \
+      '(-V --version)'{-V,--version}'[print the installed version]' \
       '*::command:->cmds'
     _describe -t commands 'mw command' subcmds
     return
@@ -45,6 +58,21 @@ _mw() {
   case ${words[2]} in
     global)
       _values 'state' on off status
+      ;;
+    memory)
+      _values 'action' stale supersede
+      ;;
+    hooks)
+      _values 'action' install uninstall remove
+      ;;
+    integrate)
+      _values 'target' hermes
+      ;;
+    sync-mempalace)
+      _arguments \
+        '--wing[name of the MemPalace wing]:wing:' \
+        '--limit[max memories to sync]:count:' \
+        '--dry-run[print the plan without contacting the server]'
       ;;
     show)
       local -a ids

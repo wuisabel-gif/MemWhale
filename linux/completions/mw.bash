@@ -9,15 +9,28 @@ _mw_complete() {
 
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=( $(compgen -W "\
-list show mark remember replay demo search git-fix rm prune share discard \
-export import push pull agent ask context doctor global \
---live --notes --help" -- "$cur") )
+list show mark remember memory rm prune audit share discard replay demo \
+export import push pull context agent ask search explain link unlink links \
+pet tui sync-mempalace git-fix doctor global status hooks integrate \
+--live --notes --version --help" -- "$cur") )
     return
   fi
 
   case "${COMP_WORDS[1]}" in
     global)
       [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "on off status" -- "$cur") )
+      ;;
+    memory)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "stale supersede" -- "$cur") )
+      ;;
+    hooks)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "install uninstall remove" -- "$cur") )
+      ;;
+    integrate)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "hermes" -- "$cur") )
+      ;;
+    sync-mempalace)
+      COMPREPLY=( $(compgen -W "--wing --limit --dry-run" -- "$cur") )
       ;;
     show)
       # session ids come from `mw list`; offer them when available.

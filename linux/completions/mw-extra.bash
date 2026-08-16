@@ -4,7 +4,7 @@
 # bash-completion's on-demand loader picks it up.
 
 _mw_serve_complete() {
-  COMPREPLY=( $(compgen -W "--host --port --token --help" -- "${COMP_WORDS[COMP_CWORD]}") )
+  COMPREPLY=( $(compgen -W "--lan --host --port --token --help" -- "${COMP_WORDS[COMP_CWORD]}") )
 }
 complete -F _mw_serve_complete mw-serve
 
