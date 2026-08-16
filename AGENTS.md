@@ -17,7 +17,8 @@ Database: `<data_local>/MemoryWhale/memorywhale.sqlite3`
 Before debugging a build/environment error, check whether it was solved before:
 
 ```bash
-bash .claude/skills/memorywhale/recall.sh "linker cc not found"
+mw search "linker cc not found"      # full-text recall across commands, output, notes
+mw context --last-error              # the most recent failure, with its error tail
 ```
 
 It shows prior matching runs and what was run right after a past failure (often
@@ -66,4 +67,4 @@ Tag related work across terminals with the same `project:<name>` to group it.
   <path>`) or it gets `Killed: 9`. See `DEBUG.md`.
 - Full usage: `docs/reference/cli.md`. Setup/troubleshooting: `DEBUG.md`.
 
-The Claude Code form of this guidance lives in `.claude/skills/memorywhale/`.
+The Claude Code form of this guidance lives in `integrations/claude-code/memorywhale/`.
