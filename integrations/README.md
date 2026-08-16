@@ -29,6 +29,7 @@ features.
 | Claude Code | Yes | Yes, optional `PostToolUse` hook | Yes, optional skill | [Hook and skill](claude-code/) |
 | Claude Desktop | Yes | No | No | [Guide](claude-desktop/README.md) |
 | Cline | Yes | No | Yes | [Guide](cline/README.md) |
+| CodeWhale | Yes | No | Yes, via roles/constitution | [Guide](codewhale/README.md) |
 | Codex CLI | Yes | No | Yes | [Guide](codex/README.md) |
 | Continue | Yes | No | Yes | [Guide](continue/README.md) |
 | CrowClaw | Yes | No | Yes | [Guide](crowclaw/README.md) |
