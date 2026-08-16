@@ -39,7 +39,9 @@ features.
 | Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |
 | Jan Desktop | Yes | No | No | [Guide](jan/README.md) |
 | OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
+| OpenCode | Yes | No | Example prompt | [Guide](opencode/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |
+| Rho | Yes | No | Yes, via `AGENTS.md` | [Guide](rho/README.md) |
 | VS Code / GitHub Copilot | Yes | No | Yes | [Guide](vscode/README.md) |
 | Windsurf | Yes | No | Yes | [Guide](windsurf/README.md) |
 | Zed | Yes | No | Yes | [Guide](zed/README.md) |
