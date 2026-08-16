@@ -27,6 +27,8 @@ use std::time::{Duration, SystemTime};
 static STARTUP_NOTICE: OnceLock<String> = OnceLock::new();
 // Optional shared token gating the dashboard. Empty = open (no auth).
 static AUTH_TOKEN: OnceLock<String> = OnceLock::new();
+/// Whether the server bound a loopback address (drives Host-header checks).
+static LOOPBACK_BIND: OnceLock<bool> = OnceLock::new();
 
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_CONNECTIONS: usize = 64;
@@ -75,6 +77,7 @@ fn run() -> Result<(), String> {
     if !config.token.is_empty() {
         let _ = AUTH_TOKEN.set(config.token.clone());
     }
+    let _ = LOOPBACK_BIND.set(is_loopback_host(&config.host));
 
     let db = database_path()?;
 
@@ -197,6 +200,66 @@ fn is_loopback_host(host: &str) -> bool {
     matches!(host, "127.0.0.1" | "::1" | "localhost")
 }
 
+/// True when the request's Host header matches the address the server bound.
+/// Loopback binds accept only loopback hostnames (with optional port), which
+/// blocks DNS-rebinding attacks: a rebound public hostname cannot make the
+/// browser-origin request resolve to this server under an attacker's origin.
+/// Non-loopback binds always require a token, so host checking is not needed
+/// there — the token gate protects the data.
+fn host_header_allowed(host_header: &str, loopback_bind: bool) -> bool {
+    if !loopback_bind {
+        return true;
+    }
+    let host = host_header.trim();
+    // Strip an optional :port (careful with [::1]:port bracket form).
+    let hostname = if let Some(rest) = host.strip_prefix('[') {
+        match rest.split_once(']') {
+            Some((name, _tail)) => name.to_string(),
+            None => return false,
+        }
+    } else {
+        // Split on the LAST colon: separates a trailing :port from a hostname.
+        // A bare (unbracketed) IPv6 literal is invalid in a Host header.
+        match host.rsplit_once(':') {
+            Some((name, port)) if !port.is_empty() && port.chars().all(|c| c.is_ascii_digit()) => {
+                name.to_string()
+            }
+            _ => host.to_string(),
+        }
+    };
+    matches!(
+        hostname.to_ascii_lowercase().as_str(),
+        "localhost" | "127.0.0.1" | "::1"
+    )
+}
+
+/// Constant-time equality for secret comparison (avoids timing oracles on the
+/// shared token). Both length and byte differences fold into one result.
+fn ct_eq(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    let mut diff = (a.len() ^ b.len()) as u8;
+    for i in 0..a.len().max(b.len()) {
+        let x = a.get(i).copied().unwrap_or(0);
+        let y = b.get(i).copied().unwrap_or(0);
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// Security headers appended to every response (normal, error, auth).
+const SECURITY_HEADERS: &str = "X-Content-Type-Options: nosniff\r\n\
+Referrer-Policy: no-referrer\r\n\
+Cache-Control: no-store\r\n\
+Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'\r\n";
+
+/// Build a full HTTP response with the security headers applied.
+fn response(status: &str, body: &str, extra_headers: &str) -> String {
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n{SECURITY_HEADERS}{extra_headers}Connection: close\r\n\r\n",
+        body.len()
+    )
+}
+
 fn validate_server_config(config: &ServerConfig) -> Result<(), String> {
     if !config.help && !is_loopback_host(&config.host) && config.token.is_empty() {
         return Err(
@@ -229,8 +292,9 @@ fn handle(mut stream: TcpStream) {
         }
     };
 
-    // Read the cookie and body length; stop at the blank line.
+    // Read the cookie, host, and body length; stop at the blank line.
     let mut cookie = String::new();
+    let mut host_header = String::new();
     let mut content_length = 0usize;
     let mut saw_content_length = false;
     let mut header_bytes = 0usize;
@@ -270,6 +334,9 @@ fn handle(mut stream: TcpStream) {
         if header_name.eq_ignore_ascii_case("cookie") {
             cookie = header_value.trim().to_string();
         }
+        if header_name.eq_ignore_ascii_case("host") {
+            host_header = header_value.trim().to_string();
+        }
         if header_name.eq_ignore_ascii_case("content-length") {
             if saw_content_length {
                 let _ = write_error(&stream, "400 Bad Request");
@@ -308,6 +375,14 @@ fn handle(mut stream: TcpStream) {
     }
     let request_body = String::from_utf8_lossy(&request_body);
 
+    // DNS-rebinding protection: on loopback binds, only loopback Host names
+    // may reach the dashboard. A rebound attacker hostname gets 403.
+    let loopback_bind = *LOOPBACK_BIND.get().unwrap_or(&true);
+    if !host_header_allowed(&host_header, loopback_bind) {
+        let _ = write_error(&stream, "403 Forbidden");
+        return;
+    }
+
     let mut cookies: Vec<String> = Vec::new();
 
     // Display timezone: `?tz=` selects it (and remembers it in a cookie);
@@ -338,10 +413,10 @@ fn handle(mut stream: TcpStream) {
         let via_cookie = cookie
             .split(';')
             .filter_map(|c| c.trim().strip_prefix("mw_token="))
-            .any(|v| v == want);
+            .any(|v| ct_eq(v, want));
         let login_attempt = method == "POST" && raw_path == "/login";
         let supplied = form_param(&request_body, "token");
-        if login_attempt && supplied.as_deref() == Some(want.as_str()) {
+        if login_attempt && supplied.as_deref().is_some_and(|s| ct_eq(s, want)) {
             if let Some(c) = set_cookie("mw_token", want, "; Path=/; HttpOnly; SameSite=Strict") {
                 cookies.push(c);
             }
@@ -349,7 +424,7 @@ fn handle(mut stream: TcpStream) {
                 return;
             };
             let response = format!(
-                "HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: {token_cookie}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                "HTTP/1.1 303 See Other\r\nLocation: /\r\nSet-Cookie: {token_cookie}\r\n{SECURITY_HEADERS}Connection: close\r\n\r\n"
             );
             let _ = stream.write_all(response.as_bytes());
             return;
@@ -365,10 +440,7 @@ fn handle(mut stream: TcpStream) {
                     "{message}<form method=\"post\" action=\"/login\"><label>Shared token <input type=\"password\" name=\"token\" autocomplete=\"current-password\" required></label> <button type=\"submit\">Sign in</button></form>"
                 ),
             );
-            let response = format!(
-                "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                body.len()
-            );
+            let response = response("401 Unauthorized", &body, "");
             let _ = stream.write_all(response.as_bytes());
             let _ = stream.write_all(body.as_bytes());
             return;
@@ -380,10 +452,7 @@ fn handle(mut stream: TcpStream) {
         .iter()
         .map(|c| format!("Set-Cookie: {c}\r\n"))
         .collect();
-    let response = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n{cookie_header}Connection: close\r\n\r\n",
-        body.len()
-    );
+    let response = response(status, &body, &cookie_header);
     let _ = stream.write_all(response.as_bytes());
     let _ = stream.write_all(body.as_bytes());
 }
@@ -432,7 +501,9 @@ fn read_limited_line<R: BufRead>(
 }
 
 fn write_error(stream: &TcpStream, status: &str) -> std::io::Result<()> {
-    let response = format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    let response = format!(
+        "HTTP/1.1 {status}\r\nContent-Length: 0\r\n{SECURITY_HEADERS}Connection: close\r\n\r\n"
+    );
     stream.try_clone()?.write_all(response.as_bytes())
 }
 
@@ -2134,5 +2205,62 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c, "mw_tz=utc; Path=/; SameSite=Strict; Max-Age=31536000");
+    }
+
+    #[test]
+    fn loopback_host_header_accepts_localhost_names() {
+        for host in [
+            "localhost",
+            "LOCALHOST:7071",
+            "127.0.0.1",
+            "127.0.0.1:7071",
+            "[::1]",
+            "[::1]:7071",
+        ] {
+            assert!(host_header_allowed(host, true), "should allow {host}");
+        }
+    }
+
+    #[test]
+    fn loopback_host_header_rejects_rebound_hostnames() {
+        for host in [
+            "attacker.example",
+            "attacker.example:7071",
+            "127.0.0.1.evil.com",
+            "185.199.108.153",
+            "",
+        ] {
+            assert!(!host_header_allowed(host, true), "should reject {host}");
+        }
+    }
+
+    #[test]
+    fn lan_bind_accepts_any_host_header() {
+        // Non-loopback binds require a token; the token gate protects data,
+        // and LAN clients reach the server under arbitrary interface IPs.
+        assert!(host_header_allowed("192.168.1.20:7071", false));
+        assert!(host_header_allowed("myhost.local", false));
+    }
+
+    #[test]
+    fn constant_time_equality_behaves_like_equality() {
+        assert!(ct_eq("shared-secret", "shared-secret"));
+        assert!(!ct_eq("shared-secret", "shared-secret2"));
+        assert!(!ct_eq("", "x"));
+        assert!(ct_eq("", ""));
+        assert!(!ct_eq("aaaa", "aaab"));
+    }
+
+    #[test]
+    fn responses_carry_security_headers() {
+        let r = response("200 OK", "<html></html>", "");
+        assert!(r.contains("X-Content-Type-Options: nosniff"));
+        assert!(r.contains("Referrer-Policy: no-referrer"));
+        assert!(r.contains("Cache-Control: no-store"));
+        assert!(r.contains("Content-Security-Policy: default-src 'none'"));
+        assert!(r.contains("frame-ancestors 'none'"));
+        // Set-Cookie extras are still appended for normal routes.
+        let r2 = response("200 OK", "x", "Set-Cookie: mw_tz=utc\r\n");
+        assert!(r2.contains("Set-Cookie: mw_tz=utc"));
     }
 }
