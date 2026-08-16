@@ -63,7 +63,13 @@ _mw() {
       _values 'action' stale supersede
       ;;
     hooks)
-      _values 'action' install uninstall remove
+      case ${words[3]} in
+        install|uninstall|remove) _values 'shell' pwsh ;;
+        *) _values 'action' install uninstall remove ;;
+      esac
+      ;;
+    pet)
+      _arguments '--watch[animate the whale whose mood reflects your memory store]'
       ;;
     integrate)
       _values 'target' hermes

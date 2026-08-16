@@ -12,7 +12,7 @@ _mw_complete() {
 list show mark remember memory rm prune audit share discard replay demo \
 export import push pull context agent ask search explain link unlink links \
 pet tui sync-mempalace git-fix doctor global status hooks integrate \
---live --notes --version --help" -- "$cur") )
+--live --autosave --notes --version --help" -- "$cur") )
     return
   fi
 
@@ -24,12 +24,22 @@ pet tui sync-mempalace git-fix doctor global status hooks integrate \
       [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "stale supersede" -- "$cur") )
       ;;
     hooks)
-      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "install uninstall remove" -- "$cur") )
+      if [ "$COMP_CWORD" -eq 2 ]; then
+        COMPREPLY=( $(compgen -W "install uninstall remove" -- "$cur") )
+      elif [ "$COMP_CWORD" -eq 3 ] && [[ " install uninstall remove " == *" ${COMP_WORDS[2]} "* ]]; then
+        COMPREPLY=( $(compgen -W "pwsh" -- "$cur") )
+      fi
+      ;;
+    pet)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "--watch" -- "$cur") )
       ;;
     integrate)
       [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "hermes" -- "$cur") )
       ;;
     sync-mempalace)
+      case "$prev" in
+        --wing|--limit) COMPREPLY=(); return ;;
+      esac
       COMPREPLY=( $(compgen -W "--wing --limit --dry-run" -- "$cur") )
       ;;
     show)
