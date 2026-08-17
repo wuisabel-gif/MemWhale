@@ -42,7 +42,8 @@ duplicate or ambiguous lengths; Host rebinding; cookie and form handling;
 percent-decoded paths; HTML escaping; response framing; and timezone parsing.
 It rejects unauthenticated non-loopback binds, rejects chunked transfer
 encoding, and applies security headers to normal, authentication, redirect,
-and error responses.
+and error responses. Each accepted connection has a 10-second read and write
+timeout, in addition to the request/header/body byte limits.
 
 The current decision is to retain this parser rather than replace it with a
 larger HTTP dependency. A future replacement should preserve the localhost
