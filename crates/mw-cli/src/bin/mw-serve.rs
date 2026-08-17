@@ -1038,7 +1038,7 @@ fn parse_tz(s: &str) -> DisplayTz {
     let rest = &s[1..];
     let (h, m) = if let Some((h, m)) = rest.split_once(':') {
         (h.parse::<i32>().ok(), m.parse::<i32>().ok())
-    } else if rest.len() == 4 {
+    } else if rest.len() == 4 && rest.is_ascii() {
         (rest[..2].parse().ok(), rest[2..].parse().ok())
     } else {
         (rest.parse::<i32>().ok(), Some(0))
@@ -2297,6 +2297,7 @@ mod tests {
         assert!(matches!(parse_tz("+99:99"), DisplayTz::Local));
         assert!(matches!(parse_tz("5"), DisplayTz::Local));
         assert!(matches!(parse_tz("+01:60"), DisplayTz::Local));
+        assert!(matches!(parse_tz("+💥"), DisplayTz::Local));
         assert!(matches!(parse_tz("+01:00\r\nX"), DisplayTz::Local));
     }
 
