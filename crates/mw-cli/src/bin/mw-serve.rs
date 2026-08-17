@@ -385,7 +385,8 @@ fn handle(mut stream: TcpStream) {
 
     let method_allowed = method == "GET" || (method == "POST" && raw_path == "/login");
     if !method_allowed {
-        let _ = write_error(&stream, "405 Method Not Allowed");
+        let response = response("405 Method Not Allowed", "", "Allow: GET, POST\r\n");
+        let _ = stream.write_all(response.as_bytes());
         return;
     }
 
@@ -474,7 +475,12 @@ enum LineError {
 impl LineError {
     fn status(&self) -> &'static str {
         match self {
-            Self::Io(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+            Self::Io(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) =>
+            {
                 "408 Request Timeout"
             }
             Self::TooLong => "431 Request Header Fields Too Large",
@@ -2229,6 +2235,26 @@ mod tests {
         response
     }
 
+    fn raw_response_with_server_timeout(request: &[u8], timeout: Duration) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(timeout)).unwrap();
+            stream.set_write_timeout(Some(timeout)).unwrap();
+            handle(stream);
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        client.write_all(request).unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        worker.join().unwrap();
+        response
+    }
+
     #[test]
     fn parser_returns_bounded_errors_for_hostile_requests() {
         let malformed = raw_response(b"GET /\r\n\r\n");
@@ -2277,10 +2303,23 @@ mod tests {
     fn parser_rejects_unsupported_methods_and_malformed_lengths() {
         let method = raw_response(b"PUT / HTTP/1.1\r\nHost: localhost\r\n\r\n");
         assert!(method.starts_with("HTTP/1.1 405 Method Not Allowed"));
+        assert!(method.contains("Allow: GET, POST"));
         for value in ["+1", "1.0", "0x10", "-1", ""] {
             assert!(parse_content_length(value).is_err(), "accepted {value:?}");
         }
         assert_eq!(parse_content_length("00012"), Ok(12));
+    }
+
+    #[test]
+    fn incomplete_client_gets_bounded_timeout_response() {
+        let response = raw_response_with_server_timeout(
+            b"GET / HTTP/1.1\r\nHost: localhost\r\n",
+            Duration::from_millis(50),
+        );
+        assert!(
+            response.starts_with("HTTP/1.1 408 Request Timeout"),
+            "unexpected timeout response: {response:?}"
+        );
     }
 
     #[test]
