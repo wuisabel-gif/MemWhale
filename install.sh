@@ -24,15 +24,61 @@ case "$os-$arch" in
 esac
 
 echo "==> Finding latest MemoryWhale release…"
-tag="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-       | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-[ -n "$tag" ] || { echo "could not find a release; is one published yet?" >&2; exit 1; }
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+release_json="$tmp/latest-release.json"
+
+# --- release-tag library (extracted verbatim by tests/install/run-tests.sh) ---
+# Pulls the latest release tag out of GitHub's /releases/latest JSON payload.
+# Uses `jq` when available; falls back to a portable single-line grep/sed
+# pipeline so the one-line installer keeps working on machines without jq.
+latest_release_tag() {
+  file="$1"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.tag_name? // empty' "$file" 2>/dev/null || true
+  else
+    grep '"tag_name"' "$file" | head -1 | sed -E 's/.*"tag_name" *: *"([^"]+)".*/\1/'
+  fi
+}
+
+# Validates a candidate tag before it is used to construct asset URLs.
+# MemoryWhale publishes semver tags with a "v" prefix (e.g. v0.7.0). The core
+# MAJOR.MINOR.PATCH shape is required; an optional "-prerelease"/"+build"
+# suffix is accepted to stay aligned with semver. GitHub's /releases/latest
+# endpoint already excludes prereleases and drafts, so the tag the installer
+# sees is effectively always stable. Empty, null (empty after extraction),
+# multiline, and other unexpected values are rejected here so a malformed
+# response cannot reach URL construction. The shape gate also guarantees the
+# tag cannot carry path-breaking characters.
+validate_tag() {
+  tag="$1"
+  [ -n "$tag" ] || return 1
+  case "$tag" in
+    *"
+"*) return 1 ;;
+  esac
+  printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+}
+# --- end release-tag library ---
+
+if ! curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" -o "$release_json"; then
+  echo "== ERROR: could not fetch release metadata from the GitHub API." >&2
+  echo "   Check your network connection. Unauthenticated GitHub API requests" >&2
+  echo "   are rate-limited; if you are hitting the limit, set GITHUB_TOKEN." >&2
+  echo "   Alternatively build from source: cargo install --git https://github.com/$REPO mw-cli" >&2
+  exit 1
+fi
+
+tag="$(latest_release_tag "$release_json")" || tag=""
+if ! validate_tag "$tag"; then
+  echo "== ERROR: could not determine a valid release tag (is a release published yet?)." >&2
+  [ -n "$tag" ] && echo "   unexpected value from the API: $tag" >&2
+  exit 1
+fi
 ver="${tag#v}"
 
 asset="memorywhale-${ver}-${target}.tar.gz"
 url="https://github.com/$REPO/releases/download/$tag/$asset"
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
 
 echo "==> Downloading $asset ($tag)…"
 curl -fSL "$url" -o "$tmp/$asset"

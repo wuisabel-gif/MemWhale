@@ -112,6 +112,14 @@ jobs:
           done
           "$RUNNER_TEMP/memorywhale/bin/mw" --help
 
+  installer-tests:
+    name: Installer release-tag tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run fixture-based installer tests
+        run: sh tests/install/run-tests.sh
+
   dependency-audit:
     name: Rust dependency audit
     runs-on: ubuntu-latest
