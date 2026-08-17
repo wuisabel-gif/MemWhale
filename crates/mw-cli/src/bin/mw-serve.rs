@@ -1044,9 +1044,11 @@ fn parse_tz(s: &str) -> DisplayTz {
         (rest.parse::<i32>().ok(), Some(0))
     };
     match (h, m) {
-        (Some(h), Some(m)) => FixedOffset::east_opt(sign * (h * 3600 + m * 60))
-            .map(DisplayTz::Fixed)
-            .unwrap_or(DisplayTz::Local),
+        (Some(h), Some(m)) if (0..24).contains(&h) && (0..60).contains(&m) => {
+            FixedOffset::east_opt(sign * (h * 3600 + m * 60))
+                .map(DisplayTz::Fixed)
+                .unwrap_or(DisplayTz::Local)
+        }
         _ => DisplayTz::Local,
     }
 }
@@ -2227,6 +2229,29 @@ mod tests {
     }
 
     #[test]
+    fn parser_rejects_header_ambiguity_and_missing_loopback_host() {
+        let missing_host = raw_response(b"GET / HTTP/1.1\r\n\r\n");
+        assert!(missing_host.starts_with("HTTP/1.1 403 Forbidden"));
+
+        let duplicate_length = raw_response(
+            b"GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nContent-Length: 0\r\n\r\n",
+        );
+        assert!(duplicate_length.starts_with("HTTP/1.1 400 Bad Request"));
+
+        let invalid_length =
+            raw_response(b"GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: +1\r\n\r\n");
+        assert!(invalid_length.starts_with("HTTP/1.1 400 Bad Request"));
+
+        let too_many_headers = format!(
+            "GET / HTTP/1.1\r\nHost: localhost\r\n{}\r\n",
+            (0..=MAX_HEADER_COUNT)
+                .map(|i| format!("X-{i}: value\r\n"))
+                .collect::<String>()
+        );
+        assert!(raw_response(too_many_headers.as_bytes()).starts_with("HTTP/1.1 431 "));
+    }
+
+    #[test]
     fn safe_cookie_values_reject_control_characters() {
         assert!(cookie_value_is_safe("utc"));
         assert!(cookie_value_is_safe("-08:00"));
@@ -2259,6 +2284,50 @@ mod tests {
         )
         .unwrap();
         assert_eq!(c, "mw_tz=utc; Path=/; SameSite=Strict; Max-Age=31536000");
+    }
+
+    #[test]
+    fn timezone_parser_rejects_malformed_and_accepts_supported_offsets() {
+        assert!(matches!(parse_tz(""), DisplayTz::Local));
+        assert!(matches!(parse_tz("LOCAL"), DisplayTz::Local));
+        assert!(matches!(parse_tz("utc"), DisplayTz::Fixed(_)));
+        assert!(matches!(parse_tz("-08:00"), DisplayTz::Fixed(_)));
+        assert!(matches!(parse_tz("+0530"), DisplayTz::Fixed(_)));
+        assert!(matches!(parse_tz("+5"), DisplayTz::Fixed(_)));
+        assert!(matches!(parse_tz("+99:99"), DisplayTz::Local));
+        assert!(matches!(parse_tz("5"), DisplayTz::Local));
+        assert!(matches!(parse_tz("+01:60"), DisplayTz::Local));
+        assert!(matches!(parse_tz("+01:00\r\nX"), DisplayTz::Local));
+    }
+
+    #[test]
+    fn query_and_route_decoding_does_not_turn_encoded_input_into_html() {
+        assert_eq!(percent_decode("a%2Fb+two"), "a/b+two");
+        assert_eq!(
+            query_param("/?q=a%3Cscript%3E%26b", "q").as_deref(),
+            Some("a<script>&b")
+        );
+        assert_eq!(query_param("/?q=one+two", "q").as_deref(), Some("one two"));
+        assert_eq!(route("/not-a-real-route").0, "404 Not Found");
+
+        let rendered = page(
+            "</script><script>alert(1)</script>",
+            &code_block("<img src=x onerror=alert(1)>"),
+        );
+        assert!(!rendered.contains("<script>alert(1)</script>"));
+        assert!(rendered.contains("&lt;img src=x onerror=alert(1)&gt;"));
+        assert!(!esc_redacted("password: hunter2secret").contains("hunter2secret"));
+    }
+
+    #[test]
+    fn response_framing_matches_body_and_has_no_injection() {
+        let response = raw_response(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        let header_end = response.find("\r\n\r\n").unwrap();
+        let (headers, payload) = response.split_at(header_end + 4);
+        assert!(headers.contains(&format!("Content-Length: {}", payload.len())));
+        assert!(!payload.is_empty());
+        assert!(headers.ends_with("\r\n\r\n"));
+        assert!(!response.contains("\r\nX-Injected:"));
     }
 
     #[test]
