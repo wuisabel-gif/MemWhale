@@ -197,8 +197,8 @@ The repository also contains `.github/workflows/pullfrog-memory.yml`. After a
 workflow named `Pullfrog` completes, it records an allowlisted metadata summary
 in a temporary MemoryWhale store and uploads a 14-day GitHub Actions artifact.
 The captured event summary is limited to repository, workflow/run ID and URL,
-event, status/conclusion, branch, commit SHA, actor, and a best-effort
-associated PR number. The MemoryWhale command record also necessarily contains
+event, status/conclusion, branch, commit SHA, actor, and a PR number only when
+Pullfrog's workflow event explicitly provides one. The MemoryWhale command record also necessarily contains
 the fixed command identifier and run ID in argv, the temporary runner cwd,
 exit code, creation timestamp, and automatic `os:`/`runtime:` capture tags.
 
@@ -222,9 +222,9 @@ To bring an artifact into a local MemoryWhale store:
    ```
 
 The workflow-run event often has no direct PR association because Pullfrog
-dispatches its workflow on the default branch. The workflow therefore falls
-back to GitHub's commit-to-PR lookup when possible; the run URL and commit SHA
-remain the authoritative link when no PR number can be resolved.
+dispatches its workflow on the default branch. In that case the PR field stays
+empty rather than guessing from a default-branch commit; the run URL and commit
+SHA are the authoritative links.
 
 Artifacts are snapshots, not synchronization. They do not automatically update
 the developer's local SQLite database, and each artifact has a 14-day retention

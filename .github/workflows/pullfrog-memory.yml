@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   archive:
@@ -45,12 +44,6 @@ jobs:
           sha="$(jq -r '.workflow_run.head_sha // empty' "$EVENT_PATH")"
           actor="$(jq -r '.workflow_run.actor.login // empty' "$EVENT_PATH")"
           pr_number="$(jq -r '.workflow_run.pull_requests[0].number // empty' "$EVENT_PATH")"
-          if [[ -z "$pr_number" && -n "$sha" ]]; then
-            pr_number="$(gh api \
-              --header 'Accept: application/vnd.github+json' \
-              "/repos/$GITHUB_REPOSITORY/commits/$sha/pulls" \
-              --jq '.[0].number // empty' 2>/dev/null || true)"
-          fi
 
           case "$conclusion" in
             success|neutral|skipped) exit_code=0 ;;
