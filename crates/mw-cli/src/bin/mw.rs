@@ -1941,7 +1941,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
     if src_has("bookmarks") {
         let c = src_columns(&conn, "bookmarks");
         let sql = format!(
-            "SELECT {}, {}, {} FROM src.bookmarks",
+            "SELECT {}, {}, {} FROM src.bookmarks s",
             sel(&c, "label", "''"),
             sel(&c, "cwd", "NULL"),
             sel(&c, "created_at", "''")
