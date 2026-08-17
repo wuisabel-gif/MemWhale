@@ -29,16 +29,21 @@ pub fn truncate_capture(text: &str, limit: usize) -> String {
     if text.len() <= limit {
         return text.to_string();
     }
+    let marker = format!("\n[TRUNCATED: stored {} of {} bytes]", limit, text.len());
+    if marker.len() >= limit {
+        return take_utf8_prefix("[TRUNCATED]", limit);
+    }
+    let content_limit = limit - marker.len();
+    let content = take_utf8_prefix(text, content_limit);
+    format!("{content}{marker}")
+}
+
+fn take_utf8_prefix(text: &str, limit: usize) -> String {
     let mut end = limit.min(text.len());
     while !text.is_char_boundary(end) {
         end -= 1;
     }
-    format!(
-        "{}\n[TRUNCATED: stored {} of {} bytes]",
-        &text[..end],
-        end,
-        text.len()
-    )
+    text[..end].to_string()
 }
 
 /// Scrub common secret shapes before capture text lands in SQLite.
@@ -46,7 +51,7 @@ pub fn truncate_capture(text: &str, limit: usize) -> String {
 /// This is intentionally conservative rather than a guarantee. Set
 /// `MEMORYWHALE_NO_REDACT=1` for the explicit raw-capture opt-out.
 pub fn redact(text: &str) -> String {
-    if std::env::var_os("MEMORYWHALE_NO_REDACT").is_some() {
+    if std::env::var("MEMORYWHALE_NO_REDACT").ok().as_deref() == Some("1") {
         return text.to_string();
     }
     let mut out = text.to_string();
@@ -89,13 +94,29 @@ mod tests {
         let previous = std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES");
         std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", "24");
         std::env::remove_var("MEMORYWHALE_NO_REDACT");
+        assert!(redact("token=abcdef1234567890").contains("token=[REDACTED]"));
         let value = sanitize_capture("token=abcdef1234567890 and a long tail");
-        assert!(value.contains("token=[REDACTED]"));
-        assert!(value.contains("[TRUNCATED:"));
+        assert!(!value.contains("abcdef1234567890"));
+        assert!(value.contains("[TRUNCATED:") || value.starts_with("[TRUNC"));
+        assert!(value.len() <= 24);
         if let Some(value) = previous {
             std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
         } else {
             std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
+        }
+    }
+
+    #[test]
+    fn raw_capture_opt_out_requires_value_one() {
+        let previous = std::env::var_os("MEMORYWHALE_NO_REDACT");
+        std::env::set_var("MEMORYWHALE_NO_REDACT", "0");
+        assert!(!redact("token=abcdef123456").contains("abcdef123456"));
+        std::env::set_var("MEMORYWHALE_NO_REDACT", "1");
+        assert!(redact("token=abcdef123456").contains("abcdef123456"));
+        if let Some(value) = previous {
+            std::env::set_var("MEMORYWHALE_NO_REDACT", value);
+        } else {
+            std::env::remove_var("MEMORYWHALE_NO_REDACT");
         }
     }
 }

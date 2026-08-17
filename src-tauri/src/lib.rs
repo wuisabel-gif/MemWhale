@@ -691,7 +691,7 @@ fn save_command_run(
     request: RememberCommandRequest,
 ) -> Result<CommandRun, AppError> {
     let argv = split_command_line(&request.command_line);
-    if argv.is_empty() && request.command_line.trim().is_empty() {
+    if argv.is_empty() || request.command_line.trim().is_empty() {
         return Err(AppError::Message(
             "command line cannot be empty".to_string(),
         ));

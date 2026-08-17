@@ -1830,7 +1830,13 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
             };
             for (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at) in rows {
                 let command = memorywhale_cli::sanitize_capture(&command);
-                let argv_json = memorywhale_cli::sanitize_capture(&argv_json);
+                let argv: Vec<String> = serde_json::from_str::<Vec<String>>(&argv_json)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|value: String| memorywhale_cli::sanitize_capture(&value))
+                    .collect();
+                let argv_json = serde_json::to_string(&argv)
+                    .map_err(|err| format!("failed to encode imported argv: {err}"))?;
                 let stdout = memorywhale_cli::sanitize_capture(&stdout);
                 let stderr = memorywhale_cli::sanitize_capture(&stderr);
                 let notes = memorywhale_cli::sanitize_capture(&notes);
@@ -1903,9 +1909,15 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     .map_err(|err| format!("failed to decode imported sessions: {err}"))?;
                 rows
             };
-            for (shell, cwd, path, transcript, notes, started, ended, _bytes, status) in rows {
+            for (shell, cwd, path, transcript, notes, started, ended, source_bytes, status) in rows
+            {
                 let transcript = memorywhale_cli::sanitize_capture(&transcript);
                 let notes = memorywhale_cli::sanitize_capture(&notes);
+                let stored_bytes = if transcript.is_empty() {
+                    source_bytes
+                } else {
+                    transcript.len() as i64
+                };
                 let exists: i64 = conn
                     .query_row(
                         "SELECT COUNT(*) FROM sessions WHERE started_at = ?1 AND transcript_path = ?2",
@@ -1917,7 +1929,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     conn.execute(
                         "INSERT INTO sessions (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                        params![shell, cwd, path, transcript, notes, started, ended, transcript.len() as i64, status],
+                        params![shell, cwd, path, transcript, notes, started, ended, stored_bytes, status],
                     )
                     .map_err(|err| format!("failed to merge session: {err}"))?;
                 }
