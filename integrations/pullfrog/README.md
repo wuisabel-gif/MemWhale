@@ -191,6 +191,38 @@ For a review-only Pullfrog run, configure review instructions such as:
 
 This prompt does not grant Pullfrog access to MemoryWhale's local database.
 
+## Pullfrog event archive
+
+The repository also contains `.github/workflows/pullfrog-memory.yml`. After a
+workflow named `Pullfrog` completes, it records an allowlisted metadata summary
+in a temporary MemoryWhale store and uploads a 14-day GitHub Actions artifact.
+The captured fields are limited to repository, workflow/run ID and URL, event,
+status/conclusion, branch, commit SHA, actor, and an associated PR number.
+
+It deliberately does **not** capture Pullfrog prompts, review bodies, comments,
+diffs, logs, environment variables, or credentials. The workflow checks out the
+trusted default branch rather than executing code from the completed PR.
+
+To bring an artifact into a local MemoryWhale store:
+
+1. Download and extract the `pullfrog-memory-<run-id>` artifact from GitHub.
+2. Import the extracted bundle:
+
+   ```bash
+   mw import /path/to/downloaded/memorywhale/exports/pullfrog-*
+   ```
+
+3. Search the imported event:
+
+   ```bash
+   mw search "project:pullfrog"
+   ```
+
+Artifacts are snapshots, not synchronization. They do not automatically update
+the developer's local SQLite database, and each artifact has a 14-day retention
+period. Review GitHub artifact access and retention policies before treating the
+archive as long-term history.
+
 ## Automatic capture
 
 Pullfrog does not automatically capture local MemoryWhale terminal sessions.
