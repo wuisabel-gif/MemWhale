@@ -3539,8 +3539,7 @@ fn doctor() -> Result<(), String> {
     }
 
     let mcp_binary = sibling_binary("mw-mcp");
-    let mcp_command = mcp_binary.to_string_lossy();
-    match probe_mcp_server(&mcp_command, &[], Duration::from_secs(2)) {
+    match probe_mcp_server(&mcp_binary, &[], Duration::from_secs(2)) {
         Ok(tools) => {
             let expected = [
                 "recent_errors",
@@ -3596,18 +3595,19 @@ const MAX_MCP_LINES: usize = 128;
 
 /// Probe a local MCP server without calling a tool. The child is killed on
 /// timeout or malformed output, so `mw doctor` cannot hang on a broken server.
-fn probe_mcp_server(
-    command: &str,
+fn probe_mcp_server<C: AsRef<std::ffi::OsStr>>(
+    command: C,
     args: &[String],
     timeout: Duration,
 ) -> Result<Vec<String>, String> {
+    let command_name = command.as_ref().to_string_lossy().into_owned();
     let mut child = Command::new(command)
         .args(args)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()
-        .map_err(|err| format!("mw-mcp unavailable: {err}"))?;
+        .map_err(|err| format!("mw-mcp unavailable ({command_name}): {err}"))?;
     let stdin = match child.stdin.take() {
         Some(stdin) => stdin,
         None => {
