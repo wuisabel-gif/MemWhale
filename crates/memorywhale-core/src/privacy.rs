@@ -29,21 +29,32 @@ pub fn truncate_capture(text: &str, limit: usize) -> String {
     if text.len() <= limit {
         return text.to_string();
     }
-    let marker = format!("\n[TRUNCATED: stored {} of {} bytes]", limit, text.len());
-    if marker.len() >= limit {
-        return take_utf8_prefix("[TRUNCATED]", limit);
+    let mut content_limit = limit;
+    for _ in 0..8 {
+        let stored = utf8_prefix_len(text, content_limit);
+        let marker = format!("\n[TRUNCATED: stored {stored} of {} bytes]", text.len());
+        if marker.len() >= limit {
+            return take_utf8_prefix("[TRUNCATED]", limit);
+        }
+        let next_limit = limit - marker.len();
+        if next_limit == content_limit {
+            return format!("{}{}", &text[..stored], marker);
+        }
+        content_limit = next_limit;
     }
-    let content_limit = limit - marker.len();
-    let content = take_utf8_prefix(text, content_limit);
-    format!("{content}{marker}")
+    take_utf8_prefix("[TRUNCATED]", limit)
 }
 
 fn take_utf8_prefix(text: &str, limit: usize) -> String {
+    text[..utf8_prefix_len(text, limit)].to_string()
+}
+
+fn utf8_prefix_len(text: &str, limit: usize) -> usize {
     let mut end = limit.min(text.len());
     while !text.is_char_boundary(end) {
         end -= 1;
     }
-    text[..end].to_string()
+    end
 }
 
 /// Scrub common secret shapes before capture text lands in SQLite.
@@ -88,9 +99,13 @@ fn secret_patterns() -> &'static [Regex] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn redacts_and_truncates_before_storage() {
+        let _guard = ENV_LOCK.lock().unwrap();
         let previous = std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES");
         std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", "24");
         std::env::remove_var("MEMORYWHALE_NO_REDACT");
@@ -108,6 +123,7 @@ mod tests {
 
     #[test]
     fn raw_capture_opt_out_requires_value_one() {
+        let _guard = ENV_LOCK.lock().unwrap();
         let previous = std::env::var_os("MEMORYWHALE_NO_REDACT");
         std::env::set_var("MEMORYWHALE_NO_REDACT", "0");
         assert!(!redact("token=abcdef123456").contains("abcdef123456"));

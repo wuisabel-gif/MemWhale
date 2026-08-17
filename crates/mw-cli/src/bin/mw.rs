@@ -1831,7 +1831,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
             for (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at) in rows {
                 let command = memorywhale_cli::sanitize_capture(&command);
                 let argv: Vec<String> = serde_json::from_str::<Vec<String>>(&argv_json)
-                    .unwrap_or_default()
+                    .map_err(|err| format!("invalid imported argv JSON: {err}"))?
                     .into_iter()
                     .map(|value: String| memorywhale_cli::sanitize_capture(&value))
                     .collect();
