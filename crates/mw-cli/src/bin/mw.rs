@@ -3538,7 +3538,9 @@ fn doctor() -> Result<(), String> {
         );
     }
 
-    match probe_mcp_server("mw-mcp", &[], Duration::from_secs(2)) {
+    let mcp_binary = sibling_binary("mw-mcp");
+    let mcp_command = mcp_binary.to_string_lossy();
+    match probe_mcp_server(&mcp_command, &[], Duration::from_secs(2)) {
         Ok(tools) => {
             let expected = [
                 "recent_errors",
@@ -3561,14 +3563,32 @@ fn doctor() -> Result<(), String> {
             } else {
                 warn(
                     "mcp",
-                    format!("mw-mcp is missing expected tools: {}", missing.join(", ")),
+                    format!(
+                        "mw-mcp is missing expected tools: {}; reinstall the matching mw-mcp binary",
+                        missing.join(", ")
+                    ),
                 );
             }
         }
-        Err(err) => warn("mcp", err),
+        Err(err) => warn("mcp", mcp_remediation(&err)),
     }
 
     Ok(())
+}
+
+fn mcp_remediation(error: &str) -> String {
+    let action = if error.contains("unavailable") {
+        "install MemoryWhale or ensure the sibling mw-mcp binary is executable"
+    } else if error.contains("timed out") {
+        "check that mw-mcp is not hung and reinstall the matching binary"
+    } else if error.contains("protocolVersion") {
+        "reinstall a compatible mw-mcp binary"
+    } else if error.contains("tools") {
+        "reinstall MemoryWhale and verify the six tools are advertised"
+    } else {
+        "run mw-mcp directly and reinstall it if the protocol error persists"
+    };
+    format!("{error}; next step: {action}")
 }
 
 const MAX_MCP_LINE_BYTES: usize = 64 * 1024;
@@ -3634,12 +3654,13 @@ fn probe_mcp_server(
 }
 
 fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<Vec<String>, String> {
+    const PROTOCOL_VERSION: &str = "2024-11-05";
     let initialize = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
         "method": "initialize",
         "params": {
-            "protocolVersion": "2024-11-05",
+            "protocolVersion": PROTOCOL_VERSION,
             "capabilities": {},
             "clientInfo": {"name": "memorywhale-doctor", "version": env!("CARGO_PKG_VERSION")}
         }
@@ -3660,7 +3681,7 @@ fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<Vec<Strin
         .map_err(|err| format!("mw-mcp probe write failed: {err}"))?;
     let mut reader = std::io::BufReader::new(stdout);
     let init = read_mcp_response(&mut reader, 1)?;
-    validate_initialize_result(&init)?;
+    validate_initialize_result(&init, PROTOCOL_VERSION)?;
     writeln!(stdin, "{initialized}")
         .and_then(|_| stdin.flush())
         .map_err(|err| format!("mw-mcp initialized notification failed: {err}"))?;
@@ -3721,7 +3742,10 @@ fn read_mcp_response<R: BufRead>(
     Err("MCP server emitted too many non-response lines".to_string())
 }
 
-fn validate_initialize_result(message: &serde_json::Value) -> Result<(), String> {
+fn validate_initialize_result(
+    message: &serde_json::Value,
+    expected_protocol: &str,
+) -> Result<(), String> {
     let result = message
         .get("result")
         .and_then(|value| value.as_object())
@@ -3729,10 +3753,11 @@ fn validate_initialize_result(message: &serde_json::Value) -> Result<(), String>
     if result
         .get("protocolVersion")
         .and_then(|value| value.as_str())
-        .filter(|value| !value.is_empty())
-        .is_none()
+        != Some(expected_protocol)
     {
-        return Err("initialize result is missing protocolVersion".to_string());
+        return Err(format!(
+            "initialize result protocolVersion is unsupported; expected {expected_protocol}"
+        ));
     }
     if !result
         .get("capabilities")
@@ -3815,6 +3840,13 @@ mod tests {
         let output = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{}}\n";
         let error = run_mcp_probe(&mut Vec::new(), Cursor::new(output.as_bytes())).unwrap_err();
         assert!(error.contains("protocolVersion"));
+    }
+
+    #[test]
+    fn mcp_probe_rejects_incompatible_protocol_version() {
+        let output = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2099-01-01\",\"capabilities\":{},\"serverInfo\":{}}}\n";
+        let error = run_mcp_probe(&mut Vec::new(), Cursor::new(output.as_bytes())).unwrap_err();
+        assert!(error.contains("unsupported"));
     }
 
     #[test]
