@@ -1939,8 +1939,15 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
 
     // bookmarks: skip same label + timestamp.
     if src_has("bookmarks") {
+        let c = src_columns(&conn, "bookmarks");
+        let sql = format!(
+            "SELECT {}, {}, {} FROM src.bookmarks",
+            sel(&c, "label", "''"),
+            sel(&c, "cwd", "NULL"),
+            sel(&c, "created_at", "''")
+        );
         let rows: Vec<(String, Option<String>, String)> = conn
-            .prepare("SELECT label, cwd, created_at FROM src.bookmarks")
+            .prepare(&sql)
             .and_then(|mut stmt| {
                 stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
                     .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
