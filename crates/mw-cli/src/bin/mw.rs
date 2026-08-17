@@ -3571,6 +3571,9 @@ fn doctor() -> Result<(), String> {
     Ok(())
 }
 
+const MAX_MCP_LINE_BYTES: usize = 64 * 1024;
+const MAX_MCP_LINES: usize = 128;
+
 /// Probe a local MCP server without calling a tool. The child is killed on
 /// timeout or malformed output, so `mw doctor` cannot hang on a broken server.
 fn probe_mcp_server(
@@ -3585,13 +3588,52 @@ fn probe_mcp_server(
         .stderr(std::process::Stdio::null())
         .spawn()
         .map_err(|err| format!("mw-mcp unavailable: {err}"))?;
-    let mut stdin = child.stdin.take().ok_or("mw-mcp stdin unavailable")?;
-    let stdout = child.stdout.take().ok_or("mw-mcp stdout unavailable")?;
+    let stdin = match child.stdin.take() {
+        Some(stdin) => stdin,
+        None => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("mw-mcp stdin unavailable".to_string());
+        }
+    };
+    let stdout = match child.stdout.take() {
+        Some(stdout) => stdout,
+        None => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("mw-mcp stdout unavailable".to_string());
+        }
+    };
     let (tx, rx) = mpsc::channel();
-    let reader = thread::spawn(move || {
-        let result = read_mcp_probe(stdout);
+    let worker = thread::spawn(move || {
+        let result = run_mcp_probe(stdin, stdout);
         let _ = tx.send(result);
     });
+    match rx.recv_timeout(timeout) {
+        Ok(result) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = worker.join();
+            result
+        }
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(format!(
+                "timed out after {}ms waiting for initialize/tools list",
+                timeout.as_millis()
+            ))
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = worker.join();
+            Err("probe reader exited without a result".to_string())
+        }
+    }
+}
+
+fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<Vec<String>, String> {
     let initialize = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -3613,82 +3655,98 @@ fn probe_mcp_server(
         "method": "tools/list",
         "params": {}
     });
-    for message in [initialize, initialized, tools] {
-        if let Err(err) =
-            writeln!(stdin, "{message}").and_then(|_| std::io::Write::flush(&mut stdin))
-        {
-            let _ = child.kill();
-            let _ = child.wait();
-            let _ = reader.join();
-            return Err(format!("mw-mcp probe write failed: {err}"));
-        }
-    }
-    drop(stdin);
-    match rx.recv_timeout(timeout) {
-        Ok(result) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            let _ = reader.join();
-            result
-        }
-        Err(mpsc::RecvTimeoutError::Timeout) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            let _ = reader.join();
-            Err(format!(
-                "timed out after {}ms waiting for initialize/tools list",
-                timeout.as_millis()
-            ))
-        }
-        Err(mpsc::RecvTimeoutError::Disconnected) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            let _ = reader.join();
-            Err("probe reader exited without a result".to_string())
-        }
-    }
+    writeln!(stdin, "{initialize}")
+        .and_then(|_| stdin.flush())
+        .map_err(|err| format!("mw-mcp probe write failed: {err}"))?;
+    let mut reader = std::io::BufReader::new(stdout);
+    let init = read_mcp_response(&mut reader, 1)?;
+    validate_initialize_result(&init)?;
+    writeln!(stdin, "{initialized}")
+        .and_then(|_| stdin.flush())
+        .map_err(|err| format!("mw-mcp initialized notification failed: {err}"))?;
+    writeln!(stdin, "{tools}")
+        .and_then(|_| stdin.flush())
+        .map_err(|err| format!("mw-mcp tools/list write failed: {err}"))?;
+    let tools_response = read_mcp_response(&mut reader, 2)?;
+    let tools = tools_response
+        .pointer("/result/tools")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| "tools/list response did not contain result.tools".to_string())?;
+    Ok(tools
+        .iter()
+        .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
+        .map(str::to_string)
+        .collect())
 }
 
-fn read_mcp_probe<R: Read>(reader: R) -> Result<Vec<String>, String> {
-    let mut reader = std::io::BufReader::new(reader);
-    let mut line = String::new();
-    let mut saw_initialize = false;
-    loop {
-        line.clear();
+fn read_mcp_response<R: BufRead>(
+    reader: &mut R,
+    expected_id: i64,
+) -> Result<serde_json::Value, String> {
+    for _ in 0..MAX_MCP_LINES {
+        let mut bytes = Vec::new();
         let n = reader
-            .read_line(&mut line)
+            .take((MAX_MCP_LINE_BYTES + 1) as u64)
+            .read_until(b'\n', &mut bytes)
             .map_err(|err| format!("failed reading MCP response: {err}"))?;
         if n == 0 {
-            return Err("server exited before tools/list response".to_string());
+            return Err(format!("server exited before response id {expected_id}"));
         }
+        if bytes.len() > MAX_MCP_LINE_BYTES {
+            return Err("MCP response line exceeded 64 KiB".to_string());
+        }
+        let line = String::from_utf8_lossy(&bytes);
         let Ok(message) = serde_json::from_str::<serde_json::Value>(line.trim()) else {
             continue;
         };
         let id = message.get("id").and_then(|value| value.as_i64());
-        if id == Some(1) {
-            if message.get("error").is_some() {
-                return Err("initialize returned a JSON-RPC error".to_string());
-            }
-            saw_initialize = true;
-        } else if id == Some(2) {
-            if !saw_initialize {
-                return Err("tools/list arrived before initialize response".to_string());
-            }
-            if message.get("error").is_some() {
-                return Err("tools/list returned a JSON-RPC error".to_string());
-            }
-            let tools = message
-                .pointer("/result/tools")
-                .and_then(|value| value.as_array())
-                .ok_or_else(|| "tools/list response did not contain result.tools".to_string())?;
-            let names = tools
-                .iter()
-                .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
-                .map(str::to_string)
-                .collect();
-            return Ok(names);
+        if id.is_none() {
+            continue;
         }
+        if id != Some(expected_id) {
+            return Err(format!(
+                "unexpected MCP response id {id:?}, expected {expected_id}"
+            ));
+        }
+        if message.get("jsonrpc").and_then(|value| value.as_str()) != Some("2.0") {
+            return Err("MCP response did not use JSON-RPC 2.0".to_string());
+        }
+        if message.get("error").is_some() {
+            return Err(format!(
+                "MCP request id {expected_id} returned a JSON-RPC error"
+            ));
+        }
+        return Ok(message);
     }
+    Err("MCP server emitted too many non-response lines".to_string())
+}
+
+fn validate_initialize_result(message: &serde_json::Value) -> Result<(), String> {
+    let result = message
+        .get("result")
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| "initialize response did not contain a result object".to_string())?;
+    if result
+        .get("protocolVersion")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        return Err("initialize result is missing protocolVersion".to_string());
+    }
+    if !result
+        .get("capabilities")
+        .is_some_and(serde_json::Value::is_object)
+    {
+        return Err("initialize result is missing capabilities".to_string());
+    }
+    if !result
+        .get("serverInfo")
+        .is_some_and(serde_json::Value::is_object)
+    {
+        return Err("initialize result is missing serverInfo".to_string());
+    }
+    Ok(())
 }
 
 fn append_environment_tags(notes: String) -> String {
@@ -3741,18 +3799,32 @@ mod tests {
     fn mcp_probe_accepts_initialize_and_tools_list() {
         let output = concat!(
             "not-json\n",
-            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}}\n",
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"stats\"},{\"name\":\"remember\"}]}}\n"
         );
-        let names = read_mcp_probe(Cursor::new(output.as_bytes())).unwrap();
+        let mut sent = Vec::new();
+        let names = run_mcp_probe(&mut sent, Cursor::new(output.as_bytes())).unwrap();
         assert_eq!(names, ["stats", "remember"]);
+        assert!(String::from_utf8(sent)
+            .unwrap()
+            .contains("notifications/initialized"));
     }
 
     #[test]
     fn mcp_probe_rejects_invalid_response_shape() {
         let output = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{}}\n";
-        let error = read_mcp_probe(Cursor::new(output.as_bytes())).unwrap_err();
-        assert!(error.contains("result.tools"));
+        let error = run_mcp_probe(&mut Vec::new(), Cursor::new(output.as_bytes())).unwrap_err();
+        assert!(error.contains("protocolVersion"));
+    }
+
+    #[test]
+    fn mcp_probe_rejects_tools_before_initialize() {
+        let output = concat!(
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[]}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{}}}\n"
+        );
+        let error = run_mcp_probe(&mut Vec::new(), Cursor::new(output.as_bytes())).unwrap_err();
+        assert!(error.contains("unexpected MCP response id"));
     }
 
     #[test]
@@ -3769,7 +3841,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn mcp_probe_terminates_a_hung_server() {
-        let args = ["-c".to_string(), "sleep 5".to_string()];
+        let args = ["-c".to_string(), "exec sleep 5".to_string()];
         let started = std::time::Instant::now();
         let error = probe_mcp_server("sh", &args, Duration::from_millis(100)).unwrap_err();
         assert!(error.contains("timed out"));
