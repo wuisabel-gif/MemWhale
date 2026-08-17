@@ -52,19 +52,21 @@ check latest-multiline-tag  reject
 check latest-path-escape    reject
 check latest-not-a-version  reject
 
-# Fallback path without jq: a non-executable jq stub in PATH is invisible to
-# `command -v`, so latest_release_tag takes the portable grep/sed branch.
+# Fallback path without jq: create a PATH containing only the required
+# grep/head/sed utilities. This makes `command -v jq` fail even on CI images
+# that install jq globally, so latest_release_tag must take the portable branch.
 echo "==> no-jq fallback path"
 no_jq_bin="$(mktemp -d)"
 trap 'rm -rf "$no_jq_bin"' EXIT
-: > "$no_jq_bin/jq"
-chmod 644 "$no_jq_bin/jq"
+for utility in grep head sed; do
+  ln -s "$(command -v "$utility")" "$no_jq_bin/$utility"
+done
 
 check_fallback() {
   fixture="$1"
   expected="$2"
   checks=$((checks + 1))
-  tag="$(PATH="$no_jq_bin:$PATH" latest_release_tag "$fixtures/$fixture.json")" || tag=""
+  tag="$(PATH="$no_jq_bin" latest_release_tag "$fixtures/$fixture.json")" || tag=""
   if validate_tag "$tag"; then actual="accept"; else actual="reject"; fi
   if [ "$actual" != "$expected" ]; then
     printf 'FAIL  %-26s expected %-7s got %-7s (tag=%s)\n' \

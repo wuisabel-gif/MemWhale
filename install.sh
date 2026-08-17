@@ -61,7 +61,16 @@ validate_tag() {
 }
 # --- end release-tag library ---
 
-if ! curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" -o "$release_json"; then
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  release_status=0
+  curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" \
+    "https://api.github.com/repos/$REPO/releases/latest" -o "$release_json" || release_status=$?
+else
+  release_status=0
+  curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+    -o "$release_json" || release_status=$?
+fi
+if [ "$release_status" -ne 0 ]; then
   echo "== ERROR: could not fetch release metadata from the GitHub API." >&2
   echo "   Check your network connection. Unauthenticated GitHub API requests" >&2
   echo "   are rate-limited; if you are hitting the limit, set GITHUB_TOKEN." >&2
