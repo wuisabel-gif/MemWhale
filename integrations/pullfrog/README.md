@@ -9,13 +9,9 @@ host.
 ## Status
 
 Verified against Pullfrog's official documentation in August 2026 and tested
-against the `wuisabel-gif/MemWhale` repository:
-
-- the Pullfrog GitHub App is installed for `@wuisabel-gif`;
-- `npx pullfrog auth codex` detected `wuisabel-gif/MemWhale`;
-- Codex device authentication completed successfully;
-- Pullfrog reported that `CODEX_AUTH_JSON` was saved to the Pullfrog account
-  secret store.
+against a repository owned by the MemWhale organization. The GitHub App,
+Codex authentication, model selection, and review automation are separate
+account- and repository-level settings.
 
 Pullfrog's review automation remains configured in the Pullfrog console. This
 guide does not claim that automatic review is enabled for every PR.
