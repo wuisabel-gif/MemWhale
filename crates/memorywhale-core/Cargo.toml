@@ -26,6 +26,7 @@ ureq = { version = "2", features = ["json"], optional = true }
 # The one SQLite loader (memorywhale_core::sqlite) lives here so the CLI and desktop
 # share it. bundled = no system libsqlite3 needed (matches the other crates).
 rusqlite = { version = "0.32", features = ["bundled"] }
+regex = "1"
 
 # `dirs` is used only by the `dump_eval` example, which reads a real
 # memorywhale.sqlite3 into an eval_data.json gold-set skeleton.

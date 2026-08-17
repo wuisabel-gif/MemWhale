@@ -691,21 +691,29 @@ fn save_command_run(
     request: RememberCommandRequest,
 ) -> Result<CommandRun, AppError> {
     let argv = split_command_line(&request.command_line);
-    let command = argv
-        .first()
-        .cloned()
-        .unwrap_or_else(|| request.command_line.trim().to_string());
-    if command.is_empty() {
+    if argv.is_empty() && request.command_line.trim().is_empty() {
         return Err(AppError::Message(
             "command line cannot be empty".to_string(),
         ));
     }
 
-    let stdout = request.stdout.unwrap_or_default();
-    let stderr = request.stderr.unwrap_or_default();
-    let notes = request.notes.unwrap_or_default();
+    // Sanitize before deriving concepts or writing any text-bearing column.
+    // Keep cwd as operational metadata: changing it would make replay and
+    // navigation incorrect. Command/argv are sanitized representations.
+    let stored_command_line = memorywhale_core::privacy::sanitize_capture(&request.command_line);
+    let stored_argv: Vec<String> = argv
+        .iter()
+        .map(|value| memorywhale_core::privacy::sanitize_capture(value))
+        .collect();
+    let command = stored_argv
+        .first()
+        .cloned()
+        .unwrap_or_else(|| stored_command_line.trim().to_string());
+    let stdout = memorywhale_core::privacy::sanitize_capture(&request.stdout.unwrap_or_default());
+    let stderr = memorywhale_core::privacy::sanitize_capture(&request.stderr.unwrap_or_default());
+    let notes = memorywhale_core::privacy::sanitize_capture(&request.notes.unwrap_or_default());
     let created_at = Utc::now().to_rfc3339();
-    let argv_json = serde_json::to_string(&argv)
+    let argv_json = serde_json::to_string(&stored_argv)
         .map_err(|err| AppError::Message(format!("failed to encode argv: {err}")))?;
 
     let mut conn = state
@@ -731,7 +739,7 @@ fn save_command_run(
     )?;
     let run_id = tx.last_insert_rowid();
 
-    for (position, value) in argv.iter().enumerate() {
+    for (position, value) in stored_argv.iter().enumerate() {
         tx.execute(
             "
             INSERT INTO command_arguments (command_run_id, position, value)
@@ -741,10 +749,7 @@ fn save_command_run(
         )?;
     }
 
-    let combined = format!(
-        "{}\n{}\n{}\n{}",
-        request.command_line, stdout, stderr, notes
-    );
+    let combined = format!("{}\n{}\n{}\n{}", stored_command_line, stdout, stderr, notes);
     let command_node = format!("command:{run_id}");
     for concept in extract_keywords(&combined, 10) {
         tx.execute(
@@ -785,14 +790,22 @@ fn save_document(
     state: &tauri::State<AppState>,
     request: ImportRequest,
 ) -> Result<Document, AppError> {
+    // Sanitize and bound imported text before deriving summaries, quotes, or
+    // concepts. Otherwise a secret can be copied into several SQLite tables
+    // and into the retrieval index before any later redaction opportunity.
+    let content = memorywhale_core::privacy::sanitize_capture(&request.content);
     let title = request
         .title
+        .map(|value| memorywhale_core::privacy::sanitize_capture(&value))
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| infer_title(&request.content));
-    let summary = summarize(&request.content);
+        .unwrap_or_else(|| infer_title(&content));
+    let summary = memorywhale_core::privacy::sanitize_capture(&summarize(&content));
     let created_at = Utc::now().to_rfc3339();
-    let concepts = extract_keywords(&request.content, 12);
-    let quotes = extract_quotes(&request.content);
+    let concepts = extract_keywords(&content, 12);
+    let quotes: Vec<String> = extract_quotes(&content)
+        .into_iter()
+        .map(|quote| memorywhale_core::privacy::sanitize_capture(&quote))
+        .collect();
 
     let mut conn = state
         .db
@@ -804,13 +817,7 @@ fn save_document(
         INSERT INTO documents (title, source_type, content, summary, created_at)
         VALUES (?1, ?2, ?3, ?4, ?5)
         ",
-        params![
-            title,
-            request.source_type,
-            request.content,
-            summary,
-            created_at
-        ],
+        params![title, request.source_type, content, summary, created_at],
     )?;
     let document_id = tx.last_insert_rowid();
     tx.execute(

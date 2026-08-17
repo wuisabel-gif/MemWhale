@@ -64,6 +64,7 @@ pub mod embed;
 pub mod engine;
 #[cfg(feature = "mempalace")]
 mod mcp;
+pub mod privacy;
 pub mod scorer;
 pub mod sqlite;
 

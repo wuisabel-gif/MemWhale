@@ -114,7 +114,7 @@ fn run() -> Result<(), String> {
             command_run_id,
             file_path.to_string_lossy(),
             cwd,
-            notes,
+            memorywhale_cli::sanitize_capture(&notes),
             captured_at
         ],
     )

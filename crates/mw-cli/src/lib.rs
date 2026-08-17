@@ -1497,89 +1497,10 @@ pub fn remember_as(
     Ok(conn.last_insert_rowid())
 }
 
-const REDACTED: &str = "[REDACTED]";
-pub const DEFAULT_MAX_CAPTURE_BYTES: usize = 1_048_576;
-
-/// Maximum bytes retained for any individual captured text field.
-///
-/// Set `MEMORYWHALE_MAX_CAPTURE_BYTES` to a positive integer to tune the
-/// limit. The default is 1 MiB per stdout, stderr, note, or transcript field.
-pub fn max_capture_bytes() -> usize {
-    std::env::var("MEMORYWHALE_MAX_CAPTURE_BYTES")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .filter(|value| *value > 0)
-        .unwrap_or(DEFAULT_MAX_CAPTURE_BYTES)
-}
-
-/// Redact known secret shapes and bound the stored value, adding an explicit
-/// marker when bytes were omitted.
-pub fn sanitize_capture(text: &str) -> String {
-    truncate_capture(&redact(text), max_capture_bytes())
-}
-
-fn truncate_capture(text: &str, limit: usize) -> String {
-    if text.len() <= limit {
-        return text.to_string();
-    }
-    let mut end = limit.min(text.len());
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    format!(
-        "{}\n[TRUNCATED: stored {} of {} bytes]",
-        &text[..end],
-        end,
-        text.len()
-    )
-}
-
-/// Scrub common secret shapes out of captured text before it lands in SQLite.
-///
-/// This runs on stdout/stderr/notes/transcripts — the bulky, unattended
-/// captures where an `env` dump or a leaked token is most likely to end up.
-/// It is intentionally conservative (known token formats + `key=secret`
-/// assignments), not a guarantee. Set `MEMORYWHALE_NO_REDACT=1` to store raw.
-pub fn redact(text: &str) -> String {
-    if std::env::var_os("MEMORYWHALE_NO_REDACT").is_some() {
-        return text.to_string();
-    }
-    let mut out = text.to_string();
-    for re in secret_patterns() {
-        out = re
-            .replace_all(&out, |caps: &regex::Captures| {
-                // If the pattern captured a leading "key=" / "key:" label, keep it.
-                match caps.name("label") {
-                    Some(label) => format!("{}{}", label.as_str(), REDACTED),
-                    None => REDACTED.to_string(),
-                }
-            })
-            .into_owned();
-    }
-    out
-}
-
-fn secret_patterns() -> &'static [Regex] {
-    static PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
-    PATTERNS.get_or_init(|| {
-        [
-            // key = value / key: value where the key name looks sensitive.
-            r#"(?i)(?P<label>\b(?:api[_-]?key|secret|token|password|passwd|pwd|access[_-]?key|client[_-]?secret)\b\s*[:=]\s*)['"]?[A-Za-z0-9/_+\-\.]{6,}['"]?"#,
-            // Authorization: Bearer <token>
-            r#"(?i)(?P<label>bearer\s+)[A-Za-z0-9._\-]{8,}"#,
-            // Provider token formats.
-            r#"AKIA[0-9A-Z]{16}"#,                                   // AWS access key id
-            r#"gh[pousr]_[A-Za-z0-9]{20,}"#,                          // GitHub tokens
-            r#"xox[baprs]-[A-Za-z0-9\-]{10,}"#,                       // Slack tokens
-            r#"eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+"#, // JWTs
-            // PEM private key blocks (whole block).
-            r#"(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----"#,
-        ]
-        .iter()
-        .map(|p| Regex::new(p).expect("valid secret regex"))
-        .collect()
-    })
-}
+pub use memorywhale_core::privacy::{
+    max_capture_bytes, redact, sanitize_capture, truncate_capture, DEFAULT_MAX_CAPTURE_BYTES,
+    REDACTED,
+};
 
 /// Finalize the current in-progress recording the moment this process's parent
 /// dies, instead of waiting for the dashboard's next-startup recovery.

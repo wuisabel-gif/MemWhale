@@ -2036,7 +2036,8 @@ fn recover_orphans() -> Result<RecoveryReport, String> {
             }
             continue;
         }
-        let cleaned = clean_transcript(&String::from_utf8_lossy(&raw));
+        let cleaned =
+            memorywhale_cli::sanitize_capture(&clean_transcript(&String::from_utf8_lossy(&raw)));
         let started = started_from_filename(&path).unwrap_or_else(|| mtime_rfc3339(&path));
         let ended = mtime_rfc3339(&path);
         conn.execute(
@@ -2045,7 +2046,7 @@ fn recover_orphans() -> Result<RecoveryReport, String> {
             params![
                 Option::<String>::None, Option::<String>::None, path_str, cleaned,
                 "recovered from transcript (recording was interrupted before saving)",
-                started, ended, raw.len() as i64
+                started, ended, cleaned.len() as i64
             ],
         )
         .map_err(|e| format!("insert recovered session: {e}"))?;

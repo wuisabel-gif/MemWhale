@@ -431,6 +431,7 @@ struct LiveSync {
 
 fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
     let conn = open_session_db()?;
+    let stored_notes = memorywhale_cli::sanitize_capture(draft.notes);
     conn.execute(
         "
         INSERT INTO sessions
@@ -442,9 +443,9 @@ fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
             draft.shell,
             draft.cwd,
             draft.stored_transcript_path(),
-            draft.notes,
+            stored_notes,
             draft.started_at,
-            memorywhale_cli::project_of(draft.notes),
+            memorywhale_cli::project_of(&stored_notes),
             memorywhale_cli::machine_name()
         ],
     )
@@ -465,6 +466,7 @@ fn insert_finished_session(
     } else {
         String::new()
     };
+    let stored_notes = memorywhale_cli::sanitize_capture(draft.notes);
     let conn = open_session_db()?;
     conn.execute(
         "
@@ -478,11 +480,11 @@ fn insert_finished_session(
             draft.cwd,
             draft.stored_transcript_path(),
             cleaned,
-            draft.notes,
+            stored_notes,
             draft.started_at,
             ended_at,
             byte_count,
-            memorywhale_cli::project_of(draft.notes),
+            memorywhale_cli::project_of(&stored_notes),
             memorywhale_cli::machine_name()
         ],
     )
@@ -1778,24 +1780,76 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         }
     };
 
-    // command_runs: skip rows already present (same command, argv, and timestamp).
+    // command_runs: read through Rust so imported text is sanitized before the
+    // destination write. SQL-to-SQL copying would bypass the capture policy.
     if src_has("command_runs") {
         let c = src_columns(&conn, "command_runs");
         if c.contains("command") && c.contains("argv_json") && c.contains("created_at") {
             let sql = format!(
-                "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
-                 SELECT {}, {}, {}, {}, {}, {}, {}, {}
-                 FROM src.command_runs s
-                 WHERE NOT EXISTS (
-                   SELECT 1 FROM command_runs m
-                   WHERE m.command = s.command AND m.argv_json = s.argv_json AND m.created_at = s.created_at
-                 )",
-                sel(&c, "command", "''"), sel(&c, "argv_json", "'[]'"), sel(&c, "cwd", "NULL"),
-                sel(&c, "exit_code", "NULL"), sel(&c, "stdout", "''"), sel(&c, "stderr", "''"),
-                sel(&c, "notes", "''"), sel(&c, "created_at", "''")
+                "SELECT {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs",
+                sel(&c, "command", "''"),
+                sel(&c, "argv_json", "'[]'"),
+                sel(&c, "cwd", "NULL"),
+                sel(&c, "exit_code", "NULL"),
+                sel(&c, "stdout", "''"),
+                sel(&c, "stderr", "''"),
+                sel(&c, "notes", "''"),
+                sel(&c, "created_at", "''")
             );
-            conn.execute(&sql, [])
-                .map_err(|err| format!("failed to merge command runs: {err}"))?;
+            type ImportedCommandRun = (
+                String,
+                String,
+                Option<String>,
+                Option<i64>,
+                String,
+                String,
+                String,
+                String,
+            );
+            let rows: Vec<ImportedCommandRun> = {
+                let mut stmt = conn
+                    .prepare(&sql)
+                    .map_err(|err| format!("failed to read imported command runs: {err}"))?;
+                let mapped = stmt.query_map([], |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                        r.get(6)?,
+                        r.get(7)?,
+                    ))
+                });
+                let rows = mapped
+                    .map_err(|err| format!("failed to read imported command runs: {err}"))?
+                    .collect::<Result<_, _>>()
+                    .map_err(|err| format!("failed to decode imported command runs: {err}"))?;
+                rows
+            };
+            for (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at) in rows {
+                let command = memorywhale_cli::sanitize_capture(&command);
+                let argv_json = memorywhale_cli::sanitize_capture(&argv_json);
+                let stdout = memorywhale_cli::sanitize_capture(&stdout);
+                let stderr = memorywhale_cli::sanitize_capture(&stderr);
+                let notes = memorywhale_cli::sanitize_capture(&notes);
+                let exists: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM command_runs WHERE command = ?1 AND argv_json = ?2 AND created_at = ?3",
+                        params![command, argv_json, created_at],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                if exists == 0 {
+                    conn.execute(
+                        "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                        params![command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at],
+                    )
+                    .map_err(|err| format!("failed to merge command run: {err}"))?;
+                }
+            }
         }
     }
 
@@ -1804,32 +1858,99 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "sessions");
         if c.contains("started_at") && c.contains("transcript_path") {
             let sql = format!(
-                "INSERT INTO sessions (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
-                 SELECT {}, {}, {}, {}, {}, {}, {}, {}, {}
-                 FROM src.sessions s
-                 WHERE NOT EXISTS (
-                   SELECT 1 FROM sessions m
-                   WHERE m.started_at = s.started_at AND m.transcript_path = s.transcript_path
-                 )",
-                sel(&c, "shell", "''"), sel(&c, "cwd", "NULL"), sel(&c, "transcript_path", "''"),
-                sel(&c, "transcript", "''"), sel(&c, "notes", "''"), sel(&c, "started_at", "''"),
-                sel(&c, "ended_at", "''"), sel(&c, "byte_count", "0"), sel(&c, "status", "'finished'")
+                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.sessions",
+                sel(&c, "shell", "''"),
+                sel(&c, "cwd", "NULL"),
+                sel(&c, "transcript_path", "''"),
+                sel(&c, "transcript", "''"),
+                sel(&c, "notes", "''"),
+                sel(&c, "started_at", "''"),
+                sel(&c, "ended_at", "''"),
+                sel(&c, "byte_count", "0"),
+                sel(&c, "status", "'finished'")
             );
-            conn.execute(&sql, [])
-                .map_err(|err| format!("failed to merge sessions: {err}"))?;
+            type ImportedSession = (
+                String,
+                Option<String>,
+                String,
+                String,
+                String,
+                String,
+                String,
+                i64,
+                String,
+            );
+            let rows: Vec<ImportedSession> = {
+                let mut stmt = conn
+                    .prepare(&sql)
+                    .map_err(|err| format!("failed to read imported sessions: {err}"))?;
+                let mapped = stmt.query_map([], |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                        r.get(6)?,
+                        r.get(7)?,
+                        r.get(8)?,
+                    ))
+                });
+                let rows = mapped
+                    .map_err(|err| format!("failed to read imported sessions: {err}"))?
+                    .collect::<Result<_, _>>()
+                    .map_err(|err| format!("failed to decode imported sessions: {err}"))?;
+                rows
+            };
+            for (shell, cwd, path, transcript, notes, started, ended, _bytes, status) in rows {
+                let transcript = memorywhale_cli::sanitize_capture(&transcript);
+                let notes = memorywhale_cli::sanitize_capture(&notes);
+                let exists: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM sessions WHERE started_at = ?1 AND transcript_path = ?2",
+                        params![started, path],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                if exists == 0 {
+                    conn.execute(
+                        "INSERT INTO sessions (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                        params![shell, cwd, path, transcript, notes, started, ended, transcript.len() as i64, status],
+                    )
+                    .map_err(|err| format!("failed to merge session: {err}"))?;
+                }
+            }
         }
     }
 
     // bookmarks: skip same label + timestamp.
     if src_has("bookmarks") {
-        let _ = conn.execute(
-            "INSERT INTO bookmarks (label, cwd, created_at)
-             SELECT s.label, s.cwd, s.created_at FROM src.bookmarks s
-             WHERE NOT EXISTS (
-               SELECT 1 FROM bookmarks m WHERE m.label = s.label AND m.created_at = s.created_at
-             )",
-            [],
-        );
+        let rows: Vec<(String, Option<String>, String)> = conn
+            .prepare("SELECT label, cwd, created_at FROM src.bookmarks")
+            .and_then(|mut stmt| {
+                stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                    .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            })
+            .map_err(|err| format!("failed to read imported bookmarks: {err}"))?;
+        for (label, cwd, created_at) in rows {
+            let label = memorywhale_cli::sanitize_capture(&label);
+            let exists: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM bookmarks WHERE label = ?1 AND created_at = ?2",
+                    params![label, created_at],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            if exists == 0 {
+                conn.execute(
+                    "INSERT INTO bookmarks (label, cwd, created_at) VALUES (?1, ?2, ?3)",
+                    params![label, cwd, created_at],
+                )
+                .map_err(|err| format!("failed to merge bookmark: {err}"))?;
+            }
+        }
     }
 
     conn.execute("DETACH DATABASE src", [])

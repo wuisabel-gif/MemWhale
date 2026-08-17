@@ -64,8 +64,12 @@ fn run() -> Result<(), String> {
     }
 
     notes = append_environment_tags(notes);
-    let command = command_parts[0].clone();
-    let argv_json = serde_json::to_string(&command_parts)
+    let stored_args: Vec<String> = command_parts
+        .iter()
+        .map(|value| memorywhale_cli::sanitize_capture(value))
+        .collect();
+    let command = stored_args[0].clone();
+    let argv_json = serde_json::to_string(&stored_args)
         .map_err(|err| format!("failed to encode argv: {err}"))?;
     let created_at = Utc::now().to_rfc3339();
     let db_path = database_path()?;
@@ -95,7 +99,7 @@ fn run() -> Result<(), String> {
     .map_err(|err| format!("failed to insert command run: {err}"))?;
     let run_id = conn.last_insert_rowid();
 
-    for (position, value) in command_parts.iter().enumerate() {
+    for (position, value) in stored_args.iter().enumerate() {
         conn.execute(
             "
             INSERT INTO command_arguments (command_run_id, position, value)
