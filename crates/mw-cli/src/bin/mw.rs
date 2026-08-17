@@ -18,11 +18,12 @@ use regex::Regex;
 use rusqlite::{params, Connection};
 use std::env;
 use std::fs;
+use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    mpsc, Arc,
 };
 use std::thread;
 use std::time::Duration;
@@ -306,7 +307,7 @@ fn print_help() {
          mw context [project:name] [--last-error] [--limit N]  print a compact digest to paste into an AI agent\n\
          mw agent [session-id]    export a full session as agent-ready text to paste later (default: latest)\n\
          mw ask [question] [--chat chatgpt|claude|gemini|URL] [--session] [--no-open]  package the last failure for your chat AI\n\
-         mw doctor                check the install: data dir, database, `script`, and hook status\n\
+         mw doctor                check the install, shell hooks, and MCP server\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
@@ -3537,7 +3538,157 @@ fn doctor() -> Result<(), String> {
         );
     }
 
+    match probe_mcp_server("mw-mcp", &[], Duration::from_secs(2)) {
+        Ok(tools) => {
+            let expected = [
+                "recent_errors",
+                "search_memory",
+                "get_context",
+                "remember",
+                "similar_failures",
+                "stats",
+            ];
+            let missing: Vec<&str> = expected
+                .iter()
+                .copied()
+                .filter(|name| !tools.iter().any(|tool| tool == name))
+                .collect();
+            if missing.is_empty() {
+                ok(
+                    "mcp",
+                    format!("mw-mcp initialized; advertised {} tools", tools.len()),
+                );
+            } else {
+                warn(
+                    "mcp",
+                    format!("mw-mcp is missing expected tools: {}", missing.join(", ")),
+                );
+            }
+        }
+        Err(err) => warn("mcp", err),
+    }
+
     Ok(())
+}
+
+/// Probe a local MCP server without calling a tool. The child is killed on
+/// timeout or malformed output, so `mw doctor` cannot hang on a broken server.
+fn probe_mcp_server(
+    command: &str,
+    args: &[String],
+    timeout: Duration,
+) -> Result<Vec<String>, String> {
+    let mut child = Command::new(command)
+        .args(args)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|err| format!("mw-mcp unavailable: {err}"))?;
+    let mut stdin = child.stdin.take().ok_or("mw-mcp stdin unavailable")?;
+    let stdout = child.stdout.take().ok_or("mw-mcp stdout unavailable")?;
+    let (tx, rx) = mpsc::channel();
+    let reader = thread::spawn(move || {
+        let result = read_mcp_probe(stdout);
+        let _ = tx.send(result);
+    });
+    let initialize = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "memorywhale-doctor", "version": env!("CARGO_PKG_VERSION")}
+        }
+    });
+    let initialized = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized",
+        "params": {}
+    });
+    let tools = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+    });
+    for message in [initialize, initialized, tools] {
+        if let Err(err) =
+            writeln!(stdin, "{message}").and_then(|_| std::io::Write::flush(&mut stdin))
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = reader.join();
+            return Err(format!("mw-mcp probe write failed: {err}"));
+        }
+    }
+    drop(stdin);
+    match rx.recv_timeout(timeout) {
+        Ok(result) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = reader.join();
+            result
+        }
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = reader.join();
+            Err(format!(
+                "timed out after {}ms waiting for initialize/tools list",
+                timeout.as_millis()
+            ))
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = reader.join();
+            Err("probe reader exited without a result".to_string())
+        }
+    }
+}
+
+fn read_mcp_probe<R: Read>(reader: R) -> Result<Vec<String>, String> {
+    let mut reader = std::io::BufReader::new(reader);
+    let mut line = String::new();
+    let mut saw_initialize = false;
+    loop {
+        line.clear();
+        let n = reader
+            .read_line(&mut line)
+            .map_err(|err| format!("failed reading MCP response: {err}"))?;
+        if n == 0 {
+            return Err("server exited before tools/list response".to_string());
+        }
+        let Ok(message) = serde_json::from_str::<serde_json::Value>(line.trim()) else {
+            continue;
+        };
+        let id = message.get("id").and_then(|value| value.as_i64());
+        if id == Some(1) {
+            if message.get("error").is_some() {
+                return Err("initialize returned a JSON-RPC error".to_string());
+            }
+            saw_initialize = true;
+        } else if id == Some(2) {
+            if !saw_initialize {
+                return Err("tools/list arrived before initialize response".to_string());
+            }
+            if message.get("error").is_some() {
+                return Err("tools/list returned a JSON-RPC error".to_string());
+            }
+            let tools = message
+                .pointer("/result/tools")
+                .and_then(|value| value.as_array())
+                .ok_or_else(|| "tools/list response did not contain result.tools".to_string())?;
+            let names = tools
+                .iter()
+                .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
+                .map(str::to_string)
+                .collect();
+            return Ok(names);
+        }
+    }
 }
 
 fn append_environment_tags(notes: String) -> String {
@@ -3579,4 +3730,49 @@ fn sessions_dir() -> Result<PathBuf, String> {
 
 fn database_path() -> Result<PathBuf, String> {
     Ok(memorywhale_dir()?.join("memorywhale.sqlite3"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn mcp_probe_accepts_initialize_and_tools_list() {
+        let output = concat!(
+            "not-json\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"stats\"},{\"name\":\"remember\"}]}}\n"
+        );
+        let names = read_mcp_probe(Cursor::new(output.as_bytes())).unwrap();
+        assert_eq!(names, ["stats", "remember"]);
+    }
+
+    #[test]
+    fn mcp_probe_rejects_invalid_response_shape() {
+        let output = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{}}\n";
+        let error = read_mcp_probe(Cursor::new(output.as_bytes())).unwrap_err();
+        assert!(error.contains("result.tools"));
+    }
+
+    #[test]
+    fn mcp_probe_reports_missing_binary() {
+        let error = probe_mcp_server(
+            "memorywhale-doctor-command-that-does-not-exist",
+            &[],
+            Duration::from_millis(100),
+        )
+        .unwrap_err();
+        assert!(error.contains("unavailable"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn mcp_probe_terminates_a_hung_server() {
+        let args = ["-c".to_string(), "sleep 5".to_string()];
+        let started = std::time::Instant::now();
+        let error = probe_mcp_server("sh", &args, Duration::from_millis(100)).unwrap_err();
+        assert!(error.contains("timed out"));
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
 }

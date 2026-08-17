@@ -36,7 +36,7 @@ mw discard                            # inside a recording: throw the current se
 mw context [project:name] [--last-error] [--limit N]   # compact failures digest for agents
 mw agent [session-id]                 # export a full session as text to paste into an agent
 mw ask [question] [--chat gemini]     # package the last failure for your chat AI → clipboard
-mw doctor                             # check the install
+mw doctor                             # check the install, shell hooks, and MCP server
 mw export [project:name]              # export a bundle (Markdown + JSON + SQLite)
 mw import <bundle|sqlite>             # merge another machine's export
 mw push <ssh-host>                    # send this machine's memory to another (scp + remote import)
@@ -82,6 +82,12 @@ with `MEMORYWHALE_CHAT=gemini` in your shell rc. Add a question
 (`mw ask "why does this keep breaking"`), include the tail of the current
 session with `--session`, or skip the browser with `--no-open`. Everything in
 the payload was secret-redacted at capture time.
+
+`mw doctor` also probes the local `mw-mcp` executable with a bounded,
+read-only MCP handshake and `tools/list` request. It reports whether the
+binary is missing, timed out, returned an invalid response, or advertised the
+expected six tools. It never calls a memory tool or edits a client
+configuration.
 
 `mw git-fix` recognizes a handful of common git failure shapes — push rejected
 (non-fast-forward), merge conflicts, a dirty working tree blocking an
