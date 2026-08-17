@@ -385,7 +385,12 @@ fn handle(mut stream: TcpStream) {
 
     let method_allowed = method == "GET" || (method == "POST" && raw_path == "/login");
     if !method_allowed {
-        let response = response("405 Method Not Allowed", "", "Allow: GET, POST\r\n");
+        let allow = if raw_path == "/login" {
+            "GET, POST"
+        } else {
+            "GET"
+        };
+        let response = response("405 Method Not Allowed", "", &format!("Allow: {allow}\r\n"));
         let _ = stream.write_all(response.as_bytes());
         return;
     }
@@ -2303,7 +2308,9 @@ mod tests {
     fn parser_rejects_unsupported_methods_and_malformed_lengths() {
         let method = raw_response(b"PUT / HTTP/1.1\r\nHost: localhost\r\n\r\n");
         assert!(method.starts_with("HTTP/1.1 405 Method Not Allowed"));
-        assert!(method.contains("Allow: GET, POST"));
+        assert!(method.contains("Allow: GET\r\n"));
+        let login_method = raw_response(b"PUT /login HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        assert!(login_method.contains("Allow: GET, POST\r\n"));
         for value in ["+1", "1.0", "0x10", "-1", ""] {
             assert!(parse_content_length(value).is_err(), "accepted {value:?}");
         }
