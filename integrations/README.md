@@ -41,6 +41,7 @@ features.
 | OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
 | OpenCode | Yes | No | Example prompt | [Guide](opencode/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |
+| Pullfrog | No; PR workflow only | No | No | [Guide](pullfrog/README.md) |
 | Rho | Yes | No | Yes, via `AGENTS.md` | [Guide](rho/README.md) |
 | VS Code / GitHub Copilot | Yes | No | Yes | [Guide](vscode/README.md) |
 | Windsurf | Yes | No | Yes | [Guide](windsurf/README.md) |
