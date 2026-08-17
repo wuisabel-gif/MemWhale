@@ -343,7 +343,7 @@ fn handle(mut stream: TcpStream) {
                 return;
             }
             saw_content_length = true;
-            content_length = match header_value.trim().parse::<usize>() {
+            content_length = match parse_content_length(header_value.trim()) {
                 Ok(n) if n <= MAX_BODY_BYTES => n,
                 Err(_) => {
                     let _ = write_error(&stream, "400 Bad Request");
@@ -380,6 +380,12 @@ fn handle(mut stream: TcpStream) {
     let loopback_bind = *LOOPBACK_BIND.get().unwrap_or(&true);
     if !host_header_allowed(&host_header, loopback_bind) {
         let _ = write_error(&stream, "403 Forbidden");
+        return;
+    }
+
+    let method_allowed = method == "GET" || (method == "POST" && raw_path == "/login");
+    if !method_allowed {
+        let _ = write_error(&stream, "405 Method Not Allowed");
         return;
     }
 
@@ -516,6 +522,13 @@ fn parse_request_line(line: &str) -> Result<(String, String), ()> {
         return Err(());
     }
     Ok((method.to_string(), path.to_string()))
+}
+
+fn parse_content_length(value: &str) -> Result<usize, ()> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(());
+    }
+    value.parse::<usize>().map_err(|_| ())
 }
 
 fn form_param(body: &str, key: &str) -> Option<String> {
@@ -1753,8 +1766,8 @@ fn percent_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(b) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                out.push(b);
+            if let (Some(high), Some(low)) = (hex_value(bytes[i + 1]), hex_value(bytes[i + 2])) {
+                out.push((high << 4) | low);
                 i += 3;
                 continue;
             }
@@ -1763,6 +1776,15 @@ fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
 }
 
 fn query_param(raw_path: &str, key: &str) -> Option<String> {
@@ -2252,6 +2274,16 @@ mod tests {
     }
 
     #[test]
+    fn parser_rejects_unsupported_methods_and_malformed_lengths() {
+        let method = raw_response(b"PUT / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        assert!(method.starts_with("HTTP/1.1 405 Method Not Allowed"));
+        for value in ["+1", "1.0", "0x10", "-1", ""] {
+            assert!(parse_content_length(value).is_err(), "accepted {value:?}");
+        }
+        assert_eq!(parse_content_length("00012"), Ok(12));
+    }
+
+    #[test]
     fn safe_cookie_values_reject_control_characters() {
         assert!(cookie_value_is_safe("utc"));
         assert!(cookie_value_is_safe("-08:00"));
@@ -2329,6 +2361,11 @@ mod tests {
         assert!(!payload.is_empty());
         assert!(headers.ends_with("\r\n\r\n"));
         assert!(!response.contains("\r\nX-Injected:"));
+    }
+
+    #[test]
+    fn percent_decode_rejects_malformed_utf8_sequences_without_panicking() {
+        assert_eq!(percent_decode("%💥"), "%💥");
     }
 
     #[test]
