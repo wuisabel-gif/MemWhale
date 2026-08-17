@@ -53,7 +53,51 @@ repository-only access instead of granting access to every repository.
 The App installation is account-level, while Pullfrog's triggers, models, and
 review settings are configured per repository in the Pullfrog console.
 
-### 2. Authenticate Codex
+### 2. Add the Pullfrog workflow
+
+Pullfrog dispatches agent runs through a repository workflow. The Pullfrog
+console can add this file automatically. The documented minimal workflow is:
+
+```yaml
+name: Pullfrog
+run-name: ${{ inputs.name || github.workflow }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        type: string
+        description: Agent prompt
+      name:
+        type: string
+        description: Run name
+
+permissions:
+  contents: read
+
+jobs:
+  pullfrog:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Run agent
+        uses: pullfrog/pullfrog@v0
+        with:
+          prompt: ${{ inputs.prompt }}
+```
+
+When Codex credentials are stored in Pullfrog's account secret store, this
+workflow does not need an `env:` block containing provider keys. Do not add
+credentials to the workflow. The Pullfrog console uses this workflow when its
+configured automations dispatch a run.
+
+### 3. Authenticate Codex
 
 From the root of this repository, run:
 
@@ -67,7 +111,7 @@ secret store. Complete the browser authorization yourself; never put the
 printed device code or resulting credential in a file, commit, issue, or
 MemoryWhale note.
 
-### 3. Choose the model
+### 4. Choose the model
 
 In the Pullfrog console, select:
 
@@ -80,22 +124,25 @@ are rolling aliases; the exact available choices depend on the account,
 organization, and provider access. Codex authentication authorizes OpenAI
 models; it does not select a model automatically.
 
-### 4. Enable review-only automation
+### 5. Enable review-only automation
 
 In the repository's **Reviews** settings, use a policy like:
 
 ```text
-Automatic review: enabled
+Auto-review new PRs: enabled
 Trigger: every new PR (or every PR ready for review)
-Re-review after new commits: enabled
-Implement requested changes: disabled
-Fix CI failures: disabled
-Auto-address review comments: disabled
+Re-review on new commits: enabled
+Address reviews / Auto-address reviews on Pullfrog PRs: disabled
+Allow Pullfrog to approve PRs: disabled
+Auto-merge approved PRs: disabled
 ```
 
-Review-only mode lets Pullfrog comment on PRs without allowing it to push fix
-commits or create implementation branches. Confirm the resulting policy in the
-Pullfrog console before relying on it as a required review gate.
+This configuration makes automatic Pullfrog reviews comment-only for normal
+review automation. Pullfrog can still respond to a deliberate manual
+`@pullfrog` request, so review-only is a repository policy rather than a
+technical guarantee against every manually triggered action. Confirm the
+resulting policy in the Pullfrog console before relying on it as a required
+review gate.
 
 ## Verify
 
