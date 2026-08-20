@@ -33,9 +33,23 @@ pub fn sanitize_arguments(arguments: &[String]) -> Vec<String> {
     let mut redact_next = false;
     for argument in arguments {
         if redact_next {
-            sanitized.push(REDACTED.to_string());
+            sanitized.push(if raw_capture_opt_out() {
+                sanitize_capture(argument)
+            } else {
+                REDACTED.to_string()
+            });
             redact_next = false;
             continue;
+        }
+        if let Some((flag, _)) = argument.split_once('=') {
+            if is_secret_flag(flag) {
+                sanitized.push(if raw_capture_opt_out() {
+                    sanitize_capture(argument)
+                } else {
+                    format!("{flag}={REDACTED}")
+                });
+                continue;
+            }
         }
         sanitized.push(sanitize_capture(argument));
         redact_next = is_secret_flag(argument) && !argument.contains('=');
@@ -44,19 +58,25 @@ pub fn sanitize_arguments(arguments: &[String]) -> Vec<String> {
 }
 
 fn is_secret_flag(argument: &str) -> bool {
+    let Some(flag) = argument.strip_prefix("--") else {
+        return false;
+    };
+    let flag = flag.split_once('=').map_or(flag, |(name, _)| name);
+    let normalized: String = flag
+        .chars()
+        .filter(|character| *character != '-' && *character != '_')
+        .flat_map(char::to_lowercase)
+        .collect();
     matches!(
-        argument.to_ascii_lowercase().as_str(),
-        "--api-key"
-            | "--apikey"
-            | "--secret"
-            | "--token"
-            | "--password"
-            | "--passwd"
-            | "--pwd"
-            | "--access-key"
-            | "--access_key"
-            | "--client-secret"
-            | "--client_secret"
+        normalized.as_str(),
+        "apikey"
+            | "secret"
+            | "token"
+            | "password"
+            | "passwd"
+            | "pwd"
+            | "accesskey"
+            | "clientsecret"
     )
 }
 
@@ -97,7 +117,7 @@ fn utf8_prefix_len(text: &str, limit: usize) -> usize {
 /// This is intentionally conservative rather than a guarantee. Set
 /// `MEMORYWHALE_NO_REDACT=1` for the explicit raw-capture opt-out.
 pub fn redact(text: &str) -> String {
-    if std::env::var("MEMORYWHALE_NO_REDACT").ok().as_deref() == Some("1") {
+    if raw_capture_opt_out() {
         return text.to_string();
     }
     let mut out = text.to_string();
@@ -110,6 +130,10 @@ pub fn redact(text: &str) -> String {
             .into_owned();
     }
     out
+}
+
+fn raw_capture_opt_out() -> bool {
+    std::env::var("MEMORYWHALE_NO_REDACT").ok().as_deref() == Some("1")
 }
 
 fn secret_patterns() -> &'static [Regex] {
@@ -162,12 +186,48 @@ mod tests {
             "curl".to_string(),
             "--token".to_string(),
             "hunter2secret99".to_string(),
-            "--password=correct-horse-battery-staple".to_string(),
+            "--password=a!".to_string(),
+            "--api_key".to_string(),
+            "short".to_string(),
+            "--accesskey".to_string(),
+            "special value!".to_string(),
+            "--clientsecret=short!".to_string(),
         ];
         assert_eq!(
             sanitize_arguments(&arguments),
-            ["curl", "--token", "[REDACTED]", "--password=[REDACTED]"]
+            [
+                "curl",
+                "--token",
+                "[REDACTED]",
+                "--password=[REDACTED]",
+                "--api_key",
+                "[REDACTED]",
+                "--accesskey",
+                "[REDACTED]",
+                "--clientsecret=[REDACTED]"
+            ]
         );
+    }
+
+    #[test]
+    fn split_arguments_preserve_raw_capture_opt_out() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous = std::env::var_os("MEMORYWHALE_NO_REDACT");
+        std::env::set_var("MEMORYWHALE_NO_REDACT", "1");
+        let arguments = vec![
+            "--token".to_string(),
+            "short!".to_string(),
+            "--password=a!".to_string(),
+        ];
+        assert_eq!(
+            sanitize_arguments(&arguments),
+            ["--token", "short!", "--password=a!"]
+        );
+        if let Some(value) = previous {
+            std::env::set_var("MEMORYWHALE_NO_REDACT", value);
+        } else {
+            std::env::remove_var("MEMORYWHALE_NO_REDACT");
+        }
     }
 
     #[test]
