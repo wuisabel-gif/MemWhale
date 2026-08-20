@@ -64,10 +64,7 @@ fn run() -> Result<(), String> {
     }
 
     notes = append_environment_tags(notes);
-    let stored_args: Vec<String> = command_parts
-        .iter()
-        .map(|value| memorywhale_cli::sanitize_capture(value))
-        .collect();
+    let stored_args = memorywhale_cli::sanitize_arguments(&command_parts);
     let command = stored_args[0].clone();
     let argv_json = serde_json::to_string(&stored_args)
         .map_err(|err| format!("failed to encode argv: {err}"))?;

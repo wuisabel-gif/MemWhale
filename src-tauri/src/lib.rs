@@ -701,10 +701,7 @@ fn save_command_run(
     // Keep cwd as operational metadata: changing it would make replay and
     // navigation incorrect. Command/argv are sanitized representations.
     let stored_command_line = memorywhale_core::privacy::sanitize_capture(&request.command_line);
-    let stored_argv: Vec<String> = argv
-        .iter()
-        .map(|value| memorywhale_core::privacy::sanitize_capture(value))
-        .collect();
+    let stored_argv = memorywhale_core::privacy::sanitize_arguments(&argv);
     let command = stored_argv
         .first()
         .cloned()

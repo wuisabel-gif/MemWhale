@@ -69,13 +69,23 @@ fn command_capture_notes_and_arguments_are_redacted_in_db() {
     let dir = std::env::temp_dir().join(format!("mw-privacy-args-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let secret = "hunter2secret";
-    let notes = format!("password: {secret}");
-    let argument = format!("--token={secret}");
+    let split_secret = "hunter2secret";
+    let equals_secret = "equal-secret-99";
+    let notes = format!("password: {split_secret}");
+    let split_argument = "--token";
+    let equals_argument = format!("--password={equals_secret}");
 
     let out = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
         .env("MEMORYWHALE_DATA_DIR", &dir)
-        .args(["--notes", &notes, "--", "deploy", &argument])
+        .args([
+            "--notes",
+            &notes,
+            "--",
+            "deploy",
+            split_argument,
+            split_secret,
+            &equals_argument,
+        ])
         .output()
         .unwrap();
     assert!(out.status.success(), "mw-remember failed: {out:?}");
@@ -88,16 +98,21 @@ fn command_capture_notes_and_arguments_are_redacted_in_db() {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap();
-    let stored_argument: String = conn
-        .query_row(
-            "SELECT value FROM command_arguments ORDER BY id DESC LIMIT 1",
-            [],
-            |r| r.get(0),
-        )
+    let stored_arguments: Vec<String> = conn
+        .prepare("SELECT value FROM command_arguments ORDER BY position")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
         .unwrap();
 
-    for stored in [&argv_json, &stored_notes, &stored_argument] {
+    for stored in [&argv_json, &stored_notes] {
         assert!(stored.contains("[REDACTED]"), "not redacted: {stored}");
+    }
+    assert!(stored_arguments.contains(&"[REDACTED]".to_string()));
+    assert!(stored_arguments.contains(&"--password=[REDACTED]".to_string()));
+    let stored = stored_arguments.join(" ");
+    for secret in [split_secret, equals_secret] {
         assert!(
             !stored.contains(secret),
             "raw secret landed in DB: {stored}"

@@ -1498,8 +1498,8 @@ pub fn remember_as(
 }
 
 pub use memorywhale_core::privacy::{
-    max_capture_bytes, redact, sanitize_capture, truncate_capture, DEFAULT_MAX_CAPTURE_BYTES,
-    REDACTED,
+    max_capture_bytes, redact, sanitize_arguments, sanitize_capture, truncate_capture,
+    DEFAULT_MAX_CAPTURE_BYTES, REDACTED,
 };
 
 /// Finalize the current in-progress recording the moment this process's parent

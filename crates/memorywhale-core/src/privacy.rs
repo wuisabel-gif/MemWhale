@@ -25,6 +25,41 @@ pub fn sanitize_capture(text: &str) -> String {
     truncate_capture(&redact(text), max_capture_bytes())
 }
 
+/// Sanitize command arguments with awareness of flags whose value is the next
+/// argument, such as `--token SECRET`. Per-argument sanitization cannot see
+/// that relationship and would otherwise preserve the secret value unchanged.
+pub fn sanitize_arguments(arguments: &[String]) -> Vec<String> {
+    let mut sanitized = Vec::with_capacity(arguments.len());
+    let mut redact_next = false;
+    for argument in arguments {
+        if redact_next {
+            sanitized.push(REDACTED.to_string());
+            redact_next = false;
+            continue;
+        }
+        sanitized.push(sanitize_capture(argument));
+        redact_next = is_secret_flag(argument) && !argument.contains('=');
+    }
+    sanitized
+}
+
+fn is_secret_flag(argument: &str) -> bool {
+    matches!(
+        argument.to_ascii_lowercase().as_str(),
+        "--api-key"
+            | "--apikey"
+            | "--secret"
+            | "--token"
+            | "--password"
+            | "--passwd"
+            | "--pwd"
+            | "--access-key"
+            | "--access_key"
+            | "--client-secret"
+            | "--client_secret"
+    )
+}
+
 pub fn truncate_capture(text: &str, limit: usize) -> String {
     if text.len() <= limit {
         return text.to_string();
@@ -119,6 +154,20 @@ mod tests {
         } else {
             std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
         }
+    }
+
+    #[test]
+    fn sanitizes_split_and_equals_secret_arguments() {
+        let arguments = vec![
+            "curl".to_string(),
+            "--token".to_string(),
+            "hunter2secret99".to_string(),
+            "--password=correct-horse-battery-staple".to_string(),
+        ];
+        assert_eq!(
+            sanitize_arguments(&arguments),
+            ["curl", "--token", "[REDACTED]", "--password=[REDACTED]"]
+        );
     }
 
     #[test]
