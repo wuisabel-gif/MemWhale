@@ -158,33 +158,75 @@ fn secret_patterns() -> &'static [Regex] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
     use std::sync::Mutex;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
+    struct EnvGuard {
+        no_redact: Option<OsString>,
+        max_bytes: Option<OsString>,
+    }
+
+    impl EnvGuard {
+        fn new() -> Self {
+            Self {
+                no_redact: std::env::var_os("MEMORYWHALE_NO_REDACT"),
+                max_bytes: std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES"),
+            }
+        }
+
+        fn clear_no_redact(&self) {
+            std::env::remove_var("MEMORYWHALE_NO_REDACT");
+        }
+
+        fn clear_max_bytes(&self) {
+            std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
+        }
+
+        fn set_no_redact(&self, value: &str) {
+            std::env::set_var("MEMORYWHALE_NO_REDACT", value);
+        }
+
+        fn set_max_bytes(&self, value: &str) {
+            std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            if let Some(value) = self.no_redact.take() {
+                std::env::set_var("MEMORYWHALE_NO_REDACT", value);
+            } else {
+                std::env::remove_var("MEMORYWHALE_NO_REDACT");
+            }
+            if let Some(value) = self.max_bytes.take() {
+                std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
+            } else {
+                std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
+            }
+        }
+    }
+
     #[test]
     fn redacts_and_truncates_before_storage() {
         let _guard = ENV_LOCK.lock().unwrap();
-        let previous = std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES");
-        std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", "24");
-        std::env::remove_var("MEMORYWHALE_NO_REDACT");
+        let env = EnvGuard::new();
+        env.set_max_bytes("24");
+        env.clear_no_redact();
         assert!(redact("token=abcdef1234567890").contains("token=[REDACTED]"));
         let value = sanitize_capture("token=abcdef1234567890 and a long tail");
         assert!(!value.contains("abcdef1234567890"));
         assert!(value.contains("[TRUNCATED:") || value.starts_with("[TRUNC"));
         assert!(value.len() <= 24);
-        if let Some(value) = previous {
-            std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
-        } else {
-            std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
-        }
     }
 
     #[test]
     fn sanitizes_split_and_equals_secret_arguments() {
         let _guard = ENV_LOCK.lock().unwrap();
-        let previous = std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES");
-        std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
+        let env = EnvGuard::new();
+        env.clear_no_redact();
+        env.clear_max_bytes();
         let arguments = vec![
             "curl".to_string(),
             "--token".to_string(),
@@ -210,16 +252,14 @@ mod tests {
                 "--clientsecret=[REDACTED]"
             ]
         );
-        if let Some(value) = previous {
-            std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
-        }
     }
 
     #[test]
     fn split_arguments_preserve_raw_capture_opt_out() {
         let _guard = ENV_LOCK.lock().unwrap();
-        let previous = std::env::var_os("MEMORYWHALE_NO_REDACT");
-        std::env::set_var("MEMORYWHALE_NO_REDACT", "1");
+        let env = EnvGuard::new();
+        env.set_no_redact("1");
+        env.clear_max_bytes();
         let arguments = vec![
             "--token".to_string(),
             "short!".to_string(),
@@ -229,40 +269,27 @@ mod tests {
             sanitize_arguments(&arguments),
             ["--token", "short!", "--password=a!"]
         );
-        if let Some(value) = previous {
-            std::env::set_var("MEMORYWHALE_NO_REDACT", value);
-        } else {
-            std::env::remove_var("MEMORYWHALE_NO_REDACT");
-        }
     }
 
     #[test]
     fn equals_arguments_respect_capture_limit() {
         let _guard = ENV_LOCK.lock().unwrap();
-        let previous = std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES");
-        std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", "12");
+        let env = EnvGuard::new();
+        env.clear_no_redact();
+        env.set_max_bytes("12");
         let arguments = vec!["--password=very-long-secret".to_string()];
         let sanitized = sanitize_arguments(&arguments);
         assert!(sanitized[0].len() <= 12);
-        if let Some(value) = previous {
-            std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
-        } else {
-            std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
-        }
     }
 
     #[test]
     fn raw_capture_opt_out_requires_value_one() {
         let _guard = ENV_LOCK.lock().unwrap();
-        let previous = std::env::var_os("MEMORYWHALE_NO_REDACT");
-        std::env::set_var("MEMORYWHALE_NO_REDACT", "0");
+        let env = EnvGuard::new();
+        env.clear_max_bytes();
+        env.set_no_redact("0");
         assert!(!redact("token=abcdef123456").contains("abcdef123456"));
-        std::env::set_var("MEMORYWHALE_NO_REDACT", "1");
+        env.set_no_redact("1");
         assert!(redact("token=abcdef123456").contains("abcdef123456"));
-        if let Some(value) = previous {
-            std::env::set_var("MEMORYWHALE_NO_REDACT", value);
-        } else {
-            std::env::remove_var("MEMORYWHALE_NO_REDACT");
-        }
     }
 }
