@@ -46,7 +46,7 @@ pub fn sanitize_arguments(arguments: &[String]) -> Vec<String> {
                 sanitized.push(if raw_capture_opt_out() {
                     sanitize_capture(argument)
                 } else {
-                    format!("{flag}={REDACTED}")
+                    sanitize_capture(&format!("{flag}={REDACTED}"))
                 });
                 continue;
             }
@@ -182,6 +182,9 @@ mod tests {
 
     #[test]
     fn sanitizes_split_and_equals_secret_arguments() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous = std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES");
+        std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
         let arguments = vec![
             "curl".to_string(),
             "--token".to_string(),
@@ -207,6 +210,9 @@ mod tests {
                 "--clientsecret=[REDACTED]"
             ]
         );
+        if let Some(value) = previous {
+            std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
+        }
     }
 
     #[test]
@@ -227,6 +233,21 @@ mod tests {
             std::env::set_var("MEMORYWHALE_NO_REDACT", value);
         } else {
             std::env::remove_var("MEMORYWHALE_NO_REDACT");
+        }
+    }
+
+    #[test]
+    fn equals_arguments_respect_capture_limit() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous = std::env::var_os("MEMORYWHALE_MAX_CAPTURE_BYTES");
+        std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", "12");
+        let arguments = vec!["--password=very-long-secret".to_string()];
+        let sanitized = sanitize_arguments(&arguments);
+        assert!(sanitized[0].len() <= 12);
+        if let Some(value) = previous {
+            std::env::set_var("MEMORYWHALE_MAX_CAPTURE_BYTES", value);
+        } else {
+            std::env::remove_var("MEMORYWHALE_MAX_CAPTURE_BYTES");
         }
     }
 
