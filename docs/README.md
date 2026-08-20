@@ -20,6 +20,7 @@ The repository documentation is organized by the question a reader is asking.
 ## Reference: what is the exact interface?
 
 - [CLI and helper binaries](reference/cli.md)
+- [Memory pet](reference/pet.md)
 - [MCP tools](reference/mcp.md)
 - [Configuration](reference/configuration.md)
 - [Storage](reference/storage.md)

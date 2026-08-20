@@ -36,6 +36,7 @@ mw discard                            # inside a recording: throw the current se
 mw context [project:name] [--last-error] [--limit N]   # compact failures digest for agents
 mw agent [session-id]                 # export a full session as text to paste into an agent
 mw ask [question] [--chat gemini]     # package the last failure for your chat AI → clipboard
+mw pet [--watch]                      # show the whale whose mood reflects the memory store
 mw doctor                             # check the install, shell hooks, and MCP server
 mw export [project:name]              # export a bundle (Markdown + JSON + SQLite)
 mw import <bundle|sqlite>             # merge another machine's export

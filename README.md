@@ -116,6 +116,7 @@ is especially useful when you:
 
 - [Documentation map](docs/README.md)
 - [Getting started](docs/guides/getting-started.md)
+- [`mw pet` reference](docs/reference/pet.md)
 - [Terminal capture](docs/guides/terminal-capture.md)
 - [Agent memory](docs/guides/agent-memory.md)
 - [CLI reference](docs/reference/cli.md)
