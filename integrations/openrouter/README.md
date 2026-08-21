@@ -2,8 +2,10 @@
 
 [OpenRouter](https://openrouter.ai) is a hosted API gateway that exposes
 hundreds of models from many providers behind a single OpenAI-compatible API
-and one key. `stealth/ox-alpha` is one such model slug; the same setup works
-for any model on the service. (Some clients qualify slugs with a provider
+and one key. `stealth/ox-alpha` is one such model slug. OpenAI-compatible
+clients can select any catalog model directly; Claude Code is the exception —
+OpenRouter guarantees it only with Anthropic's first-party providers, so other
+models there are best-effort. (Some clients qualify slugs with a provider
 prefix — for example OpenCode's `openrouter/stealth/ox-alpha` — but the API
 model id itself is `stealth/ox-alpha`.)
 
@@ -71,15 +73,20 @@ export ANTHROPIC_BASE_URL="https://openrouter.ai/api"
 export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
 export ANTHROPIC_API_KEY=""   # must be explicitly empty, not unset
 ```
+OpenRouter documents that Claude Code is guaranteed only with Anthropic
+first-party providers; other models (including `stealth/ox-alpha`) work on a
+best-effort basis through this endpoint.
 
-**OpenAI-compatible agents** (Codex CLI, Continue, OpenCode, …): set the base
+**OpenAI-compatible agents** (Continue, OpenCode, Codex CLI, …): set the base
 URL to `https://openrouter.ai/api/v1`, use the key as the API key, and select
 the model by its OpenRouter slug — for example `stealth/ox-alpha`. In clients
 whose provider syntax requires a prefix, qualify it (OpenCode:
 `openrouter/stealth/ox-alpha`). The exact setting name depends on the agent
 (Continue uses `apiBase` on the model entry; OpenCode uses
-`provider.<id>.options.baseURL`; Codex CLI uses `openai_base_url` in
-`config.toml`).
+`provider.<id>.options.baseURL`; Codex CLI defines a custom provider in
+`~/.codex/config.toml` — a `[model_providers.openrouter]` block with
+`base_url`, an `env_key`, and `wire_api = "chat"` — selected via
+`model_provider` and `model`).
 
 ### 3. Keep `mw-mcp` configured in the same agent
 
@@ -103,13 +110,14 @@ curl -fsS https://openrouter.ai/api/v1/auth/key \
   -H "Authorization: Bearer $OPENROUTER_API_KEY"
 
 # The model slug exists (public catalog; also useful for discovery):
-curl -fsS https://openrouter.ai/api/v1/models | grep -o '"id":"stealth/ox-alpha"'
+curl -fsS https://openrouter.ai/api/v1/models \
+  | jq -e '.data[] | select(.id == "stealth/ox-alpha")'
 
 # MemoryWhale CLI and database are healthy:
 mw doctor
 
-# The mw-mcp transport responds (see integrations/README.md):
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
+# The mw-mcp transport responds with a schema-valid initialize request:
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"memorywhale-check","version":"0.0.0"}}}' | mw-mcp
 ```
 
 `curl -fsS` fails on HTTP and connection errors, so an invalid key surfaces as
