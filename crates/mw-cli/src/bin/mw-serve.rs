@@ -383,12 +383,13 @@ fn handle(mut stream: TcpStream) {
         return;
     }
 
-    let method_allowed = method == "GET" || (method == "POST" && raw_path == "/login");
+    let is_head = method == "HEAD";
+    let method_allowed = method == "GET" || is_head || (method == "POST" && raw_path == "/login");
     if !method_allowed {
         let allow = if raw_path == "/login" {
-            "GET, POST"
+            "GET, HEAD, POST"
         } else {
-            "GET"
+            "GET, HEAD"
         };
         let response = response("405 Method Not Allowed", "", &format!("Allow: {allow}\r\n"));
         let _ = stream.write_all(response.as_bytes());
@@ -454,7 +455,9 @@ fn handle(mut stream: TcpStream) {
             );
             let response = response("401 Unauthorized", &body, "");
             let _ = stream.write_all(response.as_bytes());
-            let _ = stream.write_all(body.as_bytes());
+            if !is_head {
+                let _ = stream.write_all(body.as_bytes());
+            }
             return;
         }
     }
@@ -466,7 +469,9 @@ fn handle(mut stream: TcpStream) {
         .collect();
     let response = response(status, &body, &cookie_header);
     let _ = stream.write_all(response.as_bytes());
-    let _ = stream.write_all(body.as_bytes());
+    if !is_head {
+        let _ = stream.write_all(body.as_bytes());
+    }
 }
 
 #[derive(Debug)]
@@ -2309,13 +2314,25 @@ mod tests {
     fn parser_rejects_unsupported_methods_and_malformed_lengths() {
         let method = raw_response(b"PUT / HTTP/1.1\r\nHost: localhost\r\n\r\n");
         assert!(method.starts_with("HTTP/1.1 405 Method Not Allowed"));
-        assert!(method.contains("Allow: GET\r\n"));
+        assert!(method.contains("Allow: GET, HEAD\r\n"));
         let login_method = raw_response(b"PUT /login HTTP/1.1\r\nHost: localhost\r\n\r\n");
-        assert!(login_method.contains("Allow: GET, POST\r\n"));
+        assert!(login_method.contains("Allow: GET, HEAD, POST\r\n"));
         for value in ["+1", "1.0", "0x10", "-1", ""] {
             assert!(parse_content_length(value).is_err(), "accepted {value:?}");
         }
         assert_eq!(parse_content_length("00012"), Ok(12));
+    }
+
+    #[test]
+    fn head_requests_match_get_headers_without_a_body() {
+        let get = raw_response(b"GET /not-a-real-route HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        let head = raw_response(b"HEAD /not-a-real-route HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        let (get_headers, get_body) = get.split_once("\r\n\r\n").unwrap();
+        let (head_headers, head_body) = head.split_once("\r\n\r\n").unwrap();
+
+        assert_eq!(head_headers, get_headers);
+        assert!(!get_body.is_empty());
+        assert!(head_body.is_empty());
     }
 
     #[test]
