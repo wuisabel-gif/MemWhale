@@ -27,6 +27,7 @@ features.
 | --- | --- | --- | --- | --- |
 | Any stdio MCP client | Yes | No | Client-specific | [Generic MCP](generic-mcp/README.md) |
 | Claude Code | Yes | Yes, optional `PostToolUse` hook | Yes, optional skill | [Hook and skill](claude-code/) |
+| CLIProxyAPI | No; model-provider proxy | No | No; configure in the agent | [Guide](cliproxyapi/README.md) |
 | Claude Desktop | Yes | No | No | [Guide](claude-desktop/README.md) |
 | Cline | Yes | No | Yes | [Guide](cline/README.md) |
 | CodeWhale | Yes | No | Yes, via roles/constitution | [Guide](codewhale/README.md) |
