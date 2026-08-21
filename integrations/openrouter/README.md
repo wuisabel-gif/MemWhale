@@ -43,7 +43,9 @@ independently of MemoryWhale.
   while free model variants (`stealth/ox-alpha` reports zero pricing at this
   writing) are rate-limited instead;
 - a coding agent that supports MCP servers plus either an OpenAI-compatible
-  base URL or the Anthropic environment variables shown below.
+  base URL or the Anthropic environment variables shown below;
+- `jq` for the verification step below (not installed by default on macOS;
+  `brew install jq`).
 
 ## Capabilities
 
@@ -85,8 +87,9 @@ whose provider syntax requires a prefix, qualify it (OpenCode:
 (Continue uses `apiBase` on the model entry; OpenCode uses
 `provider.<id>.options.baseURL`; Codex CLI defines a custom provider in
 `~/.codex/config.toml` — a `[model_providers.openrouter]` block with
-`base_url`, an `env_key`, and `wire_api = "chat"` — selected via
-`model_provider` and `model`).
+`base_url = "https://openrouter.ai/api/v1"` and an `env_key` — selected via
+`model_provider` and `model`. Omit `wire_api`: current Codex CLI defaults to
+the Responses protocol, which is what OpenRouter's Codex endpoint speaks.)
 
 ### 3. Keep `mw-mcp` configured in the same agent
 
