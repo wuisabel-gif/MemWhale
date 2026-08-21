@@ -11,7 +11,7 @@ versions; if a field is missing this still records what it can.
 Never fails the tool call: any error here is swallowed and the hook exits 0,
 so a MemoryWhale hiccup can't block your agent session.
 
-Install: see integrations/README.md for the settings.json snippet.
+Install: see integrations/claude-code/README.md.
 """
 import json
 import subprocess

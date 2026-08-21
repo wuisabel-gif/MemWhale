@@ -26,7 +26,7 @@ features.
 | Client | MCP memory access | Auto-capture | Guidance | Setup |
 | --- | --- | --- | --- | --- |
 | Any stdio MCP client | Yes | No | Client-specific | [Generic MCP](generic-mcp/README.md) |
-| Claude Code | Yes | Yes, optional `PostToolUse` hook | Yes, optional skill | [Hook and skill](claude-code/) |
+| Claude Code | Yes | Yes, optional `PostToolUse` hook | Yes, optional skill | [Guide](claude-code/README.md) |
 | CLIProxyAPI | No; model-provider proxy | No | No; configure in the agent | [Guide](cliproxyapi/README.md) |
 | Claude Desktop | Yes | No | No | [Guide](claude-desktop/README.md) |
 | Cline | Yes | No | Yes | [Guide](cline/README.md) |
