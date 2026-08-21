@@ -40,6 +40,7 @@ features.
 | Jan Desktop | Yes | No | No | [Guide](jan/README.md) |
 | OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
 | OpenCode | Yes | No | Example prompt | [Guide](opencode/README.md) |
+| OpenRouter | No; hosted model gateway | No | No; configure in the agent | [Guide](openrouter/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |
 | Pullfrog | No; PR workflow only | No | No | [Guide](pullfrog/README.md) |
 | Rho | Yes | No | Yes, via `AGENTS.md` | [Guide](rho/README.md) |
