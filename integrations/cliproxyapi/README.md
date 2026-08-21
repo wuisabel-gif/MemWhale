@@ -34,7 +34,17 @@ them.
 
 - MemoryWhale installed (`mw` on `PATH`);
 - a coding agent that supports both MCP servers and a configurable model base
-  URL — Claude Code, Codex CLI, OpenCode, and similar tools all qualify;
+  URL. Claude Code works with the environment variables shown below; for other
+  agents, use their documented base-URL configuration:
+  - **Claude Code**: `ANTHROPIC_BASE_URL` / `OPENAI_BASE_URL` environment
+    variables;
+  - **Codex CLI**: `openai_base_url` or a custom provider entry in
+    `~/.codex/config.toml` (see Codex's configuration docs);
+  - **OpenCode**: `provider.<id>.options.baseURL` plus model selection in
+    `opencode.json` (see OpenCode's provider docs);
+  - **Continue**: `apiBase` on the model entry in `~/.continue/config.yaml`;
+  - other OpenAI- or Anthropic-compatible clients: their respective base-URL
+    settings.
 - CLIProxyAPI installed and running with at least one `api-keys` entry.
 
 ## Capabilities
@@ -55,8 +65,10 @@ upstream account. Its config sets the port and the keys clients may use:
 
 ```yaml
 # CLIProxyAPI config.yaml (excerpt)
+host: "127.0.0.1"   # bind loopback only; the default empty host binds all interfaces
 port: 8317
 api-keys:
+  # Replace this placeholder with a unique local secret before starting.
   - "sk-your-local-key"
 ```
 
@@ -112,13 +124,17 @@ the local MemoryWhale store.
 Check each side independently:
 
 ```bash
-# CLIProxyAPI is reachable and accepts your key (adjust the path per protocol):
-curl -s http://127.0.0.1:8317/v1/models \
-  -H "Authorization: Bearer sk-your-local-key" | head
+# CLIProxyAPI is reachable and accepts your key (adjust the path per protocol).
+# The key is read from the environment, not typed inline:
+curl -fsS "http://127.0.0.1:8317/v1/models" \
+  -H "Authorization: Bearer ${OPENAI_API_KEY}"
 
 # MemoryWhale MCP is healthy:
 mw doctor
 ```
+
+`curl -fsS` fails on HTTP and connection errors, so a 401 or a stopped proxy
+surfaces as a nonzero exit instead of looking like success.
 
 `mw doctor` reports whether `mw-mcp` starts and advertises the six memory
 tools. If model calls fail but `mw doctor` passes, the problem is on the proxy
@@ -178,7 +194,19 @@ model requests and cannot record terminal commands or sessions.
 
 ## Remove integration
 
-Stop CLIProxyAPI and unset the agent's base-URL override
-(`OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL`). The agent falls back to direct
-provider access, and `mw-mcp` memory continues to work unchanged. Removing
-CLIProxyAPI never deletes MemoryWhale data.
+Stop CLIProxyAPI, then undo **both** the base-URL and key overrides you set in
+step 2 — the agent's own env overrides take precedence, and leaving
+`OPENAI_API_KEY`/`ANTHROPIC_API_KEY` pointing at the proxy key breaks direct
+provider authentication:
+
+```bash
+unset OPENAI_BASE_URL OPENAI_API_KEY
+unset ANTHROPIC_BASE_URL ANTHROPIC_API_KEY
+```
+
+If you persisted the proxy URL in the agent's own configuration (Codex's
+`config.toml`, OpenCode's `opencode.json`, Continue's `config.yaml`), remove or
+restore that entry too — otherwise model calls keep targeting
+`127.0.0.1:8317` after the proxy stops. Direct-provider fallback then works
+when direct provider access is already configured. `mw-mcp` memory continues
+to work unchanged, and removing CLIProxyAPI never deletes MemoryWhale data.
