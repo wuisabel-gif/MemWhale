@@ -2,11 +2,13 @@
 
 [OpenRouter](https://openrouter.ai) is a hosted API gateway that exposes
 hundreds of models from many providers behind a single OpenAI-compatible API
-and one key. `openrouter/stealth/ox-alpha` is one such model slug; the same
-setup works for any model on the service.
+and one key. `stealth/ox-alpha` is one such model slug; the same setup works
+for any model on the service. (Some clients qualify slugs with a provider
+prefix — for example OpenCode's `openrouter/stealth/ox-alpha` — but the API
+model id itself is `stealth/ox-alpha`.)
 
-OpenRouter is a **model gateway**, not an MCP client. It does not speak the
-Model Context Protocol and does not call `mw-mcp` itself. It composes with
+OpenRouter is a **model gateway**, not an MCP client for MemoryWhale. It does
+not call `mw-mcp` and provides no access to the local store. It composes with
 MemoryWhale through the coding agent in the middle:
 
 ```text
@@ -24,8 +26,9 @@ Verified against OpenRouter's public documentation in August 2026:
   (Claude Code connects via `ANTHROPIC_BASE_URL=https://openrouter.ai/api`);
 - authentication is `Authorization: Bearer <OPENROUTER_API_KEY>`; keys start
   with `sk-or-` and are managed at openrouter.ai/keys;
-- it has no MCP interface for model access (its docs MCP server serves
-  OpenRouter's own documentation, not model traffic).
+- it is not an MCP client for `mw-mcp`: OpenRouter publishes an MCP server of
+  its own (model catalog, documentation search, test inference), but it
+  provides no access to MemoryWhale.
 
 Model availability, pricing, and context limits for any slug — including
 `stealth/ox-alpha` — belong to the model's page on openrouter.ai and change
@@ -34,7 +37,9 @@ independently of MemoryWhale.
 ## Requirements
 
 - MemoryWhale installed (`mw` on `PATH`);
-- an OpenRouter account with an API key and credits;
+- an OpenRouter account with an API key; credits are needed for paid models,
+  while free model variants (`stealth/ox-alpha` reports zero pricing at this
+  writing) are rate-limited instead;
 - a coding agent that supports MCP servers plus either an OpenAI-compatible
   base URL or the Anthropic environment variables shown below.
 
@@ -42,7 +47,7 @@ independently of MemoryWhale.
 
 | Capability | Available |
 | --- | --- |
-| MCP memory access | No — OpenRouter is not an MCP client; compose through an agent |
+| MCP memory access | No — OpenRouter is not an MCP client for `mw-mcp`; compose through an agent |
 | Automatic execution capture | No — comes from the agent's hooks, not the gateway |
 | Memory-use guidance | No — configure guidance in the agent, not the gateway |
 | Multi-provider model access | Yes — one key, many models |
@@ -69,10 +74,12 @@ export ANTHROPIC_API_KEY=""   # must be explicitly empty, not unset
 
 **OpenAI-compatible agents** (Codex CLI, Continue, OpenCode, …): set the base
 URL to `https://openrouter.ai/api/v1`, use the key as the API key, and select
-the model by its OpenRouter slug — for example `openrouter/stealth/ox-alpha`.
-The exact setting name depends on the agent (Continue uses `apiBase` on the
-model entry; OpenCode uses `provider.<id>.options.baseURL`; Codex CLI uses
-`openai_base_url` in `config.toml`).
+the model by its OpenRouter slug — for example `stealth/ox-alpha`. In clients
+whose provider syntax requires a prefix, qualify it (OpenCode:
+`openrouter/stealth/ox-alpha`). The exact setting name depends on the agent
+(Continue uses `apiBase` on the model entry; OpenCode uses
+`provider.<id>.options.baseURL`; Codex CLI uses `openai_base_url` in
+`config.toml`).
 
 ### 3. Keep `mw-mcp` configured in the same agent
 
@@ -91,17 +98,26 @@ the local MemoryWhale store.
 Check each side independently:
 
 ```bash
-# OpenRouter is reachable and the key works:
-curl -fsS https://openrouter.ai/api/v1/models \
+# The key is valid (this endpoint requires auth; /v1/models is public):
+curl -fsS https://openrouter.ai/api/v1/auth/key \
   -H "Authorization: Bearer $OPENROUTER_API_KEY"
 
-# MemoryWhale MCP is healthy:
+# The model slug exists (public catalog; also useful for discovery):
+curl -fsS https://openrouter.ai/api/v1/models | grep -o '"id":"stealth/ox-alpha"'
+
+# MemoryWhale CLI and database are healthy:
 mw doctor
+
+# The mw-mcp transport responds (see integrations/README.md):
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
 ```
 
-If model calls fail but `mw doctor` passes, the problem is on the OpenRouter
-side (key, credits, or model slug). If model calls work but memory tools are
-missing, re-check the agent's MCP configuration.
+`curl -fsS` fails on HTTP and connection errors, so an invalid key surfaces as
+a nonzero exit instead of looking like success.
+
+If model calls fail but the MemoryWhale checks pass, the problem is on the
+OpenRouter side (key, credits, or model slug). If model calls work but memory
+tools are missing in the agent, re-check its MCP configuration.
 
 ## How to use
 
@@ -130,7 +146,8 @@ and cannot record terminal commands or sessions.
 
 ## Limitations
 
-- OpenRouter does not provide MCP memory access. Claims of direct
+- OpenRouter does not provide MCP memory access. Its own MCP server serves
+  OpenRouter's catalog and documentation; claims of direct
   `mw-mcp` ↔ OpenRouter connectivity would be false.
 - Prompts and code context sent through the gateway reach OpenRouter and then
   the upstream provider serving the model. MemoryWhale's local-first
@@ -138,8 +155,8 @@ and cannot record terminal commands or sessions.
   and the upstream provider's policies for the specific model.
 - Stealth/anonymous-publisher models may have undisclosed training or retention
   policies; check the model page before sending sensitive code.
-- Model calls require internet access and OpenRouter credits; memory retrieval
-  through `mw-mcp` keeps working offline.
+- Model calls require internet access; paid models also require credits.
+  Memory retrieval through `mw-mcp` keeps working offline.
 - Routing quality (tool use, long context) varies by upstream provider for the
   same slug; OpenRouter's own docs recommend pinning providers where tool-use
   reliability matters.
@@ -148,10 +165,13 @@ and cannot record terminal commands or sessions.
 
 - **401 from OpenRouter:** the key is missing, revoked, or not exported in the
   shell the agent runs from. Re-check `echo ${OPENROUTER_API_KEY:+set}`.
-- **402 / insufficient credits:** top up at openrouter.ai/credits.
-- **Model not found:** the slug is wrong or unavailable to the account; copy it
-  exactly from the model page (`openrouter/stealth/ox-alpha`, not
-  `stealth ox-alpha`).
+- **402 / insufficient credits:** the selected model is a paid variant and the
+  account is out of credits; top up at openrouter.ai/credits or pick a free
+  variant.
+- **Model not found:** the slug is wrong or qualified in the wrong place. The
+  API id is `stealth/ox-alpha`; add the `openrouter/` prefix only inside
+  clients whose provider syntax requires it. Copy slugs exactly from the model
+  page.
 - **Claude Code falls back to subscription login:** `ANTHROPIC_API_KEY` must be
   set to an empty string explicitly, per OpenRouter's Claude Code guide.
 - **Memory tools missing:** an agent MCP configuration issue, not a gateway
