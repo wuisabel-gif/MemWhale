@@ -1,7 +1,8 @@
 # Claude Code + MemoryWhale
 
 Claude Code can use MemoryWhale in three independent ways: `mw-mcp` provides
-native memory tools, a `PostToolUse` hook records successful Bash commands, and
+native memory tools, a `PostToolUse` hook records the Bash commands Claude
+runs (successes and failures alike), and
 a skill teaches Claude when to search or save debugging memory.
 
 ## Status
@@ -23,7 +24,7 @@ The hook and skill are optional repository-provided components.
 | Capability | Available |
 | --- | --- |
 | MCP memory access | Yes |
-| Automatic execution capture | Yes, optional `PostToolUse` hook for successful Bash calls |
+| Automatic execution capture | Yes, optional `PostToolUse` hook for Bash calls |
 | Memory-use guidance | Yes, optional skill |
 
 ## Setup
@@ -130,24 +131,22 @@ MCP server is not connected, so each component can be installed separately.
 ## Automatic capture
 
 The bundled [`hooks/mw-record.py`](hooks/mw-record.py) hook receives Claude
-Code's documented `PostToolUse` JSON on standard input. For successful `Bash`
-calls, it passes the command, working directory, output, and a zero exit status
-to `mw-remember` with the note `agent:claude-code`. Standard output and standard
-error are each capped at 20,000 characters before being passed to
-`mw-remember`, which applies MemoryWhale's normal secret redaction.
+Code's documented `PostToolUse` JSON on standard input. For each `Bash` call,
+it passes the command, working directory, output, and an exit status to
+`mw-remember` with the note `agent:claude-code`; failed commands are recorded
+with a nonzero exit status derived from the tool response's error flags.
+Standard output and standard error are each capped at 20,000 characters before
+being passed to `mw-remember`, which applies MemoryWhale's normal secret
+redaction.
 
-The hook ignores non-Bash tools and empty commands. It also exits without
-interrupting Claude Code if its input is invalid, `mw-remember` is unavailable,
-or recording fails.
-
-This hook is registered only for `PostToolUse`, which Claude Code fires after a
-tool succeeds. Failed Bash calls use the separate `PostToolUseFailure` event and
-are not captured by the current hook. Commands run in an ordinary terminal are
-captured only through MemoryWhale's normal terminal capture paths.
+This hook is registered for `PostToolUse`, which Claude Code fires after every
+Bash tool call, so both successful and failed commands are captured. Commands
+run in an ordinary terminal are captured only through MemoryWhale's normal
+terminal capture paths.
 
 ## Limitations
 
-- The bundled hook does not capture failed Bash calls or non-Bash tools.
+- The bundled hook captures only the Bash tool.
 - Each output stream is truncated to 20,000 characters by the hook.
 - User-level hooks and skills are local to the machine where they are installed.
 - Guidance helps Claude choose when to use memory, but does not force a tool
