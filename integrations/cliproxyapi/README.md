@@ -80,13 +80,17 @@ api-keys:
 Configure the agent's model base URL to the local proxy and use a key from
 CLIProxyAPI's `api-keys`. Export that key once as `CLIPROXY_API_KEY` — it is
 what the verification step below authenticates with, independent of protocol.
-If you already have provider keys set, save their values first so you can
-restore them later:
+If you already have provider keys or base URLs set, save their values (and
+whether each key was set at all) first so they can be restored on removal:
 
 ```bash
-# save current values, if any, so they can be restored on removal
+# save current values and whether each key was set, for restoration on removal
+OLD_OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
 OLD_OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+OLD_OPENAI_API_KEY_WAS_SET="${OPENAI_API_KEY+x}"
+OLD_ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-}"
 OLD_ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+OLD_ANTHROPIC_API_KEY_WAS_SET="${ANTHROPIC_API_KEY+x}"
 
 export CLIPROXY_API_KEY="sk-your-local-key"
 ```
@@ -212,23 +216,32 @@ model requests and cannot record terminal commands or sessions.
 
 Stop CLIProxyAPI, then undo **both** the base-URL and key overrides you set in
 step 2 — leaving `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` pointing at the proxy key
-breaks direct provider authentication. Restore your saved pre-existing values
-if you had them; otherwise unset the overrides:
+breaks direct provider authentication. Remove the overrides first, then
+restore only what was actually set before:
 
 ```bash
-# if you saved previous values in step 2, restore them:
-export OPENAI_API_KEY="$OLD_OPENAI_API_KEY"
-export ANTHROPIC_API_KEY="$OLD_ANTHROPIC_API_KEY"
-
-# otherwise remove the overrides entirely:
+# remove the overrides unconditionally
 unset OPENAI_BASE_URL OPENAI_API_KEY
 unset ANTHROPIC_BASE_URL ANTHROPIC_API_KEY
 unset CLIPROXY_API_KEY
+
+# restore exactly the variables that existed before step 2
+if [ -n "${OLD_OPENAI_API_KEY_WAS_SET:-}" ]; then
+  export OPENAI_BASE_URL="$OLD_OPENAI_BASE_URL"
+  export OPENAI_API_KEY="$OLD_OPENAI_API_KEY"
+fi
+
+if [ -n "${OLD_ANTHROPIC_API_KEY_WAS_SET:-}" ]; then
+  export ANTHROPIC_BASE_URL="$OLD_ANTHROPIC_BASE_URL"
+  export ANTHROPIC_API_KEY="$OLD_ANTHROPIC_API_KEY"
+fi
 ```
 
-If you persisted the proxy URL in the agent's own configuration (Codex's
-`config.toml`, OpenCode's `opencode.json`, Continue's `config.yaml`), remove or
-restore that entry too — otherwise model calls keep targeting
-`127.0.0.1:8317` after the proxy stops. Direct-provider fallback then works
-when direct provider access is already configured. `mw-mcp` memory continues
-to work unchanged, and removing CLIProxyAPI never deletes MemoryWhale data.
+Run setup and removal in the same shell (or persist the `OLD_*` values
+securely) so the restore state is available. If you persisted the proxy URL in
+the agent's own configuration (Codex's `config.toml`, OpenCode's
+`opencode.json`, Continue's `config.yaml`), remove or restore that entry too —
+otherwise model calls keep targeting `127.0.0.1:8317` after the proxy stops.
+Direct-provider fallback then works when direct provider access is already
+configured. `mw-mcp` memory continues to work unchanged, and removing
+CLIProxyAPI never deletes MemoryWhale data.
