@@ -36,8 +36,11 @@ them.
 - a coding agent that supports both MCP servers and a configurable model base
   URL. Claude Code works with the environment variables shown below; for other
   agents, use their documented base-URL configuration:
-  - **Claude Code**: `ANTHROPIC_BASE_URL` / `OPENAI_BASE_URL` environment
-    variables;
+  - **Claude Code**: the `ANTHROPIC_BASE_URL` environment variable;
+  - **other Anthropic-compatible clients**: their `ANTHROPIC_BASE_URL`-style
+    setting;
+  - **OpenAI-compatible clients** (generic): the `OPENAI_BASE_URL` environment
+    variable;
   - **Codex CLI**: `openai_base_url` or a custom provider entry in
     `~/.codex/config.toml` (see Codex's configuration docs);
   - **OpenCode**: `provider.<id>.options.baseURL` plus model selection in
@@ -75,18 +78,31 @@ api-keys:
 ### 2. Point the coding agent at CLIProxyAPI
 
 Configure the agent's model base URL to the local proxy and use a key from
-CLIProxyAPI's `api-keys`. For OpenAI-compatible clients:
+CLIProxyAPI's `api-keys`. Export that key once as `CLIPROXY_API_KEY` — it is
+what the verification step below authenticates with, independent of protocol.
+If you already have provider keys set, save their values first so you can
+restore them later:
+
+```bash
+# save current values, if any, so they can be restored on removal
+OLD_OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+OLD_ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+
+export CLIPROXY_API_KEY="sk-your-local-key"
+```
+
+For OpenAI-compatible clients:
 
 ```bash
 export OPENAI_BASE_URL="http://127.0.0.1:8317/v1"
-export OPENAI_API_KEY="sk-your-local-key"
+export OPENAI_API_KEY="$CLIPROXY_API_KEY"
 ```
 
 For Anthropic-compatible clients:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:8317"
-export ANTHROPIC_API_KEY="sk-your-local-key"
+export ANTHROPIC_API_KEY="$CLIPROXY_API_KEY"
 ```
 
 CLIProxyAPI accepts `Authorization: Bearer`, `X-Api-Key`, and `X-Goog-Api-Key`
@@ -125,9 +141,9 @@ Check each side independently:
 
 ```bash
 # CLIProxyAPI is reachable and accepts your key (adjust the path per protocol).
-# The key is read from the environment, not typed inline:
+# Uses the dedicated proxy-key variable, valid for either setup variant above:
 curl -fsS "http://127.0.0.1:8317/v1/models" \
-  -H "Authorization: Bearer ${OPENAI_API_KEY}"
+  -H "Authorization: Bearer ${CLIPROXY_API_KEY}"
 
 # MemoryWhale MCP is healthy:
 mw doctor
@@ -195,13 +211,19 @@ model requests and cannot record terminal commands or sessions.
 ## Remove integration
 
 Stop CLIProxyAPI, then undo **both** the base-URL and key overrides you set in
-step 2 — the agent's own env overrides take precedence, and leaving
-`OPENAI_API_KEY`/`ANTHROPIC_API_KEY` pointing at the proxy key breaks direct
-provider authentication:
+step 2 — leaving `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` pointing at the proxy key
+breaks direct provider authentication. Restore your saved pre-existing values
+if you had them; otherwise unset the overrides:
 
 ```bash
+# if you saved previous values in step 2, restore them:
+export OPENAI_API_KEY="$OLD_OPENAI_API_KEY"
+export ANTHROPIC_API_KEY="$OLD_ANTHROPIC_API_KEY"
+
+# otherwise remove the overrides entirely:
 unset OPENAI_BASE_URL OPENAI_API_KEY
 unset ANTHROPIC_BASE_URL ANTHROPIC_API_KEY
+unset CLIPROXY_API_KEY
 ```
 
 If you persisted the proxy URL in the agent's own configuration (Codex's
