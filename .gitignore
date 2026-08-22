@@ -1,3 +1,7 @@
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
 node_modules/
 dist/
 target/
