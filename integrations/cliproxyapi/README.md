@@ -80,15 +80,17 @@ api-keys:
 Configure the agent's model base URL to the local proxy and use a key from
 CLIProxyAPI's `api-keys`. Export that key once as `CLIPROXY_API_KEY` — it is
 what the verification step below authenticates with, independent of protocol.
-If you already have provider keys or base URLs set, save their values (and
-whether each key was set at all) first so they can be restored on removal:
+If you already have provider base URLs or keys set, save their values (and
+whether each was set at all) first so they can be restored on removal:
 
 ```bash
-# save current values and whether each key was set, for restoration on removal
+# save current values and whether each was set, for restoration on removal
 OLD_OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
+OLD_OPENAI_BASE_URL_WAS_SET="${OPENAI_BASE_URL+x}"
 OLD_OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 OLD_OPENAI_API_KEY_WAS_SET="${OPENAI_API_KEY+x}"
 OLD_ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-}"
+OLD_ANTHROPIC_BASE_URL_WAS_SET="${ANTHROPIC_BASE_URL+x}"
 OLD_ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
 OLD_ANTHROPIC_API_KEY_WAS_SET="${ANTHROPIC_API_KEY+x}"
 
@@ -225,14 +227,20 @@ unset OPENAI_BASE_URL OPENAI_API_KEY
 unset ANTHROPIC_BASE_URL ANTHROPIC_API_KEY
 unset CLIPROXY_API_KEY
 
-# restore exactly the variables that existed before step 2
-if [ -n "${OLD_OPENAI_API_KEY_WAS_SET:-}" ]; then
+# restore exactly the variables that existed before step 2, independently
+if [ -n "${OLD_OPENAI_BASE_URL_WAS_SET:-}" ]; then
   export OPENAI_BASE_URL="$OLD_OPENAI_BASE_URL"
+fi
+
+if [ -n "${OLD_OPENAI_API_KEY_WAS_SET:-}" ]; then
   export OPENAI_API_KEY="$OLD_OPENAI_API_KEY"
 fi
 
-if [ -n "${OLD_ANTHROPIC_API_KEY_WAS_SET:-}" ]; then
+if [ -n "${OLD_ANTHROPIC_BASE_URL_WAS_SET:-}" ]; then
   export ANTHROPIC_BASE_URL="$OLD_ANTHROPIC_BASE_URL"
+fi
+
+if [ -n "${OLD_ANTHROPIC_API_KEY_WAS_SET:-}" ]; then
   export ANTHROPIC_API_KEY="$OLD_ANTHROPIC_API_KEY"
 fi
 ```
