@@ -830,7 +830,7 @@ fn integrations_section() -> String {
         ));
     }
     format!(
-        "<h2>Integrations</h2>\n<p class=\"sub\">MemoryWhale plugs into these coding agents and editors — \
+        "<h2>Integrations</h2>\n<p class=\"sub\">MemoryWhale works alongside these coding agents, editors, and model-routing tools — \
 each cell links to its setup guide in the repository.</p>\n<div class=\"igrid\">\n{cells}</div>\n"
     )
 }
