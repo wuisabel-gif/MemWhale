@@ -112,6 +112,9 @@ is especially useful when you:
 - want recurring failures and their fixes to remain searchable;
 - prefer local storage over a hosted memory service.
 
+See [Use cases](docs/concepts/use-cases.md) for each of these as an
+end-to-end scenario with real commands.
+
 ## Documentation
 
 - [Documentation map](docs/README.md)

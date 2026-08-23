@@ -7,6 +7,7 @@ The repository documentation is organized by the question a reader is asking.
 - [Developer memory](concepts/README.md)
 - [Capture](concepts/capture.md)
 - [Memory](concepts/memory.md)
+- [Use cases](concepts/use-cases.md)
 - [Retrieval](concepts/retrieval.md)
 
 ## Guides: how do I accomplish a task?
