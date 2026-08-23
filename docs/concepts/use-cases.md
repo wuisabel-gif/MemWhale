@@ -28,11 +28,16 @@ mw remember "the E0308 was the fps field being a string; fix: parse it as i32"
 
 # today, same error:
 mw search "E0308"                          # ranked hits across commands + lessons
-mw explain <id>                            # why this memory ranks
+mw link <run-id> <note-id> rel:fixed-by    # one-time: tie the fix to its evidence
+mw search "E0308" --explain                # why this result ranks, per signal
 ```
 
 The search returns the old failing run *and* the lesson linked to it, so the
 fix arrives attached to its evidence rather than as a vague memory.
+
+(`mw remember` warns about near-duplicates; `--force` keeps both if the
+wording genuinely changed. Linking is optional but is what makes the
+evidence ↔ fix relation auditable later.)
 
 **Components involved:** `mw-run` / `mw` capture, `command_runs` storage,
 `mw search`, `remember` lessons, optional `mw link` between evidence and fix.
@@ -53,17 +58,20 @@ history.
 mw --live --notes "project:auv jetson bring-up"   # autosaves every few seconds
 # … SSH dies mid-session …
 
-# back on the Jetson later: the transcript survived; recovery imports it
-mw list                                           # session shows up as interrupted/recovered
+# back on the Jetson later: the raw transcript survived on disk
+mw-recover                                 # imports interrupted sessions (also
+                                           # runs automatically at dashboard start)
+mw list                                    # the recovered session is there
 
-# share or move memory between machines:
-mw push robot@jetson.local                        # scp + remote mw import
-mw pull robot@jetson.local                        # or copy another machine's memory here
+# move memory between machines — each side names the *other* host:
+mw push wuisabel@laptop.local              # from the Jetson: send memory to the laptop
+mw pull robot@jetson.local                 # from the laptop: copy the Jetson's memory here
 ```
 
 Because capture is crash-resistant and memory moves as an explicit bundle,
-no single dropped connection or dead machine takes the debugging context with
-it.
+a dropped connection or reboot no longer erases the session you were in.
+One honest boundary: memory lives where it was captured until you transfer
+it — push or export before retiring a machine.
 
 **Components involved:** `--live` autosave, startup recovery (`mw-recover`),
 `mw push` / `mw pull` / `mw export` / `mw import`, `project:` tags.
@@ -82,7 +90,8 @@ this before?"
 
 ```bash
 claude mcp add memorywhale -- mw-mcp          # one-time setup
-mw doctor                                     # confirms the six tools respond
+mw doctor                                     # confirms the MCP server responds
+                                              # and advertises the six tools
 ```
 
 Inside the agent session, the model can now call:
