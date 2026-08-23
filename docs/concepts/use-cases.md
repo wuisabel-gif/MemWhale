@@ -117,8 +117,9 @@ guidance.
   `push`/`pull`/`import` decision.
 - **Two audiences.** The same store serves humans (`mw search`, `mw tui`,
   `mw-serve`) and agents (`mw-mcp`) without duplication.
-- **Lessons attach to evidence.** A saved fix stays linked to the failure it
-  resolved, so future-you can audit the reasoning.
+- **Lessons can attach to evidence.** `mw link` ties a saved fix to the
+  failure it resolved (as in scenario 1), so future-you can audit the
+  reasoning; lessons also stand alone when no run is worth linking.
 
 ## Try it
 
