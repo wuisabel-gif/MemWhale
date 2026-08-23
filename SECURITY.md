@@ -2,7 +2,13 @@
 
 ## Supported versions
 
-Security fixes are applied to the latest release on the default branch. Older tagged releases may not receive backports unless noted in the release notes.
+| Version | Supported |
+| --- | --- |
+| 0.7.x (latest release on `main`) | ✅ security fixes |
+| < 0.7.0 | ❌ upgrade — fixes are not backported unless noted in release notes |
+
+(This table is updated with each release; older tags stop receiving fixes when a
+new minor ships.)
 
 ## Reporting a vulnerability
 
@@ -10,8 +16,11 @@ Please **do not** open a public issue for security vulnerabilities.
 
 Use one of these private channels instead:
 
-1. **GitHub private vulnerability reporting** — open a security advisory from the repository **Security** tab (preferred when enabled).
-2. If private reporting is unavailable, contact the maintainers through a private channel listed on their GitHub profiles.
+1. **GitHub private vulnerability reporting** — open the repository's
+   **Advisories** page (Security → Advisories) and select **Report a
+   vulnerability**. This is the preferred channel.
+2. If private reporting is unavailable, contact the maintainers through a
+   private channel listed on their GitHub profiles.
 
 ### What to include
 
