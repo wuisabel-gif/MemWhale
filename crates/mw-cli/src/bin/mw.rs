@@ -914,12 +914,215 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
             memorywhale_cli::supersede_note(&conn, old_id, new_id)?;
             println!("mw: memory #{old_id} superseded by #{new_id}; both records were preserved.");
         }
+        [action, rest @ ..] if action == "compact" => {
+            return memory_compact_cmd(&conn, rest);
+        }
         _ => {
             return Err(
-                "usage: mw memory stale <id> | mw memory supersede <old-id> <new-id>".to_string(),
+                "usage: mw memory stale <id> | mw memory supersede <old-id> <new-id> \
+                        | mw memory compact [--apply] [--min-session-bytes N] [--stale-days N] \
+                        [--max-output-bytes N]"
+                    .to_string(),
             )
         }
     }
+    Ok(())
+}
+
+/// `mw memory compact` — apply rule-of-thumb compaction to bulky evidence.
+///
+/// Dry-run by default: prints which sessions and command runs the policy
+/// (memorywhale_core::policy) would shrink, with per-rule counts and byte
+/// savings. `--apply` performs the UPDATEs. Compaction never deletes rows:
+/// session transcripts are replaced by a marker (the raw file on disk is
+/// untouched), and command output is head/tail-truncated around a marker.
+fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> {
+    let mut apply = false;
+    let mut min_session_bytes: i64 = 256 * 1024;
+    let mut stale_days: i64 = 180;
+    let mut max_output_bytes: i64 = 64 * 1024;
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--apply" => apply = true,
+            "--min-session-bytes" => {
+                min_session_bytes = iter
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .ok_or_else(|| "--min-session-bytes requires a number".to_string())?;
+            }
+            "--stale-days" => {
+                stale_days = iter
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .ok_or_else(|| "--stale-days requires a number".to_string())?;
+            }
+            "--max-output-bytes" => {
+                max_output_bytes = iter
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .ok_or_else(|| "--max-output-bytes requires a number".to_string())?;
+            }
+            other => {
+                return Err(format!(
+                    "unexpected argument {other:?}; see mw memory compact --help"
+                ))
+            }
+        }
+    }
+
+    use memorywhale_core::policy::{
+        compact_output_stream, compacted_session_transcript, run_tier, session_tier, RunFacts, Tier,
+    };
+
+    // ---- sessions ----
+    let mut sessions: Vec<(i64, String)> = Vec::new(); // (id, reason)
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT s.id, s.byte_count, s.status,
+                        COALESCE((SELECT MAX(CAST((julianday('now') - julianday(s.ended_at)) AS INTEGER))
+                                  FROM bookmarks b
+                                  WHERE b.source_session_id = s.id AND b.approved = 1),
+                                 NULL) AS lesson_age_days
+                 FROM sessions s",
+            )
+            .map_err(|e| format!("failed to scan sessions: {e}"))?;
+        let rows: Vec<(i64, i64, String, Option<i64>)> = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, Option<i64>>(3)?,
+                ))
+            })
+            .map_err(|e| format!("failed to scan sessions: {e}"))?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(|e| e.to_string())?;
+        for (id, byte_count, status, lesson_age) in rows {
+            if status == "recording" || byte_count <= min_session_bytes {
+                continue;
+            }
+            let days_since_end: i64 = conn
+                .query_row(
+                    "SELECT CAST(julianday('now') - julianday(ended_at) AS INTEGER)
+                     FROM sessions WHERE id = ?1 AND ended_at != ''",
+                    params![id],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            let has_lesson = matches!(lesson_age, Some(age) if age >= 0);
+            let facts = memorywhale_core::policy::SessionFacts {
+                byte_count,
+                has_distilled_lesson: has_lesson,
+                days_since_end,
+            };
+            if let Tier::Compact(reason) = session_tier(facts, min_session_bytes, stale_days) {
+                sessions.push((id, reason.label().to_string()));
+            }
+        }
+    }
+
+    // ---- command runs ----
+    let mut runs: Vec<(i64, String)> = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT r.id, COALESCE(r.exit_code, 1), r.error_fingerprint,
+                        COALESCE(LENGTH(r.stdout), 0), COALESCE(LENGTH(r.stderr), 0),
+                        EXISTS(SELECT 1 FROM bookmarks b WHERE b.command_run_id = r.id)
+                 FROM command_runs r",
+            )
+            .map_err(|e| format!("failed to scan command runs: {e}"))?;
+        let rows: Vec<(i64, i64, Option<String>, i64, i64, bool)> = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, i64>(4)?,
+                    r.get::<_, bool>(5)?,
+                ))
+            })
+            .map_err(|e| format!("failed to scan command runs: {e}"))?
+            .collect::<std::result::Result<_, _>>()
+            .map_err(|e| e.to_string())?;
+        for (id, exit_code, fingerprint, out_len, err_len, referenced) in rows {
+            let facts = RunFacts {
+                failed: exit_code != 0,
+                has_error_fingerprint: fingerprint.is_some(),
+                total_output_bytes: out_len + err_len,
+                referenced_by_bookmark: referenced,
+            };
+            if let Tier::Compact(reason) = run_tier(facts, max_output_bytes) {
+                runs.push((id, reason.label().to_string()));
+            }
+        }
+    }
+
+    // ---- report ----
+    println!(
+        "Compaction plan ({} session(s), {} command run(s)):",
+        sessions.len(),
+        runs.len()
+    );
+    for (id, reason) in &sessions {
+        println!("  session #{id}: {reason}");
+    }
+    for (id, reason) in &runs {
+        println!("  command #{id}: {reason}");
+    }
+    if sessions.is_empty() && runs.is_empty() {
+        println!("Nothing to compact — every row is within policy.");
+    }
+    if !apply {
+        println!(
+            "Dry run only. Re-run with --apply to shrink these rows \
+             (rows are never deleted; export first if unsure)."
+        );
+        return Ok(());
+    }
+
+    // ---- apply ----
+    for (id, _) in &sessions {
+        let original: i64 = conn
+            .query_row(
+                "SELECT byte_count FROM sessions WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        let marker = compacted_session_transcript(original);
+        conn.execute(
+            "UPDATE sessions SET transcript = ?1, byte_count = ?2 WHERE id = ?3",
+            params![marker, marker.len() as i64, id],
+        )
+        .map_err(|e| format!("failed to compact session #{id}: {e}"))?;
+    }
+    for (id, _) in &runs {
+        let (stdout, stderr): (String, String) = conn
+            .query_row(
+                "SELECT stdout, stderr FROM command_runs WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .map_err(|e| format!("failed to read command #{id}: {e}"))?;
+        let new_stdout = compact_output_stream(&stdout, max_output_bytes / 2);
+        let new_stderr = compact_output_stream(&stderr, max_output_bytes / 2);
+        conn.execute(
+            "UPDATE command_runs SET stdout = ?1, stderr = ?2 WHERE id = ?3",
+            params![new_stdout, new_stderr, id],
+        )
+        .map_err(|e| format!("failed to compact command #{id}: {e}"))?;
+    }
+    println!(
+        "mw: compacted {} session(s) and {} command run(s). Rows were preserved; \
+         raw session files on disk were not touched.",
+        sessions.len(),
+        runs.len()
+    );
     Ok(())
 }
 
