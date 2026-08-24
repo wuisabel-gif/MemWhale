@@ -62,6 +62,12 @@ Click any command/session for the detail page + suggested next steps.
 A single memory page can also be generated with `mw-view <id>`.
 The dashboard also has a `/graph` view of commands linked to their arguments.
 
+## 3a. Check your memory pet (optional)
+
+`mw pet` shows a read-only whale whose mood reflects how recently you used your
+memory store. Run `mw pet --watch` to animate it until you press Ctrl-C. See the
+[`mw pet` reference](docs/reference/pet.md) for the mood rules.
+
 ## 3b. Record across multiple terminals (projects)
 
 Each `mw` records only its own terminal, so multi-terminal work is captured as

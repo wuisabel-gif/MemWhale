@@ -62,7 +62,10 @@ mw-run -- cargo check                # capture one command and its output
 mw remember "the linker needed libssl-dev"
 mw search "linker error"             # recover the failure and its fix
 mw context --last-error              # compact context for any agent or chat
+mw pet                               # check your memory store's mood
 ```
+
+![mw pet mood demo](assets/pet-demo.gif)
 
 For longer work, `mw --live` records a crash-resistant shell session. `mw tui`
 opens an interactive terminal browser, while `mw-serve` starts the local web
