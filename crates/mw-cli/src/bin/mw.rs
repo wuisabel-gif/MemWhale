@@ -4108,6 +4108,14 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM command_runs", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 2, "malformed row must not abort the merge");
+        let malformed_argv: String = conn
+            .query_row(
+                "SELECT argv_json FROM command_runs WHERE command = 'broken'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(malformed_argv, "[]", "fallback must store empty argv");
         let valid_argv: String = conn
             .query_row(
                 "SELECT argv_json FROM command_runs WHERE command = 'deploy'",
