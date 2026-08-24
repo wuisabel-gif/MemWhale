@@ -998,23 +998,25 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
     let mut sessions: Vec<(i64, String)> = Vec::new(); // (id, reason)
     {
         let mut stmt = conn
-            .prepare("SELECT id, byte_count, status, transcript_path FROM sessions")
+            .prepare("SELECT id, byte_count, status, transcript_path, transcript FROM sessions")
             .map_err(|e| format!("failed to scan sessions: {e}"))?;
-        let rows: Vec<(i64, i64, String, String)> = stmt
+        let rows: Vec<(i64, i64, String, String, String)> = stmt
             .query_map([], |r| {
                 Ok((
                     r.get::<_, i64>(0)?,
                     r.get::<_, i64>(1)?,
                     r.get::<_, String>(2)?,
                     r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
                 ))
             })
             .map_err(|e| format!("failed to scan sessions: {e}"))?
             .collect::<std::result::Result<_, _>>()
             .map_err(|e| e.to_string())?;
-        for (id, byte_count, status, transcript_path) in rows {
+        for (id, byte_count, status, transcript_path, transcript) in rows {
             let transcript_path = Path::new(&transcript_path);
-            if status == "recording"
+            if transcript == compacted_session_transcript(byte_count)
+                || status == "recording"
                 || byte_count <= min_session_bytes
                 || !transcript_path.is_absolute()
                 || !transcript_path.is_file()
