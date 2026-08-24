@@ -1008,9 +1008,11 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
             .collect::<std::result::Result<_, _>>()
             .map_err(|e| e.to_string())?;
         for (id, byte_count, status, transcript_path) in rows {
+            let transcript_path = Path::new(&transcript_path);
             if status == "recording"
                 || byte_count <= min_session_bytes
-                || !Path::new(&transcript_path).is_file()
+                || !transcript_path.is_absolute()
+                || !transcript_path.is_file()
             {
                 continue;
             }
