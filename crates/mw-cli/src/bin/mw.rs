@@ -1787,7 +1787,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "command_runs");
         if c.contains("command") && c.contains("argv_json") && c.contains("created_at") {
             let sql = format!(
-                "SELECT {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs",
+                "SELECT {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs s",
                 sel(&c, "command", "''"),
                 sel(&c, "argv_json", "'[]'"),
                 sel(&c, "cwd", "NULL"),
@@ -1831,11 +1831,16 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
             };
             for (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at) in rows {
                 let command = memorywhale_cli::sanitize_capture(&command);
-                let argv: Vec<String> = serde_json::from_str::<Vec<String>>(&argv_json)
-                    .map_err(|err| format!("invalid imported argv JSON: {err}"))?
-                    .into_iter()
-                    .map(|value: String| memorywhale_cli::sanitize_capture(&value))
-                    .collect();
+                // Tolerate malformed argv from older writers instead of
+                // aborting the whole merge; sanitize contextually so split
+                // `--token SECRET` forms are redacted like live capture.
+                let argv: Vec<String> = match serde_json::from_str::<Vec<String>>(&argv_json) {
+                    Ok(values) => memorywhale_cli::sanitize_arguments(&values),
+                    Err(err) => {
+                        eprintln!("mw import: skipping unreadable argv row: {err}");
+                        Vec::new()
+                    }
+                };
                 let argv_json = serde_json::to_string(&argv)
                     .map_err(|err| format!("failed to encode imported argv: {err}"))?;
                 let stdout = memorywhale_cli::sanitize_capture(&stdout);
@@ -1865,7 +1870,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "sessions");
         if c.contains("started_at") && c.contains("transcript_path") {
             let sql = format!(
-                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.sessions",
+                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.sessions s",
                 sel(&c, "shell", "''"),
                 sel(&c, "cwd", "NULL"),
                 sel(&c, "transcript_path", "''"),
@@ -3959,6 +3964,7 @@ fn database_path() -> Result<PathBuf, String> {
 mod tests {
     use super::*;
     use std::io::Cursor;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn mcp_probe_accepts_initialize_and_tools_list() {
@@ -4018,5 +4024,119 @@ mod tests {
         let error = probe_mcp_server("sh", &args, Duration::from_millis(100)).unwrap_err();
         assert!(error.contains("timed out"));
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+    #[test]
+    fn import_redacts_split_secret_argv_and_survives_malformed_json() {
+        let previous_data_dir = env::var_os("MEMORYWHALE_DATA_DIR");
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dest = env::temp_dir().join(format!("mw-import-argv-{unique}"));
+        let src_dir = env::temp_dir().join(format!("mw-import-argv-src-{unique}"));
+        fs::create_dir_all(&dest).unwrap();
+        fs::create_dir_all(&src_dir).unwrap();
+        env::set_var("MEMORYWHALE_DATA_DIR", &dest);
+
+        // Panic-safe cleanup: restore the env and delete temp dirs even if an
+        // assertion or unwrap fails mid-test.
+        struct Cleanup {
+            previous_data_dir: Option<std::ffi::OsString>,
+            dest: std::path::PathBuf,
+            src_dir: std::path::PathBuf,
+        }
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                if let Some(value) = self.previous_data_dir.take() {
+                    env::set_var("MEMORYWHALE_DATA_DIR", value);
+                } else {
+                    env::remove_var("MEMORYWHALE_DATA_DIR");
+                }
+                let _ = fs::remove_dir_all(&self.dest);
+                let _ = fs::remove_dir_all(&self.src_dir);
+            }
+        }
+        let _cleanup = Cleanup {
+            previous_data_dir,
+            dest: dest.clone(),
+            src_dir: src_dir.clone(),
+        };
+        // A legacy-shaped source DB: minimal columns, a split-secret argv, and
+        // one row with argv JSON no writer should have produced.
+        let src_db = src_dir.join("memorywhale.sqlite3");
+        let src_conn = Connection::open(&src_db).unwrap();
+        src_conn
+            .execute_batch(
+                "CREATE TABLE command_runs (
+                    id INTEGER PRIMARY KEY,
+                    command TEXT NOT NULL,
+                    argv_json TEXT NOT NULL,
+                    cwd TEXT,
+                    exit_code INTEGER,
+                    stdout TEXT DEFAULT '',
+                    stderr TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    created_at TEXT NOT NULL);
+                CREATE TABLE sessions (
+                    id INTEGER PRIMARY KEY,
+                    shell TEXT DEFAULT '',
+                    cwd TEXT,
+                    transcript_path TEXT DEFAULT '',
+                    transcript TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    started_at TEXT NOT NULL,
+                    ended_at TEXT,
+                    byte_count INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'finished');
+                INSERT INTO command_runs
+                    (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
+                VALUES ('deploy',
+                        '[\"deploy\",\"--token\",\"supersecret99\"]',
+                        '/tmp', 0, '', '', '', '2026-01-01T00:00:00Z');
+                INSERT INTO command_runs
+                    (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
+                VALUES ('broken', '{not json', '/tmp', 1, '', '', '',
+                        '2026-01-02T00:00:00Z');",
+            )
+            .unwrap();
+        drop(src_conn);
+
+        import_sqlite(&src_db).unwrap();
+
+        let conn = Connection::open(dest.join("memorywhale.sqlite3")).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM command_runs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 2, "malformed row must not abort the merge");
+        let malformed_argv: String = conn
+            .query_row(
+                "SELECT argv_json FROM command_runs WHERE command = 'broken'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(malformed_argv, "[]", "fallback must store empty argv");
+        let valid_argv: String = conn
+            .query_row(
+                "SELECT argv_json FROM command_runs WHERE command = 'deploy'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        // exact form: non-secret argv preserved, secret contextually redacted
+        assert_eq!(valid_argv, r#"["deploy","--token","[REDACTED]"]"#);
+
+        let all: String = conn
+            .prepare("SELECT argv_json FROM command_runs ORDER BY id")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!all.contains("supersecret99"), "raw secret imported");
+
+        drop(conn);
+        // env + temp dirs are restored by the Cleanup guard on drop
     }
 }
