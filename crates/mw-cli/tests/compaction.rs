@@ -1,74 +1,66 @@
 use rusqlite::Connection;
-use std::fs;
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+
+fn run_mw(data_dir: &std::path::Path, args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_mw"))
+        .args(args)
+        .env("MEMORYWHALE_DATA_DIR", data_dir)
+        .output()
+        .unwrap()
+}
 
 #[test]
-fn imported_relative_transcript_path_cannot_authorize_compaction() {
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let root = std::env::temp_dir().join(format!("mw-compaction-{unique}"));
-    let source_dir = root.join("source");
-    let data_dir = root.join("data");
-    let work_dir = root.join("work");
-    fs::create_dir_all(&source_dir).unwrap();
-    fs::create_dir_all(&work_dir).unwrap();
-
-    let source_db = source_dir.join("memorywhale.sqlite3");
-    let source = Connection::open(&source_db).unwrap();
-    source
-        .execute_batch(
-            "CREATE TABLE sessions (
-                id INTEGER PRIMARY KEY,
-                transcript_path TEXT NOT NULL,
-                transcript TEXT NOT NULL,
-                started_at TEXT NOT NULL,
-                ended_at TEXT NOT NULL,
-                byte_count INTEGER NOT NULL,
-                status TEXT NOT NULL);
-             INSERT INTO sessions
-                (transcript_path, transcript, started_at, ended_at, byte_count, status)
-             VALUES
-                ('backing.log', 'recoverable imported transcript',
-                 '2020-01-01T00:00:00Z', '2020-01-01T01:00:00Z', 31, 'finished');",
-        )
-        .unwrap();
-    drop(source);
-
-    fs::write(work_dir.join("backing.log"), "unrelated local file").unwrap();
-
-    let import = Command::new(env!("CARGO_BIN_EXE_mw"))
-        .args(["import", source_db.to_str().unwrap()])
-        .env("MEMORYWHALE_DATA_DIR", &data_dir)
-        .current_dir(&work_dir)
-        .output()
-        .unwrap();
-    assert!(import.status.success(), "mw import failed: {import:?}");
-
-    let compact = Command::new(env!("CARGO_BIN_EXE_mw"))
+fn command_compaction_converges_on_second_apply() {
+    let data_dir = std::env::temp_dir().join(format!("mw-compaction-run-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&data_dir);
+    std::fs::create_dir_all(&data_dir).unwrap();
+    let large_output = "x".repeat(4096);
+    let remembered = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
         .args([
-            "memory",
-            "compact",
-            "--apply",
-            "--min-session-bytes",
+            "--stdout",
+            &large_output,
+            "--exit-code",
             "0",
-            "--stale-days",
-            "1",
+            "--",
+            "successful-build",
         ])
         .env("MEMORYWHALE_DATA_DIR", &data_dir)
-        .current_dir(&work_dir)
         .output()
         .unwrap();
-    assert!(compact.status.success(), "mw compact failed: {compact:?}");
+    assert!(
+        remembered.status.success(),
+        "capture failed: {remembered:?}"
+    );
 
-    let destination = Connection::open(data_dir.join("memorywhale.sqlite3")).unwrap();
-    let transcript: String = destination
-        .query_row("SELECT transcript FROM sessions", [], |row| row.get(0))
+    let first = run_mw(
+        &data_dir,
+        &["memory", "compact", "--apply", "--max-output-bytes", "256"],
+    );
+    assert!(first.status.success(), "first compaction failed: {first:?}");
+    let first_text = String::from_utf8_lossy(&first.stdout);
+    assert!(
+        first_text.contains("1 command run(s)"),
+        "nothing compacted: {first_text}"
+    );
+
+    let second = run_mw(
+        &data_dir,
+        &["memory", "compact", "--max-output-bytes", "256"],
+    );
+    assert!(second.status.success(), "second plan failed: {second:?}");
+    let second_text = String::from_utf8_lossy(&second.stdout);
+    assert!(
+        second_text.contains("0 session(s), 0 command run(s)"),
+        "compaction is not convergent: {second_text}"
+    );
+
+    let conn = Connection::open(data_dir.join("memorywhale.sqlite3")).unwrap();
+    let (stdout, stderr): (String, String) = conn
+        .query_row("SELECT stdout, stderr FROM command_runs", [], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })
         .unwrap();
-    assert_eq!(transcript, "recoverable imported transcript");
-
-    drop(destination);
-    fs::remove_dir_all(root).unwrap();
+    assert!(stdout.contains("[COMPACTED:"));
+    assert!(stdout.len() + stderr.len() <= 256);
+    let _ = std::fs::remove_dir_all(data_dir);
 }

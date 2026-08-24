@@ -938,6 +938,7 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
 /// session transcripts are replaced by a marker (the raw file on disk is
 /// untouched), and command output is head/tail-truncated around a marker.
 fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> {
+    const MIN_COMPACTION_STREAM_BYTES: i64 = 128;
     let mut apply = false;
     let mut min_session_bytes: i64 = 256 * 1024;
     let mut stale_days: i64 = 180;
@@ -978,11 +979,15 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
             }
         }
     }
-    if min_session_bytes < 0 || stale_days <= 0 || max_output_bytes <= 0 {
-        return Err(
-            "compaction thresholds must be non-negative, with stale-days and max-output-bytes positive"
-                .to_string(),
-        );
+    if min_session_bytes < 0
+        || stale_days <= 0
+        || max_output_bytes < MIN_COMPACTION_STREAM_BYTES * 2
+    {
+        return Err(format!(
+            "compaction thresholds must be non-negative, stale-days positive, and \
+                 max-output-bytes at least {}",
+            MIN_COMPACTION_STREAM_BYTES * 2
+        ));
     }
 
     use memorywhale_core::policy::{
@@ -1104,38 +1109,49 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
         return Ok(());
     }
 
-    // ---- apply ----
-    for (id, _) in &sessions {
-        let original: i64 = conn
-            .query_row(
-                "SELECT byte_count FROM sessions WHERE id = ?1",
-                params![id],
-                |r| r.get(0),
+    // ---- apply atomically ----
+    conn.execute_batch("BEGIN IMMEDIATE")
+        .map_err(|e| format!("failed to begin compaction transaction: {e}"))?;
+    let apply_result: Result<(), String> = (|| {
+        for (id, _) in &sessions {
+            let original: i64 = conn
+                .query_row(
+                    "SELECT byte_count FROM sessions WHERE id = ?1",
+                    params![id],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            let marker = compacted_session_transcript(original);
+            conn.execute(
+                "UPDATE sessions SET transcript = ?1 WHERE id = ?2",
+                params![marker, id],
             )
-            .unwrap_or(0);
-        let marker = compacted_session_transcript(original);
-        conn.execute(
-            "UPDATE sessions SET transcript = ?1, byte_count = ?2 WHERE id = ?3",
-            params![marker, marker.len() as i64, id],
-        )
-        .map_err(|e| format!("failed to compact session #{id}: {e}"))?;
-    }
-    for (id, _) in &runs {
-        let (stdout, stderr): (String, String) = conn
-            .query_row(
-                "SELECT stdout, stderr FROM command_runs WHERE id = ?1",
-                params![id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+            .map_err(|e| format!("failed to compact session #{id}: {e}"))?;
+        }
+        for (id, _) in &runs {
+            let (stdout, stderr): (String, String) = conn
+                .query_row(
+                    "SELECT stdout, stderr FROM command_runs WHERE id = ?1",
+                    params![id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .map_err(|e| format!("failed to read command #{id}: {e}"))?;
+            let new_stdout = compact_output_stream(&stdout, max_output_bytes / 2);
+            let new_stderr = compact_output_stream(&stderr, max_output_bytes / 2);
+            conn.execute(
+                "UPDATE command_runs SET stdout = ?1, stderr = ?2 WHERE id = ?3",
+                params![new_stdout, new_stderr, id],
             )
-            .map_err(|e| format!("failed to read command #{id}: {e}"))?;
-        let new_stdout = compact_output_stream(&stdout, max_output_bytes / 2);
-        let new_stderr = compact_output_stream(&stderr, max_output_bytes / 2);
-        conn.execute(
-            "UPDATE command_runs SET stdout = ?1, stderr = ?2 WHERE id = ?3",
-            params![new_stdout, new_stderr, id],
-        )
-        .map_err(|e| format!("failed to compact command #{id}: {e}"))?;
+            .map_err(|e| format!("failed to compact command #{id}: {e}"))?;
+        }
+        Ok(())
+    })();
+    if let Err(error) = apply_result {
+        let _ = conn.execute_batch("ROLLBACK");
+        return Err(error);
     }
+    conn.execute_batch("COMMIT")
+        .map_err(|e| format!("failed to commit compaction: {e}"))?;
     println!(
         "mw: compacted {} session(s) and {} command run(s). Rows were preserved; \
          raw session files on disk were not touched.",

@@ -27,7 +27,7 @@ The default thresholds are:
 | Evidence | Default rule |
 | --- | --- |
 | Session transcript | at least 256 KiB and at least 180 elapsed days old, unless an approved lesson makes it eligible after 45 days |
-| Successful command output | combined stdout/stderr over 64 KiB, with no error fingerprint and no bookmark |
+| Successful command output | combined stdout/stderr over 64 KiB, with no error fingerprint and no bookmark; `--max-output-bytes` must be at least 256 |
 | Failed/error-fingerprinted/bookmarked command | always keep |
 
 Tune the thresholds for a preview or apply:
@@ -44,7 +44,11 @@ mw memory compact \
 - **Rows are never deleted.** IDs, timestamps, commands, statuses, links, and
   provenance remain searchable.
 - **Raw session files are not touched.** A compacted session keeps its
-  `transcript_path`; only the inline SQLite transcript becomes a marker.
+  existing absolute `transcript_path`; only the inline SQLite transcript becomes
+  a marker. Sessions whose backing file is unavailable are not selected.
+- **Original byte counts remain.** `sessions.byte_count` continues to describe
+  the raw transcript, so `mw list` and `mw audit` do not underreport retained
+  evidence after compaction.
 - **Command output keeps both ends.** Compacted stdout/stderr retain a head and
   tail around a `[COMPACTED: … bytes omitted]` marker.
 - **Lessons are not compacted by this command.** A saved lesson is the reason
