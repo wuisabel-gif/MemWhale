@@ -899,7 +899,7 @@
           <a href="#ai-agents">AI Agents</a>
           <a href="#who">Who It's For</a>
           <a href="#run">Install</a>
-          <a href="docs/README.md">Docs</a>
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md">Docs</a>
           <a href="https://github.com/wuisabel-gif/MemWhale/releases/latest">Releases</a>
           <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub ↗</a>
           <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener">Delphin ↗</a>
@@ -1006,7 +1006,7 @@
             MemoryWhale serves developers whose debugging context is scattered
             across terminal scrollback, shell history, machines, and temporary
             agent sessions. See the full
-            <a href="docs/concepts/use-cases.md" style="color:var(--azure);text-decoration:underline;">use-case walkthroughs</a>
+            <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md" style="color:var(--azure);text-decoration:underline;">use-case walkthroughs</a>
             with real command transcripts.
           </p>
           <div class="grid">
@@ -1136,8 +1136,9 @@
               <span class="client-chip">+12 more</span>
             </div>
             <p class="section-copy">
-              <a href="integrations/README.md" style="color:var(--azure);text-decoration:underline;">24 verified integration guides</a>
-              — every cell links to a tested setup, including model gateways like
+              <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" style="color:var(--azure);text-decoration:underline;">Setup guides for 24 clients and tools</a>
+              — the capability matrix documents MCP support, auto-capture, and
+              verification status per client, including model gateways like
               OpenRouter and CLIProxyAPI.
             </p>
             <div class="stat-list">
@@ -1226,7 +1227,7 @@
             local store. <code>mw-mcp</code> is a trusted local stdio process;
             the dashboard binds to loopback by default. A non-loopback dashboard
             requires a token, and should only be exposed on a trusted network.
-            See the <a href="docs/SECURITY.md" style="color:var(--azure);text-decoration:underline;">local data threat model</a>.
+            See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md" style="color:var(--azure);text-decoration:underline;">local data threat model</a>.
           </p>
         </section>
 
@@ -1263,9 +1264,10 @@
               <span class="light"></span>
               <span class="light"></span>
             </div>
-            <pre><span class="prompt">$</span> mw demo                 # zero-setup: seed a sample store and explore
-<span class="ok">seeded demo dataset — try: mw search "error"</span>
-<span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+            <pre><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+<span class="ok">installed mw — try the demo next, zero risk</span>
+<span class="prompt">$</span> mw demo                 # seed a sample store, no real data touched
+<span class="ok">mw: demo memory inserted. Run `mw-serve` and search for project:demo.</span>
 <span class="prompt">$</span> mw-run -- cargo build
 <span class="ok">saved command, output, and exit code locally</span>
 <span class="prompt">$</span> mw search "openssl"
@@ -1277,13 +1279,12 @@
 
       <footer>
         <span>Copyright (c) 2026 wuisabel-gif. MemoryWhale - Rust/Tauri terminal memory and knowledge graph.</span>
-        <span>Ecosystem: <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener">Delphin</a> (communication) · MemoryWhale (memory). They refer to each other — see <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/ECOSYSTEM.md">ECOSYSTEM.md</a>.</span>
         <span>
-          <a href="docs/README.md">Documentation</a> ·
-          <a href="docs/concepts/use-cases.md">Use cases</a> ·
-          <a href="docs/reference/cli.md">CLI reference</a> ·
-          <a href="docs/SECURITY.md">Security policy</a> ·
-          <a href="integrations/README.md">Integrations</a>
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md">Documentation</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md">Use cases</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/reference/cli.md">CLI reference</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md">Security policy</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md">Integrations</a>
         </span>
         <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub: wuisabel-gif/MemWhale</a>
       </footer>
