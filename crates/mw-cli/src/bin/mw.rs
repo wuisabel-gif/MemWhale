@@ -946,6 +946,13 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
     while let Some(arg) = iter.next() {
         match arg.as_str() {
             "--apply" => apply = true,
+            "--help" | "-h" => {
+                println!(
+                    "usage: mw memory compact [--apply] [--min-session-bytes N] \
+                     [--stale-days N] [--max-output-bytes N]"
+                );
+                return Ok(());
+            }
             "--min-session-bytes" => {
                 min_session_bytes = iter
                     .next()
@@ -971,6 +978,12 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
             }
         }
     }
+    if min_session_bytes < 0 || stale_days <= 0 || max_output_bytes <= 0 {
+        return Err(
+            "compaction thresholds must be non-negative, with stale-days and max-output-bytes positive"
+                .to_string(),
+        );
+    }
 
     use memorywhale_core::policy::{
         compact_output_stream, compacted_session_transcript, run_tier, session_tier, RunFacts, Tier,
@@ -980,21 +993,25 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
     let mut sessions: Vec<(i64, String)> = Vec::new(); // (id, reason)
     {
         let mut stmt = conn
-            .prepare("SELECT id, byte_count, status FROM sessions")
+            .prepare("SELECT id, byte_count, status, transcript_path FROM sessions")
             .map_err(|e| format!("failed to scan sessions: {e}"))?;
-        let rows: Vec<(i64, i64, String)> = stmt
+        let rows: Vec<(i64, i64, String, String)> = stmt
             .query_map([], |r| {
                 Ok((
                     r.get::<_, i64>(0)?,
                     r.get::<_, i64>(1)?,
                     r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
                 ))
             })
             .map_err(|e| format!("failed to scan sessions: {e}"))?
             .collect::<std::result::Result<_, _>>()
             .map_err(|e| e.to_string())?;
-        for (id, byte_count, status) in rows {
-            if status == "recording" || byte_count <= min_session_bytes {
+        for (id, byte_count, status, transcript_path) in rows {
+            if status == "recording"
+                || byte_count <= min_session_bytes
+                || !Path::new(&transcript_path).is_file()
+            {
                 continue;
             }
             let days_since_end: i64 = conn
@@ -1029,7 +1046,8 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
         let mut stmt = conn
             .prepare(
                 "SELECT r.id, COALESCE(r.exit_code, 1), r.error_fingerprint,
-                        COALESCE(LENGTH(r.stdout), 0), COALESCE(LENGTH(r.stderr), 0),
+                        COALESCE(LENGTH(CAST(r.stdout AS BLOB)), 0),
+                        COALESCE(LENGTH(CAST(r.stderr AS BLOB)), 0),
                         EXISTS(SELECT 1 FROM bookmarks b WHERE b.command_run_id = r.id)
                  FROM command_runs r",
             )

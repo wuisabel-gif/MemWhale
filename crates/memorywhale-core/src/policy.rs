@@ -139,11 +139,22 @@ pub fn compact_output_stream(text: &str, max_bytes: i64) -> String {
     if text.len() <= max {
         return text.to_string();
     }
-    let keep_each = (max / 2).max(1);
-    let head = take_prefix(text, keep_each);
-    let tail = take_suffix(text, keep_each);
-    let omitted = text.len() - head.len() - tail.len();
-    format!("{head}\n[COMPACTED: {omitted} bytes omitted]\n{tail}")
+    if max == 0 {
+        return String::new();
+    }
+    let mut keep_each = (max / 2).max(1);
+    for _ in 0..8 {
+        let head = take_prefix(text, keep_each);
+        let tail = take_suffix(text, keep_each);
+        let omitted = text.len() - head.len() - tail.len();
+        let marker = format!("\n[COMPACTED: {omitted} bytes omitted]\n");
+        if head.len() + marker.len() + tail.len() <= max {
+            return format!("{head}{marker}{tail}");
+        }
+        keep_each =
+            keep_each.saturating_sub(((head.len() + marker.len() + tail.len() - max) / 2).max(1));
+    }
+    take_prefix("[COMPACTED]", max).to_string()
 }
 
 fn take_prefix(text: &str, mut limit: usize) -> &str {
@@ -327,10 +338,17 @@ mod tests {
     }
 
     #[test]
-    fn zero_max_keeps_one_byte_each_side_and_omits_the_rest() {
+    fn zero_max_returns_empty_output() {
         let out = compact_output_stream("anything", 0);
-        assert!(out.starts_with('a'));
-        assert!(out.ends_with('g'));
-        assert!(out.contains("[COMPACTED: 6 bytes omitted]"));
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn compacted_output_is_bounded_and_idempotent() {
+        let input = "x".repeat(10_000);
+        let once = compact_output_stream(&input, 512);
+        let twice = compact_output_stream(&once, 512);
+        assert!(once.len() <= 512);
+        assert_eq!(once, twice);
     }
 }
