@@ -282,6 +282,7 @@ fn print_help() {
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
          mw memory supersede <old-id> <new-id>  replace an old lesson with a newer one\n\
+         mw memory compact [--apply]  preview/apply conservative evidence compaction\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
          mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
@@ -979,28 +980,20 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
     let mut sessions: Vec<(i64, String)> = Vec::new(); // (id, reason)
     {
         let mut stmt = conn
-            .prepare(
-                "SELECT s.id, s.byte_count, s.status,
-                        COALESCE((SELECT MAX(CAST((julianday('now') - julianday(s.ended_at)) AS INTEGER))
-                                  FROM bookmarks b
-                                  WHERE b.source_session_id = s.id AND b.approved = 1),
-                                 NULL) AS lesson_age_days
-                 FROM sessions s",
-            )
+            .prepare("SELECT id, byte_count, status FROM sessions")
             .map_err(|e| format!("failed to scan sessions: {e}"))?;
-        let rows: Vec<(i64, i64, String, Option<i64>)> = stmt
+        let rows: Vec<(i64, i64, String)> = stmt
             .query_map([], |r| {
                 Ok((
                     r.get::<_, i64>(0)?,
                     r.get::<_, i64>(1)?,
                     r.get::<_, String>(2)?,
-                    r.get::<_, Option<i64>>(3)?,
                 ))
             })
             .map_err(|e| format!("failed to scan sessions: {e}"))?
             .collect::<std::result::Result<_, _>>()
             .map_err(|e| e.to_string())?;
-        for (id, byte_count, status, lesson_age) in rows {
+        for (id, byte_count, status) in rows {
             if status == "recording" || byte_count <= min_session_bytes {
                 continue;
             }
@@ -1012,7 +1005,13 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
                     |r| r.get(0),
                 )
                 .unwrap_or(0);
-            let has_lesson = matches!(lesson_age, Some(age) if age >= 0);
+            let has_lesson: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE source_session_id = ?1 AND approved = 1)",
+                    params![id],
+                    |r| r.get(0),
+                )
+                .unwrap_or(false);
             let facts = memorywhale_core::policy::SessionFacts {
                 byte_count,
                 has_distilled_lesson: has_lesson,
@@ -1038,7 +1037,7 @@ fn memory_compact_cmd(conn: &Connection, args: &[String]) -> Result<(), String> 
         let rows: Vec<(i64, i64, Option<String>, i64, i64, bool)> = stmt
             .query_map([], |r| {
                 Ok((
-                    r.get::<_, i64>(0)?,
+                    r.get::<_, Option<i64>>(0)?.unwrap_or(0),
                     r.get::<_, i64>(1)?,
                     r.get::<_, Option<String>>(2)?,
                     r.get::<_, i64>(3)?,

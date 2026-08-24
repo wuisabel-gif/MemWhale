@@ -29,6 +29,7 @@ mw rm 5                               # delete a session (+ its transcript); mw 
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
 mw memory stale <id>                  # retire an outdated lesson, preserving its row
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
+mw memory compact [--apply]           # preview/apply conservative evidence compaction
 mw audit                              # inspect capture policy and retained volume
 mw integrate hermes                   # register mw-mcp in Hermes Agent's config
 mw share 5 [-o file.html]             # write a self-contained HTML page of one item to send someone
@@ -61,6 +62,9 @@ Use `mw memory stale <id>` when advice is no longer current, or
 `mw memory supersede <old-id> <new-id>` when a newer lesson replaces it. Both
 commands preserve the original rows and provenance while excluding retired
 memories from normal retrieval.
+
+See the [memory compaction reference](compaction.md) for the dry-run-first
+policy, protected evidence rules, thresholds, and `--apply` behavior.
 
 `mw context` gives an agent a short digest of recent *failures*; `mw agent`
 dumps a whole *session transcript* as Markdown to hand over later — e.g.
