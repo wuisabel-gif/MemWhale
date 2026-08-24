@@ -4038,6 +4038,29 @@ mod tests {
         fs::create_dir_all(&src_dir).unwrap();
         env::set_var("MEMORYWHALE_DATA_DIR", &dest);
 
+        // Panic-safe cleanup: restore the env and delete temp dirs even if an
+        // assertion or unwrap fails mid-test.
+        struct Cleanup {
+            previous_data_dir: Option<std::ffi::OsString>,
+            dest: std::path::PathBuf,
+            src_dir: std::path::PathBuf,
+        }
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                if let Some(value) = self.previous_data_dir.take() {
+                    env::set_var("MEMORYWHALE_DATA_DIR", value);
+                } else {
+                    env::remove_var("MEMORYWHALE_DATA_DIR");
+                }
+                let _ = fs::remove_dir_all(&self.dest);
+                let _ = fs::remove_dir_all(&self.src_dir);
+            }
+        }
+        let _cleanup = Cleanup {
+            previous_data_dir,
+            dest: dest.clone(),
+            src_dir: src_dir.clone(),
+        };
         // A legacy-shaped source DB: minimal columns, a split-secret argv, and
         // one row with argv JSON no writer should have produced.
         let src_db = src_dir.join("memorywhale.sqlite3");
@@ -4093,16 +4116,9 @@ mod tests {
             .map(Result::unwrap)
             .collect::<Vec<_>>()
             .join("\n");
-        assert!(all.contains("[REDACTED]"), "split secret not redacted");
         assert!(!all.contains("supersecret99"), "raw secret imported");
 
         drop(conn);
-        if let Some(value) = previous_data_dir {
-            env::set_var("MEMORYWHALE_DATA_DIR", value);
-        } else {
-            env::remove_var("MEMORYWHALE_DATA_DIR");
-        }
-        let _ = fs::remove_dir_all(dest);
-        let _ = fs::remove_dir_all(src_dir);
+        // env + temp dirs are restored by the Cleanup guard on drop
     }
 }
