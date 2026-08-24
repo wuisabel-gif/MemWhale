@@ -26,6 +26,20 @@
     <meta name="theme-color" content="#f3f7fb" />
     <link rel="icon" type="image/png" href="assets/memorywhale-logo.png" />
     <link rel="apple-touch-icon" href="assets/memorywhale-logo.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "MemoryWhale",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Linux, macOS",
+        "description": "Persistent local debugging memory for developers and coding agents. Captures terminal evidence into local SQLite and serves it over MCP.",
+        "url": "https://wuisabel-gif.github.io/MemWhale/",
+        "softwareVersion": "0.8.0",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "license": "https://github.com/wuisabel-gif/MemWhale/blob/main/LICENSE"
+      }
+    </script>
     <style>
       :root {
         --paper: #f3f7fb;
@@ -603,6 +617,24 @@
         padding: 20px;
       }
 
+      .client-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 18px 0 14px;
+      }
+
+      .client-chip {
+        border: 1px solid var(--line-2);
+        border-radius: 99px;
+        padding: 5px 12px;
+        background: rgba(255, 255, 255, 0.86);
+        color: var(--ink-2);
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+
+
       .card strong {
         display: block;
         margin-bottom: 8px;
@@ -860,16 +892,18 @@
           <a href="#terminal-memory">Terminal Memory</a>
           <a href="#how-it-works">How It Works</a>
           <a href="#ai-agents">AI Agents</a>
-          <a href="#data">Your Data</a>
+          <a href="#who">Who It's For</a>
           <a href="#run">Install</a>
+          <a href="docs/README.md">Docs</a>
           <a href="https://github.com/wuisabel-gif/MemWhale/releases/latest">Releases</a>
+          <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub ↗</a>
           <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener">Delphin ↗</a>
         </div>
       </nav>
 
       <a class="release-banner" href="https://github.com/wuisabel-gif/MemWhale/releases/latest"
          style="display:block;text-align:center;padding:11px 16px;background:linear-gradient(105deg,#2b43dd 0%,#10b6c6 100%);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
-        🐋 Current release assets, checksums, and installation notes →
+        🐋 v0.8.0 — security &amp; hardening release · assets, checksums, and installation notes →
       </a>
 
       <main id="top">
@@ -960,6 +994,47 @@
           </div>
         </section>
 
+        <section id="who" class="section">
+          <p class="eyebrow">Who it's for</p>
+          <h2>Built for three ways of working.</h2>
+          <p class="section-copy">
+            MemoryWhale serves developers whose debugging context is scattered
+            across terminal scrollback, shell history, machines, and temporary
+            agent sessions. See the full
+            <a href="docs/concepts/use-cases.md" style="color:var(--azure);text-decoration:underline;">use-case walkthroughs</a>
+            with real command transcripts.
+          </p>
+          <div class="grid">
+            <article class="card">
+              <strong>🔍 The shell-centric debugger</strong>
+              <p>
+                You hit the same build, linker, or dependency error twice.
+                Shell history remembers the command — not the output, the error
+                tail, or the fix. <code>mw search</code> returns the old failing
+                run <em>and</em> the lesson linked to it.
+              </p>
+            </article>
+            <article class="card">
+              <strong>🛰️ The multi-machine worker</strong>
+              <p>
+                Jetson, lab server, laptop — sessions drop and each machine
+                keeps a private, incomplete history. <code>mw --live</code>
+                autosaves through disconnects; <code>mw push</code> /
+                <code>mw pull</code> move memory between machines explicitly.
+              </p>
+            </article>
+            <article class="card">
+              <strong>🤖 The coding-agent user</strong>
+              <p>
+                Claude Code, Codex, Cursor — every session starts with
+                re-explaining your environment. With <code>mw-mcp</code>, the
+                agent queries grounded past failures (with exit codes) instead
+                of guessing, and saves verified fixes with <code>remember</code>.
+              </p>
+            </article>
+          </div>
+        </section>
+
         <section id="terminal-memory" class="section">
           <p class="eyebrow">Terminal memory</p>
           <h2>A memory palace for command-line work.</h2>
@@ -1039,6 +1114,26 @@
               server over your local memory — register it once and Claude Code,
               Codex, or Cursor can query past failures directly. Retrieval stays
               local unless you explicitly export or transfer the data.
+            </p>
+            <div class="client-strip" aria-label="Verified MCP client integrations">
+              <span class="client-chip">Claude Code</span>
+              <span class="client-chip">Claude Desktop</span>
+              <span class="client-chip">Codex CLI</span>
+              <span class="client-chip">Cursor</span>
+              <span class="client-chip">Continue</span>
+              <span class="client-chip">Cline</span>
+              <span class="client-chip">Zed</span>
+              <span class="client-chip">Gemini CLI</span>
+              <span class="client-chip">VS Code</span>
+              <span class="client-chip">Windsurf</span>
+              <span class="client-chip">Goose</span>
+              <span class="client-chip">OpenCode</span>
+              <span class="client-chip">+12 more</span>
+            </div>
+            <p class="section-copy">
+              <a href="integrations/README.md" style="color:var(--azure);text-decoration:underline;">24 verified integration guides</a>
+              — every cell links to a tested setup, including model gateways like
+              OpenRouter and CLIProxyAPI.
             </p>
             <div class="stat-list">
               <div class="stat">
@@ -1143,11 +1238,11 @@
               use the Linux build.
             </p>
             <div class="stat-list">
-              <div class="stat"><span>Demo first</span><strong><a href="#demo">See the capture loop</a></strong></div>
-              <div class="stat"><span>Quick install</span><strong>curl … | sh</strong></div>
+              <div class="stat"><span>Try first</span><strong><code>mw demo</code> — seed data, zero risk</strong></div>
+              <div class="stat"><span>Quick install</span><strong><code>curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh</code></strong></div>
               <div class="stat">
                 <span>Cargo</span>
-                <strong>cargo install --git … mw-cli</strong>
+                <strong><code>cargo install --git https://github.com/wuisabel-gif/MemWhale.git memorywhale-cli</code></strong>
               </div>
               <div class="stat">
                 <span>Debian / Jetson</span>
@@ -1163,7 +1258,9 @@
               <span class="light"></span>
               <span class="light"></span>
             </div>
-            <pre><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+            <pre><span class="prompt">$</span> mw demo                 # zero-setup: seed a sample store and explore
+<span class="ok">seeded demo dataset — try: mw search "error"</span>
+<span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
 <span class="prompt">$</span> mw-run -- cargo build
 <span class="ok">saved command, output, and exit code locally</span>
 <span class="prompt">$</span> mw search "openssl"
@@ -1176,6 +1273,13 @@
       <footer>
         <span>Copyright (c) 2026 wuisabel-gif. MemoryWhale - Rust/Tauri terminal memory and knowledge graph.</span>
         <span>Ecosystem: <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener">Delphin</a> (communication) · MemoryWhale (memory). They refer to each other — see <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/ECOSYSTEM.md">ECOSYSTEM.md</a>.</span>
+        <span>
+          <a href="docs/README.md">Documentation</a> ·
+          <a href="docs/concepts/use-cases.md">Use cases</a> ·
+          <a href="docs/reference/cli.md">CLI reference</a> ·
+          <a href="docs/SECURITY.md">Security policy</a> ·
+          <a href="integrations/README.md">Integrations</a>
+        </span>
         <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub: wuisabel-gif/MemWhale</a>
       </footer>
     </div>
