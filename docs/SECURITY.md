@@ -30,6 +30,24 @@ need the same protection as shell history or an unencrypted developer backup.
 - Use `mw rm` for individual deletion and `mw prune --older-than <window>` for
   retention cleanup. Preview bulk cleanup with `--dry-run`.
 
+## Desktop Content Security Policy
+
+The Tauri desktop shell uses a restrictive CSP in
+`src-tauri/tauri.conf.json`:
+
+- scripts and default resources are same-origin only;
+- images and fonts are same-origin only; the current frontend uses inline SVG
+  and `File.text()` rather than Tauri's asset protocol or blob/data URLs;
+- `ipc:` and `http://ipc.localhost` are required for Tauri IPC;
+- inline styles are allowed because the React frontend currently uses inline
+  style attributes for dynamic widths and layout values.
+- `base-uri 'none'` prevents injected markup from changing the document base;
+  `form-action 'none'` prevents injected forms from submitting data.
+
+There is no wildcard script source, `unsafe-eval`, or remote script/style
+source. If inline styles are migrated to CSS classes, remove `unsafe-inline`
+from `style-src` as a further hardening step.
+
 For a sensitive repository, prefer preventing capture over relying on
 redaction or later deletion.
 
