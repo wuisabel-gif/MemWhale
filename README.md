@@ -6,6 +6,8 @@
 
 <p align="center"><strong>Persistent local debugging memory for developers and coding agents.</strong></p>
 
+<p align="center"><a href="README.zh-CN.md">中文 README</a></p>
+
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
   <a href="https://github.com/wuisabel-gif/MemWhale/releases"><img src="https://img.shields.io/github/v/release/wuisabel-gif/MemWhale?color=2b43dd&label=release" alt="release"/></a>
