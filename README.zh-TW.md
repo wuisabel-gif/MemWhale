@@ -21,8 +21,10 @@ MemoryWhale 記錄的是開發與除錯經驗，而不是所有資訊。它是�
 Linux x86_64/aarch64 與 macOS 提供預先編譯的二進位檔：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/v0.8.0/install.sh | sh
 ```
+
+這個版本化的安裝腳本會尋找最新的穩定版本，並在發布資產提供 SHA256 檔案時驗證下載內容。若要使用其他版本，請將 URL 中的標籤替換成對應的 release tag。
 
 也可以透過 Cargo 或 Homebrew 安裝：
 
@@ -91,7 +93,7 @@ claude mcp add memorywhale -- mw-mcp
 
 ## MemoryWhale 適合誰？
 
-MemoryWhale 適合那些除錯上下文經常散落在終端機捲動紀錄、Shell History、不同開發機器，以及暫時性 Agent 工作階段中的開發者。
+MemoryWhale 適合那些除錯上下文經常散落在終端機捲動紀錄、Shell History、不同開發機器或暫時性 Agent 工作階段的開發者。
 
 如果你經常：
 
