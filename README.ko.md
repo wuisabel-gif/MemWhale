@@ -11,7 +11,7 @@ MemoryWhale은 디버깅 과정에서 실제로 일어난 일을 기록합니다
 ## 왜 MemoryWhale인가요?
 
 - **실제로 일어난 일을 기억합니다.** 단순히 Shell History의 명령어 한 줄만 남기는 것이 아니라 명령어, 실행 환경, 출력, 실패 원인, 그리고 그 과정에서 얻은 해결 방법과 교훈까지 보존합니다.
-- **여러 코딩 에이전트가 하나의 메모리를 공유할 수 있습니다.** stdio MCP를 지원하는 모든 클라이언트는 `mw-mcp`를 통해 동일한 로컬 메모리를 읽고 쓸 수 있습니다.
+- **여러 코딩 에이전트가 하나의 메모리를 공유할 수 있습니다.** stdio MCP를 지원하는 모든 클라이언트는 `mw-mcp`를 통해 동일한 로컬 메모리를 읽을 수 있으며, `remember`를 통해 단일 노트를 저장할 수 있습니다.
 - **개발 기록을 로컬에 보관합니다.** MemoryWhale은 계정이나 호스팅 서비스 없이 사용할 수 있으며, 메모리를 위해 별도의 토큰 비용을 지불할 필요도 없습니다.
 
 MemoryWhale은 모든 것을 기록하는 시스템이 아니라 개발과 디버깅 경험을 기록하는 시스템입니다. 자율 코딩 에이전트도, 범용 개인 메모리 시스템도 아니며, 프로젝트 문서를 대체하기 위한 도구도 아닙니다.
@@ -79,7 +79,7 @@ MCP를 사용하면 에이전트가 기존 메모리에 접근할 수 있지만,
 - `similar_failures`
 - `stats`
 
-현재 Claude Code, Claude Desktop, Cursor, VS Code / GitHub Copilot, Windsurf, Zed, Codex CLI, Cline, Continue, Gemini CLI, Goose, OpenClaw, CrowClaw, Hermes Agent 및 기타 호환 클라이언트를 위한 가이드가 제공됩니다. 통합 매트릭스에는 24개의 클라이언트와 도구 항목이 있으며, 각 항목의 검증 상태도 표시합니다.
+현재 Claude Code, Claude Desktop, Cursor, VS Code / GitHub Copilot, Windsurf, Zed, Codex CLI, Cline, Continue, Gemini CLI, Goose, OpenClaw, CrowClaw, Hermes Agent 및 기타 호환 클라이언트를 위한 가이드가 제공됩니다. 통합 매트릭스에는 24개의 클라이언트와 도구 항목이 있으며, 각 항목별로 저장소에서 제공하는 기능을 표시합니다.
 
 예를 들어 Claude Code에서는 다음과 같이 등록합니다.
 
