@@ -121,16 +121,20 @@ fn seed_failure(conn: &Connection, task: &Task, now: DateTime<Utc>) {
 
 /// Rank a query through the same loader + engine the CLI and MCP use, returning
 /// the retrieved *note* ids (decoded) in engine order.
-fn ranked_notes(conn: &Connection, query: &str, now: DateTime<Utc>) -> Vec<i64> {
-    let engine = BuiltinEngine::new(load_memories(conn));
-    engine
+fn ranked_notes(
+    conn: &Connection,
+    query: &str,
+    now: DateTime<Utc>,
+) -> Result<Vec<i64>, memorywhale_core::sqlite::LoadError> {
+    let engine = BuiltinEngine::new(load_memories(conn)?);
+    Ok(engine
         .retrieve(&Query::new(query, now), 20)
         .into_iter()
         .filter_map(|s| match decode_id(s.memory.id) {
             (Source::Note, real) => Some(real),
             _ => None,
         })
-        .collect()
+        .collect())
 }
 
 #[derive(Serialize)]
@@ -190,7 +194,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let sf_shortcut = recognized && insight.resolutions > 0;
 
         // search_memory path.
-        let ranked = ranked_notes(&conn, &task.query, now);
+        let ranked = ranked_notes(&conn, &task.query, now)?;
         let sm_at_1 = mw::fix_surfaced(&ranked, &task.fix_ids, 1);
         let sm_at_5 = mw::fix_surfaced(&ranked, &task.fix_ids, 5);
 

@@ -252,7 +252,7 @@ mod tests {
             assert_eq!(count, expected, "{table} rows changed during upgrade");
         }
 
-        let memories = memorywhale_core::sqlite::load_memories(&conn);
+        let memories = memorywhale_core::sqlite::load_memories(&conn).unwrap();
         assert!(
             memories
                 .iter()

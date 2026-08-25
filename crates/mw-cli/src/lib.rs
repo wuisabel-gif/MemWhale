@@ -1825,7 +1825,7 @@ mod tests {
 
         let now = Utc.with_ymd_and_hms(2026, 7, 19, 12, 0, 0).unwrap();
         let rank = |q: &str| -> Vec<i64> {
-            let eng = BuiltinEngine::new(load_memories(&conn));
+            let eng = BuiltinEngine::new(load_memories(&conn).unwrap());
             eng.retrieve(&Query::new(q, now), 20)
                 .into_iter()
                 .filter_map(|s| match decode_id(s.memory.id) {
@@ -2273,7 +2273,7 @@ mod tests {
         // Assert through the REAL retrieval path — the shared loader every
         // surface (mw search, MCP, desktop) goes through — not a re-implemented
         // query, so this test fails if the loader ever drops the approved filter.
-        let loaded = memorywhale_core::sqlite::load_memories(&conn);
+        let loaded = memorywhale_core::sqlite::load_memories(&conn).unwrap();
         let visible: Vec<i64> = loaded
             .iter()
             .filter_map(|m| match memorywhale_core::sqlite::decode_id(m.id) {
@@ -2404,6 +2404,7 @@ mod tests {
         assert_eq!(kept, ("superseded".to_string(), Some(replacement)));
 
         let visible: Vec<i64> = memorywhale_core::sqlite::load_memories(&conn)
+            .unwrap()
             .into_iter()
             .filter_map(
                 |memory| match memorywhale_core::sqlite::decode_id(memory.id) {
@@ -2457,7 +2458,7 @@ mod tests {
         assert_eq!(notes, legacy_notes, "original notes must survive untouched");
 
         // Scoped retrieval now works through the shared loader + scope filter.
-        let mems = memorywhale_core::sqlite::load_memories(&conn);
+        let mems = memorywhale_core::sqlite::load_memories(&conn).unwrap();
         assert_eq!(mems.len(), 2);
         let scoped = scope_memories(&conn, mems.clone(), Some("camera-driver"), None, None);
         assert_eq!(scoped.len(), 1);

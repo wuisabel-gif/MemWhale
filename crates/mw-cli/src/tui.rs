@@ -576,7 +576,7 @@ pub fn run() -> Result<(), String> {
     let conn = Connection::open(crate::database_path()?)
         .map_err(|e| format!("failed to open memory db: {e}"))?;
     let _ = crate::migrate(&conn);
-    let mems = load_memories(&conn);
+    let mems = load_memories(&conn).map_err(|e| format!("failed to load memories for TUI: {e}"))?;
     if mems.is_empty() {
         return Err("no memories yet — run some commands with `mw` first".to_string());
     }

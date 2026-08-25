@@ -1193,16 +1193,22 @@ fn remember_cmd(args: &[String]) -> Result<(), String> {
     // be opened here, skip the check and let `remember` surface the real error.
     if !force {
         if let Ok(conn) = open_session_db() {
-            let mems = memorywhale_core::sqlite::load_memories(&conn);
-            if let Some((sim, existing)) = memorywhale_cli::nearest_similar(&mems, &text) {
-                if sim >= memorywhale_cli::DEDUP_SIMILARITY {
-                    let snippet: String = existing.text.chars().take(100).collect();
-                    return Err(format!(
-                        "a similar memory already exists (#{} · {:.0}% overlap):\n  \"{}\"\nnot saved (near-duplicate). Re-run with `mw remember --force` to save it anyway.",
-                        existing.id,
-                        sim * 100.0,
-                        memorywhale_cli::redact(&snippet),
-                    ));
+            match memorywhale_core::sqlite::load_memories(&conn) {
+                Ok(mems) => {
+                    if let Some((sim, existing)) = memorywhale_cli::nearest_similar(&mems, &text) {
+                        if sim >= memorywhale_cli::DEDUP_SIMILARITY {
+                            let snippet: String = existing.text.chars().take(100).collect();
+                            return Err(format!(
+                                "a similar memory already exists (#{} · {:.0}% overlap):\n  \"{}\"\nnot saved (near-duplicate). Re-run with `mw remember --force` to save it anyway.",
+                                existing.id,
+                                sim * 100.0,
+                                memorywhale_cli::redact(&snippet),
+                            ));
+                        }
+                    }
+                }
+                Err(error) => {
+                    eprintln!("mw: could not check for duplicate memories; continuing: {error}")
                 }
             }
         }
@@ -2424,7 +2430,8 @@ fn sync_mempalace(args: &[String]) -> Result<(), String> {
 
     let mut conn = open_session_db()?;
     memorywhale_cli::migrate(&conn)?; // brings up the mempalace_sync table (v5)
-    let mut mems = memorywhale_core::sqlite::load_memories(&conn);
+    let mut mems = memorywhale_core::sqlite::load_memories(&conn)
+        .map_err(|e| format!("failed to load memories for sync: {e}"))?;
     if limit > 0 && mems.len() > limit {
         mems.truncate(limit);
     }
@@ -2627,7 +2634,8 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // One loader, one engine — the same code path the desktop Recall panel uses.
     // "now" is supplied here by the caller so scoring stays deterministic.
     let now = Utc::now();
-    let mems = memorywhale_core::sqlite::load_memories(&conn);
+    let mems = memorywhale_core::sqlite::load_memories(&conn)
+        .map_err(|e| format!("failed to load memories for search: {e}"))?;
     // No flags => `mems` comes back untouched, i.e. exactly the old behaviour.
     let mems = memorywhale_cli::scope_memories(
         &conn,
@@ -3437,7 +3445,8 @@ fn explain_cmd(args: &[String]) -> Result<(), String> {
     // scoring stays deterministic.
     let conn = open_session_db()?;
     let now = Utc::now();
-    let mems = memorywhale_core::sqlite::load_memories(&conn);
+    let mems = memorywhale_core::sqlite::load_memories(&conn)
+        .map_err(|e| format!("failed to load memories for explain: {e}"))?;
     let mems = memorywhale_cli::scope_memories(
         &conn,
         mems,
@@ -3466,11 +3475,12 @@ fn explain_cmd(args: &[String]) -> Result<(), String> {
 /// and to render neighbor text.
 fn memory_map(
     conn: &rusqlite::Connection,
-) -> std::collections::HashMap<i64, memorywhale_core::Memory> {
-    memorywhale_core::sqlite::load_memories(conn)
+) -> Result<std::collections::HashMap<i64, memorywhale_core::Memory>, String> {
+    Ok(memorywhale_core::sqlite::load_memories(conn)
+        .map_err(|e| format!("failed to load memories for links: {e}"))?
         .into_iter()
         .map(|m| (m.id, m))
-        .collect()
+        .collect())
 }
 
 fn parse_link_id(arg: &str) -> Result<i64, String> {
@@ -3492,7 +3502,7 @@ fn link_cmd(args: &[String]) -> Result<(), String> {
         _ => return Err("usage: mw link <a> <b> [rel:<type>]".to_string()),
     };
     let conn = open_session_db()?;
-    let known = memory_map(&conn);
+    let known = memory_map(&conn)?;
     for id in [a, b] {
         if !known.contains_key(&id) {
             return Err(format!(
@@ -3533,7 +3543,7 @@ fn links_cmd(args: &[String]) -> Result<(), String> {
         _ => return Err("usage: mw links <id>".to_string()),
     };
     let conn = open_session_db()?;
-    let map = memory_map(&conn);
+    let map = memory_map(&conn)?;
     if !map.contains_key(&id) {
         return Err(format!(
             "no memory with id {id} (list ids with `mw search`)"
@@ -3565,8 +3575,9 @@ struct PetSnapshot {
     expired: i64,
 }
 
-fn pet_snapshot(conn: &rusqlite::Connection) -> PetSnapshot {
-    let mems = memorywhale_core::sqlite::load_memories(conn);
+fn pet_snapshot(conn: &rusqlite::Connection) -> Result<PetSnapshot, String> {
+    let mems = memorywhale_core::sqlite::load_memories(conn)
+        .map_err(|e| format!("failed to load memories for pet: {e}"))?;
     let total = mems.len();
     let now = Utc::now();
     let days = mems
@@ -3584,12 +3595,12 @@ fn pet_snapshot(conn: &rusqlite::Connection) -> PetSnapshot {
             |r| r.get(0),
         )
         .unwrap_or(0);
-    PetSnapshot {
+    Ok(PetSnapshot {
         total,
         days,
         links,
         expired,
-    }
+    })
 }
 
 /// Render one frame of the whale. `tick` animates the swim/spout/blink; pass 0
@@ -3653,11 +3664,11 @@ fn pet_cmd(args: &[String]) -> Result<(), String> {
     let conn = open_session_db()?;
     if args.iter().any(|a| a == "--watch") {
         use std::io::Write;
-        let mut snap = pet_snapshot(&conn);
+        let mut snap = pet_snapshot(&conn)?;
         let mut tick: u64 = 0;
         loop {
             if tick.is_multiple_of(10) {
-                snap = pet_snapshot(&conn); // refresh the store every ~2.5s
+                snap = pet_snapshot(&conn)?; // refresh the store every ~2.5s
             }
             print!("\x1b[2J\x1b[H{}", pet_frame(&snap, tick));
             let _ = std::io::stdout().flush();
@@ -3665,7 +3676,7 @@ fn pet_cmd(args: &[String]) -> Result<(), String> {
             tick += 1;
         }
     }
-    println!("{}", pet_frame(&pet_snapshot(&conn), 0));
+    println!("{}", pet_frame(&pet_snapshot(&conn)?, 0));
     Ok(())
 }
 

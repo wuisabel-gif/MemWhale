@@ -6,8 +6,8 @@
 //!
 //! # The core flow
 //!
-//! 1. Build [`Memory`] items — in code, or via [`sqlite::load_memories`] from a
-//!    MemoryWhale database.
+//! 1. Build [`Memory`] items — in code, or via the fallible
+//!    [`sqlite::load_memories`] loader from a MemoryWhale database.
 //! 2. Wrap them in an [`engine::BuiltinEngine`] (the default, zero-setup engine).
 //! 3. Run a [`Query`] through [`engine::MemoryEngine::retrieve`].
 //! 4. Read back [`ScoredMemory`] values: a blended `score`, plus the per-signal

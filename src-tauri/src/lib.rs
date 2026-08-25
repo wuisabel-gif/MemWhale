@@ -20,6 +20,8 @@ enum AppError {
     #[error(transparent)]
     Db(#[from] rusqlite::Error),
     #[error(transparent)]
+    Retrieval(#[from] memorywhale_core::sqlite::LoadError),
+    #[error(transparent)]
     Io(#[from] std::io::Error),
 }
 
@@ -582,7 +584,7 @@ fn recall_memories(
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        let mems = memorywhale_core::sqlite::load_memories(&conn);
+        let mems = memorywhale_core::sqlite::load_memories(&conn)?;
         build_recall_engine(&conn, mems)
     };
     let q = memorywhale_core::Query::new(query, Utc::now());
@@ -604,7 +606,7 @@ fn explain_memory(
             .db
             .lock()
             .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-        let mems = memorywhale_core::sqlite::load_memories(&conn);
+        let mems = memorywhale_core::sqlite::load_memories(&conn)?;
         build_recall_engine(&conn, mems)
     };
     let q = memorywhale_core::Query::new(query, Utc::now());

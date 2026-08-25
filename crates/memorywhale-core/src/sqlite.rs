@@ -3,15 +3,17 @@
 //! Both surfaces call this — the desktop app (`documents` + `command_runs` +
 //! `agent_turns`) and the CLI (`sessions` + `command_runs` + `bookmarks`). The
 //! two databases have different tables, so every source is queried
-//! independently and a missing table is treated as zero rows (not an error).
-//! That keeps a single loader honest across both schemas instead of two copies
-//! drifting apart.
+//! independently and an absent optional table is treated as zero rows. Once a
+//! source table is present, however, schema, query, and row errors are returned
+//! to the caller instead of being mistaken for an empty source.
 //!
 //! Ids are namespaced per source so `explain(id)` stays stable and unique
 //! across sources; [`decode_id`] recovers the source + original row id for
 //! display (e.g. `mw replay <id>` / `mw show <id>`).
 
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt;
 
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
@@ -74,36 +76,227 @@ fn parse_ts(ts: &str) -> DateTime<Utc> {
     }
 }
 
-/// Load everything MemoryWhale remembers as scorable memories, tolerant of any
-/// source table being absent (so it serves both the desktop and CLI schemas).
-pub fn load_memories(conn: &Connection) -> Vec<Memory> {
+/// The stage at which loading a present source failed.
+#[derive(Debug)]
+pub enum LoadErrorKind {
+    /// Reading SQLite schema metadata failed.
+    Schema { source: rusqlite::Error },
+    /// Preparing the source query failed. This includes an incompatible
+    /// present-table schema (for example, a missing required column).
+    Prepare { source: rusqlite::Error },
+    /// Executing or advancing a source query failed.
+    Query { source: rusqlite::Error },
+    /// A row could not be decoded into the source's canonical memory shape.
+    RowDecode { row: usize, source: rusqlite::Error },
+}
+
+/// A structured retrieval-loading failure.
+///
+/// `table` identifies the source whose evidence could not be read. Optional
+/// source tables that are genuinely absent do not produce an error; this type
+/// is reserved for failures after schema inspection finds a source, or for a
+/// failure to inspect that schema.
+#[derive(Debug)]
+pub struct LoadError {
+    pub table: &'static str,
+    pub kind: LoadErrorKind,
+}
+
+impl LoadError {
+    fn schema(table: &'static str, source: rusqlite::Error) -> Self {
+        Self {
+            table,
+            kind: LoadErrorKind::Schema { source },
+        }
+    }
+
+    fn prepare(table: &'static str, source: rusqlite::Error) -> Self {
+        Self {
+            table,
+            kind: LoadErrorKind::Prepare { source },
+        }
+    }
+
+    fn query(table: &'static str, source: rusqlite::Error) -> Self {
+        Self {
+            table,
+            kind: LoadErrorKind::Query { source },
+        }
+    }
+
+    fn row_decode(table: &'static str, row: usize, source: rusqlite::Error) -> Self {
+        Self {
+            table,
+            kind: LoadErrorKind::RowDecode { row, source },
+        }
+    }
+}
+
+impl fmt::Display for LoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.kind {
+            LoadErrorKind::Schema { source } => {
+                write!(f, "failed to inspect {} schema: {source}", self.table)
+            }
+            LoadErrorKind::Prepare { source } => {
+                write!(
+                    f,
+                    "failed to prepare {} retrieval query: {source}",
+                    self.table
+                )
+            }
+            LoadErrorKind::Query { source } => {
+                write!(f, "failed to query {}: {source}", self.table)
+            }
+            LoadErrorKind::RowDecode { row, source } => write!(
+                f,
+                "failed to decode row {} from {}: {source}",
+                row + 1,
+                self.table
+            ),
+        }
+    }
+}
+
+impl Error for LoadError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match &self.kind {
+            LoadErrorKind::Schema { source }
+            | LoadErrorKind::Prepare { source }
+            | LoadErrorKind::Query { source } => Some(source),
+            LoadErrorKind::RowDecode { source, .. } => Some(source),
+        }
+    }
+}
+
+/// Load everything MemoryWhale remembers as scorable memories, tolerant of
+/// optional source tables being absent (so it serves both desktop and CLI
+/// schemas). A present source that cannot be read is an error.
+pub fn load_memories(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
     let mut mems = Vec::new();
-    mems.extend(documents(conn));
-    mems.extend(command_runs(conn));
-    mems.extend(agent_turns(conn));
-    mems.extend(bookmarks(conn));
-    mems.extend(sessions(conn));
-    mems
+    mems.extend(documents(conn)?);
+    mems.extend(command_runs(conn)?);
+    mems.extend(agent_turns(conn)?);
+    mems.extend(bookmarks(conn)?);
+    mems.extend(sessions(conn)?);
+    Ok(mems)
+}
+
+/// Check SQLite's schema catalogs rather than using a failed source prepare as
+/// the missing-table signal. Include temporary tables because callers/tests may
+/// use a temporary source on an otherwise ordinary connection.
+fn table_exists(conn: &Connection, table: &'static str) -> Result<bool, LoadError> {
+    conn.query_row(
+        "SELECT EXISTS(
+             SELECT 1 FROM sqlite_master
+              WHERE type IN ('table', 'view') AND name COLLATE NOCASE = ?1
+             UNION ALL
+             SELECT 1 FROM sqlite_temp_master
+              WHERE type IN ('table', 'view') AND name COLLATE NOCASE = ?1
+         )",
+        [table],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|present| present != 0)
+    .map_err(|source| LoadError::schema(table, source))
+}
+
+/// Read a present table's column names. The bookmark loader uses this metadata
+/// to choose the supported legacy filtering shape before preparing SQL.
+fn table_columns(conn: &Connection, table: &'static str) -> Result<Option<Vec<String>>, LoadError> {
+    if !table_exists(conn, table)? {
+        return Ok(None);
+    }
+
+    let pragma = match table {
+        "bookmarks" => "PRAGMA table_info(bookmarks)",
+        _ => unreachable!("column metadata is currently only needed for bookmarks"),
+    };
+    let mut stmt = conn
+        .prepare(pragma)
+        .map_err(|source| LoadError::schema(table, source))?;
+    let mut rows = stmt
+        .query([])
+        .map_err(|source| LoadError::schema(table, source))?;
+    let mut columns = Vec::new();
+    while let Some(row) = rows
+        .next()
+        .map_err(|source| LoadError::schema(table, source))?
+    {
+        columns.push(
+            row.get::<_, String>(1)
+                .map_err(|source| LoadError::schema(table, source))?,
+        );
+    }
+    Ok(Some(columns))
+}
+
+/// Read a present source table. Keeping query execution and row decoding
+/// separate means a database/locking failure while stepping the query is not
+/// reported as a bad row.
+fn load_rows_existing<T, F>(
+    conn: &Connection,
+    table: &'static str,
+    sql: &str,
+    mut decode: F,
+) -> Result<Vec<T>, LoadError>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
+    let mut stmt = conn
+        .prepare(sql)
+        .map_err(|source| LoadError::prepare(table, source))?;
+    let mut rows = stmt
+        .query([])
+        .map_err(|source| LoadError::query(table, source))?;
+    let mut decoded = Vec::new();
+    let mut row_number = 0;
+    while let Some(row) = rows
+        .next()
+        .map_err(|source| LoadError::query(table, source))?
+    {
+        decoded
+            .push(decode(row).map_err(|source| LoadError::row_decode(table, row_number, source))?);
+        row_number += 1;
+    }
+    Ok(decoded)
+}
+
+/// Read an optional source table after its existence has been established from
+/// schema metadata.
+fn load_rows<T, F>(
+    conn: &Connection,
+    table: &'static str,
+    sql: &str,
+    decode: F,
+) -> Result<Vec<T>, LoadError>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
+    if !table_exists(conn, table)? {
+        return Ok(Vec::new());
+    }
+    load_rows_existing(conn, table, sql, decode)
 }
 
 /// Documents / notes (desktop). `text` = title + content.
-fn documents(conn: &Connection) -> Vec<Memory> {
-    let Ok(mut stmt) =
-        conn.prepare("SELECT id, title, content, source_type, created_at FROM documents")
-    else {
-        return Vec::new();
-    };
-    let rows = stmt.query_map([], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
-            r.get::<_, String>(3)?,
-            r.get::<_, String>(4)?,
-        ))
-    });
-    let Ok(rows) = rows else { return Vec::new() };
-    rows.flatten()
+fn documents(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
+    let rows = load_rows(
+        conn,
+        "documents",
+        "SELECT id, title, content, source_type, created_at FROM documents",
+        |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+            ))
+        },
+    )?;
+    Ok(rows
+        .into_iter()
         .map(|(id, title, content, source_type, created)| {
             let when = parse_ts(&created);
             Memory {
@@ -117,35 +310,34 @@ fn documents(conn: &Connection) -> Vec<Memory> {
                 embedding: None,
             }
         })
-        .collect()
+        .collect())
 }
 
 /// Command runs (both). Reinforcement = how often the same command recurs;
 /// failures are more important than successes.
-fn command_runs(conn: &Connection) -> Vec<Memory> {
-    let Ok(mut stmt) = conn.prepare(
+fn command_runs(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
+    let rows = load_rows(
+        conn,
+        "command_runs",
         "SELECT id, command, argv_json, notes, stderr, exit_code, created_at FROM command_runs",
-    ) else {
-        return Vec::new();
-    };
-    let rows = stmt.query_map([], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
-            r.get::<_, String>(3)?,
-            r.get::<_, String>(4)?,
-            r.get::<_, Option<i64>>(5)?,
-            r.get::<_, String>(6)?,
-        ))
-    });
-    let Ok(rows) = rows else { return Vec::new() };
-    let runs: Vec<_> = rows.flatten().collect();
+        |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, Option<i64>>(5)?,
+                r.get::<_, String>(6)?,
+            ))
+        },
+    )?;
     let mut counts: HashMap<String, u32> = HashMap::new();
-    for (_, cmd, ..) in &runs {
+    for (_, cmd, ..) in &rows {
         *counts.entry(cmd.to_lowercase()).or_insert(0) += 1;
     }
-    runs.into_iter()
+    Ok(rows
+        .into_iter()
         .map(
             |(id, command, argv_json, notes, stderr, exit_code, created)| {
                 let when = parse_ts(&created);
@@ -169,32 +361,33 @@ fn command_runs(conn: &Connection) -> Vec<Memory> {
                 }
             },
         )
-        .collect()
+        .collect())
 }
 
 /// Agent conversation turns (desktop; written by Delphin / hooks).
-fn agent_turns(conn: &Connection) -> Vec<Memory> {
-    let Ok(mut stmt) = conn.prepare("SELECT id, ts, direction, text FROM agent_turns") else {
-        return Vec::new();
-    };
-    let rows = stmt.query_map([], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
-            r.get::<_, String>(3)?,
-        ))
-    });
-    let Ok(rows) = rows else { return Vec::new() };
+fn agent_turns(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
+    let rows = load_rows(
+        conn,
+        "agent_turns",
+        "SELECT id, ts, direction, text FROM agent_turns",
+        |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+            ))
+        },
+    )?;
     let turns: Vec<_> = rows
-        .flatten()
+        .into_iter()
         .filter(|(_, _, _, t)| !t.trim().is_empty())
         .collect();
     let mut counts: HashMap<String, u32> = HashMap::new();
     for (_, _, _, t) in &turns {
         *counts.entry(t.trim().to_lowercase()).or_insert(0) += 1;
     }
-    turns
+    Ok(turns
         .into_iter()
         .map(|(id, ts, direction, text)| {
             let when = parse_ts(&ts);
@@ -215,38 +408,48 @@ fn agent_turns(conn: &Connection) -> Vec<Memory> {
                 embedding: None,
             }
         })
-        .collect()
+        .collect())
 }
 
 /// Remembered lessons / bookmarks (CLI `mw mark` / `mw remember`).
-fn bookmarks(conn: &Connection) -> Vec<Memory> {
+fn bookmarks(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
     // Review mode is enforced at write time (agent notes land with approved=0),
-    // so every reader just filters approved=1 — one rule, no config lookup here.
-    // Older DBs predating the provenance migration have no `approved` column;
-    // there the prepare fails and we fall back to loading everything.
-    let mut stmt = match conn.prepare(
-        "SELECT id, label, created_at FROM bookmarks WHERE approved = 1 AND status = 'active'",
-    ) {
-        Ok(stmt) => stmt,
-        Err(_) => {
-            match conn.prepare("SELECT id, label, created_at FROM bookmarks WHERE approved = 1") {
-                Ok(stmt) => stmt,
-                Err(_) => match conn.prepare("SELECT id, label, created_at FROM bookmarks") {
-                    Ok(stmt) => stmt,
-                    Err(_) => return Vec::new(),
-                },
-            }
-        }
+    // so every reader filters approved=1 when that column exists. Lifecycle
+    // filtering is likewise applied only when the status column exists. Older
+    // databases are selected from schema metadata, not by treating an
+    // arbitrary prepare error as a legacy-schema signal.
+    let Some(columns) = table_columns(conn, "bookmarks")? else {
+        return Ok(Vec::new());
     };
-    let rows = stmt.query_map([], |r| {
+    let has_column = |name: &str| {
+        columns
+            .iter()
+            .any(|column| column.eq_ignore_ascii_case(name))
+    };
+    let mut predicates = Vec::new();
+    if has_column("approved") {
+        predicates.push("approved = 1");
+    }
+    if has_column("status") {
+        predicates.push("status = 'active'");
+    }
+    let sql = if predicates.is_empty() {
+        "SELECT id, label, created_at FROM bookmarks".to_string()
+    } else {
+        format!(
+            "SELECT id, label, created_at FROM bookmarks WHERE {}",
+            predicates.join(" AND ")
+        )
+    };
+    let rows = load_rows_existing(conn, "bookmarks", &sql, |r| {
         Ok((
             r.get::<_, i64>(0)?,
             r.get::<_, String>(1)?,
             r.get::<_, String>(2)?,
         ))
-    });
-    let Ok(rows) = rows else { return Vec::new() };
-    rows.flatten()
+    })?;
+    Ok(rows
+        .into_iter()
         .filter(|(_, label, _)| !label.trim().is_empty())
         .map(|(id, label, created)| {
             let when = parse_ts(&created);
@@ -261,26 +464,27 @@ fn bookmarks(conn: &Connection) -> Vec<Memory> {
                 embedding: None,
             }
         })
-        .collect()
+        .collect())
 }
 
 /// Recorded terminal sessions (CLI). `text` = notes + cleaned transcript, so
 /// the same content `mw search` used to LIKE-match still drives similarity.
-fn sessions(conn: &Connection) -> Vec<Memory> {
-    let Ok(mut stmt) = conn.prepare("SELECT id, notes, transcript, started_at FROM sessions")
-    else {
-        return Vec::new();
-    };
-    let rows = stmt.query_map([], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
-            r.get::<_, String>(3)?,
-        ))
-    });
-    let Ok(rows) = rows else { return Vec::new() };
-    rows.flatten()
+fn sessions(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
+    let rows = load_rows(
+        conn,
+        "sessions",
+        "SELECT id, notes, transcript, started_at FROM sessions",
+        |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+            ))
+        },
+    )?;
+    Ok(rows
+        .into_iter()
         .filter_map(|(id, notes, transcript, started)| {
             let text = format!("{notes}\n{transcript}").trim().to_string();
             if text.is_empty() {
@@ -298,7 +502,7 @@ fn sessions(conn: &Connection) -> Vec<Memory> {
                 embedding: None,
             })
         })
-        .collect()
+        .collect())
 }
 
 #[cfg(test)]
@@ -339,7 +543,7 @@ mod tests {
 
     #[test]
     fn tolerates_missing_tables_and_namespaces_ids() {
-        let mems = load_memories(&fixture());
+        let mems = load_memories(&fixture()).unwrap();
         // 2 command_runs + 1 bookmark; documents/agent_turns/sessions absent.
         assert_eq!(mems.len(), 3);
         assert!(mems.iter().any(|m| decode_id(m.id) == (Source::Command, 1)));
@@ -350,6 +554,116 @@ mod tests {
             .find(|m| decode_id(m.id) == (Source::Command, 1))
             .unwrap();
         assert_eq!(cmd.mentions, 2);
+    }
+
+    #[test]
+    fn empty_database_has_no_optional_sources_and_no_error() {
+        let conn = Connection::open_in_memory().unwrap();
+        assert!(load_memories(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn bookmarks_preserve_legacy_variants_and_current_filters() {
+        // Pre-provenance bookmarks have neither filtering column and remain
+        // readable as long as their canonical columns are present.
+        let legacy = Connection::open_in_memory().unwrap();
+        legacy
+            .execute_batch(
+                "CREATE TABLE bookmarks (id INTEGER PRIMARY KEY, label TEXT, created_at TEXT);
+                 INSERT INTO bookmarks VALUES
+                   (1, 'legacy lesson', '2026-01-01T00:00:00Z');",
+            )
+            .unwrap();
+        let legacy_mems = load_memories(&legacy).unwrap();
+        assert_eq!(legacy_mems.len(), 1);
+        assert_eq!(legacy_mems[0].text, "legacy lesson");
+
+        // The intermediate schema had approval but not lifecycle status.
+        let approved_only = Connection::open_in_memory().unwrap();
+        approved_only
+            .execute_batch(
+                "CREATE TABLE bookmarks (
+                     id INTEGER PRIMARY KEY, label TEXT, created_at TEXT, approved INTEGER
+                 );
+                 INSERT INTO bookmarks VALUES
+                   (1, 'approved lesson', '2026-01-01T00:00:00Z', 1),
+                   (2, 'pending lesson', '2026-01-02T00:00:00Z', 0);",
+            )
+            .unwrap();
+        let approved_mems = load_memories(&approved_only).unwrap();
+        assert_eq!(approved_mems.len(), 1);
+        assert_eq!(approved_mems[0].text, "approved lesson");
+
+        // A status-only variant still excludes lifecycle-hidden rows while it
+        // has no review column to apply.
+        let status_only = Connection::open_in_memory().unwrap();
+        status_only
+            .execute_batch(
+                "CREATE TABLE bookmarks (
+                     id INTEGER PRIMARY KEY, label TEXT, created_at TEXT, status TEXT
+                 );
+                 INSERT INTO bookmarks VALUES
+                   (1, 'active lesson', '2026-01-01T00:00:00Z', 'active'),
+                   (2, 'stale lesson', '2026-01-02T00:00:00Z', 'stale');",
+            )
+            .unwrap();
+        let status_mems = load_memories(&status_only).unwrap();
+        assert_eq!(status_mems.len(), 1);
+        assert_eq!(status_mems[0].text, "active lesson");
+
+        // A current schema applies both review and lifecycle predicates.
+        let current = Connection::open_in_memory().unwrap();
+        current
+            .execute_batch(
+                "CREATE TABLE bookmarks (
+                     id INTEGER PRIMARY KEY, label TEXT, created_at TEXT,
+                     approved INTEGER, status TEXT
+                 );
+                 INSERT INTO bookmarks VALUES
+                   (1, 'active approved', '2026-01-01T00:00:00Z', 1, 'active'),
+                   (2, 'pending active', '2026-01-02T00:00:00Z', 0, 'active'),
+                   (3, 'released stale', '2026-01-03T00:00:00Z', 1, 'stale');",
+            )
+            .unwrap();
+        let current_mems = load_memories(&current).unwrap();
+        assert_eq!(current_mems.len(), 1);
+        assert_eq!(current_mems[0].text, "active approved");
+    }
+
+    #[test]
+    fn malformed_present_rows_return_a_structured_decode_error() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE command_runs (
+                 id INTEGER PRIMARY KEY, command TEXT, argv_json TEXT,
+                 notes TEXT, stderr TEXT, exit_code INTEGER, created_at TEXT
+             );
+             INSERT INTO command_runs VALUES
+                 (1, NULL, '[]', '', '', 1, '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+
+        let error = load_memories(&conn).unwrap_err();
+        assert_eq!(error.table, "command_runs");
+        assert!(matches!(
+            error.kind,
+            LoadErrorKind::RowDecode { row: 0, .. }
+        ));
+        assert!(error.to_string().contains("command_runs"));
+    }
+
+    #[test]
+    fn invalid_present_schema_returns_a_structured_prepare_error() {
+        let conn = Connection::open_in_memory().unwrap();
+        // `documents` is present, so its incompatible shape must not be
+        // mistaken for the desktop source being absent.
+        conn.execute_batch("CREATE TABLE documents (id INTEGER PRIMARY KEY, title TEXT);")
+            .unwrap();
+
+        let error = load_memories(&conn).unwrap_err();
+        assert_eq!(error.table, "documents");
+        assert!(matches!(error.kind, LoadErrorKind::Prepare { .. }));
+        assert!(error.to_string().contains("documents"));
     }
 
     #[test]
@@ -376,8 +690,8 @@ mod tests {
 
         // Two independently constructed engines standing in for the two
         // surfaces; both go through the shared loader with the same `now`.
-        let cli = BuiltinEngine::new(load_memories(&conn));
-        let desktop = BuiltinEngine::new(load_memories(&conn));
+        let cli = BuiltinEngine::new(load_memories(&conn).unwrap());
+        let desktop = BuiltinEngine::new(load_memories(&conn).unwrap());
         let q = Query::new("linker failure", now);
 
         let cli_rank: Vec<(i64, u32)> = cli
