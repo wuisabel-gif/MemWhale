@@ -24,7 +24,7 @@ Linux x86_64/aarch64 および macOS 向けのビルド済みバイナリを利�
 curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/v0.8.0/install.sh | sh
 ```
 
-このバージョン固定のインストールスクリプトは最新の安定リリースを探し、リリースアセットに SHA256 ファイルがある場合はダウンロード内容を検証します。別のバージョンを使う場合は、URL のタグを対応する release tag に置き換えてください。
+この URL はインストールスクリプト自体を v0.8.0 のタグに固定しています。スクリプトは最新の安定リリースを探し、リリースアセットに SHA256 ファイルがある場合はダウンロード内容を検証します。特定のリリースを固定して使う場合は、[Releases](https://github.com/wuisabel-gif/MemWhale/releases) から対応するアセットを直接選択してください。
 
 Cargo または Homebrew からインストールすることもできます。
 
