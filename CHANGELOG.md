@@ -3,6 +3,59 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — Memory stewardship
+
+Product version `0.9.0`; `memorywhale-core` `0.3.0`.
+
+This release makes memory maintenance explicit and safer: users can compact
+redundant evidence without deleting rows, retrieval reuses FTS indexes, and
+present-but-damaged SQLite sources report errors instead of appearing empty.
+It also adds desktop CSP hardening, a public security policy, a website refresh,
+and localized README entry points.
+
+### Added
+
+- **Rule-of-thumb memory compaction** — `mw memory compact` previews a
+  conservative plan by default; `--apply` is explicit. Failed, fingerprinted,
+  and bookmarked runs stay protected. Session raw files and original byte
+  counts remain intact, while large successful output is bounded with
+  head/tail markers. (#212)
+- **Memory compaction reference** — documents thresholds, safety invariants,
+  dry-run workflow, and the distinction between TTL expiry and compaction.
+  (#212)
+- **ContextGC ecosystem documentation** — explains how active context
+  management complements MemoryWhale's durable development memory. (#220)
+- **Localized README entry points** — Simplified Chinese, Korean, Traditional
+  Chinese, and Japanese. (#214, #215, #216, #217)
+
+### Improved
+
+- **FTS5 retrieval performance** — caches a bounded set of corpus indexes across
+  engine instances and requests, coalesces concurrent builds, preserves
+  `BuiltinEngine`'s `Send + Sync` contract, and invalidates on corpus changes.
+  (#221)
+- **Website onboarding** — adds use cases, integration discovery, docs/security
+  navigation, `mw demo`, real install commands, v0.8 release messaging, and
+  responsive long-command handling. (#213)
+
+### Security
+
+- **Restrictive Tauri CSP** — same-origin scripts/assets, Tauri IPC only,
+  explicit `base-uri 'none'` and `form-action 'none'`, no wildcard scripts or
+  `unsafe-eval`. (#218)
+- **Retrieval integrity** — absent optional source tables remain supported, but
+  present schema/query/row failures now surface as structured errors. Bookmark
+  compatibility is selected from schema metadata and unsupported shapes fail
+  closed. (#219)
+- **Security disclosure policy** — added `SECURITY.md` and enabled GitHub
+  private vulnerability reporting. (#207)
+
+### Notes
+
+- No `memorywhale-core` version bump: the public core API remains compatible.
+- Upgrade from v0.8.0 if you want compaction, safer retrieval failures, FTS5
+  reuse, or the desktop CSP hardening.
+
 ## [0.8.0] — Security & hardening
 
 Product version `0.8.0`; `memorywhale-core` `0.3.0`.

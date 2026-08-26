@@ -135,7 +135,7 @@ fn dcg_at_k(rel: &[bool], k: usize) -> f64 {
         .sum()
 }
 fn ndcg_at_k(rel: &[bool], num_relevant: usize, k: usize) -> f64 {
-    let ideal: Vec<bool> = std::iter::repeat(true).take(num_relevant).collect();
+    let ideal = vec![true; num_relevant];
     let idcg = dcg_at_k(&ideal, k);
     if idcg == 0.0 {
         0.0
