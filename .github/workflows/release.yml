@@ -169,7 +169,10 @@ jobs:
             echo "$pr_url"
           else
             echo "$pr_url" >&2
-            existing_pr=$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty')
+            existing_pr=""
+            if ! existing_pr=$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty'); then
+              echo "::warning::Could not check for an existing Homebrew formula PR; inspect the gh error above."
+            fi
             if [ -n "$existing_pr" ]; then
               echo "Formula PR already exists: $existing_pr"
             else
