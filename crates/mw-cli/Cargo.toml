@@ -21,7 +21,7 @@ dirs = "5"
 # MCP server, with a builtin fallback when that server is unreachable.
 # `version` (alongside `path`) is required so `cargo publish` can resolve the
 # dependency from crates.io — publish memorywhale-core first, then this crate.
-memorywhale-core = { path = "../memorywhale-core", version = "0.3.0", features = ["mempalace"] }
+memorywhale-core = { path = "../memorywhale-core", version = "0.4.0", features = ["mempalace"] }
 regex = "1"
 # Pure-Rust interactive terminal UI (`mw tui`) — no system libraries, so it
 # keeps the bare-machine / Jetson build story intact. Bundles crossterm.
