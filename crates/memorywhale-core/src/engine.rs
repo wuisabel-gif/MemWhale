@@ -9,9 +9,7 @@
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-#[cfg(feature = "embeddings")]
-use std::sync::Arc;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use rusqlite::Connection;
 
@@ -47,28 +45,20 @@ use crate::{Memory, Query, ScoredMemory, Weights};
 /// scorer falls back to term overlap. rusqlite is `bundled` (FTS5 compiled in),
 /// so that path is not expected in practice.
 fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
-    static FTS_CACHE: OnceLock<Mutex<Option<FtsCache>>> = OnceLock::new();
     let mut out = HashMap::new();
     let match_expr = fts_match_expr(query);
     if match_expr.is_empty() {
         return out;
     }
     let fingerprint = corpus_fingerprint(memories);
-    let mut cache = FTS_CACHE
-        .get_or_init(|| Mutex::new(None))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if cache
-        .as_ref()
-        .is_none_or(|cached| cached.fingerprint != fingerprint)
-    {
-        *cache = build_fts_cache(memories, fingerprint);
-    }
-    let Some(cached) = cache.as_ref() else {
+    let Some(cached) = cached_fts_cache(memories, fingerprint) else {
         return out;
     };
-    let mut stmt = match cached
+    let conn = cached
         .conn
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut stmt = match conn
         .prepare("SELECT rowid, bm25(mem_fts, 1.0, 1.0) FROM mem_fts WHERE mem_fts MATCH ?1")
     {
         Ok(s) => s,
@@ -87,8 +77,7 @@ fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
 }
 
 struct FtsCache {
-    fingerprint: u64,
-    conn: Connection,
+    conn: Mutex<Connection>,
 }
 
 fn corpus_fingerprint(memories: &[Memory]) -> u64 {
@@ -101,7 +90,7 @@ fn corpus_fingerprint(memories: &[Memory]) -> u64 {
     hasher.finish()
 }
 
-fn build_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<FtsCache> {
+fn build_fts_cache(memories: &[Memory]) -> Option<FtsCache> {
     let conn = Connection::open_in_memory().ok()?;
     conn.execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text, tags)", [])
         .ok()?;
@@ -118,7 +107,42 @@ fn build_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<FtsCache> {
         .ok()?;
     }
     drop(ins);
-    Some(FtsCache { fingerprint, conn })
+    Some(FtsCache {
+        conn: Mutex::new(conn),
+    })
+}
+
+/// Reuse a bounded set of corpus indexes across engine instances and requests.
+/// Each corpus gets its own connection mutex, so a query for one project does
+/// not hold the global cache lock or evict another project's index immediately.
+fn cached_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<Arc<FtsCache>> {
+    const MAX_CACHED_CORPORA: usize = 8;
+    static FTS_CACHE: OnceLock<Mutex<HashMap<u64, Arc<FtsCache>>>> = OnceLock::new();
+
+    let cache = FTS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    {
+        let cache = cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(index) = cache.get(&fingerprint) {
+            return Some(Arc::clone(index));
+        }
+    }
+
+    let index = Arc::new(build_fts_cache(memories)?);
+    let mut cache = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(existing) = cache.get(&fingerprint) {
+        return Some(Arc::clone(existing));
+    }
+    if cache.len() >= MAX_CACHED_CORPORA {
+        if let Some(oldest) = cache.keys().next().copied() {
+            cache.remove(&oldest);
+        }
+    }
+    cache.insert(fingerprint, Arc::clone(&index));
+    Some(index)
 }
 
 /// The tokens the FTS index sees: lowercase alphanumeric tokens (len ≥ 2).
