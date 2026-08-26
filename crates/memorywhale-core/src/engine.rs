@@ -7,11 +7,11 @@
 //! an optional, swappable backend rather than a hard dependency. Callers never
 //! change.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 #[cfg(feature = "embeddings")]
 use std::sync::Arc;
+use std::sync::{Mutex, OnceLock};
 
 use rusqlite::Connection;
 
@@ -46,13 +46,29 @@ use crate::{Memory, Query, ScoredMemory, Weights};
 /// Best-effort: if FTS5 is somehow unavailable, returns an empty map and the
 /// scorer falls back to term overlap. rusqlite is `bundled` (FTS5 compiled in),
 /// so that path is not expected in practice.
-fn bm25_similarities(conn: &Connection, query: &str) -> HashMap<i64, f32> {
+fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
+    static FTS_CACHE: OnceLock<Mutex<Option<FtsCache>>> = OnceLock::new();
     let mut out = HashMap::new();
     let match_expr = fts_match_expr(query);
     if match_expr.is_empty() {
         return out;
     }
-    let mut stmt = match conn
+    let fingerprint = corpus_fingerprint(memories);
+    let mut cache = FTS_CACHE
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if cache
+        .as_ref()
+        .is_none_or(|cached| cached.fingerprint != fingerprint)
+    {
+        *cache = build_fts_cache(memories, fingerprint);
+    }
+    let Some(cached) = cache.as_ref() else {
+        return out;
+    };
+    let mut stmt = match cached
+        .conn
         .prepare("SELECT rowid, bm25(mem_fts, 1.0, 1.0) FROM mem_fts WHERE mem_fts MATCH ?1")
     {
         Ok(s) => s,
@@ -150,7 +166,6 @@ pub trait MemoryEngine {
 pub struct BuiltinEngine {
     pub memories: Vec<Memory>,
     pub weights: Weights,
-    fts_cache: RefCell<Option<FtsCache>>,
     #[cfg(feature = "embeddings")]
     embedder: Option<Arc<dyn Embedder>>,
 }
@@ -160,7 +175,6 @@ impl BuiltinEngine {
         Self {
             memories,
             weights: Weights::default(),
-            fts_cache: RefCell::new(None),
             #[cfg(feature = "embeddings")]
             embedder: None,
         }
@@ -200,21 +214,6 @@ impl BuiltinEngine {
     fn query_embedding(&self, _query: &Query) -> Option<Vec<f32>> {
         None
     }
-
-    fn bm25_similarities(&self, query: &str) -> HashMap<i64, f32> {
-        let fingerprint = corpus_fingerprint(&self.memories);
-        let mut cache = self.fts_cache.borrow_mut();
-        if cache
-            .as_ref()
-            .is_none_or(|cached| cached.fingerprint != fingerprint)
-        {
-            *cache = build_fts_cache(&self.memories, fingerprint);
-        }
-        cache
-            .as_ref()
-            .map(|cached| bm25_similarities(&cached.conn, query))
-            .unwrap_or_default()
-    }
 }
 
 impl MemoryEngine for BuiltinEngine {
@@ -231,7 +230,7 @@ impl MemoryEngine for BuiltinEngine {
         // Keyword relevance from FTS5 BM25 — only when we're not on the semantic
         // (embedding) path, which supersedes it.
         let sims = if qe.is_none() {
-            self.bm25_similarities(&query.text)
+            bm25_similarities(&self.memories, &query.text)
         } else {
             HashMap::new()
         };
@@ -260,7 +259,7 @@ impl MemoryEngine for BuiltinEngine {
     fn explain(&self, id: i64, query: &Query) -> Option<ScoredMemory> {
         let qe = self.query_embedding(query);
         let sims = if qe.is_none() {
-            self.bm25_similarities(&query.text)
+            bm25_similarities(&self.memories, &query.text)
         } else {
             HashMap::new()
         };
@@ -696,6 +695,12 @@ mod tests {
 
         assert_eq!(before_similarity, 0.0);
         assert!(after_similarity > before_similarity);
+    }
+
+    #[test]
+    fn builtin_engine_remains_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<BuiltinEngine>();
     }
 
     #[test]
