@@ -7,7 +7,9 @@
 //! an optional, swappable backend rather than a hard dependency. Callers never
 //! change.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 #[cfg(feature = "embeddings")]
 use std::sync::Arc;
 
@@ -18,8 +20,8 @@ use crate::embed::Embedder;
 use crate::scorer::score_with_lexical;
 use crate::{Memory, Query, ScoredMemory, Weights};
 
-/// Build an in-memory SQLite FTS5 index over `memories`, MATCH `query`, and
-/// return a per-id keyword relevance in `[0,1]` derived from SQLite's `bm25` rank.
+/// Query an in-memory SQLite FTS5 index and return a per-id keyword relevance
+/// in `[0,1]` derived from SQLite's `bm25` rank.
 ///
 /// The index has two columns — `text` (the memory body) and `tags` (its tags,
 /// space-joined). Tags are explicit user/agent signal, so a query term that only
@@ -44,32 +46,11 @@ use crate::{Memory, Query, ScoredMemory, Weights};
 /// Best-effort: if FTS5 is somehow unavailable, returns an empty map and the
 /// scorer falls back to term overlap. rusqlite is `bundled` (FTS5 compiled in),
 /// so that path is not expected in practice.
-fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
+fn bm25_similarities(conn: &Connection, query: &str) -> HashMap<i64, f32> {
     let mut out = HashMap::new();
     let match_expr = fts_match_expr(query);
     if match_expr.is_empty() {
         return out;
-    }
-    let conn = match Connection::open_in_memory() {
-        Ok(c) => c,
-        Err(_) => return out,
-    };
-    if conn
-        .execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text, tags)", [])
-        .is_err()
-    {
-        return out;
-    }
-    {
-        let mut ins =
-            match conn.prepare("INSERT INTO mem_fts(rowid, text, tags) VALUES (?1, ?2, ?3)") {
-                Ok(s) => s,
-                Err(_) => return out,
-            };
-        // Insert in corpus order → deterministic bm25.
-        for m in memories {
-            let _ = ins.execute(rusqlite::params![m.id, m.text, m.tags.join(" ")]);
-        }
     }
     let mut stmt = match conn
         .prepare("SELECT rowid, bm25(mem_fts, 1.0, 1.0) FROM mem_fts WHERE mem_fts MATCH ?1")
@@ -87,6 +68,41 @@ fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
         }
     }
     out
+}
+
+struct FtsCache {
+    fingerprint: u64,
+    conn: Connection,
+}
+
+fn corpus_fingerprint(memories: &[Memory]) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for memory in memories {
+        memory.id.hash(&mut hasher);
+        memory.text.hash(&mut hasher);
+        memory.tags.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
+fn build_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<FtsCache> {
+    let conn = Connection::open_in_memory().ok()?;
+    conn.execute("CREATE VIRTUAL TABLE mem_fts USING fts5(text, tags)", [])
+        .ok()?;
+    let mut ins = conn
+        .prepare("INSERT INTO mem_fts(rowid, text, tags) VALUES (?1, ?2, ?3)")
+        .ok()?;
+    // Insert in corpus order → deterministic bm25.
+    for memory in memories {
+        ins.execute(rusqlite::params![
+            memory.id,
+            memory.text,
+            memory.tags.join(" ")
+        ])
+        .ok()?;
+    }
+    drop(ins);
+    Some(FtsCache { fingerprint, conn })
 }
 
 /// The tokens the FTS index sees: lowercase alphanumeric tokens (len ≥ 2).
@@ -134,6 +150,7 @@ pub trait MemoryEngine {
 pub struct BuiltinEngine {
     pub memories: Vec<Memory>,
     pub weights: Weights,
+    fts_cache: RefCell<Option<FtsCache>>,
     #[cfg(feature = "embeddings")]
     embedder: Option<Arc<dyn Embedder>>,
 }
@@ -143,6 +160,7 @@ impl BuiltinEngine {
         Self {
             memories,
             weights: Weights::default(),
+            fts_cache: RefCell::new(None),
             #[cfg(feature = "embeddings")]
             embedder: None,
         }
@@ -182,6 +200,21 @@ impl BuiltinEngine {
     fn query_embedding(&self, _query: &Query) -> Option<Vec<f32>> {
         None
     }
+
+    fn bm25_similarities(&self, query: &str) -> HashMap<i64, f32> {
+        let fingerprint = corpus_fingerprint(&self.memories);
+        let mut cache = self.fts_cache.borrow_mut();
+        if cache
+            .as_ref()
+            .is_none_or(|cached| cached.fingerprint != fingerprint)
+        {
+            *cache = build_fts_cache(&self.memories, fingerprint);
+        }
+        cache
+            .as_ref()
+            .map(|cached| bm25_similarities(&cached.conn, query))
+            .unwrap_or_default()
+    }
 }
 
 impl MemoryEngine for BuiltinEngine {
@@ -198,7 +231,7 @@ impl MemoryEngine for BuiltinEngine {
         // Keyword relevance from FTS5 BM25 — only when we're not on the semantic
         // (embedding) path, which supersedes it.
         let sims = if qe.is_none() {
-            bm25_similarities(&self.memories, &query.text)
+            self.bm25_similarities(&query.text)
         } else {
             HashMap::new()
         };
@@ -227,7 +260,7 @@ impl MemoryEngine for BuiltinEngine {
     fn explain(&self, id: i64, query: &Query) -> Option<ScoredMemory> {
         let qe = self.query_embedding(query);
         let sims = if qe.is_none() {
-            bm25_similarities(&self.memories, &query.text)
+            self.bm25_similarities(&query.text)
         } else {
             HashMap::new()
         };
@@ -627,6 +660,42 @@ mod tests {
             sim_n.score
         );
         assert!(sim_m.score > sim_n.score);
+    }
+
+    #[test]
+    fn fts_cache_refreshes_when_public_corpus_changes() {
+        let mut engine = BuiltinEngine::new(vec![Memory {
+            id: 1,
+            text: "ordinary text".to_string(),
+            created_at: now(),
+            last_used: now(),
+            mentions: 0,
+            importance: 0.5,
+            tags: vec![],
+            embedding: None,
+        }]);
+        let query = Query::new("cache-invalidation-token", now());
+        let before = engine.explain(1, &query).unwrap();
+        let before_similarity = before
+            .signals
+            .iter()
+            .find(|signal| signal.name == "similarity")
+            .unwrap()
+            .score;
+
+        // `memories` is public for compatibility; fingerprinting must detect
+        // this mutation and rebuild the cached FTS rows before the next query.
+        engine.memories[0].text = "cache-invalidation-token appears here".to_string();
+        let after = engine.explain(1, &query).unwrap();
+        let after_similarity = after
+            .signals
+            .iter()
+            .find(|signal| signal.name == "similarity")
+            .unwrap()
+            .score;
+
+        assert_eq!(before_similarity, 0.0);
+        assert!(after_similarity > before_similarity);
     }
 
     #[test]
