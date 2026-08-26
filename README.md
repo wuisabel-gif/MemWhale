@@ -130,6 +130,7 @@ end-to-end scenario with real commands.
 - [CLI reference](docs/reference/cli.md)
 - [MCP reference](docs/reference/mcp.md)
 - [Security and local threat model](docs/SECURITY.md)
+- [Ecosystem](ECOSYSTEM.md) — Delphin, ContextGC, and MemoryWhale together
 - [Integration guides and capability matrix](integrations/README.md)
 
 ## Contributing
