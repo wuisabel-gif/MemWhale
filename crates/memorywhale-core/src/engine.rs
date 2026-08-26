@@ -131,13 +131,16 @@ fn cached_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<Arc<FtsCach
         Arc::clone(entry)
     } else {
         if cache.len() >= MAX_CACHED_CORPORA {
-            // Never evict an in-progress build. It may be temporarily above
-            // the normal bound while all entries are being initialized.
-            if let Some(evict) = cache
+            // Never evict an in-progress build. If all slots are initializing,
+            // bypass the shared cache rather than exceeding its hard bound.
+            let evict = cache
                 .iter()
-                .find_map(|(key, entry)| entry.index.get().map(|_| *key))
-            {
+                .find_map(|(key, entry)| entry.index.get().map(|_| *key));
+            if let Some(evict) = evict {
                 cache.remove(&evict);
+            } else {
+                drop(cache);
+                return build_fts_cache(memories).map(Arc::new);
             }
         }
         let entry = Arc::new(FtsEntry {
