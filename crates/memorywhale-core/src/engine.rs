@@ -158,6 +158,9 @@ fn cached_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<Arc<FtsCach
         .index
         .get_or_init(|| build_fts_cache(memories).map(Arc::new))
         .clone();
+    let _cache = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     wake.notify_all();
     result
 }
@@ -742,6 +745,38 @@ mod tests {
     fn builtin_engine_remains_send_and_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<BuiltinEngine>();
+    }
+
+    #[test]
+    fn concurrent_same_corpus_builds_one_index() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let memories = Arc::new(vec![Memory {
+            id: 8_765_432,
+            text: "single-flight-fts-corpus-unique".to_string(),
+            created_at: now(),
+            last_used: now(),
+            mentions: 0,
+            importance: 0.5,
+            tags: vec!["single-flight".to_string()],
+            embedding: None,
+        }]);
+        let barrier = Arc::new(Barrier::new(8));
+        let threads: Vec<_> = (0..8)
+            .map(|_| {
+                let memories = Arc::clone(&memories);
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    let scores = bm25_similarities(&memories, "single-flight-fts-corpus-unique");
+                    assert!(!scores.is_empty());
+                })
+            })
+            .collect();
+        for thread in threads {
+            thread.join().unwrap();
+        }
     }
 
     #[test]
