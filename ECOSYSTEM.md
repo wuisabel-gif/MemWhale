@@ -18,8 +18,8 @@ memory belongs to *you*, not to any one model.
             ▼
         Delphin  ──writes conversation turns──▶  MemoryWhale
         (communication)                          (memory: recall + explain)
-             │
-             ▼
+                                                     │
+                                                     ▼
         ContextGC ──selects the active model working set──▶ AI model
         (context: keep / compress / evict)
 ```
@@ -30,8 +30,11 @@ memory belongs to *you*, not to any one model.
 
 The boundary is deliberate: ContextGC manages the temporary working set for a
 long-running agent, while MemoryWhale preserves useful development experience
-after it leaves that working set. ContextGC can promote a durable fix or
-decision through `mw-mcp`; noisy output can simply be evicted.
+after it leaves that working set. The intended future composition is for
+ContextGC to promote a durable fix or decision through `mw-mcp`; noisy output
+can simply be evicted. ContextGC's current integration documentation marks
+that adapter as future work, so this is not a shipped end-to-end integration
+yet.
 
 ## Wiring them together (optional)
 
