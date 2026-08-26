@@ -81,6 +81,8 @@ fn parse_ts(ts: &str) -> DateTime<Utc> {
 pub enum LoadErrorKind {
     /// Reading SQLite schema metadata failed.
     Schema { source: rusqlite::Error },
+    /// A present table has a shape outside the supported compatibility set.
+    UnsupportedSchema { details: String },
     /// Preparing the source query failed. This includes an incompatible
     /// present-table schema (for example, a missing required column).
     Prepare { source: rusqlite::Error },
@@ -117,6 +119,15 @@ impl LoadError {
         }
     }
 
+    fn unsupported_schema(table: &'static str, details: impl Into<String>) -> Self {
+        Self {
+            table,
+            kind: LoadErrorKind::UnsupportedSchema {
+                details: details.into(),
+            },
+        }
+    }
+
     fn query(table: &'static str, source: rusqlite::Error) -> Self {
         Self {
             table,
@@ -137,6 +148,9 @@ impl fmt::Display for LoadError {
         match &self.kind {
             LoadErrorKind::Schema { source } => {
                 write!(f, "failed to inspect {} schema: {source}", self.table)
+            }
+            LoadErrorKind::UnsupportedSchema { details } => {
+                write!(f, "unsupported {} schema: {details}", self.table)
             }
             LoadErrorKind::Prepare { source } => {
                 write!(
@@ -165,6 +179,7 @@ impl Error for LoadError {
             | LoadErrorKind::Prepare { source }
             | LoadErrorKind::Query { source } => Some(source),
             LoadErrorKind::RowDecode { source, .. } => Some(source),
+            LoadErrorKind::UnsupportedSchema { .. } => None,
         }
     }
 }
@@ -208,15 +223,12 @@ fn table_columns(conn: &Connection, table: &'static str) -> Result<Option<Vec<St
         return Ok(None);
     }
 
-    let pragma = match table {
-        "bookmarks" => "PRAGMA table_info(bookmarks)",
-        _ => unreachable!("column metadata is currently only needed for bookmarks"),
-    };
+    let pragma = "SELECT name FROM pragma_table_info(?1)";
     let mut stmt = conn
         .prepare(pragma)
         .map_err(|source| LoadError::schema(table, source))?;
     let mut rows = stmt
-        .query([])
+        .query([table])
         .map_err(|source| LoadError::schema(table, source))?;
     let mut columns = Vec::new();
     while let Some(row) = rows
@@ -224,7 +236,7 @@ fn table_columns(conn: &Connection, table: &'static str) -> Result<Option<Vec<St
         .map_err(|source| LoadError::schema(table, source))?
     {
         columns.push(
-            row.get::<_, String>(1)
+            row.get::<_, String>(0)
                 .map_err(|source| LoadError::schema(table, source))?,
         );
     }
@@ -426,20 +438,21 @@ fn bookmarks(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
             .iter()
             .any(|column| column.eq_ignore_ascii_case(name))
     };
-    let mut predicates = Vec::new();
-    if has_column("approved") {
-        predicates.push("approved = 1");
+    let has_approved = has_column("approved");
+    let has_status = has_column("status");
+    if has_status && !has_approved {
+        return Err(LoadError::unsupported_schema(
+            "bookmarks",
+            "status exists without approved; review filtering cannot be enforced",
+        ));
     }
-    if has_column("status") {
-        predicates.push("status = 'active'");
-    }
-    let sql = if predicates.is_empty() {
-        "SELECT id, label, created_at FROM bookmarks".to_string()
+    let sql = if has_approved && has_status {
+        "SELECT id, label, created_at FROM bookmarks WHERE approved = 1 AND status = 'active'"
+            .to_string()
+    } else if has_approved {
+        "SELECT id, label, created_at FROM bookmarks WHERE approved = 1".to_string()
     } else {
-        format!(
-            "SELECT id, label, created_at FROM bookmarks WHERE {}",
-            predicates.join(" AND ")
-        )
+        "SELECT id, label, created_at FROM bookmarks".to_string()
     };
     let rows = load_rows_existing(conn, "bookmarks", &sql, |r| {
         Ok((
@@ -594,8 +607,8 @@ mod tests {
         assert_eq!(approved_mems.len(), 1);
         assert_eq!(approved_mems[0].text, "approved lesson");
 
-        // A status-only variant still excludes lifecycle-hidden rows while it
-        // has no review column to apply.
+        // A status-only variant is unsupported: it could silently bypass
+        // review-mode filtering, because no released migration creates it.
         let status_only = Connection::open_in_memory().unwrap();
         status_only
             .execute_batch(
@@ -607,9 +620,11 @@ mod tests {
                    (2, 'stale lesson', '2026-01-02T00:00:00Z', 'stale');",
             )
             .unwrap();
-        let status_mems = load_memories(&status_only).unwrap();
-        assert_eq!(status_mems.len(), 1);
-        assert_eq!(status_mems[0].text, "active lesson");
+        let status_error = load_memories(&status_only).unwrap_err();
+        assert!(matches!(
+            status_error.kind,
+            LoadErrorKind::UnsupportedSchema { .. }
+        ));
 
         // A current schema applies both review and lifecycle predicates.
         let current = Connection::open_in_memory().unwrap();
