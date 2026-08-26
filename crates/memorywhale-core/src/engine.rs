@@ -84,7 +84,57 @@ struct FtsEntry {
     index: OnceLock<Option<Arc<FtsCache>>>,
 }
 
-type FtsCacheStore = (Mutex<HashMap<u64, Arc<FtsEntry>>>, Condvar);
+const MAX_CACHED_CORPORA: usize = 8;
+
+struct FtsCacheStore {
+    entries: Mutex<HashMap<u64, Arc<FtsEntry>>>,
+    wake: Condvar,
+}
+
+impl FtsCacheStore {
+    fn new() -> Self {
+        Self {
+            entries: Mutex::new(HashMap::new()),
+            wake: Condvar::new(),
+        }
+    }
+
+    fn reserve(&self, fingerprint: u64) -> Arc<FtsEntry> {
+        loop {
+            let mut entries = self
+                .entries
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            if let Some(entry) = entries.get(&fingerprint) {
+                return Arc::clone(entry);
+            }
+            if entries.len() >= MAX_CACHED_CORPORA {
+                if let Some(evict) = entries
+                    .iter()
+                    .find_map(|(key, entry)| entry.index.get().map(|_| *key))
+                {
+                    entries.remove(&evict);
+                    continue;
+                }
+                drop(self.wake.wait(entries));
+                continue;
+            }
+            let entry = Arc::new(FtsEntry {
+                index: OnceLock::new(),
+            });
+            entries.insert(fingerprint, Arc::clone(&entry));
+            return entry;
+        }
+    }
+
+    fn notify(&self) {
+        let _entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        self.wake.notify_all();
+    }
+}
 
 fn corpus_fingerprint(memories: &[Memory]) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -122,46 +172,16 @@ fn build_fts_cache(memories: &[Memory]) -> Option<FtsCache> {
 /// Each corpus gets its own connection mutex, so a query for one project does
 /// not hold the global cache lock or evict another project's index immediately.
 fn cached_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<Arc<FtsCache>> {
-    const MAX_CACHED_CORPORA: usize = 8;
     static FTS_CACHE: OnceLock<FtsCacheStore> = OnceLock::new();
 
-    let (cache, wake) = FTS_CACHE.get_or_init(|| (Mutex::new(HashMap::new()), Condvar::new()));
-    let entry = loop {
-        let mut cache = cache
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(entry) = cache.get(&fingerprint) {
-            break Arc::clone(entry);
-        }
-
-        if cache.len() < MAX_CACHED_CORPORA {
-            let entry = Arc::new(FtsEntry {
-                index: OnceLock::new(),
-            });
-            cache.insert(fingerprint, Arc::clone(&entry));
-            break entry;
-        }
-
-        // Every slot is currently building. Wait for one to finish instead
-        // of allowing an overflow build to duplicate work or grow the map.
-        if let Some(evict) = cache
-            .iter()
-            .find_map(|(key, entry)| entry.index.get().map(|_| *key))
-        {
-            cache.remove(&evict);
-            continue;
-        }
-        drop(wake.wait(cache));
-    };
+    let store = FTS_CACHE.get_or_init(FtsCacheStore::new);
+    let entry = store.reserve(fingerprint);
 
     let result = entry
         .index
         .get_or_init(|| build_fts_cache(memories).map(Arc::new))
         .clone();
-    let _cache = cache
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    wake.notify_all();
+    store.notify();
     result
 }
 
@@ -777,6 +797,36 @@ mod tests {
         for thread in threads {
             thread.join().unwrap();
         }
+    }
+
+    #[test]
+    fn saturated_cache_admission_waits_and_stays_bounded() {
+        use std::sync::mpsc;
+        use std::sync::Arc;
+        use std::thread;
+        use std::time::Duration;
+
+        let store = Arc::new(FtsCacheStore::new());
+        for fingerprint in 0..MAX_CACHED_CORPORA as u64 {
+            store.reserve(fingerprint);
+        }
+        let (sent, received) = mpsc::channel();
+        let waiter_store = Arc::clone(&store);
+        let waiter = thread::spawn(move || sent.send(waiter_store.reserve(99)));
+
+        assert!(received.recv_timeout(Duration::from_millis(50)).is_err());
+        let first = {
+            let entries = store.entries.lock().unwrap();
+            Arc::clone(entries.get(&0).unwrap())
+        };
+        assert!(first.index.set(None).is_ok());
+        store.notify();
+
+        received
+            .recv_timeout(Duration::from_secs(1))
+            .expect("saturated waiter was not woken");
+        waiter.join().unwrap().unwrap();
+        assert!(store.entries.lock().unwrap().len() <= MAX_CACHED_CORPORA);
     }
 
     #[test]
