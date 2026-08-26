@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 
 use rusqlite::Connection;
 
@@ -84,6 +84,8 @@ struct FtsEntry {
     index: OnceLock<Option<Arc<FtsCache>>>,
 }
 
+type FtsCacheStore = (Mutex<HashMap<u64, Arc<FtsEntry>>>, Condvar);
+
 fn corpus_fingerprint(memories: &[Memory]) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     for memory in memories {
@@ -121,40 +123,43 @@ fn build_fts_cache(memories: &[Memory]) -> Option<FtsCache> {
 /// not hold the global cache lock or evict another project's index immediately.
 fn cached_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<Arc<FtsCache>> {
     const MAX_CACHED_CORPORA: usize = 8;
-    static FTS_CACHE: OnceLock<Mutex<HashMap<u64, Arc<FtsEntry>>>> = OnceLock::new();
+    static FTS_CACHE: OnceLock<FtsCacheStore> = OnceLock::new();
 
-    let cache = FTS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut cache = cache
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let entry = if let Some(entry) = cache.get(&fingerprint) {
-        Arc::clone(entry)
-    } else {
-        if cache.len() >= MAX_CACHED_CORPORA {
-            // Never evict an in-progress build. If all slots are initializing,
-            // bypass the shared cache rather than exceeding its hard bound.
-            let evict = cache
-                .iter()
-                .find_map(|(key, entry)| entry.index.get().map(|_| *key));
-            if let Some(evict) = evict {
-                cache.remove(&evict);
-            } else {
-                drop(cache);
-                return build_fts_cache(memories).map(Arc::new);
-            }
+    let (cache, wake) = FTS_CACHE.get_or_init(|| (Mutex::new(HashMap::new()), Condvar::new()));
+    let entry = loop {
+        let mut cache = cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(entry) = cache.get(&fingerprint) {
+            break Arc::clone(entry);
         }
-        let entry = Arc::new(FtsEntry {
-            index: OnceLock::new(),
-        });
-        cache.insert(fingerprint, Arc::clone(&entry));
-        entry
-    };
-    drop(cache);
 
-    entry
+        if cache.len() < MAX_CACHED_CORPORA {
+            let entry = Arc::new(FtsEntry {
+                index: OnceLock::new(),
+            });
+            cache.insert(fingerprint, Arc::clone(&entry));
+            break entry;
+        }
+
+        // Every slot is currently building. Wait for one to finish instead
+        // of allowing an overflow build to duplicate work or grow the map.
+        if let Some(evict) = cache
+            .iter()
+            .find_map(|(key, entry)| entry.index.get().map(|_| *key))
+        {
+            cache.remove(&evict);
+            continue;
+        }
+        drop(wake.wait(cache));
+    };
+
+    let result = entry
         .index
         .get_or_init(|| build_fts_cache(memories).map(Arc::new))
-        .clone()
+        .clone();
+    wake.notify_all();
+    result
 }
 
 /// The tokens the FTS index sees: lowercase alphanumeric tokens (len ≥ 2).
