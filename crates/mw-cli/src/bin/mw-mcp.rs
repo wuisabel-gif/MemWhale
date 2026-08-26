@@ -179,8 +179,11 @@ fn recent_errors(limit: i64) -> Result<String, String> {
     let conn = open()?;
     let has_command_runs: bool = conn
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'command_runs')",
-            [],
+            "SELECT EXISTS(
+                 SELECT 1 FROM sqlite_master
+                  WHERE type IN ('table', 'view') AND name COLLATE NOCASE = ?1
+             )",
+            ["command_runs"],
             |r| r.get(0),
         )
         .map_err(|e| e.to_string())?;
