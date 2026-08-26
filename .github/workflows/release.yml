@@ -163,10 +163,13 @@ jobs:
           git checkout -b "$branch"
           git commit -am "Set Homebrew formula to ${GITHUB_REF_NAME}"
           git push -f origin "$branch"
-          gh pr create --base main --head "$branch" \
+          if ! gh pr create --base main --head "$branch" \
             --title "Set Homebrew formula to ${GITHUB_REF_NAME}" \
-            --body "Automated Homebrew formula bump for ${GITHUB_REF_NAME}." \
-            || gh pr edit "$branch" --title "Set Homebrew formula to ${GITHUB_REF_NAME}"
+            --body "Automated Homebrew formula bump for ${GITHUB_REF_NAME}."; then
+            echo "::warning::GitHub Actions cannot create pull requests in this repository."
+            echo "Formula branch pushed successfully: https://github.com/${GITHUB_REPOSITORY}/tree/${branch}"
+            echo "Open a PR manually from ${branch} to main."
+          fi
 
   # Publish the CLI crate to crates.io once per release. Runs once (not in the
   # matrix above). Skips gracefully if the token secret isn't set or the version
