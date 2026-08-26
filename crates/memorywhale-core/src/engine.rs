@@ -80,6 +80,10 @@ struct FtsCache {
     conn: Mutex<Connection>,
 }
 
+struct FtsEntry {
+    index: OnceLock<Option<Arc<FtsCache>>>,
+}
+
 fn corpus_fingerprint(memories: &[Memory]) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     for memory in memories {
@@ -117,32 +121,37 @@ fn build_fts_cache(memories: &[Memory]) -> Option<FtsCache> {
 /// not hold the global cache lock or evict another project's index immediately.
 fn cached_fts_cache(memories: &[Memory], fingerprint: u64) -> Option<Arc<FtsCache>> {
     const MAX_CACHED_CORPORA: usize = 8;
-    static FTS_CACHE: OnceLock<Mutex<HashMap<u64, Arc<FtsCache>>>> = OnceLock::new();
+    static FTS_CACHE: OnceLock<Mutex<HashMap<u64, Arc<FtsEntry>>>> = OnceLock::new();
 
     let cache = FTS_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    {
-        let cache = cache
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(index) = cache.get(&fingerprint) {
-            return Some(Arc::clone(index));
-        }
-    }
-
-    let index = Arc::new(build_fts_cache(memories)?);
     let mut cache = cache
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Some(existing) = cache.get(&fingerprint) {
-        return Some(Arc::clone(existing));
-    }
-    if cache.len() >= MAX_CACHED_CORPORA {
-        if let Some(oldest) = cache.keys().next().copied() {
-            cache.remove(&oldest);
+    let entry = if let Some(entry) = cache.get(&fingerprint) {
+        Arc::clone(entry)
+    } else {
+        if cache.len() >= MAX_CACHED_CORPORA {
+            // Never evict an in-progress build. It may be temporarily above
+            // the normal bound while all entries are being initialized.
+            if let Some(evict) = cache
+                .iter()
+                .find_map(|(key, entry)| entry.index.get().map(|_| *key))
+            {
+                cache.remove(&evict);
+            }
         }
-    }
-    cache.insert(fingerprint, Arc::clone(&index));
-    Some(index)
+        let entry = Arc::new(FtsEntry {
+            index: OnceLock::new(),
+        });
+        cache.insert(fingerprint, Arc::clone(&entry));
+        entry
+    };
+    drop(cache);
+
+    entry
+        .index
+        .get_or_init(|| build_fts_cache(memories).map(Arc::new))
+        .clone()
 }
 
 /// The tokens the FTS index sees: lowercase alphanumeric tokens (len ≥ 2).
