@@ -20,8 +20,11 @@ memory belongs to *you*, not to any one model.
         (communication)                          (memory: recall + explain)
                                                      │
                                                      ▼
-        ContextGC ──selects the active model working set──▶ AI model
-        (context: keep / compress / evict)
+        MemoryWhale ◄── durable candidates + recall ──► ContextGC
+        (long-term memory)       (context: keep / compress / evict)
+                                      │
+                                      ▼
+                              active model working set
 ```
 
 - **Delphin** smooths the live conversation and records every turn.
