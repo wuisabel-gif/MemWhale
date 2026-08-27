@@ -32,7 +32,7 @@ mw memory supersede <old> <new>       # replace an old lesson with a newer one
 mw memory compact [--apply]           # preview/apply conservative evidence compaction
 mw audit                              # inspect capture policy and retained volume
 mw integrate claude [--revert]           # install or remove Claude Code hook, skill, and MCP server
-mw integrate rho [--revert]              # install or remove Rho hook, skill, and MCP server
+mw integrate rho [--revert] [--http [url]] [--token secret]  # Rho hook, skill, and MCP (stdio default; --http for mw-serve POST /mcp)
 mw integrate hermes                   # register mw-mcp in Hermes Agent's config
 mw share 5 [-o file.html]             # write a self-contained HTML page of one item to send someone
 mw discard                            # inside a recording: throw the current session away
@@ -164,7 +164,7 @@ add/update/skip breakdown without contacting the server.
 ## mw-serve / mw-view / mw-recover / mw-mcp
 
 ```bash
-mw-serve [--lan | --host addr] [--port n] [--token secret]  # web dashboard
+mw-serve [--lan | --host addr] [--port n] [--token secret] [--print-token]  # web dashboard + POST /mcp
 mw-view <id>                                        # open one memory directly
 mw-recover                                          # recover interrupted recordings
 mw-mcp                                              # MCP server for AI agents (stdio): recent_errors, search_memory, get_context, remember, similar_failures, stats — see docs/reference/mcp.md

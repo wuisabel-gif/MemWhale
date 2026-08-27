@@ -51,9 +51,10 @@ linux/systemd/enable-dashboard.sh
 #   stop:   linux/systemd/enable-dashboard.sh --disable
 ```
 
-For LAN access (open the dashboard from another machine), add `--lan` and set
-`MEMORYWHALE_TOKEN` in the installed unit, then restart it. `mw-serve` refuses
-an unauthenticated non-loopback bind.
+For LAN access (open the dashboard from another machine), add `--lan`. If no
+token is set, `mw-serve` mints `serve.token` in the data directory. `mw-serve
+--print-token` prints the token this process would use. MCP clients send it as
+`Authorization: Bearer …` to `POST /mcp`.
 
 ## Per-command recording vs. whole-session
 

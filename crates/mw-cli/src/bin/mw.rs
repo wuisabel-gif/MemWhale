@@ -317,7 +317,7 @@ fn print_help() {
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          mw integrate claude [--revert]  install or remove Claude Code hook, skill, and MCP\n\
-         mw integrate rho [--revert]     install or remove Rho hook, skill, and MCP\n\
+         mw integrate rho [--revert] [--http [url]] [--token secret]  Rho hook, skill, and MCP (stdio by default; --http for mw-serve /mcp)\n\
          mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
@@ -339,10 +339,10 @@ fn integrate_cmd(args: &[String]) -> Result<(), String> {
             Ok(())
         }
         Some(other) => Err(format!(
-            "unsupported integration {other:?}; usage: mw integrate claude [--revert]|rho [--revert]|hermes"
+            "unsupported integration {other:?}; usage: mw integrate claude [--revert]|rho [--revert] [--http [url]] [--token secret]|hermes"
         )),
         None => Err(
-            "usage: mw integrate claude [--revert]|rho [--revert]|hermes".to_string(),
+            "usage: mw integrate claude [--revert]|rho [--revert] [--http [url]] [--token secret]|hermes".to_string(),
         ),
     }
 }

@@ -1,6 +1,7 @@
 # Connect a coding agent
 
-MemoryWhale exposes local memory through the stdio MCP server `mw-mcp`. Use the
+MemoryWhale exposes local memory through the stdio MCP server `mw-mcp`, and
+through `POST /mcp` on `mw-serve` for Streamable HTTP clients. Use the
 [generic MCP contract](../../integrations/generic-mcp/README.md) or a verified
 client guide from the [integration matrix](../../integrations/README.md).
 

@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use toml_edit::{value, Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike};
 
 use super::files::{
-    atomic_write, install_skill, mw_remember_executable, parse_revert, read_or_empty,
-    remove_legacy_python_hook, remove_skill, write_or_remove, BundledLayout,
+    atomic_write, install_skill, mw_remember_executable, read_or_empty, remove_legacy_python_hook,
+    remove_skill, write_or_remove, BundledLayout,
 };
 use crate::agent_hook::Agent;
 
@@ -16,15 +16,138 @@ const HOOK_TIMEOUT: &str = "15s";
 const HOOK_TOOLS: [&str; 2] = ["bash", "powershell"];
 const MCP_COMMAND: &str = "mw-mcp";
 const MCP_TRANSPORT: &str = "stdio";
+const MCP_HTTP_TRANSPORT: &str = "streamable_http";
+const DEFAULT_MCP_HTTP_URL: &str = "http://127.0.0.1:7071/mcp";
+const USAGE: &str = "usage: mw integrate rho [--revert] [--http [url]] [--token secret]";
 
-/// `mw integrate rho [--revert]`
+enum McpMode {
+    Stdio,
+    Http {
+        url: String,
+        insecure: bool,
+        with_auth: bool,
+    },
+}
+
+#[derive(Debug)]
+struct CliArgs {
+    revert: bool,
+    http: bool,
+    url: Option<String>,
+    token: Option<String>,
+}
+
+/// `mw integrate rho [--revert] [--http [url]] [--token secret]`
 pub fn cli(args: &[String]) -> Result<(), String> {
-    if parse_revert(args, "usage: mw integrate rho [--revert]")? {
+    let parsed = parse_cli(args)?;
+    if parsed.revert {
         report_revert(uninstall()?);
-    } else {
-        report_install(install()?);
+        return Ok(());
     }
+    let mode = if parsed.http {
+        let url = parsed
+            .url
+            .clone()
+            .unwrap_or_else(|| DEFAULT_MCP_HTTP_URL.to_string());
+        let kind = classify_http_url(&url)?;
+        if !kind.loopback && parsed.token.is_none() {
+            return Err(
+                "LAN HTTP requires --token (on the server: mw-serve --print-token)".to_string(),
+            );
+        }
+        if let Some(token) = parsed.token.as_deref() {
+            crate::serve_auth::write_mcp_authorization(token)?;
+        }
+        McpMode::Http {
+            url,
+            insecure: kind.http && !kind.loopback,
+            with_auth: !kind.loopback,
+        }
+    } else {
+        if parsed.token.is_some() {
+            return Err("--token requires --http".to_string());
+        }
+        McpMode::Stdio
+    };
+    report_install(install(&mode)?);
     Ok(())
+}
+
+fn parse_cli(args: &[String]) -> Result<CliArgs, String> {
+    let mut revert = false;
+    let mut http = false;
+    let mut url = None;
+    let mut token = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--revert" => revert = true,
+            "--http" => {
+                http = true;
+                if let Some(next) = args.get(i + 1) {
+                    if !next.starts_with('-') {
+                        url = Some(next.clone());
+                        i += 1;
+                    }
+                }
+            }
+            "--token" => {
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--token needs a value".to_string())?;
+                token = Some(value.clone());
+                i += 1;
+            }
+            _ => return Err(USAGE.to_string()),
+        }
+        i += 1;
+    }
+    if revert && (http || token.is_some()) {
+        return Err(USAGE.to_string());
+    }
+    if token.is_some() && !http {
+        return Err("--token requires --http".to_string());
+    }
+    Ok(CliArgs {
+        revert,
+        http,
+        url,
+        token,
+    })
+}
+
+struct HttpUrlKind {
+    http: bool,
+    loopback: bool,
+}
+
+fn classify_http_url(url: &str) -> Result<HttpUrlKind, String> {
+    let (scheme, rest) = url
+        .split_once("://")
+        .ok_or_else(|| format!("invalid MCP URL {url:?}: missing scheme"))?;
+    let http = match scheme {
+        "http" => true,
+        "https" => false,
+        _ => {
+            return Err(format!(
+                "invalid MCP URL {url:?}: scheme must be http or https"
+            ))
+        }
+    };
+    let hostport = rest.split('/').next().unwrap_or(rest);
+    let host = if let Some(rest) = hostport.strip_prefix('[') {
+        rest.split(']').next().unwrap_or(rest)
+    } else {
+        match hostport.rsplit_once(':') {
+            Some((name, port)) if port.chars().all(|c| c.is_ascii_digit()) => name,
+            _ => hostport,
+        }
+    };
+    let loopback = host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    Ok(HttpUrlKind { http, loopback })
 }
 
 struct InstallResult {
@@ -33,6 +156,7 @@ struct InstallResult {
     hooks_path: PathBuf,
     config_path: PathBuf,
     skill_path: PathBuf,
+    mcp_summary: String,
 }
 
 struct RevertResult {
@@ -60,13 +184,13 @@ impl RhoPaths {
     }
 }
 
-fn install() -> Result<InstallResult, String> {
+fn install(mode: &McpMode) -> Result<InstallResult, String> {
     let paths = RhoPaths::resolve()?;
     let existing_hooks = read_or_empty(&paths.hooks_path)?;
     let existing_config = read_or_empty(&paths.config_path)?;
     let remember_path = mw_remember_executable()?;
     let (hooks_updated, hooks_changed) = merge_hooks(&existing_hooks, &remember_path)?;
-    let (config_updated, config_changed) = merge_mcp(&existing_config)?;
+    let (config_updated, config_changed) = merge_mcp(&existing_config, mode)?;
 
     install_skill(&paths.bundled, super::SKILL)?;
     remove_legacy_python_hook(&paths.bundled.config_dir)?;
@@ -84,6 +208,10 @@ fn install() -> Result<InstallResult, String> {
         hooks_path: paths.hooks_path,
         config_path: paths.config_path,
         skill_path: paths.bundled.skill_path,
+        mcp_summary: match mode {
+            McpMode::Stdio => "memorywhale stdio (mw-mcp) registered in config.toml".to_string(),
+            McpMode::Http { url, .. } => format!("memorywhale Streamable HTTP at {url}"),
+        },
     })
 }
 
@@ -319,12 +447,45 @@ fn unmerge_hooks(existing: &str) -> Result<(String, bool), String> {
     Ok((doc.to_string(), true))
 }
 
-fn mcp_server_matches(doc: &DocumentMut) -> bool {
+fn mcp_server_matches(doc: &DocumentMut, mode: &McpMode) -> bool {
     memorywhale_server(doc).is_some_and(|server| {
-        server.get("transport").and_then(Item::as_str) == Some(MCP_TRANSPORT)
-            && server.get("command").and_then(Item::as_str) == Some(MCP_COMMAND)
-            && server.get("enabled").and_then(Item::as_bool) != Some(false)
+        if server.get("enabled").and_then(Item::as_bool) == Some(false) {
+            return false;
+        }
+        match mode {
+            McpMode::Stdio => {
+                server.get("transport").and_then(Item::as_str) == Some(MCP_TRANSPORT)
+                    && server.get("command").and_then(Item::as_str) == Some(MCP_COMMAND)
+            }
+            McpMode::Http {
+                url,
+                insecure,
+                with_auth,
+            } => {
+                server.get("transport").and_then(Item::as_str) == Some(MCP_HTTP_TRANSPORT)
+                    && server.get("url").and_then(Item::as_str) == Some(url.as_str())
+                    && server
+                        .get("allow_insecure_http")
+                        .and_then(Item::as_bool)
+                        .unwrap_or(false)
+                        == *insecure
+                    && http_auth_matches(server, *with_auth)
+            }
+        }
     })
+}
+
+fn http_auth_matches(server: &dyn TableLike, with_auth: bool) -> bool {
+    let headers = server
+        .get("headers_from_env")
+        .and_then(Item::as_inline_table);
+    let authorization =
+        headers.and_then(|table| table.get("Authorization").and_then(|item| item.as_str()));
+    if with_auth {
+        authorization == Some("MEMORYWHALE_AUTHORIZATION")
+    } else {
+        authorization.is_none()
+    }
 }
 
 fn memorywhale_server(doc: &DocumentMut) -> Option<&dyn TableLike> {
@@ -435,16 +596,53 @@ fn memorywhale_server_table(doc: &mut DocumentMut) -> Result<&mut dyn TableLike,
     )
 }
 
-fn merge_mcp(existing: &str) -> Result<(String, bool), String> {
+fn merge_mcp(existing: &str, mode: &McpMode) -> Result<(String, bool), String> {
     let mut doc = parse_toml(existing, "config.toml")?;
     require_mcp_tables(&doc)?;
-    if mcp_server_matches(&doc) {
+    if mcp_server_matches(&doc, mode) {
         return Ok((existing.to_string(), false));
     }
     let server = memorywhale_server_table(&mut doc)?;
     let mut changed = false;
-    changed |= set_string(server, "transport", MCP_TRANSPORT);
-    changed |= set_string(server, "command", MCP_COMMAND);
+    match mode {
+        McpMode::Stdio => {
+            changed |= set_string(server, "transport", MCP_TRANSPORT);
+            changed |= set_string(server, "command", MCP_COMMAND);
+            for key in [
+                "url",
+                "headers",
+                "headers_from_env",
+                "allow_insecure_http",
+                "oauth",
+            ] {
+                changed |= remove_key(server, key);
+            }
+        }
+        McpMode::Http {
+            url,
+            insecure,
+            with_auth,
+        } => {
+            changed |= set_string(server, "transport", MCP_HTTP_TRANSPORT);
+            changed |= set_string(server, "url", url);
+            for key in ["command", "args", "cwd", "env", "env_from_env"] {
+                changed |= remove_key(server, key);
+            }
+            if *insecure {
+                if server.get("allow_insecure_http").and_then(Item::as_bool) != Some(true) {
+                    server.insert("allow_insecure_http", value(true));
+                    changed = true;
+                }
+            } else {
+                changed |= remove_key(server, "allow_insecure_http");
+            }
+            if *with_auth {
+                changed |= set_authorization_from_env(server);
+            } else {
+                changed |= remove_key(server, "headers_from_env");
+            }
+        }
+    }
     if server.get("enabled").and_then(Item::as_bool) == Some(false) {
         server.insert("enabled", value(true));
         changed = true;
@@ -453,6 +651,20 @@ fn merge_mcp(existing: &str) -> Result<(String, bool), String> {
         return Ok((existing.to_string(), false));
     }
     Ok((doc.to_string(), true))
+}
+
+fn remove_key(table: &mut dyn TableLike, key: &str) -> bool {
+    table.remove(key).is_some()
+}
+
+fn set_authorization_from_env(table: &mut dyn TableLike) -> bool {
+    if http_auth_matches(table, true) {
+        return false;
+    }
+    let mut headers = InlineTable::new();
+    headers.insert("Authorization", "MEMORYWHALE_AUTHORIZATION".into());
+    table.insert("headers_from_env", Item::Value(headers.into()));
+    true
 }
 
 fn unmerge_mcp(existing: &str) -> Result<(String, bool), String> {
@@ -505,7 +717,7 @@ fn report_install(result: InstallResult) {
     println!("  hooks:    {}", result.hooks_path.display());
     println!("  settings: {}", result.config_path.display());
     println!("  skill:    {}", result.skill_path.display());
-    println!("  mcp:      memorywhale registered in config.toml");
+    println!("  mcp:      {}", result.mcp_summary);
     println!("Restart Rho to pick up hook, skill, and MCP changes.");
 }
 
@@ -530,6 +742,10 @@ fn report_revert(result: RevertResult) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn merge_mcp(existing: &str) -> Result<(String, bool), String> {
+        super::merge_mcp(existing, &McpMode::Stdio)
+    }
 
     fn hook(path: &str) -> PathBuf {
         PathBuf::from(path)
@@ -879,5 +1095,69 @@ command = "npx"
         let (updated, changed) = unmerge_mcp(original).unwrap();
         assert!(!changed);
         assert_eq!(updated, original);
+    }
+
+    #[test]
+    fn merge_mcp_http_loopback_has_no_token_header() {
+        let mode = McpMode::Http {
+            url: "http://127.0.0.1:7071/mcp".into(),
+            insecure: false,
+            with_auth: false,
+        };
+        let (merged, changed) = super::merge_mcp("", &mode).unwrap();
+        assert!(changed);
+        let doc: DocumentMut = merged.parse().unwrap();
+        let server = doc["mcp"]["servers"]["memorywhale"].as_table().unwrap();
+        assert_eq!(server["transport"].as_str(), Some("streamable_http"));
+        assert_eq!(server["url"].as_str(), Some("http://127.0.0.1:7071/mcp"));
+        assert!(server.get("command").is_none());
+        assert!(server.get("allow_insecure_http").is_none());
+        assert!(server.get("headers_from_env").is_none());
+        let (again, changed_again) = super::merge_mcp(&merged, &mode).unwrap();
+        assert!(!changed_again);
+        assert_eq!(again, merged);
+    }
+
+    #[test]
+    fn merge_mcp_http_lan_sets_insecure_and_auth_header() {
+        let mode = McpMode::Http {
+            url: "http://192.168.1.42:7071/mcp".into(),
+            insecure: true,
+            with_auth: true,
+        };
+        let (merged, changed) = super::merge_mcp(
+            "[mcp.servers.memorywhale]\ntransport = \"stdio\"\ncommand = \"mw-mcp\"\n",
+            &mode,
+        )
+        .unwrap();
+        assert!(changed);
+        assert!(!merged.contains("command = \"mw-mcp\""));
+        let doc: DocumentMut = merged.parse().unwrap();
+        let server = doc["mcp"]["servers"]["memorywhale"].as_table().unwrap();
+        assert_eq!(server["allow_insecure_http"].as_bool(), Some(true));
+        assert_eq!(
+            server["headers_from_env"]["Authorization"].as_str(),
+            Some("MEMORYWHALE_AUTHORIZATION")
+        );
+    }
+
+    #[test]
+    fn classify_loopback_and_lan_urls() {
+        let loopback = classify_http_url("http://127.0.0.1:7071/mcp").unwrap();
+        assert!(loopback.http && loopback.loopback);
+        let lan = classify_http_url("http://192.168.1.42:7071/mcp").unwrap();
+        assert!(lan.http && !lan.loopback);
+        let tls = classify_http_url("https://jetson.local/mcp").unwrap();
+        assert!(!tls.http && !tls.loopback);
+    }
+
+    #[test]
+    fn parse_cli_http_defaults_and_rejects_lan_without_token() {
+        let args = parse_cli(&["--http".to_string()]).unwrap();
+        assert!(args.http && args.url.is_none() && args.token.is_none());
+        assert_eq!(
+            parse_cli(&["--token".to_string(), "x".into()]).unwrap_err(),
+            "--token requires --http"
+        );
     }
 }

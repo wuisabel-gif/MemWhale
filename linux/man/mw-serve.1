@@ -32,14 +32,26 @@ Address to bind. Default
 .B --lan
 Bind to
 .BR 0.0.0.0 .
-LAN access requires
-.B MEMORYWHALE_TOKEN
-or
-.BR --token .
+LAN access requires a token:
+.B MEMORYWHALE_TOKEN ,
+.BR --token ,
+or a minted
+.B serve.token
+file.
 .TP
 .BI "--port " n
 TCP port to listen on. Default
 .BR 7071 .
+.TP
+.B --print-token
+Print the token this process would use and exit without binding.
+.PP
+.B POST /mcp
+on the same port is Streamable HTTP MCP,
+.B 2026-07-28
+only. Loopback is open. LAN requires
+.B Authorization: Bearer
+matching the dashboard token.
 .SH EXAMPLES
 .TP
 Localhost only:

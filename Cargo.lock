@@ -2181,6 +2181,7 @@ version = "0.9.1"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
+ "getrandom 0.2.17",
  "libc",
  "memorywhale-core",
  "ratatui",

@@ -15,6 +15,23 @@ case $- in *i*) : ;; *) return 0 2>/dev/null || true ;; esac
 [ -n "${__MW_HOOK_LOADED:-}" ] && return 0 2>/dev/null
 __MW_HOOK_LOADED=1
 
+# Rho Streamable HTTP client copy of a remote token, if present. Does not
+# override a value the user already exported.
+if [ -z "${MEMORYWHALE_AUTHORIZATION:-}" ]; then
+  if [ -n "${MEMORYWHALE_DATA_DIR:-}" ]; then
+    __mw_auth="$MEMORYWHALE_DATA_DIR/mcp-authorization"
+  elif [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    __mw_auth="$HOME/Library/Application Support/MemoryWhale/mcp-authorization"
+  else
+    __mw_auth="${XDG_DATA_HOME:-$HOME/.local/share}/MemoryWhale/mcp-authorization"
+  fi
+  if [ -f "$__mw_auth" ]; then
+    MEMORYWHALE_AUTHORIZATION="$(tr -d '\n' < "$__mw_auth")"
+    export MEMORYWHALE_AUTHORIZATION
+  fi
+  unset __mw_auth
+fi
+
 # Record one command. $1 = exit code, $2 = command line, $3 = duration seconds.
 # Fire-and-forget in a detached subshell so the prompt stays snappy and a
 # hiccup — locked DB, missing DB, missing binary — never breaks the shell.

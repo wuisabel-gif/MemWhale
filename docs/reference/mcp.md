@@ -19,6 +19,20 @@ over its standard input and output. It does not listen on a network port and
 has no separate protocol authentication. The spawning process and the
 permissions of the operating-system user establish the local trust context.
 
+`mw-serve` also exposes the same six tools at `POST /mcp` on the dashboard
+port (default `http://127.0.0.1:7071/mcp`). HTTP MCP speaks only the current
+`2026-07-28` protocol: each POST is one JSON-RPC object with `_meta`. Legacy
+`initialize` handshakes stay on stdio. Loopback is open. A non-loopback bind
+requires a token; MCP clients send `Authorization: Bearer <token>`. `--lan`
+mints `$MEMORYWHALE_DATA_DIR/serve.token` when no token is supplied.
+`mw-serve --print-token` prints the token this process would use. A Rho client
+on another machine stores `Bearer <token>` in
+`$MEMORYWHALE_DATA_DIR/mcp-authorization` and sets
+`headers_from_env = { Authorization = "MEMORYWHALE_AUTHORIZATION" }`. Rho
+2.2.0+ needs `allow_insecure_http = true` for a cleartext LAN URL. `mw
+integrate rho` still defaults to stdio; `mw integrate rho --http [url]`
+writes the Streamable HTTP stanza.
+
 A process running as the same OS user may already be able to read the
 MemoryWhale database and environment. MCP access nevertheless matters because
 it gives an agent a supported interface for retrieving terminal evidence and

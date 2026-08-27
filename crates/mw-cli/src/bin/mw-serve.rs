@@ -8,7 +8,8 @@
 //
 // Usage:
 //   mw-serve                 serve on 127.0.0.1:7071
-//   MEMORYWHALE_TOKEN=... mw-serve --lan  serve on the LAN with authentication
+//   mw-serve --lan           serve on the LAN; mints serve.token if needed
+//   mw-serve --print-token   print the token this process would use, then exit
 //   mw-serve --port 8080     serve on a different port
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
@@ -37,6 +38,10 @@ const MAX_HEADER_LINE_BYTES: usize = 8 * 1024;
 const MAX_HEADER_BYTES: usize = 32 * 1024;
 const MAX_HEADER_COUNT: usize = 100;
 const MAX_BODY_BYTES: usize = 4096;
+/// MCP JSON-RPC body cap. Receipt: same as one captured text field
+/// (`DEFAULT_MAX_CAPTURE_BYTES` = 1 MiB). A `remember` / `similar_failures`
+/// argument cannot usefully exceed what the store will keep.
+const MCP_MAX_BODY_BYTES: usize = memorywhale_core::privacy::DEFAULT_MAX_CAPTURE_BYTES;
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
 struct ConnectionGuard;
@@ -66,12 +71,22 @@ fn main() {
 }
 
 fn run() -> Result<(), String> {
-    let config = parse_server_args(std::env::args().skip(1))?;
+    let mut config = parse_server_args(std::env::args().skip(1))?;
     if config.help {
         println!(
-            "mw-serve [--lan | --host <addr>] [--port <n>] [--token <secret>]  — serve memory as a web dashboard"
+            "mw-serve [--lan | --host <addr>] [--port <n>] [--token <secret>] [--print-token]  — serve memory as a web dashboard and MCP HTTP endpoint"
         );
         return Ok(());
+    }
+    if config.print_token {
+        println!(
+            "{}",
+            memorywhale_cli::serve_auth::load_or_mint_serve_token(&config.token)?
+        );
+        return Ok(());
+    }
+    if !is_loopback_host(&config.host) && config.token.is_empty() {
+        config.token = memorywhale_cli::serve_auth::load_or_mint_serve_token("")?;
     }
     validate_server_config(&config)?;
     if !config.token.is_empty() {
@@ -122,14 +137,32 @@ fn run() -> Result<(), String> {
 
     println!("MemoryWhale dashboard serving from {}", db.display());
     println!("  local:   http://localhost:{}/", config.port);
+    println!("  mcp:     http://localhost:{}/mcp", config.port);
     if !is_loopback_host(&config.host) {
         println!(
             "  network: http://<this-machine-ip>:{}/  (find it with: hostname -I)",
             config.port
         );
+        println!("  mcp:     http://<this-machine-ip>:{}/mcp", config.port);
     }
     if AUTH_TOKEN.get().is_some() {
-        println!("  auth:    token required — enter it in the dashboard sign-in form");
+        match memorywhale_cli::serve_auth::serve_token_path() {
+            Ok(path)
+                if path.exists()
+                    && std::env::var("MEMORYWHALE_TOKEN")
+                        .map(|v| v.is_empty())
+                        .unwrap_or(true)
+                    && std::env::args().all(|a| a != "--token") =>
+            {
+                println!(
+                    "  auth:    token stored at {} — dashboard sign-in uses the raw token; MCP uses Authorization: Bearer …",
+                    path.display()
+                );
+            }
+            _ => {
+                println!("  auth:    token required — enter it in the dashboard sign-in form; MCP uses Authorization: Bearer …");
+            }
+        }
     }
     println!("Press Ctrl-C to stop.");
 
@@ -159,6 +192,7 @@ struct ServerConfig {
     port: u16,
     token: String,
     help: bool,
+    print_token: bool,
 }
 
 fn parse_server_args<I>(args: I) -> Result<ServerConfig, String>
@@ -169,6 +203,7 @@ where
     let mut port = 7071;
     let mut token = std::env::var("MEMORYWHALE_TOKEN").unwrap_or_default();
     let mut help = false;
+    let mut print_token = false;
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -185,6 +220,7 @@ where
                     .ok_or("--port needs a number")?;
             }
             "--token" => token = args.next().unwrap_or_default(),
+            "--print-token" => print_token = true,
             other => return Err(format!("unknown option {other:?}; run mw-serve --help")),
         }
     }
@@ -193,7 +229,21 @@ where
         port,
         token,
         help,
+        print_token,
     })
+}
+
+fn request_path(raw_path: &str) -> &str {
+    raw_path.split('?').next().unwrap_or(raw_path)
+}
+
+fn bearer_token(authorization: &str) -> Option<&str> {
+    let value = authorization.trim();
+    value
+        .strip_prefix("Bearer ")
+        .or_else(|| value.strip_prefix("bearer "))
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
 }
 
 fn is_loopback_host(host: &str) -> bool {
@@ -260,6 +310,48 @@ fn response(status: &str, body: &str, extra_headers: &str) -> String {
     )
 }
 
+fn json_http(status: &str, body: &str, extra_headers: &str) -> String {
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n{SECURITY_HEADERS}{extra_headers}Connection: close\r\n\r\n{body}",
+        body.len()
+    )
+}
+
+fn handle_mcp(stream: &mut TcpStream, method: &str, authorization: &str, body: &str) {
+    if method != "POST" {
+        let response = json_http(
+            "405 Method Not Allowed",
+            "{\"error\":\"method not allowed\"}",
+            "Allow: POST\r\n",
+        );
+        let _ = stream.write_all(response.as_bytes());
+        return;
+    }
+    if let Some(want) = AUTH_TOKEN.get() {
+        let supplied = bearer_token(authorization).unwrap_or("");
+        if !ct_eq(supplied, want) {
+            let response = json_http(
+                "401 Unauthorized",
+                "{\"error\":\"unauthorized\"}",
+                "WWW-Authenticate: Bearer\r\n",
+            );
+            let _ = stream.write_all(response.as_bytes());
+            return;
+        }
+    }
+    let reply = memorywhale_cli::mcp::handle_http_rpc(body);
+    if reply.body.is_empty() {
+        let response = format!(
+            "HTTP/1.1 {}\r\nContent-Length: 0\r\n{SECURITY_HEADERS}Connection: close\r\n\r\n",
+            reply.status
+        );
+        let _ = stream.write_all(response.as_bytes());
+        return;
+    }
+    let response = json_http(reply.status, &reply.body, "");
+    let _ = stream.write_all(response.as_bytes());
+}
+
 fn validate_server_config(config: &ServerConfig) -> Result<(), String> {
     if !config.help && !is_loopback_host(&config.host) && config.token.is_empty() {
         return Err(
@@ -295,7 +387,13 @@ fn handle(mut stream: TcpStream) {
     // Read the cookie, host, and body length; stop at the blank line.
     let mut cookie = String::new();
     let mut host_header = String::new();
+    let mut authorization = String::new();
     let mut content_length = 0usize;
+    let max_body = if request_path(&raw_path) == "/mcp" {
+        MCP_MAX_BODY_BYTES
+    } else {
+        MAX_BODY_BYTES
+    };
     let mut saw_content_length = false;
     let mut header_bytes = 0usize;
     let mut header_count = 0usize;
@@ -337,6 +435,9 @@ fn handle(mut stream: TcpStream) {
         if header_name.eq_ignore_ascii_case("host") {
             host_header = header_value.trim().to_string();
         }
+        if header_name.eq_ignore_ascii_case("authorization") {
+            authorization = header_value.trim().to_string();
+        }
         if header_name.eq_ignore_ascii_case("content-length") {
             if saw_content_length {
                 let _ = write_error(&stream, "400 Bad Request");
@@ -344,7 +445,7 @@ fn handle(mut stream: TcpStream) {
             }
             saw_content_length = true;
             content_length = match parse_content_length(header_value.trim()) {
-                Ok(n) if n <= MAX_BODY_BYTES => n,
+                Ok(n) if n <= max_body => n,
                 Err(_) => {
                     let _ = write_error(&stream, "400 Bad Request");
                     return;
@@ -384,9 +485,14 @@ fn handle(mut stream: TcpStream) {
     }
 
     let is_head = method == "HEAD";
-    let method_allowed = method == "GET" || is_head || (method == "POST" && raw_path == "/login");
+    let path = request_path(&raw_path);
+    if path == "/mcp" {
+        handle_mcp(&mut stream, &method, &authorization, &request_body);
+        return;
+    }
+    let method_allowed = method == "GET" || is_head || (method == "POST" && path == "/login");
     if !method_allowed {
-        let allow = if raw_path == "/login" {
+        let allow = if path == "/login" {
             "GET, HEAD, POST"
         } else {
             "GET, HEAD"
@@ -2374,7 +2480,44 @@ mod tests {
         let config = parse_server_args(Vec::<String>::new()).unwrap();
         assert_eq!(config.host, "127.0.0.1");
         assert_eq!(config.port, 7071);
+        assert!(!config.print_token);
         assert!(validate_server_config(&config).is_ok());
+    }
+
+    #[test]
+    fn print_token_flag_does_not_bind() {
+        let config = parse_server_args(["--print-token".to_string()]).unwrap();
+        assert!(config.print_token);
+    }
+
+    #[test]
+    fn bearer_header_strips_scheme() {
+        assert_eq!(bearer_token("Bearer secret"), Some("secret"));
+        assert_eq!(bearer_token("bearer secret"), Some("secret"));
+        assert!(bearer_token("secret").is_none());
+    }
+
+    #[test]
+    fn mcp_post_discovers_on_loopback_without_a_token() {
+        let body = r#"{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"test","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}}"#;
+        let request = format!(
+            "POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        let response = raw_response(request.as_bytes());
+        assert!(
+            response.starts_with("HTTP/1.1 200 OK"),
+            "unexpected MCP response: {response}"
+        );
+        assert!(response.contains("application/json"));
+        assert!(response.contains("2026-07-28"));
+    }
+
+    #[test]
+    fn mcp_get_is_not_allowed() {
+        let response = raw_response(b"GET /mcp HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        assert!(response.starts_with("HTTP/1.1 405 Method Not Allowed"));
+        assert!(response.contains("Allow: POST\r\n"));
     }
 
     #[test]

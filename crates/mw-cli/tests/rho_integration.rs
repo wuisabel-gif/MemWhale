@@ -43,6 +43,70 @@ fn user_can_install_memorywhale_into_a_fresh_rho_home() {
     assert!(config.contains("[mcp.servers.memorywhale]"));
     assert!(config.contains("transport = \"stdio\""));
     assert!(config.contains("command = \"mw-mcp\""));
+    assert!(!config.contains("streamable_http"));
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("Rho"),
+        "missing success message: {output:?}"
+    );
+}
+
+#[test]
+fn user_can_install_streamable_http_mcp_for_loopback() {
+    let rho_dir = sandbox("http-loopback");
+    let data_dir = sandbox("http-loopback-data");
+
+    let output = mw_cmd()
+        .args(["integrate", "rho", "--http"])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho HTTP integration");
+
+    assert!(output.status.success(), "command failed: {output:?}");
+    let config = std::fs::read_to_string(rho_dir.join("config.toml")).unwrap();
+    assert!(config.contains("transport = \"streamable_http\""));
+    assert!(config.contains("url = \"http://127.0.0.1:7071/mcp\""));
+    assert!(!config.contains("allow_insecure_http"));
+    assert!(!config.contains("MEMORYWHALE_AUTHORIZATION"));
+    assert!(!data_dir.join("mcp-authorization").exists());
+}
+
+#[test]
+fn lan_http_requires_token_and_writes_authorization_file() {
+    let rho_dir = sandbox("http-lan");
+    let data_dir = sandbox("http-lan-data");
+
+    let missing = mw_cmd()
+        .args(["integrate", "rho", "--http", "http://192.168.1.42:7071/mcp"])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho LAN HTTP without token");
+    assert!(!missing.status.success());
+    assert!(
+        String::from_utf8_lossy(&missing.stderr).contains("--token")
+            || String::from_utf8_lossy(&missing.stdout).contains("--token")
+    );
+
+    let output = mw_cmd()
+        .args([
+            "integrate",
+            "rho",
+            "--http",
+            "http://192.168.1.42:7071/mcp",
+            "--token",
+            "lan-secret",
+        ])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho LAN HTTP with token");
+    assert!(output.status.success(), "command failed: {output:?}");
+    let config = std::fs::read_to_string(rho_dir.join("config.toml")).unwrap();
+    assert!(config.contains("allow_insecure_http = true"));
+    assert!(config.contains("MEMORYWHALE_AUTHORIZATION"));
+    let auth = std::fs::read_to_string(data_dir.join("mcp-authorization")).unwrap();
+    assert_eq!(auth.trim(), "Bearer lan-secret");
     assert!(
         String::from_utf8_lossy(&output.stdout).contains("Rho"),
         "missing success message: {output:?}"

@@ -2,8 +2,10 @@
 
 pub mod agent_hook;
 pub mod integrate;
+pub mod mcp;
 pub mod remember;
 pub mod repository;
+pub mod serve_auth;
 
 /// Deprecated: use [`integrate::hermes`] instead.
 #[deprecated(

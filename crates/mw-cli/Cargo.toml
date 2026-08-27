@@ -15,6 +15,7 @@ categories = ["command-line-utilities", "development-tools"]
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5"
+getrandom = "0.2"
 # The `mempalace` feature adds no dependencies (std process + serde_json +
 # anyhow, all already present), so it's enabled unconditionally: it lets
 # `engine = "mempalace"` in config.toml route search through a local MemPalace
