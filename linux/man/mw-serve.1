@@ -47,9 +47,9 @@ TCP port to listen on. Default
 Print the token this process would use and exit without binding.
 .PP
 .B POST /mcp
-on the same port is Streamable HTTP MCP,
+on the same port is one JSON-RPC object per request,
 .B 2026-07-28
-only. Loopback is open. LAN requires
+only (no SSE session). Loopback is open. LAN requires
 .B Authorization: Bearer
 matching the dashboard token.
 .SH EXAMPLES

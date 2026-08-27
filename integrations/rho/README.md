@@ -44,8 +44,9 @@ MemoryWhale hook in `hooks.toml` at `mw-remember --from-hook rho`, and registers
 `mw-mcp` in `config.toml`. Restart Rho afterward. To undo:
 `mw integrate rho --revert`.
 
-Stdio is the default. To point Rho at `mw-serve`'s Streamable HTTP endpoint
-instead (Rho 2.2.0+):
+Stdio is the default. To point Rho at `mw-serve`'s `POST /mcp` endpoint
+instead (Rho 2.2.0+ `streamable_http` transport; one JSON-RPC object per
+POST, not SSE):
 
 ```bash
 mw integrate rho --http
@@ -56,8 +57,12 @@ mw integrate rho --http http://192.168.1.42:7071/mcp --token "$(ssh jetson mw-se
 Loopback HTTP needs no token. A LAN `http://` URL sets `allow_insecure_http =
 true` and `headers_from_env = { Authorization = "MEMORYWHALE_AUTHORIZATION" }`.
 The raw token is stored as `Bearer …` in
-`$MEMORYWHALE_DATA_DIR/mcp-authorization` (not in `config.toml`). The
-MemoryWhale shell hook exports that file as `MEMORYWHALE_AUTHORIZATION`.
+`$MEMORYWHALE_DATA_DIR/mcp-authorization` (not in `config.toml`). Export it
+in the Rho process:
+
+```bash
+export MEMORYWHALE_AUTHORIZATION="$(tr -d '\n' < "$MEMORYWHALE_DATA_DIR/mcp-authorization")"
+```
 
 The skill lives in `crates/mw-cli/integrate/` so it ships inside the published
 package. Capture uses the `mw-remember` binary, not a copied script.

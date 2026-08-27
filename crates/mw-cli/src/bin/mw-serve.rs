@@ -78,15 +78,20 @@ fn run() -> Result<(), String> {
         );
         return Ok(());
     }
+    let mut token_source = None;
     if config.print_token {
         println!(
             "{}",
-            memorywhale_cli::serve_auth::load_or_mint_serve_token(&config.token)?
+            memorywhale_cli::serve_auth::load_or_mint_serve_token(&config.token)?.value
         );
         return Ok(());
     }
     if !is_loopback_host(&config.host) && config.token.is_empty() {
-        config.token = memorywhale_cli::serve_auth::load_or_mint_serve_token("")?;
+        let loaded = memorywhale_cli::serve_auth::load_or_mint_serve_token("")?;
+        token_source = Some(loaded.source);
+        config.token = loaded.value;
+    } else if !config.token.is_empty() {
+        token_source = Some(memorywhale_cli::serve_auth::TokenSource::Explicit);
     }
     validate_server_config(&config)?;
     if !config.token.is_empty() {
@@ -146,14 +151,13 @@ fn run() -> Result<(), String> {
         println!("  mcp:     http://<this-machine-ip>:{}/mcp", config.port);
     }
     if AUTH_TOKEN.get().is_some() {
+        let from_file = matches!(
+            token_source,
+            Some(memorywhale_cli::serve_auth::TokenSource::File)
+                | Some(memorywhale_cli::serve_auth::TokenSource::Minted)
+        );
         match memorywhale_cli::serve_auth::serve_token_path() {
-            Ok(path)
-                if path.exists()
-                    && std::env::var("MEMORYWHALE_TOKEN")
-                        .map(|v| v.is_empty())
-                        .unwrap_or(true)
-                    && std::env::args().all(|a| a != "--token") =>
-            {
+            Ok(path) if from_file => {
                 println!(
                     "  auth:    token stored at {} — dashboard sign-in uses the raw token; MCP uses Authorization: Bearer …",
                     path.display()
@@ -362,6 +366,94 @@ fn validate_server_config(config: &ServerConfig) -> Result<(), String> {
     Ok(())
 }
 
+struct HttpMessage {
+    cookie: String,
+    host_header: String,
+    authorization: String,
+    body: String,
+}
+
+fn host_ok(host_header: &str) -> bool {
+    let loopback_bind = *LOOPBACK_BIND.get().unwrap_or(&true);
+    host_header_allowed(host_header, loopback_bind)
+}
+
+fn read_http_message<R: BufRead>(
+    reader: &mut R,
+    max_body: usize,
+) -> Result<HttpMessage, &'static str> {
+    let mut cookie = String::new();
+    let mut host_header = String::new();
+    let mut authorization = String::new();
+    let mut content_length = 0usize;
+    let mut saw_content_length = false;
+    let mut header_bytes = 0usize;
+    let mut header_count = 0usize;
+    loop {
+        let line = match read_limited_line(reader, MAX_HEADER_LINE_BYTES) {
+            Ok(Some(line)) => line,
+            Ok(None) => return Err("400 Bad Request"),
+            Err(error) => return Err(error.status()),
+        };
+        header_bytes = match header_bytes.checked_add(line.len()) {
+            Some(n) if n <= MAX_HEADER_BYTES => n,
+            _ => return Err("431 Request Header Fields Too Large"),
+        };
+        if line == "\r\n" || line == "\n" || line.is_empty() {
+            break;
+        }
+        header_count += 1;
+        if header_count > MAX_HEADER_COUNT {
+            return Err("431 Request Header Fields Too Large");
+        }
+        let Some((header_name, header_value)) = line.trim_end_matches(['\r', '\n']).split_once(':')
+        else {
+            return Err("400 Bad Request");
+        };
+        if header_name.eq_ignore_ascii_case("cookie") {
+            cookie = header_value.trim().to_string();
+        }
+        if header_name.eq_ignore_ascii_case("host") {
+            host_header = header_value.trim().to_string();
+        }
+        if header_name.eq_ignore_ascii_case("authorization") {
+            authorization = header_value.trim().to_string();
+        }
+        if header_name.eq_ignore_ascii_case("content-length") {
+            if saw_content_length {
+                return Err("400 Bad Request");
+            }
+            saw_content_length = true;
+            content_length = match parse_content_length(header_value.trim()) {
+                Ok(n) if n <= max_body => n,
+                Err(_) => return Err("400 Bad Request"),
+                _ => return Err("413 Payload Too Large"),
+            };
+        }
+        if header_name.eq_ignore_ascii_case("transfer-encoding") {
+            return Err("400 Bad Request");
+        }
+    }
+    let mut request_body = vec![0; content_length];
+    if let Err(error) = reader.read_exact(&mut request_body) {
+        let status = if matches!(
+            error.kind(),
+            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+        ) {
+            "408 Request Timeout"
+        } else {
+            "400 Bad Request"
+        };
+        return Err(status);
+    }
+    Ok(HttpMessage {
+        cookie,
+        host_header,
+        authorization,
+        body: String::from_utf8_lossy(&request_body).into_owned(),
+    })
+}
+
 fn handle(mut stream: TcpStream) {
     let read_stream = match stream.try_clone() {
         Ok(s) => s,
@@ -383,113 +475,52 @@ fn handle(mut stream: TcpStream) {
             return;
         }
     };
-
-    // Read the cookie, host, and body length; stop at the blank line.
-    let mut cookie = String::new();
-    let mut host_header = String::new();
-    let mut authorization = String::new();
-    let mut content_length = 0usize;
-    let max_body = if request_path(&raw_path) == "/mcp" {
-        MCP_MAX_BODY_BYTES
-    } else {
-        MAX_BODY_BYTES
-    };
-    let mut saw_content_length = false;
-    let mut header_bytes = 0usize;
-    let mut header_count = 0usize;
-    loop {
-        let line = match read_limited_line(&mut reader, MAX_HEADER_LINE_BYTES) {
-            Ok(Some(line)) => line,
-            Ok(None) => {
-                let _ = write_error(&stream, "400 Bad Request");
-                return;
-            }
-            Err(error) => {
-                let _ = write_error(&stream, error.status());
-                return;
-            }
-        };
-        header_bytes = match header_bytes.checked_add(line.len()) {
-            Some(n) if n <= MAX_HEADER_BYTES => n,
-            _ => {
-                let _ = write_error(&stream, "431 Request Header Fields Too Large");
-                return;
-            }
-        };
-        if line == "\r\n" || line == "\n" || line.is_empty() {
-            break;
-        }
-        header_count += 1;
-        if header_count > MAX_HEADER_COUNT {
-            let _ = write_error(&stream, "431 Request Header Fields Too Large");
-            return;
-        }
-        let Some((header_name, header_value)) = line.trim_end_matches(['\r', '\n']).split_once(':')
-        else {
-            let _ = write_error(&stream, "400 Bad Request");
-            return;
-        };
-        if header_name.eq_ignore_ascii_case("cookie") {
-            cookie = header_value.trim().to_string();
-        }
-        if header_name.eq_ignore_ascii_case("host") {
-            host_header = header_value.trim().to_string();
-        }
-        if header_name.eq_ignore_ascii_case("authorization") {
-            authorization = header_value.trim().to_string();
-        }
-        if header_name.eq_ignore_ascii_case("content-length") {
-            if saw_content_length {
-                let _ = write_error(&stream, "400 Bad Request");
-                return;
-            }
-            saw_content_length = true;
-            content_length = match parse_content_length(header_value.trim()) {
-                Ok(n) if n <= max_body => n,
-                Err(_) => {
-                    let _ = write_error(&stream, "400 Bad Request");
-                    return;
-                }
-                _ => {
-                    let _ = write_error(&stream, "413 Payload Too Large");
-                    return;
-                }
-            };
-        }
-        if header_name.eq_ignore_ascii_case("transfer-encoding") {
-            let _ = write_error(&stream, "400 Bad Request");
-            return;
-        }
-    }
-    let mut request_body = vec![0; content_length];
-    if let Err(error) = reader.read_exact(&mut request_body) {
-        let status = if matches!(
-            error.kind(),
-            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-        ) {
-            "408 Request Timeout"
-        } else {
-            "400 Bad Request"
-        };
-        let _ = write_error(&stream, status);
+    if request_path(&raw_path) == "/mcp" {
+        serve_mcp(&mut stream, &mut reader, &method);
         return;
     }
-    let request_body = String::from_utf8_lossy(&request_body);
+    serve_dashboard(&mut stream, &mut reader, method, raw_path);
+}
 
+fn serve_mcp<R: BufRead>(stream: &mut TcpStream, reader: &mut R, method: &str) {
+    let msg = match read_http_message(reader, MCP_MAX_BODY_BYTES) {
+        Ok(msg) => msg,
+        Err(status) => {
+            let _ = write_error(stream, status);
+            return;
+        }
+    };
+    if !host_ok(&msg.host_header) {
+        let _ = write_error(stream, "403 Forbidden");
+        return;
+    }
+    handle_mcp(stream, method, &msg.authorization, &msg.body);
+}
+
+fn serve_dashboard<R: BufRead>(
+    stream: &mut TcpStream,
+    reader: &mut R,
+    method: String,
+    raw_path: String,
+) {
+    let msg = match read_http_message(reader, MAX_BODY_BYTES) {
+        Ok(msg) => msg,
+        Err(status) => {
+            let _ = write_error(stream, status);
+            return;
+        }
+    };
     // DNS-rebinding protection: on loopback binds, only loopback Host names
     // may reach the dashboard. A rebound attacker hostname gets 403.
-    let loopback_bind = *LOOPBACK_BIND.get().unwrap_or(&true);
-    if !host_header_allowed(&host_header, loopback_bind) {
-        let _ = write_error(&stream, "403 Forbidden");
+    if !host_ok(&msg.host_header) {
+        let _ = write_error(stream, "403 Forbidden");
         return;
     }
 
+    let cookie = msg.cookie;
+    let request_body = msg.body;
     let is_head = method == "HEAD";
     let path = request_path(&raw_path);
-    if path == "/mcp" {
-        handle_mcp(&mut stream, &method, &authorization, &request_body);
-        return;
-    }
     let method_allowed = method == "GET" || is_head || (method == "POST" && path == "/login");
     if !method_allowed {
         let allow = if path == "/login" {

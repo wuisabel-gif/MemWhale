@@ -1,9 +1,8 @@
-//! Shared token files for `mw-serve` LAN auth and Rho Streamable HTTP.
+//! Token files for `mw-serve` LAN auth and a Rho HTTP client copy.
 //!
-//! `serve.token` is the raw secret the server demands. `mcp-authorization` is
-//! the `Bearer …` header value a client process should export as
-//! `MEMORYWHALE_AUTHORIZATION`. They are allowed to disagree: one is "what I
-//! demand," the other is "what I send to a remote server."
+//! `serve.token` is the secret `mw-serve` demands. `mcp-authorization` is only
+//! a client-side `Bearer …` copy written by `mw integrate rho --http --token`
+//! so Rho can send `MEMORYWHALE_AUTHORIZATION`. `mw-serve` never reads it.
 
 use std::fs;
 use std::io::Write;
@@ -26,23 +25,45 @@ pub fn mcp_authorization_path() -> Result<PathBuf, String> {
     Ok(data_dir()?.join(MCP_AUTHORIZATION_FILE))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenSource {
+    Explicit,
+    File,
+    Minted,
+}
+
+pub struct LoadedToken {
+    pub value: String,
+    pub source: TokenSource,
+}
+
 /// Token `mw-serve` will actually use: an explicit value (CLI/env already
 /// folded in by the caller), else the file, else a newly minted file.
-pub fn load_or_mint_serve_token(explicit: &str) -> Result<String, String> {
+pub fn load_or_mint_serve_token(explicit: &str) -> Result<LoadedToken, String> {
     let explicit = explicit.trim();
     if !explicit.is_empty() {
-        return Ok(explicit.to_string());
+        return Ok(LoadedToken {
+            value: explicit.to_string(),
+            source: TokenSource::Explicit,
+        });
     }
     let path = serve_token_path()?;
     if path.exists() {
-        return read_secret_file(&path);
+        return Ok(LoadedToken {
+            value: read_secret_file(&path)?,
+            source: TokenSource::File,
+        });
     }
     let token = mint_token()?;
     write_secret_file(&path, &token)?;
-    Ok(token)
+    Ok(LoadedToken {
+        value: token,
+        source: TokenSource::Minted,
+    })
 }
 
-/// Persist `Bearer <raw>` for the Rho client hook.
+/// Persist `Bearer <raw>` for a Rho HTTP client. Export
+/// `MEMORYWHALE_AUTHORIZATION` from this file; the capture hook does not load it.
 pub fn write_mcp_authorization(raw_token: &str) -> Result<PathBuf, String> {
     let raw_token = raw_token.trim();
     if raw_token.is_empty() {
@@ -141,9 +162,15 @@ mod tests {
     fn explicit_token_wins_over_file() {
         with_data_dir("explicit", |_| {
             let minted = load_or_mint_serve_token("").unwrap();
-            assert_eq!(minted.len(), TOKEN_BYTES * 2);
-            assert_eq!(load_or_mint_serve_token("from-cli").unwrap(), "from-cli");
-            assert_eq!(load_or_mint_serve_token("").unwrap(), minted);
+            assert_eq!(minted.value.len(), TOKEN_BYTES * 2);
+            assert_eq!(minted.source, TokenSource::Minted);
+            assert_eq!(
+                load_or_mint_serve_token("from-cli").unwrap().value,
+                "from-cli"
+            );
+            let again = load_or_mint_serve_token("").unwrap();
+            assert_eq!(again.value, minted.value);
+            assert_eq!(again.source, TokenSource::File);
         });
     }
 

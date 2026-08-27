@@ -20,18 +20,20 @@ has no separate protocol authentication. The spawning process and the
 permissions of the operating-system user establish the local trust context.
 
 `mw-serve` also exposes the same six tools at `POST /mcp` on the dashboard
-port (default `http://127.0.0.1:7071/mcp`). HTTP MCP speaks only the current
-`2026-07-28` protocol: each POST is one JSON-RPC object with `_meta`. Legacy
-`initialize` handshakes stay on stdio. Loopback is open. A non-loopback bind
-requires a token; MCP clients send `Authorization: Bearer <token>`. `--lan`
-mints `$MEMORYWHALE_DATA_DIR/serve.token` when no token is supplied.
-`mw-serve --print-token` prints the token this process would use. A Rho client
-on another machine stores `Bearer <token>` in
+port (default `http://127.0.0.1:7071/mcp`). HTTP MCP is one JSON-RPC object
+per POST with `2026-07-28` `_meta` — not an SSE session. Legacy `initialize`
+handshakes stay on stdio. Loopback is open. A non-loopback bind requires a
+token; MCP clients send `Authorization: Bearer <token>`. `--lan` mints
+`$MEMORYWHALE_DATA_DIR/serve.token` when no token is supplied.
+`mw-serve --print-token` prints the token this process would use. A Rho
+client on another machine stores `Bearer <token>` in
 `$MEMORYWHALE_DATA_DIR/mcp-authorization` and sets
-`headers_from_env = { Authorization = "MEMORYWHALE_AUTHORIZATION" }`. Rho
-2.2.0+ needs `allow_insecure_http = true` for a cleartext LAN URL. `mw
-integrate rho` still defaults to stdio; `mw integrate rho --http [url]`
-writes the Streamable HTTP stanza.
+`headers_from_env = { Authorization = "MEMORYWHALE_AUTHORIZATION" }`. Export
+that file as `MEMORYWHALE_AUTHORIZATION` in the Rho process; the MemoryWhale
+capture hook does not load it. Rho 2.2.0+ needs `allow_insecure_http = true`
+for a cleartext LAN URL. `mw integrate rho` still defaults to stdio; `mw
+integrate rho --http [url]` writes Rho's `streamable_http` transport key
+pointing at this POST endpoint.
 
 A process running as the same OS user may already be able to read the
 MemoryWhale database and environment. MCP access nevertheless matters because
