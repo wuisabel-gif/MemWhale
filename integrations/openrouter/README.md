@@ -119,8 +119,8 @@ curl -fsS https://openrouter.ai/api/v1/models \
 # MemoryWhale CLI and database are healthy:
 mw doctor
 
-# The mw-mcp transport responds with a schema-valid initialize request:
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"memorywhale-check","version":"0.0.0"}}}' | mw-mcp
+# The mw-mcp transport responds to current-protocol discovery:
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
 ```
 
 `curl -fsS` fails on HTTP and connection errors, so an invalid key surfaces as

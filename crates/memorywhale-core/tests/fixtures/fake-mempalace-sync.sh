@@ -1,5 +1,5 @@
 #!/bin/sh
-# A fake `mempalace-mcp` for the id-sync path: handshake + any number of
+# A legacy fake `mempalace-mcp` for the id-sync path: handshake + any number of
 # `mempalace_add_drawer` / `mempalace_delete_drawer` calls over one session.
 # Each response echoes the request's own id (the client increments it per call),
 # adds hand out distinct drawer ids (drawer-1, drawer-2, ...), deletes succeed.
@@ -8,6 +8,9 @@ n=0
 while IFS= read -r line; do
   id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
   case "$line" in
+    *'"server/discover"'*)
+      printf '%s\n' '{"jsonrpc":"2.0","id":'"$id"',"error":{"code":-32601,"message":"Method not found"}}'
+      ;;
     *'"initialize"'*)
       printf '%s\n' '{"jsonrpc":"2.0","id":'"$id"',"result":{"protocolVersion":"2024-11-05","capabilities":{},"serverInfo":{"name":"mempalace","version":"fake"}}}'
       ;;

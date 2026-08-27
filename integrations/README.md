@@ -82,7 +82,7 @@ responses, and the [local stdio trust model](../docs/reference/mcp.md#trust-mode
 A transport-level check is:
 
 ```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
 ```
 
 ## Automatic capture

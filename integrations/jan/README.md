@@ -33,7 +33,7 @@ desktop UI details may change.
 
    ```bash
    command -v mw-mcp
-   printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
+   printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
    ```
 
 2. Open **Settings → MCP Servers** in Jan.
@@ -115,7 +115,7 @@ mw-run -- cargo test
 - Set `MEMORYWHALE_DATA_DIR` in Jan's server entry, not only in an unrelated
   terminal session.
 - Restart Jan after changing the MCP server entry.
-- Run `mw doctor` and the direct JSON-RPC initialize command above.
+- Run `mw doctor` and the direct JSON-RPC discovery command above.
 - Check that the model has tool calling enabled in Jan's model capabilities.
 
 ## Remove integration

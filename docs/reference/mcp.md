@@ -40,6 +40,34 @@ environment or read the underlying files directly.
 For broader guidance on protecting captured terminal data, see the
 [local data threat model](../SECURITY.md).
 
+## Protocol compatibility
+
+`mw-mcp` supports the current date-based MCP revision, `2026-07-28`, and the
+legacy initialization-based revision `2024-11-05`. MCP does not use an
+"MCP 2.0" version string.
+
+Current clients send their protocol version, identity, and capabilities in
+each request's `_meta` object. The server implements `server/discover`, reports
+the versions it supports, and returns JSON-RPC error `-32022` with `supported`
+and `requested` version data when no match is possible. Current responses use
+the revision's `resultType`, capability, cache, and server metadata fields.
+
+Legacy clients may still open the stdio process with an `initialize` request
+for `2024-11-05`, followed by `notifications/initialized`. Requests for other
+initialization revisions fail with the same explicit unsupported-version
+error. Protocol selection does not change the six MemoryWhale tools or their
+semantics.
+
+A direct current-protocol discovery check is:
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"memorywhale-check","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
+```
+
+`mw doctor` performs this negotiation without calling a tool and reports the
+selected revision. It falls back to the legacy handshake when an older server
+does not implement current-protocol discovery.
+
 ## Wire it into an agent
 
 Claude Code, one line:

@@ -14,6 +14,27 @@ use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 
+const CURRENT_PROTOCOL_VERSION: &str = "2026-07-28";
+const LEGACY_PROTOCOL_VERSION: &str = "2024-11-05";
+const CACHE_TTL_MS: u64 = 3_600_000;
+
+#[derive(Debug)]
+struct RpcError {
+    code: i64,
+    message: String,
+    data: Option<Value>,
+}
+
+impl RpcError {
+    fn new(code: i64, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            data: None,
+        }
+    }
+}
+
 fn main() {
     if std::env::args().nth(1).as_deref() == Some("--list-tools") {
         for tool in tool_defs().as_array().into_iter().flatten() {
@@ -23,62 +44,278 @@ fn main() {
         }
         return;
     }
-    let stdin = std::io::stdin();
-    let mut stdout = std::io::stdout();
+    serve(std::io::stdin().lock(), std::io::stdout());
+}
+
+fn serve<R: BufRead, W: Write>(input: R, mut output: W) {
     // Client name from the `initialize` handshake (e.g. "Claude Code"), used to
     // attribute agent-written memories. One process serves one client, so a
     // single mutable slot is enough.
-    let mut client_name: Option<String> = None;
-    for line in stdin.lock().lines() {
+    let mut legacy_client_name: Option<String> = None;
+    let mut legacy_initialized = false;
+    for line in input.lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
             continue;
         }
         let msg: Value = match serde_json::from_str(&line) {
             Ok(v) => v,
-            Err(_) => continue,
+            Err(_) => {
+                write_error(
+                    &mut output,
+                    Value::Null,
+                    RpcError::new(-32700, "Parse error"),
+                );
+                continue;
+            }
         };
-        let method = msg.get("method").and_then(Value::as_str).unwrap_or("");
-        let params = msg.get("params").cloned().unwrap_or(json!({}));
-        if method == "initialize" {
-            client_name = params
-                .get("clientInfo")
-                .and_then(|c| c.get("name"))
-                .and_then(Value::as_str)
-                .filter(|s| !s.is_empty())
-                .map(str::to_string);
+        let Some(method) = msg.get("method").and_then(Value::as_str) else {
+            let id = msg.get("id").cloned().unwrap_or(Value::Null);
+            write_error(
+                &mut output,
+                id,
+                RpcError::new(-32600, "Invalid JSON-RPC request"),
+            );
+            continue;
+        };
+        if msg.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
+            let id = msg.get("id").cloned().unwrap_or(Value::Null);
+            write_error(
+                &mut output,
+                id,
+                RpcError::new(-32600, "Invalid JSON-RPC request"),
+            );
+            continue;
         }
+        let params = msg.get("params").cloned().unwrap_or(json!({}));
         // Notifications (no `id`) get no reply.
         let Some(id) = msg.get("id").cloned() else {
             continue;
         };
-        let reply = match handle(method, &params, client_name.as_deref()) {
+        let reply = match dispatch(
+            method,
+            &params,
+            &mut legacy_initialized,
+            &mut legacy_client_name,
+        ) {
             Ok(result) => json!({"jsonrpc": "2.0", "id": id, "result": result}),
-            Err(msg) => json!({"jsonrpc": "2.0", "id": id,
-                "error": {"code": -32603, "message": msg}}),
+            Err(error) => error_response(id, error),
         };
-        let _ = writeln!(stdout, "{reply}");
-        let _ = stdout.flush();
+        let _ = writeln!(output, "{reply}");
+        let _ = output.flush();
     }
 }
 
-fn handle(method: &str, params: &Value, client_name: Option<&str>) -> Result<Value, String> {
+fn dispatch(
+    method: &str,
+    params: &Value,
+    legacy_initialized: &mut bool,
+    legacy_client_name: &mut Option<String>,
+) -> Result<Value, RpcError> {
+    let params_object = params
+        .as_object()
+        .ok_or_else(|| RpcError::new(-32602, "Request params must be an object"))?;
+    if method == "initialize" {
+        let requested = params_object
+            .get("protocolVersion")
+            .and_then(Value::as_str)
+            .ok_or_else(|| RpcError::new(-32602, "initialize requires protocolVersion"))?;
+        if requested != LEGACY_PROTOCOL_VERSION {
+            return Err(unsupported_protocol(requested));
+        }
+        if params_object
+            .get("capabilities")
+            .is_some_and(|value| !value.is_object())
+        {
+            return Err(RpcError::new(
+                -32602,
+                "initialize capabilities must be an object",
+            ));
+        }
+        if params_object
+            .get("clientInfo")
+            .is_some_and(|value| !value.is_object())
+        {
+            return Err(RpcError::new(
+                -32602,
+                "initialize clientInfo must be an object",
+            ));
+        }
+        *legacy_client_name = params_object
+            .get("clientInfo")
+            .and_then(|client| client.get("name"))
+            .and_then(Value::as_str)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string);
+        *legacy_initialized = true;
+        return Ok(json!({
+            "protocolVersion": LEGACY_PROTOCOL_VERSION,
+            "capabilities": {"tools": {"listChanged": false}},
+            "serverInfo": server_info()
+        }));
+    }
+
+    if let Some(requested) = requested_modern_protocol(params) {
+        if requested != CURRENT_PROTOCOL_VERSION {
+            return Err(unsupported_protocol(requested));
+        }
+        validate_modern_meta(params)?;
+        return handle(method, params, modern_client_name(params), true);
+    }
+
+    if !*legacy_initialized {
+        return Err(RpcError::new(
+            -32602,
+            "Request requires 2026-07-28 _meta or a legacy initialize handshake",
+        ));
+    }
+    handle(method, params, legacy_client_name.as_deref(), false)
+}
+
+fn handle(
+    method: &str,
+    params: &Value,
+    client_name: Option<&str>,
+    modern: bool,
+) -> Result<Value, RpcError> {
     match method {
-        "initialize" => Ok(json!({
-            "protocolVersion": "2024-11-05",
-            "capabilities": {"tools": {}},
-            "serverInfo": {"name": "memorywhale", "version": env!("CARGO_PKG_VERSION")}
+        "server/discover" if modern => Ok(json!({
+            "resultType": "complete",
+            "supportedVersions": [CURRENT_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION],
+            "capabilities": {"tools": {"listChanged": false}},
+            "_meta": server_meta(),
+            "instructions": "MemoryWhale provides local development memory retrieval and explicit note storage.",
+            "ttlMs": CACHE_TTL_MS,
+            "cacheScope": "public"
+        })),
+        "tools/list" if modern => Ok(json!({
+            "resultType": "complete",
+            "tools": tool_defs(),
+            "_meta": server_meta(),
+            "ttlMs": CACHE_TTL_MS,
+            "cacheScope": "public"
         })),
         "tools/list" => Ok(json!({"tools": tool_defs()})),
         "tools/call" => {
-            let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+            let name = params
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| RpcError::new(-32602, "tools/call requires a tool name"))?;
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
-            let text = call_tool(name, &args, client_name)?;
-            Ok(json!({"content": [{"type": "text", "text": text}]}))
+            if !args.is_object() {
+                return Err(RpcError::new(
+                    -32602,
+                    "tools/call arguments must be an object",
+                ));
+            }
+            if !is_known_tool(name) {
+                return Err(RpcError::new(-32602, format!("Unknown tool: {name}")));
+            }
+            match call_tool(name, &args, client_name) {
+                Ok(text) if modern => Ok(json!({
+                    "resultType": "complete",
+                    "content": [{"type": "text", "text": text}],
+                    "isError": false,
+                    "_meta": server_meta()
+                })),
+                Ok(text) => Ok(json!({"content": [{"type": "text", "text": text}]})),
+                Err(message) if modern => Ok(json!({
+                    "resultType": "complete",
+                    "content": [{"type": "text", "text": message}],
+                    "isError": true,
+                    "_meta": server_meta()
+                })),
+                Err(message) => Err(RpcError::new(-32603, message)),
+            }
         }
-        // Unknown method: return empty result rather than erroring the session.
-        _ => Ok(json!({})),
+        _ => Err(RpcError::new(-32601, format!("Method not found: {method}"))),
     }
+}
+
+fn requested_modern_protocol(params: &Value) -> Option<&str> {
+    params
+        .get("_meta")?
+        .get("io.modelcontextprotocol/protocolVersion")?
+        .as_str()
+}
+
+fn validate_modern_meta(params: &Value) -> Result<(), RpcError> {
+    let meta = params
+        .get("_meta")
+        .and_then(Value::as_object)
+        .ok_or_else(|| RpcError::new(-32602, "Request _meta must be an object"))?;
+    if !meta
+        .get("io.modelcontextprotocol/clientCapabilities")
+        .is_some_and(Value::is_object)
+    {
+        return Err(RpcError::new(
+            -32602,
+            "Request _meta requires clientCapabilities object",
+        ));
+    }
+    if meta
+        .get("io.modelcontextprotocol/clientInfo")
+        .is_some_and(|value| !value.is_object())
+    {
+        return Err(RpcError::new(
+            -32602,
+            "Request _meta clientInfo must be an object",
+        ));
+    }
+    Ok(())
+}
+
+fn modern_client_name(params: &Value) -> Option<&str> {
+    params
+        .get("_meta")?
+        .get("io.modelcontextprotocol/clientInfo")?
+        .get("name")?
+        .as_str()
+        .filter(|name| !name.is_empty())
+}
+
+fn server_info() -> Value {
+    json!({"name": "memorywhale", "version": env!("CARGO_PKG_VERSION")})
+}
+
+fn server_meta() -> Value {
+    json!({"io.modelcontextprotocol/serverInfo": server_info()})
+}
+
+fn unsupported_protocol(requested: &str) -> RpcError {
+    RpcError {
+        code: -32022,
+        message: "Unsupported protocol version".to_string(),
+        data: Some(json!({
+            "supported": [CURRENT_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION],
+            "requested": requested
+        })),
+    }
+}
+
+fn error_response(id: Value, error: RpcError) -> Value {
+    let mut body = json!({"code": error.code, "message": error.message});
+    if let Some(data) = error.data {
+        body["data"] = data;
+    }
+    json!({"jsonrpc": "2.0", "id": id, "error": body})
+}
+
+fn write_error<W: Write>(output: &mut W, id: Value, error: RpcError) {
+    let _ = writeln!(output, "{}", error_response(id, error));
+    let _ = output.flush();
+}
+
+fn is_known_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "recent_errors"
+            | "search_memory"
+            | "get_context"
+            | "remember"
+            | "similar_failures"
+            | "stats"
+    )
 }
 
 fn tool_defs() -> Value {
@@ -578,6 +815,102 @@ fn last_line(text: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
+
+    fn protocol_responses(lines: &[Value]) -> Vec<Value> {
+        let mut input = lines
+            .iter()
+            .map(Value::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        input.push('\n');
+        let mut output = Vec::new();
+        serve(Cursor::new(input), &mut output);
+        String::from_utf8(output)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect()
+    }
+
+    fn modern_params() -> Value {
+        json!({"_meta": {
+            "io.modelcontextprotocol/protocolVersion": CURRENT_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientInfo": {"name": "test", "version": "1"},
+            "io.modelcontextprotocol/clientCapabilities": {"roots": {}}
+        }})
+    }
+
+    #[test]
+    fn current_protocol_discovers_capabilities() {
+        let responses = protocol_responses(&[json!({
+            "jsonrpc": "2.0", "id": 1, "method": "server/discover",
+            "params": modern_params()
+        })]);
+        assert_eq!(responses[0]["result"]["resultType"], "complete");
+        assert_eq!(
+            responses[0]["result"]["supportedVersions"][0],
+            CURRENT_PROTOCOL_VERSION
+        );
+        assert!(responses[0]["result"]["capabilities"]["tools"].is_object());
+    }
+
+    #[test]
+    fn legacy_protocol_initializes_and_lists_tools() {
+        let responses = protocol_responses(&[
+            json!({
+                "jsonrpc": "2.0", "id": 1, "method": "initialize",
+                "params": {
+                    "protocolVersion": LEGACY_PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {"name": "legacy-test", "version": "1"}
+                }
+            }),
+            json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+            json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+        ]);
+        assert_eq!(
+            responses[0]["result"]["protocolVersion"],
+            LEGACY_PROTOCOL_VERSION
+        );
+        assert_eq!(responses[1]["result"]["tools"].as_array().unwrap().len(), 6);
+        assert!(responses[1]["result"].get("resultType").is_none());
+    }
+
+    #[test]
+    fn unsupported_protocol_returns_negotiation_error() {
+        let mut params = modern_params();
+        params["_meta"]["io.modelcontextprotocol/protocolVersion"] = json!("2099-01-01");
+        let responses = protocol_responses(&[json!({
+            "jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": params
+        })]);
+        assert_eq!(responses[0]["error"]["code"], -32022);
+        assert_eq!(responses[0]["error"]["data"]["requested"], "2099-01-01");
+        assert_eq!(
+            responses[0]["error"]["data"]["supported"][0],
+            CURRENT_PROTOCOL_VERSION
+        );
+    }
+
+    #[test]
+    fn malformed_json_and_capabilities_return_json_rpc_errors() {
+        let mut output = Vec::new();
+        serve(Cursor::new("not-json\n"), &mut output);
+        let parse: Value = serde_json::from_slice(&output).unwrap();
+        assert_eq!(parse["id"], Value::Null);
+        assert_eq!(parse["error"]["code"], -32700);
+
+        let mut params = modern_params();
+        params["_meta"]["io.modelcontextprotocol/clientCapabilities"] = json!("tools");
+        let responses = protocol_responses(&[json!({
+            "jsonrpc": "2.0", "id": 2, "method": "server/discover", "params": params
+        })]);
+        assert_eq!(responses[0]["error"]["code"], -32602);
+        assert!(responses[0]["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("clientCapabilities"));
+    }
 
     /// A repeated-then-resolved-then-regressed timeline: the tool's formatted
     /// output must report the occurrence + resolution counts and point at a

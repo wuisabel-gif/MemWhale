@@ -37,11 +37,14 @@ mechanism. Before granting an agent access, review the canonical
 
 ## Verify
 
-Initialize the server directly:
+Discover the server directly with the current date-based protocol revision:
 
 ```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
 ```
+
+`mw-mcp` also accepts the legacy initialization-based `2024-11-05` revision.
+See the [protocol compatibility reference](../../docs/reference/mcp.md#protocol-compatibility).
 
 Then verify tool discovery in the client. The authoritative tool descriptions
 are in the [MCP reference](../../docs/reference/mcp.md).

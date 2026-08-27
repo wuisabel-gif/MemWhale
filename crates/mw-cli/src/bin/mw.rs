@@ -3942,7 +3942,7 @@ fn doctor() -> Result<(), String> {
 
     let mcp_binary = sibling_binary("mw-mcp");
     match probe_mcp_server(&mcp_binary, &[], Duration::from_secs(2)) {
-        Ok(tools) => {
+        Ok(probe) => {
             let expected = [
                 "recent_errors",
                 "search_memory",
@@ -3954,12 +3954,16 @@ fn doctor() -> Result<(), String> {
             let missing: Vec<&str> = expected
                 .iter()
                 .copied()
-                .filter(|name| !tools.iter().any(|tool| tool == name))
+                .filter(|name| !probe.tools.iter().any(|tool| tool == name))
                 .collect();
             if missing.is_empty() {
                 ok(
                     "mcp",
-                    format!("mw-mcp initialized; advertised {} tools", tools.len()),
+                    format!(
+                        "mw-mcp negotiated protocol {}; advertised {} tools",
+                        probe.protocol_version,
+                        probe.tools.len()
+                    ),
                 );
             } else {
                 warn(
@@ -3994,6 +3998,14 @@ fn mcp_remediation(error: &str) -> String {
 
 const MAX_MCP_LINE_BYTES: usize = 64 * 1024;
 const MAX_MCP_LINES: usize = 128;
+const CURRENT_MCP_PROTOCOL: &str = "2026-07-28";
+const LEGACY_MCP_PROTOCOL: &str = "2024-11-05";
+
+#[derive(Debug, PartialEq, Eq)]
+struct McpProbe {
+    protocol_version: String,
+    tools: Vec<String>,
+}
 
 /// Probe a local MCP server without calling a tool. The child is killed on
 /// timeout or malformed output, so `mw doctor` cannot hang on a broken server.
@@ -4001,7 +4013,7 @@ fn probe_mcp_server<C: AsRef<std::ffi::OsStr>>(
     command: C,
     args: &[String],
     timeout: Duration,
-) -> Result<Vec<String>, String> {
+) -> Result<McpProbe, String> {
     let command_name = command.as_ref().to_string_lossy().into_owned();
     let mut child = Command::new(command)
         .args(args)
@@ -4042,7 +4054,7 @@ fn probe_mcp_server<C: AsRef<std::ffi::OsStr>>(
             let _ = child.kill();
             let _ = child.wait();
             Err(format!(
-                "timed out after {}ms waiting for initialize/tools list",
+                "timed out after {}ms waiting for MCP discovery/tools list",
                 timeout.as_millis()
             ))
         }
@@ -4055,51 +4067,100 @@ fn probe_mcp_server<C: AsRef<std::ffi::OsStr>>(
     }
 }
 
-fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<Vec<String>, String> {
-    const PROTOCOL_VERSION: &str = "2024-11-05";
-    let initialize = serde_json::json!({
+fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<McpProbe, String> {
+    let discover = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "initialize",
+        "method": "server/discover",
         "params": {
-            "protocolVersion": PROTOCOL_VERSION,
-            "capabilities": {},
-            "clientInfo": {"name": "memorywhale-doctor", "version": env!("CARGO_PKG_VERSION")}
+            "_meta": mcp_request_meta()
         }
     });
-    let initialized = serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": "notifications/initialized",
-        "params": {}
-    });
-    let tools = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 2,
-        "method": "tools/list",
-        "params": {}
-    });
-    writeln!(stdin, "{initialize}")
+    writeln!(stdin, "{discover}")
         .and_then(|_| stdin.flush())
         .map_err(|err| format!("mw-mcp probe write failed: {err}"))?;
     let mut reader = std::io::BufReader::new(stdout);
-    let init = read_mcp_response(&mut reader, 1)?;
-    validate_initialize_result(&init, PROTOCOL_VERSION)?;
-    writeln!(stdin, "{initialized}")
-        .and_then(|_| stdin.flush())
-        .map_err(|err| format!("mw-mcp initialized notification failed: {err}"))?;
+    let discovery = read_mcp_response(&mut reader, 1)?;
+
+    let (protocol_version, tools_id, tools_params) = match validate_discover_result(&discovery) {
+        Ok(()) => (
+            CURRENT_MCP_PROTOCOL.to_string(),
+            2,
+            serde_json::json!({"_meta": mcp_request_meta()}),
+        ),
+        Err(_error) if is_legacy_discovery_response(&discovery) => {
+            let initialize = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": LEGACY_MCP_PROTOCOL,
+                    "capabilities": {},
+                    "clientInfo": {
+                        "name": "memorywhale-doctor",
+                        "version": env!("CARGO_PKG_VERSION")
+                    }
+                }
+            });
+            writeln!(stdin, "{initialize}")
+                .and_then(|_| stdin.flush())
+                .map_err(|err| format!("mw-mcp legacy initialize write failed: {err}"))?;
+            let initialized = read_mcp_response(&mut reader, 2)?;
+            validate_initialize_result(&initialized, LEGACY_MCP_PROTOCOL)?;
+            let notification = serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {}
+            });
+            writeln!(stdin, "{notification}")
+                .and_then(|_| stdin.flush())
+                .map_err(|err| format!("mw-mcp initialized notification failed: {err}"))?;
+            (LEGACY_MCP_PROTOCOL.to_string(), 3, serde_json::json!({}))
+        }
+        Err(error) => return Err(error),
+    };
+    let tools = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": tools_id,
+        "method": "tools/list",
+        "params": tools_params
+    });
     writeln!(stdin, "{tools}")
         .and_then(|_| stdin.flush())
         .map_err(|err| format!("mw-mcp tools/list write failed: {err}"))?;
-    let tools_response = read_mcp_response(&mut reader, 2)?;
+    let tools_response = read_mcp_response(&mut reader, tools_id)?;
+    reject_mcp_error(&tools_response, tools_id)?;
+    if protocol_version == CURRENT_MCP_PROTOCOL
+        && tools_response
+            .pointer("/result/resultType")
+            .and_then(serde_json::Value::as_str)
+            != Some("complete")
+    {
+        return Err("tools/list result is missing resultType=complete".to_string());
+    }
     let tools = tools_response
         .pointer("/result/tools")
         .and_then(|value| value.as_array())
         .ok_or_else(|| "tools/list response did not contain result.tools".to_string())?;
-    Ok(tools
-        .iter()
-        .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
-        .map(str::to_string)
-        .collect())
+    Ok(McpProbe {
+        protocol_version,
+        tools: tools
+            .iter()
+            .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
+            .map(str::to_string)
+            .collect(),
+    })
+}
+
+fn mcp_request_meta() -> serde_json::Value {
+    serde_json::json!({
+        "io.modelcontextprotocol/protocolVersion": CURRENT_MCP_PROTOCOL,
+        "io.modelcontextprotocol/clientInfo": {
+            "name": "memorywhale-doctor",
+            "version": env!("CARGO_PKG_VERSION")
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+    })
 }
 
 fn read_mcp_response<R: BufRead>(
@@ -4134,20 +4195,68 @@ fn read_mcp_response<R: BufRead>(
         if message.get("jsonrpc").and_then(|value| value.as_str()) != Some("2.0") {
             return Err("MCP response did not use JSON-RPC 2.0".to_string());
         }
-        if message.get("error").is_some() {
-            return Err(format!(
-                "MCP request id {expected_id} returned a JSON-RPC error"
-            ));
-        }
         return Ok(message);
     }
     Err("MCP server emitted too many non-response lines".to_string())
+}
+
+fn reject_mcp_error(message: &serde_json::Value, id: i64) -> Result<(), String> {
+    let Some(error) = message.get("error") else {
+        return Ok(());
+    };
+    let code = error.get("code").and_then(serde_json::Value::as_i64);
+    let detail = error
+        .get("message")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown JSON-RPC error");
+    Err(format!(
+        "MCP request id {id} returned JSON-RPC error {code:?}: {detail}"
+    ))
+}
+
+fn validate_discover_result(message: &serde_json::Value) -> Result<(), String> {
+    reject_mcp_error(message, 1)?;
+    let result = message
+        .get("result")
+        .and_then(serde_json::Value::as_object)
+        .ok_or_else(|| "server/discover response did not contain a result object".to_string())?;
+    if result.get("resultType").and_then(serde_json::Value::as_str) != Some("complete") {
+        return Err("server/discover result is missing resultType=complete".to_string());
+    }
+    let versions = result
+        .get("supportedVersions")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "server/discover result is missing supportedVersions".to_string())?;
+    if !versions
+        .iter()
+        .any(|version| version.as_str() == Some(CURRENT_MCP_PROTOCOL))
+    {
+        return Err(format!(
+            "server/discover does not support requested protocolVersion {CURRENT_MCP_PROTOCOL}"
+        ));
+    }
+    if !result
+        .get("capabilities")
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(|capabilities| capabilities.get("tools").is_some_and(|v| v.is_object()))
+    {
+        return Err("server/discover result does not advertise tools capability".to_string());
+    }
+    Ok(())
+}
+
+fn is_legacy_discovery_response(message: &serde_json::Value) -> bool {
+    if let Some(error) = message.get("error") {
+        return error.get("code").and_then(serde_json::Value::as_i64) != Some(-32022);
+    }
+    message.pointer("/result/supportedVersions").is_none()
 }
 
 fn validate_initialize_result(
     message: &serde_json::Value,
     expected_protocol: &str,
 ) -> Result<(), String> {
+    reject_mcp_error(message, 2)?;
     let result = message
         .get("result")
         .and_then(|value| value.as_object())
@@ -4224,18 +4333,35 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn mcp_probe_accepts_initialize_and_tools_list() {
+    fn mcp_probe_accepts_discovery_and_tools_list() {
         let output = concat!(
             "not-json\n",
-            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}}\n",
-            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"stats\"},{\"name\":\"remember\"}]}}\n"
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":\"complete\",\"supportedVersions\":[\"2026-07-28\",\"2024-11-05\"],\"capabilities\":{\"tools\":{}},\"ttlMs\":3600000,\"cacheScope\":\"public\"}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"resultType\":\"complete\",\"tools\":[{\"name\":\"stats\"},{\"name\":\"remember\"}]}}\n"
         );
         let mut sent = Vec::new();
-        let names = run_mcp_probe(&mut sent, Cursor::new(output.as_bytes())).unwrap();
-        assert_eq!(names, ["stats", "remember"]);
-        assert!(String::from_utf8(sent)
-            .unwrap()
-            .contains("notifications/initialized"));
+        let probe = run_mcp_probe(&mut sent, Cursor::new(output.as_bytes())).unwrap();
+        assert_eq!(probe.protocol_version, CURRENT_MCP_PROTOCOL);
+        assert_eq!(probe.tools, ["stats", "remember"]);
+        let sent = String::from_utf8(sent).unwrap();
+        assert!(sent.contains("server/discover"));
+        assert!(!sent.contains("notifications/initialized"));
+    }
+
+    #[test]
+    fn mcp_probe_falls_back_to_legacy_initialize() {
+        let output = concat!(
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"tools\":[{\"name\":\"stats\"}]}}\n"
+        );
+        let mut sent = Vec::new();
+        let probe = run_mcp_probe(&mut sent, Cursor::new(output.as_bytes())).unwrap();
+        assert_eq!(probe.protocol_version, LEGACY_MCP_PROTOCOL);
+        assert_eq!(probe.tools, ["stats"]);
+        let sent = String::from_utf8(sent).unwrap();
+        assert!(sent.contains("initialize"));
+        assert!(sent.contains("notifications/initialized"));
     }
 
     #[test]
@@ -4247,16 +4373,16 @@ mod tests {
 
     #[test]
     fn mcp_probe_rejects_incompatible_protocol_version() {
-        let output = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2099-01-01\",\"capabilities\":{},\"serverInfo\":{}}}\n";
+        let output = "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32022,\"message\":\"Unsupported protocol version\",\"data\":{\"supported\":[\"2099-01-01\"],\"requested\":\"2026-07-28\"}}}\n";
         let error = run_mcp_probe(&mut Vec::new(), Cursor::new(output.as_bytes())).unwrap_err();
-        assert!(error.contains("unsupported"));
+        assert!(error.contains("Unsupported protocol version"));
     }
 
     #[test]
-    fn mcp_probe_rejects_tools_before_initialize() {
+    fn mcp_probe_rejects_tools_before_discovery() {
         let output = concat!(
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[]}}\n",
-            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{}}}\n"
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":\"complete\",\"supportedVersions\":[\"2026-07-28\"],\"capabilities\":{\"tools\":{}}}}\n"
         );
         let error = run_mcp_probe(&mut Vec::new(), Cursor::new(output.as_bytes())).unwrap_err();
         assert!(error.contains("unexpected MCP response id"));

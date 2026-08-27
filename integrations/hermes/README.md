@@ -80,11 +80,11 @@ Ask Hermes:
 > Use MemoryWhale to check whether I have encountered a similar build failure
 > before.
 
-For a deterministic transport check outside Hermes, initialize the server
-directly:
+For a deterministic transport check outside Hermes, discover the server
+directly with the current protocol revision:
 
 ```bash
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
 ```
 
 ## Using Kimi K3 through Hermes

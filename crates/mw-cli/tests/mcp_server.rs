@@ -23,6 +23,17 @@ const TOOLS: [&str; 6] = [
     "stats",
 ];
 
+fn modern_meta() -> Value {
+    json!({
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {
+            "name": "integration-test",
+            "version": "1"
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+    })
+}
+
 /// Minimal valid arguments for each tool — enough to pass its required-field
 /// check. Everything here must succeed against an empty store.
 fn args_for(tool: &str) -> Value {
@@ -48,17 +59,18 @@ fn server_lists_and_calls_all_six_tools_on_empty_db() {
         .spawn()
         .expect("spawn mw-mcp");
 
-    // Build the request batch: initialize, tools/list, then a call per tool.
-    // ids: 1 = initialize, 2 = tools/list, 3.. = one per tool (in TOOLS order).
+    // Build the request batch: discovery, tools/list, then a call per tool.
+    // ids: 1 = discover, 2 = tools/list, 3.. = one per tool (in TOOLS order).
     let mut requests = vec![
-        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
-               "params": {"clientInfo": {"name": "integration-test"}}}),
-        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
+        json!({"jsonrpc": "2.0", "id": 1, "method": "server/discover",
+               "params": {"_meta": modern_meta()}}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list",
+               "params": {"_meta": modern_meta()}}),
     ];
     for (i, tool) in TOOLS.iter().enumerate() {
         requests.push(json!({
             "jsonrpc": "2.0", "id": 3 + i as i64, "method": "tools/call",
-            "params": {"name": tool, "arguments": args_for(tool)}
+            "params": {"name": tool, "arguments": args_for(tool), "_meta": modern_meta()}
         }));
     }
 
@@ -87,7 +99,7 @@ fn server_lists_and_calls_all_six_tools_on_empty_db() {
         }
     });
 
-    // Collect one response per request id (8 total: initialize + list + 6 calls).
+    // Collect one response per request id (8 total: discover + list + 6 calls).
     let mut by_id: std::collections::HashMap<i64, Value> = std::collections::HashMap::new();
     while by_id.len() < requests.len() {
         let line = rx
@@ -100,9 +112,15 @@ fn server_lists_and_calls_all_six_tools_on_empty_db() {
     }
     let _ = child.wait();
 
-    // tools/list must advertise all six tool names.
+    let discover = &by_id[&1];
+    assert_eq!(discover["result"]["resultType"], "complete");
+    assert_eq!(discover["result"]["supportedVersions"][0], "2026-07-28");
+    assert!(discover["result"]["capabilities"]["tools"].is_object());
+
+    // tools/list must advertise all six tool names using the current result shape.
     let list = &by_id[&2];
     assert!(list.get("error").is_none(), "tools/list errored: {list}");
+    assert_eq!(list["result"]["resultType"], "complete");
     let names: Vec<&str> = list["result"]["tools"]
         .as_array()
         .expect("tools array")
@@ -131,6 +149,8 @@ fn server_lists_and_calls_all_six_tools_on_empty_db() {
             "{tool} returned an error: {resp}"
         );
         assert!(resp.get("result").is_some(), "{tool} has no result: {resp}");
+        assert_eq!(resp["result"]["resultType"], "complete", "{tool}: {resp}");
+        assert_eq!(resp["result"]["isError"], false, "{tool}: {resp}");
     }
 
     let _ = std::fs::remove_dir_all(&dir);

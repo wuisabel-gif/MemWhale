@@ -88,7 +88,7 @@ Confirm the server binary, then check CodeWhale discovered it:
 
 ```bash
 command -v mw-mcp
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
 codewhale-tui mcp list
 codewhale-tui mcp tools memorywhale
 ```

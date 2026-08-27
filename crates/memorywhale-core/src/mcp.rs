@@ -1,9 +1,9 @@
 //! A minimal MCP *client* over stdio — the mirror image of `mw-mcp` (the server
 //! in `crates/mw-cli/src/bin/mw-mcp.rs`). Newline-delimited JSON-RPC 2.0 on the
-//! child's stdin/stdout; only the three methods we need: `initialize`,
-//! `tools/list`, `tools/call`.
+//! child's stdin/stdout; only discovery, legacy initialization, `tools/list`,
+//! and `tools/call`.
 //!
-//! ponytail: no MCP client crate — the wire format is three JSON objects.
+//! ponytail: no MCP client crate — the wire surface is deliberately small.
 //! Swap in an official client if we ever need SSE/HTTP transports or sampling.
 
 use std::io::{BufRead, BufReader, Write};
@@ -12,16 +12,26 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 
+const CURRENT_PROTOCOL_VERSION: &str = "2026-07-28";
+const LEGACY_PROTOCOL_VERSION: &str = "2024-11-05";
+
+#[derive(Clone, Copy)]
+enum ProtocolEra {
+    Modern,
+    Legacy,
+}
+
 pub struct McpClient {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
     next_id: i64,
+    protocol: ProtocolEra,
 }
 
 impl McpClient {
-    /// Spawn `command args…` and complete the MCP handshake. Errors if the
-    /// binary is missing or the server never answers `initialize`.
+    /// Spawn `command args…` and negotiate modern discovery or a legacy
+    /// initialization handshake.
     pub fn spawn(command: &str, args: &[String]) -> Result<Self> {
         let mut child = Command::new(command)
             .args(args)
@@ -37,18 +47,34 @@ impl McpClient {
             stdin,
             stdout,
             next_id: 0,
+            protocol: ProtocolEra::Modern,
         };
-        client
-            .request(
-                "initialize",
-                json!({
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {"name": "memorywhale", "version": env!("CARGO_PKG_VERSION")}
-                }),
-            )
-            .with_context(|| format!("MCP handshake with `{command}` failed"))?;
-        client.notify("notifications/initialized", json!({}))?;
+        let discovery = client
+            .request_raw("server/discover", modern_params(json!({})))
+            .with_context(|| format!("MCP discovery with `{command}` failed"))?;
+        if validate_discovery(&discovery)? {
+            client.protocol = ProtocolEra::Modern;
+        } else {
+            client.protocol = ProtocolEra::Legacy;
+            let initialized = client
+                .request_raw(
+                    "initialize",
+                    json!({
+                        "protocolVersion": LEGACY_PROTOCOL_VERSION,
+                        "capabilities": {},
+                        "clientInfo": {"name": "memorywhale", "version": env!("CARGO_PKG_VERSION")}
+                    }),
+                )
+                .with_context(|| format!("MCP handshake with `{command}` failed"))?;
+            if initialized
+                .pointer("/result/protocolVersion")
+                .and_then(Value::as_str)
+                != Some(LEGACY_PROTOCOL_VERSION)
+            {
+                return Err(response_error("initialize", &initialized));
+            }
+            client.notify("notifications/initialized", json!({}))?;
+        }
         Ok(client)
     }
 
@@ -84,6 +110,18 @@ impl McpClient {
     }
 
     fn request(&mut self, method: &str, params: Value) -> Result<Value> {
+        let params = match self.protocol {
+            ProtocolEra::Modern => modern_params(params),
+            ProtocolEra::Legacy => params,
+        };
+        let response = self.request_raw(method, params)?;
+        if response.get("error").is_some() {
+            return Err(response_error(method, &response));
+        }
+        Ok(response.get("result").cloned().unwrap_or(json!({})))
+    }
+
+    fn request_raw(&mut self, method: &str, params: Value) -> Result<Value> {
         self.next_id += 1;
         let id = self.next_id;
         let msg = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
@@ -109,21 +147,139 @@ impl McpClient {
             if msg.get("id").and_then(Value::as_i64) != Some(id) {
                 continue;
             }
-            if let Some(err) = msg.get("error") {
-                let text = err
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .unwrap_or("unknown error");
-                return Err(anyhow!("MCP `{method}` failed: {text}"));
+            if msg.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
+                return Err(anyhow!(
+                    "MCP `{method}` returned a response without JSON-RPC 2.0"
+                ));
             }
-            return Ok(msg.get("result").cloned().unwrap_or(json!({})));
+            return Ok(msg);
         }
     }
+}
+
+/// Returns false only for an unambiguously legacy response. A response that
+/// uses modern discovery fields must satisfy the current DiscoverResult shape.
+fn validate_discovery(response: &Value) -> Result<bool> {
+    if response.get("error").is_some() {
+        if response.pointer("/error/code").and_then(Value::as_i64) == Some(-32022) {
+            return Err(response_error("server/discover", response));
+        }
+        return Ok(false);
+    }
+    let result = response
+        .get("result")
+        .and_then(Value::as_object)
+        .ok_or_else(|| response_error("server/discover", response))?;
+    // MemoryWhale versions predating discovery returned an empty success for
+    // unknown methods instead of Method not found.
+    if result.is_empty() {
+        return Ok(false);
+    }
+    if result.get("resultType").and_then(Value::as_str) != Some("complete") {
+        return Err(anyhow!(
+            "MCP `server/discover` failed: missing resultType=complete"
+        ));
+    }
+    let versions = result
+        .get("supportedVersions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("MCP `server/discover` failed: missing supportedVersions"))?;
+    if !versions
+        .iter()
+        .any(|version| version.as_str() == Some(CURRENT_PROTOCOL_VERSION))
+    {
+        return Err(anyhow!(
+            "MCP `server/discover` failed: protocol {CURRENT_PROTOCOL_VERSION} is unsupported"
+        ));
+    }
+    if !result.get("capabilities").is_some_and(Value::is_object) {
+        return Err(anyhow!(
+            "MCP `server/discover` failed: missing capabilities"
+        ));
+    }
+    if !result.get("ttlMs").is_some_and(Value::is_number)
+        || !matches!(
+            result.get("cacheScope").and_then(Value::as_str),
+            Some("public" | "private")
+        )
+    {
+        return Err(anyhow!(
+            "MCP `server/discover` failed: missing cache metadata"
+        ));
+    }
+    Ok(true)
+}
+
+fn modern_params(mut params: Value) -> Value {
+    if !params.is_object() {
+        params = json!({});
+    }
+    params["_meta"] = json!({
+        "io.modelcontextprotocol/protocolVersion": CURRENT_PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientInfo": {
+            "name": "memorywhale",
+            "version": env!("CARGO_PKG_VERSION")
+        },
+        "io.modelcontextprotocol/clientCapabilities": {}
+    });
+    params
+}
+
+fn response_error(method: &str, response: &Value) -> anyhow::Error {
+    let text = response
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .unwrap_or("unsupported or malformed response");
+    anyhow!("MCP `{method}` failed: {text}")
 }
 
 impl Drop for McpClient {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn discovery_rejects_malformed_or_incompatible_modern_results() {
+        let malformed = json!({"result": {
+            "supportedVersions": [CURRENT_PROTOCOL_VERSION],
+            "capabilities": {},
+            "ttlMs": 1000,
+            "cacheScope": "public"
+        }});
+        assert!(validate_discovery(&malformed)
+            .unwrap_err()
+            .to_string()
+            .contains("resultType"));
+
+        let incompatible = json!({"result": {
+            "resultType": "complete",
+            "supportedVersions": ["2099-01-01"],
+            "capabilities": {},
+            "ttlMs": 1000,
+            "cacheScope": "public"
+        }});
+        assert!(validate_discovery(&incompatible)
+            .unwrap_err()
+            .to_string()
+            .contains("unsupported"));
+    }
+
+    #[test]
+    fn discovery_falls_back_only_for_legacy_responses() {
+        assert!(!validate_discovery(&json!({"result": {}})).unwrap());
+        assert!(!validate_discovery(&json!({
+            "error": {"code": -32601, "message": "Method not found"}
+        }))
+        .unwrap());
+        assert!(validate_discovery(&json!({
+            "error": {"code": -32022, "message": "Unsupported protocol version"}
+        }))
+        .is_err());
     }
 }
