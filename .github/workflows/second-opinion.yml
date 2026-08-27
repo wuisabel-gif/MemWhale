@@ -18,17 +18,26 @@ jobs:
   review:
     name: Agent-agnostic review
     runs-on: ubuntu-latest
-    env:
-      REVIEW_API_KEY: ${{ secrets.REVIEW_API_KEY }}
     steps:
+      - name: Check reviewer configuration
+        id: config
+        env:
+          REVIEW_API_KEY: ${{ secrets.REVIEW_API_KEY }}
+        run: |
+          if [[ -n "$REVIEW_API_KEY" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Explain disabled review
-        if: env.REVIEW_API_KEY == ''
+        if: steps.config.outputs.configured != 'true'
         run: |
           echo "::warning::REVIEW_API_KEY is not configured; Second-Opinion review was skipped."
           echo "Configure the repository secret to enable this reviewer."
 
       - name: Run Second-Opinion
-        if: env.REVIEW_API_KEY != ''
+        if: steps.config.outputs.configured == 'true'
         uses: wuisabel-gif/second-opinion@e5cce405ea722fb7c7c5cfa28224c5735127cf6d # v0.3.0
         with:
           api-key: ${{ secrets.REVIEW_API_KEY }}
