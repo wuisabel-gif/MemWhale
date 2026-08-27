@@ -31,6 +31,8 @@ mw memory stale <id>                  # retire an outdated lesson, preserving it
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
 mw memory compact [--apply]           # preview/apply conservative evidence compaction
 mw audit                              # inspect capture policy and retained volume
+mw integrate claude [--revert]           # install or remove Claude Code hook, skill, and MCP server
+mw integrate rho [--revert]              # install or remove Rho hook, skill, and MCP server
 mw integrate hermes                   # register mw-mcp in Hermes Agent's config
 mw share 5 [-o file.html]             # write a self-contained HTML page of one item to send someone
 mw discard                            # inside a recording: throw the current session away
@@ -124,6 +126,10 @@ mw-remember \
   --notes "Rust verification failed because cargo was missing" \
   -- cargo check --manifest-path src-tauri/Cargo.toml
 ```
+
+Agent capture hooks spawn `mw-remember --from-hook claude` or
+`mw-remember --from-hook rho` with that client's hook JSON on stdin. No
+Python runtime is required.
 
 ## mw-screenshot — opt-in visual evidence
 

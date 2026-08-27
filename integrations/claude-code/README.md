@@ -1,8 +1,8 @@
 # Claude Code + MemoryWhale
 
 Claude Code can use MemoryWhale in three independent ways: `mw-mcp` provides
-native memory tools, a `PostToolUse` hook records the Bash commands Claude
-runs (successes and failures alike), and
+native memory tools, `PostToolUse` and `PostToolUseFailure` hooks record the
+Bash commands Claude runs (successes and failures alike), and
 a skill teaches Claude when to search or save debugging memory.
 
 ## Status
@@ -16,22 +16,39 @@ The hook and skill are optional repository-provided components.
 
 - MemoryWhale installed with `mw-mcp` and `mw-remember` on `PATH`.
 - Claude Code installed on Linux, macOS, or Windows through WSL.
-- Python 3 for the capture hook.
-- A local checkout of this repository to copy the bundled hook and skill.
+- A local checkout of this repository to copy the skill (only for manual
+  setup; `mw integrate claude` needs no checkout).
 
 ## Capabilities
 
 | Capability | Available |
 | --- | --- |
 | MCP memory access | Yes |
-| Automatic execution capture | Yes, optional `PostToolUse` hook for Bash calls |
+| Automatic execution capture | Yes, optional `PostToolUse` and `PostToolUseFailure` hooks for Bash calls |
 | Memory-use guidance | Yes, optional skill |
 
 ## Setup
 
-Run the file-copy commands below from the MemoryWhale repository root.
+From any machine with MemoryWhale installed:
 
-### Connect the MCP server
+```bash
+mw integrate claude
+```
+
+That installs the skill into `~/.claude/`, points the `PostToolUse` and
+`PostToolUseFailure` Bash hooks at `mw-remember --from-hook claude` in
+`~/.claude/settings.json`, and registers `mw-mcp` when the Claude Code CLI is
+on your PATH. Restart Claude Code afterward. To undo: `mw integrate claude --revert`.
+
+The skill lives in `crates/mw-cli/integrate/` so it ships inside the published
+package. Capture uses the `mw-remember` binary, not a copied script.
+
+### Manual setup
+
+If you prefer to install by hand from a repository checkout, run the file-copy
+commands below from the MemoryWhale repository root.
+
+#### Connect the MCP server
 
 Register `mw-mcp` at user scope so it is available in every local project:
 
@@ -44,17 +61,10 @@ This gives Claude Code the six MemoryWhale tools: `recent_errors`,
 The command follows Claude Code's documented
 [local stdio server syntax](https://code.claude.com/docs/en/mcp#option-3-add-a-local-stdio-server).
 
-### Install the capture hook
+#### Install the capture hook
 
-Copy the bundled hook into your personal Claude Code configuration:
-
-```bash
-mkdir -p ~/.claude/hooks
-cp integrations/claude-code/hooks/mw-record.py ~/.claude/hooks/mw-record.py
-chmod +x ~/.claude/hooks/mw-record.py
-```
-
-Add the following entry to `~/.claude/settings.json`:
+Add the following entry to `~/.claude/settings.json`. Use the absolute path
+to `mw-remember` (`command -v mw-remember`):
 
 ```json
 {
@@ -65,7 +75,18 @@ Add the following entry to `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/mw-record.py\""
+            "command": "\"$HOME/.cargo/bin/mw-remember\" --from-hook claude"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.cargo/bin/mw-remember\" --from-hook claude"
           }
         ]
       }
@@ -74,19 +95,19 @@ Add the following entry to `~/.claude/settings.json`:
 }
 ```
 
-If the file already contains settings or hooks, merge this `PostToolUse` group
+If the file already contains settings or hooks, merge these Bash hook groups
 with them instead of replacing the file. Claude Code also supports project
 hooks in `.claude/settings.json`; see the official
 [hook locations](https://code.claude.com/docs/en/hooks#hook-locations) before
 committing a hook that teammates will run.
 
-### Install the skill
+#### Install the skill
 
 Copy the skill into Claude Code's personal skills directory:
 
 ```bash
 mkdir -p ~/.claude/skills/memorywhale
-cp integrations/claude-code/memorywhale/SKILL.md ~/.claude/skills/memorywhale/SKILL.md
+cp crates/mw-cli/integrate/SKILL.md ~/.claude/skills/memorywhale/SKILL.md
 ```
 
 Claude Code can load personal skills from
@@ -100,7 +121,6 @@ Check the binaries, hook, and MCP registration:
 ```bash
 command -v mw-mcp
 command -v mw-remember
-python3 ~/.claude/hooks/mw-record.py --selftest
 claude mcp get memorywhale
 ```
 
@@ -130,19 +150,16 @@ MCP server is not connected, so each component can be installed separately.
 
 ## Automatic capture
 
-The bundled [`hooks/mw-record.py`](hooks/mw-record.py) hook receives Claude
-Code's documented `PostToolUse` JSON on standard input. For each `Bash` call,
-it passes the command, working directory, output, and an exit status to
-`mw-remember` with the note `agent:claude-code`; failed commands are recorded
-with a nonzero exit status derived from the tool response's error flags.
-Standard output and standard error are each capped at 20,000 characters before
-being passed to `mw-remember`, which applies MemoryWhale's normal secret
-redaction.
+`mw-remember --from-hook claude` receives Claude Code's hook JSON on standard input.
+For each `Bash` call, it records the command, working directory, output, and
+an exit status with the note `agent:claude-code`. Successful calls arrive on
+`PostToolUse`; failed calls arrive on `PostToolUseFailure` with the error in a
+top-level `error` field. Standard output and standard error are each capped at
+20,000 characters before secret redaction.
 
-This hook is registered for `PostToolUse`, which Claude Code fires after every
-Bash tool call, so both successful and failed commands are captured. Commands
-run in an ordinary terminal are captured only through MemoryWhale's normal
-terminal capture paths.
+The hook is registered for both events so successful and failed Bash commands
+are captured. Commands run in an ordinary terminal are captured only through
+MemoryWhale's normal terminal capture paths.
 
 ## Limitations
 
@@ -158,7 +175,6 @@ terminal capture paths.
 - Run `command -v mw-mcp` and `command -v mw-remember` in the environment that
   launches Claude Code. Use absolute binary paths if its `PATH` differs from
   your shell.
-- Run `python3 ~/.claude/hooks/mw-record.py --selftest` to check the copied hook.
 - Validate `~/.claude/settings.json` as JSON and restart Claude Code after
   changing hook configuration.
 - Run `claude mcp list` or use `/mcp` inside Claude Code to inspect the
@@ -171,19 +187,29 @@ terminal capture paths.
 
 ## Remove integration
 
+```bash
+mw integrate claude --revert
+```
+
+That removes the hook, skill, and MemoryWhale entry from `~/.claude/settings.json`,
+and unregisters the user-scoped MCP server when the Claude Code CLI is available.
+It does not delete MemoryWhale's database or any captured records.
+
+Manual removal (if you installed by hand):
+
 Remove the user-scoped MCP server:
 
 ```bash
 claude mcp remove --scope user memorywhale
 ```
 
-Delete only the MemoryWhale `PostToolUse` group from
+Delete the MemoryWhale `PostToolUse` and `PostToolUseFailure` Bash groups from
 `~/.claude/settings.json`, preserving any other hooks and settings. Then remove
-the copied files:
+the skill:
 
 ```bash
-rm -f ~/.claude/hooks/mw-record.py
 rm -rf ~/.claude/skills/memorywhale
+rm -f ~/.claude/hooks/mw-record.py
 ```
 
 If you installed project-scoped copies, remove the corresponding entries under

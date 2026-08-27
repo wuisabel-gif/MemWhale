@@ -26,7 +26,7 @@ features.
 | Client | MCP memory access | Auto-capture | Guidance | Setup |
 | --- | --- | --- | --- | --- |
 | Any stdio MCP client | Yes | No | Client-specific | [Generic MCP](generic-mcp/README.md) |
-| Claude Code | Yes | Yes, optional `PostToolUse` hook | Yes, optional skill | [Guide](claude-code/README.md) |
+| Claude Code | Yes | Yes, optional capture hooks | Yes, optional skill | [Guide](claude-code/README.md) |
 | CLIProxyAPI | No; model-provider proxy | No | No; configure in the agent | [Guide](cliproxyapi/README.md) |
 | Claude Desktop | Yes | No | No | [Guide](claude-desktop/README.md) |
 | Cline | Yes | No | Yes | [Guide](cline/README.md) |
@@ -44,7 +44,7 @@ features.
 | OpenRouter | No; hosted model gateway | No | No; configure in the agent | [Guide](openrouter/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |
 | Pullfrog | No; PR workflow only | No | No | [Guide](pullfrog/README.md) |
-| Rho | Yes | No | Yes, via `AGENTS.md` | [Guide](rho/README.md) |
+| Rho | Yes | Yes, optional capture hook | Yes, optional skill | [Guide](rho/README.md) |
 | VS Code / GitHub Copilot | Yes | No | Yes | [Guide](vscode/README.md) |
 | Windsurf | Yes | No | Yes | [Guide](windsurf/README.md) |
 | Zed | Yes | No | Yes | [Guide](zed/README.md) |
@@ -85,17 +85,19 @@ A transport-level check is:
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | mw-mcp
 ```
 
-## Claude Code automatic capture
+## Automatic capture
 
-The optional
-[`claude-code/hooks/mw-record.py`](claude-code/hooks/mw-record.py)
-`PostToolUse` hook captures Claude Code Bash calls through `mw-remember`. It is
-separate from MCP: MCP lets the client retrieve and explicitly save memory,
-while the hook records observed execution.
+MCP lets a client retrieve and explicitly save memory. Capture hooks record
+observed execution and are separate from MCP. Both the hook and the shared
+[`SKILL.md`](../crates/mw-cli/integrate/SKILL.md) require explicit installation
+and neither is needed for ordinary terminal capture.
 
-The optional [`claude-code/memorywhale/SKILL.md`](claude-code/memorywhale/SKILL.md)
-teaches Claude Code when to search and save memory. Both require explicit
-installation and neither is needed for ordinary terminal capture.
+Claude Code and Rho capture hooks spawn `mw-remember --from-hook claude`
+or `mw-remember --from-hook rho`. That binary reads the named client's
+hook JSON from stdin and records matching bash/powershell calls when command
+text is present. Failed or unavailable Rho calls without command text are
+still recorded with status and failure metadata under a sentinel command,
+without inventing a shell command or exit code.
 
 ## Adding or updating an integration
 

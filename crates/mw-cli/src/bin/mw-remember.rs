@@ -1,8 +1,7 @@
-use chrono::Utc;
-use rusqlite::{params, Connection};
 use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::io::{self, Read};
+
+use memorywhale_cli::agent_hook::Agent;
 
 fn main() {
     if let Err(err) = run() {
@@ -21,6 +20,8 @@ fn run() -> Result<(), String> {
     let mut notes = String::new();
     let mut command_parts = Vec::new();
     let mut capture_kind = "full".to_string();
+    let mut from_hook: Option<Agent> = None;
+    let mut record_flags = false;
 
     let mut args = env::args().skip(1).peekable();
     while let Some(arg) = args.next() {
@@ -29,14 +30,39 @@ fn run() -> Result<(), String> {
                 print_help();
                 return Ok(());
             }
-            "--cwd" => cwd = args.next(),
+            "--from-hook" => {
+                let name = args
+                    .next()
+                    .ok_or_else(|| "mw-remember --from-hook requires claude or rho".to_string())?;
+                from_hook =
+                    Some(Agent::parse(&name).ok_or_else(|| {
+                        format!("unknown hook client {name:?}; use claude or rho")
+                    })?);
+            }
+            "--cwd" => {
+                record_flags = true;
+                cwd = args.next();
+            }
             "--exit-code" | "--exit" => {
+                record_flags = true;
                 exit_code = args.next().and_then(|value| value.parse::<i64>().ok());
             }
-            "--stdout" => stdout = args.next().unwrap_or_default(),
-            "--stderr" => stderr = args.next().unwrap_or_default(),
-            "--notes" => notes = args.next().unwrap_or_default(),
-            "--capture-kind" => capture_kind = args.next().unwrap_or_else(|| "full".to_string()),
+            "--stdout" => {
+                record_flags = true;
+                stdout = args.next().unwrap_or_default();
+            }
+            "--stderr" => {
+                record_flags = true;
+                stderr = args.next().unwrap_or_default();
+            }
+            "--notes" => {
+                record_flags = true;
+                notes = args.next().unwrap_or_default();
+            }
+            "--capture-kind" => {
+                record_flags = true;
+                capture_kind = args.next().unwrap_or_else(|| "full".to_string());
+            }
             "--" => {
                 command_parts.extend(args);
                 break;
@@ -48,124 +74,46 @@ fn run() -> Result<(), String> {
         }
     }
 
-    if command_parts.is_empty() {
-        return Err("missing command; pass it after --".to_string());
-    }
-
-    // Capture gate: decided before the database is even opened, so an `off`
-    // directory never produces a row.
-    let gate = memorywhale_cli::capture_rule_for(cwd.as_deref());
-    if !gate.mode.stores_anything() {
+    if let Some(agent) = from_hook {
+        if record_flags || !command_parts.is_empty() {
+            return Err("mw-remember --from-hook cannot be mixed with other options".to_string());
+        }
+        run_from_hook(agent);
         return Ok(());
     }
-    if !gate.mode.stores_output() {
-        stdout.clear();
-        stderr.clear();
-    }
 
-    notes = append_environment_tags(notes);
-    let stored_args = memorywhale_cli::sanitize_arguments(&command_parts);
-    let command = stored_args[0].clone();
-    let argv_json = serde_json::to_string(&stored_args)
-        .map_err(|err| format!("failed to encode argv: {err}"))?;
-    let created_at = Utc::now().to_rfc3339();
-    let db_path = database_path()?;
-    if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
-    }
-
-    let conn = open_ready(&db_path)?;
-    memorywhale_cli::restrict_path_permissions(&db_path, false)?;
-    conn.execute(
-        "
-        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, capture_kind)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-        ",
-        params![
-            command,
-            argv_json,
+    let run_id =
+        memorywhale_cli::remember::remember_command(memorywhale_cli::remember::CommandRecord {
             cwd,
             exit_code,
-            memorywhale_cli::sanitize_capture(&stdout),
-            memorywhale_cli::sanitize_capture(&stderr),
-            memorywhale_cli::sanitize_capture(&notes),
-            created_at,
-            capture_kind
-        ],
-    )
-    .map_err(|err| format!("failed to insert command run: {err}"))?;
-    let run_id = conn.last_insert_rowid();
-
-    for (position, value) in stored_args.iter().enumerate() {
-        conn.execute(
-            "
-            INSERT INTO command_arguments (command_run_id, position, value)
-            VALUES (?1, ?2, ?3)
-            ",
-            params![run_id, position as i64, value],
-        )
-        .map_err(|err| format!("failed to insert argument: {err}"))?;
+            stdout,
+            stderr,
+            notes,
+            command_parts,
+            capture_kind,
+        })?;
+    if let Some(run_id) = run_id {
+        println!("remembered command run #{run_id}");
     }
-
-    println!("remembered command run #{run_id}");
     Ok(())
 }
 
-/// Open the database and make sure the schema is usable.
-///
-/// Shell hooks fire one writer per command, so several can be creating or
-/// upgrading a brand-new database at the same instant. Schema initialization
-/// can briefly lose a race even with the shared busy timeout.
-/// Retry briefly rather than dropping the row.
-fn open_ready(db_path: &std::path::Path) -> Result<Connection, String> {
-    let mut last = String::new();
-    for attempt in 0..5 {
-        if attempt > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(80 * attempt));
-        }
-        match memorywhale_cli::storage::open_path(db_path) {
-            Ok(conn) => return Ok(conn),
-            Err(err) => last = err,
-        }
+/// Agent hooks must never fail the tool call. Parse stdin JSON and record
+/// what we can; ignore empty, unknown, or broken payloads.
+fn run_from_hook(agent: Agent) {
+    let mut buf = Vec::new();
+    if io::stdin().read_to_end(&mut buf).is_err() {
+        return;
     }
-    Err(last)
+    let Some(record) = memorywhale_cli::agent_hook::record_from_slice(&buf, agent) else {
+        return;
+    };
+    let _ = memorywhale_cli::remember::remember_command(record);
 }
 
 fn print_help() {
     println!(
-        "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]"
+        "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]\n\
+         mw-remember --from-hook claude|rho   read that client's hook JSON from stdin"
     );
-}
-
-fn append_environment_tags(notes: String) -> String {
-    let mut tags = Vec::new();
-    tags.push(format!("os:{}", env::consts::OS));
-    if PathBuf::from("/.dockerenv").exists() || env::var_os("container").is_some() {
-        tags.push("runtime:container".to_string());
-    } else {
-        tags.push("runtime:host".to_string());
-    }
-    if env::var_os("SSH_CONNECTION").is_some() || env::var_os("SSH_CLIENT").is_some() {
-        tags.push("session:ssh".to_string());
-    }
-    if PathBuf::from("/etc/nv_tegra_release").exists() {
-        tags.push("host:jetson".to_string());
-    }
-
-    if notes.trim().is_empty() {
-        tags.join(" ")
-    } else {
-        format!("{} {}", notes.trim(), tags.join(" "))
-    }
-}
-
-fn database_path() -> Result<PathBuf, String> {
-    if let Some(path) = env::var_os("MEMORYWHALE_DATA_DIR") {
-        return Ok(PathBuf::from(path).join("memorywhale.sqlite3"));
-    }
-
-    let base = dirs::data_local_dir()
-        .or_else(dirs::home_dir)
-        .ok_or_else(|| "could not resolve local data directory".to_string())?;
-    Ok(base.join("MemoryWhale").join("memorywhale.sqlite3"))
 }

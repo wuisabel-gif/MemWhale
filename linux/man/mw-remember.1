@@ -40,6 +40,11 @@ Captured standard error to store.
 .BI "--notes " text
 Free-form note attached to the run.
 .TP
+.BI "--from-hook " "claude|rho"
+Read that client's hook JSON object from standard input and record a
+matching bash/powershell tool call. Unknown or empty payloads are
+ignored. Always exits 0 so a recording failure cannot block the agent.
+.TP
 .B --
 Everything after this is the command and its arguments.
 .SH EXAMPLES

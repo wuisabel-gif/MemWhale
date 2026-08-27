@@ -799,7 +799,7 @@ const INTEGRATIONS: &[(&str, &str, &str)] = &[
     ("OpenClaw", "openclaw", "MCP"),
     ("OpenCode", "opencode", "MCP"),
     ("Pi coding agent", "pi", "unverified"),
-    ("Rho", "rho", "MCP"),
+    ("Rho", "rho", "MCP · capture"),
     ("VS Code / Copilot", "vscode", "MCP"),
     ("Windsurf", "windsurf", "MCP"),
     ("Zed", "zed", "MCP"),

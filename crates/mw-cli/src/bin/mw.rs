@@ -311,6 +311,8 @@ fn print_help() {
          mw doctor                check the install, shell hooks, and MCP server\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
+         mw integrate claude [--revert]  install or remove Claude Code hook, skill, and MCP\n\
+         mw integrate rho [--revert]     install or remove Rho hook, skill, and MCP\n\
          mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
@@ -321,8 +323,10 @@ fn print_help() {
 
 fn integrate_cmd(args: &[String]) -> Result<(), String> {
     match args.first().map(String::as_str) {
+        Some("claude" | "claude-code") => memorywhale_cli::integrate::claude::cli(&args[1..]),
+        Some("rho") => memorywhale_cli::integrate::rho::cli(&args[1..]),
         Some("hermes") if args.len() == 1 => {
-            let config_path = memorywhale_cli::hermes::install()?;
+            let config_path = memorywhale_cli::integrate::hermes::install()?;
             println!(
                 "MemoryWhale added to Hermes Agent in {}",
                 config_path.display()
@@ -330,9 +334,11 @@ fn integrate_cmd(args: &[String]) -> Result<(), String> {
             Ok(())
         }
         Some(other) => Err(format!(
-            "unsupported integration {other:?}; usage: mw integrate hermes"
+            "unsupported integration {other:?}; usage: mw integrate claude [--revert]|rho [--revert]|hermes"
         )),
-        None => Err("usage: mw integrate hermes".to_string()),
+        None => Err(
+            "usage: mw integrate claude [--revert]|rho [--revert]|hermes".to_string(),
+        ),
     }
 }
 

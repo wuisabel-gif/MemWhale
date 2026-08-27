@@ -17,5 +17,15 @@ environment rather than only in an unrelated interactive shell.
 Used by `mw integrate hermes` to locate Hermes configuration. Without it, the
 command writes to `~/.hermes/config.yaml`.
 
+## `CLAUDE_CONFIG_DIR`
+
+Used by `mw integrate claude` to locate Claude Code configuration. Without it,
+the command writes to `~/.claude/`.
+
+## `RHO_HOME`
+
+Used by `mw integrate rho` to locate Rho configuration. Without it, the command
+writes to `~/.rho/`.
+
 Additional command-specific variables are documented beside their commands in
 the [CLI reference](cli.md).

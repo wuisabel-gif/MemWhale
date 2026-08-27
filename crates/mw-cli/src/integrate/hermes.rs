@@ -4,6 +4,8 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
+use super::files::atomic_write;
+
 const SERVER: &str = "  memorywhale:\n    command: \"mw-mcp\"\n";
 
 /// Register MemoryWhale's MCP server in the current Hermes home.
@@ -30,8 +32,7 @@ pub fn install() -> Result<PathBuf, String> {
     validate(&existing)?;
     let updated = add_server(&existing);
     validate(&updated)?;
-    fs::write(&config_path, updated)
-        .map_err(|err| format!("failed to write {}: {err}", config_path.display()))?;
+    atomic_write(&config_path, &updated)?;
     Ok(config_path)
 }
 
@@ -84,6 +85,9 @@ fn add_server(config: &str) -> String {
             return config.to_string();
         }
         let mut output = lines[..end].concat();
+        if !output.ends_with('\n') {
+            output.push('\n');
+        }
         output.push_str(SERVER);
         output.push_str(&lines[end..].concat());
         return output;

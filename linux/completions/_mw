@@ -41,7 +41,7 @@ _mw() {
     'global:auto-record every new terminal (on/off/status)'
     'status:show global auto-record state'
     'hooks:install or remove shell auto-record hooks'
-    'integrate:register the MCP server with a host (hermes)'
+    'integrate:register the MCP server with a host (claude, rho, hermes)'
   )
 
   if (( CURRENT == 2 )); then
@@ -72,7 +72,18 @@ _mw() {
       _arguments '--watch[animate the whale whose mood reflects your memory store]'
       ;;
     integrate)
-      _values 'target' hermes
+      case ${words[3]:-} in
+        --revert) ;;
+        claude|claude-code|rho)
+          if (( CURRENT == 4 )); then
+            _values 'option' --revert
+          fi
+          ;;
+        hermes) ;;
+      esac
+      if (( CURRENT == 3 )); then
+        _values 'target' claude claude-code hermes rho
+      fi
       ;;
     sync-mempalace)
       _arguments \
