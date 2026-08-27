@@ -109,6 +109,9 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
     let cwd = env::current_dir()
         .ok()
         .and_then(|path| path.to_str().map(ToOwned::to_owned));
+    let repository = cwd
+        .as_deref()
+        .and_then(memorywhale_cli::repository::discover);
 
     // Capture gate for this directory, resolved before anything is recorded.
     let gate = memorywhale_cli::capture_rule_for(cwd.as_deref());
@@ -153,6 +156,7 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
         let id = insert_live_session(&SessionDraft {
             shell: &shell,
             cwd: cwd.as_deref(),
+            repository: repository.as_ref(),
             transcript_path: &transcript_str,
             notes: &notes,
             started_at: &started_at,
@@ -250,6 +254,7 @@ fn record_session(notes: String, live: bool) -> Result<(), String> {
             &SessionDraft {
                 shell: &shell,
                 cwd: cwd.as_deref(),
+                repository: repository.as_ref(),
                 transcript_path: &transcript_str,
                 notes: &notes,
                 started_at: &started_at,
@@ -400,6 +405,7 @@ fn first_run_welcome() -> Result<(), String> {
 struct SessionDraft<'a> {
     shell: &'a str,
     cwd: Option<&'a str>,
+    repository: Option<&'a memorywhale_cli::repository::RepositoryIdentity>,
     transcript_path: &'a str,
     notes: &'a str,
     started_at: &'a str,
@@ -444,8 +450,8 @@ fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
         "
         INSERT INTO sessions
             (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count,
-             status, project, machine)
-        VALUES (?1, ?2, ?3, '', ?4, ?5, ?5, 0, 'recording', ?6, ?7)
+             status, project, machine, repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, '', ?4, ?5, ?5, 0, 'recording', ?6, ?7, ?8, ?9, ?10)
         ",
         params![
             draft.shell,
@@ -454,7 +460,10 @@ fn insert_live_session(draft: &SessionDraft<'_>) -> Result<i64, String> {
             stored_notes,
             draft.started_at,
             memorywhale_cli::project_of(&stored_notes),
-            memorywhale_cli::machine_name()
+            memorywhale_cli::machine_name(),
+            draft.repository.map(|repo| repo.id.as_str()),
+            draft.repository.map(|repo| repo.name.as_str()),
+            draft.repository.map(|repo| repo.worktree_root.as_str())
         ],
     )
     .map_err(|err| format!("failed to create live session row: {err}"))?;
@@ -480,8 +489,8 @@ fn insert_finished_session(
         "
         INSERT INTO sessions
             (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count,
-             status, project, machine)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'finished', ?9, ?10)
+             status, project, machine, repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'finished', ?9, ?10, ?11, ?12, ?13)
         ",
         params![
             draft.shell,
@@ -493,7 +502,10 @@ fn insert_finished_session(
             ended_at,
             byte_count,
             memorywhale_cli::project_of(&stored_notes),
-            memorywhale_cli::machine_name()
+            memorywhale_cli::machine_name(),
+            draft.repository.map(|repo| repo.id.as_str()),
+            draft.repository.map(|repo| repo.name.as_str()),
+            draft.repository.map(|repo| repo.worktree_root.as_str())
         ],
     )
     .map_err(|err| format!("failed to insert session: {err}"))?;
@@ -2039,7 +2051,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "command_runs");
         if c.contains("command") && c.contains("argv_json") && c.contains("created_at") {
             let sql = format!(
-                "SELECT {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs s",
+                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs s",
                 sel(&c, "command", "''"),
                 sel(&c, "argv_json", "'[]'"),
                 sel(&c, "cwd", "NULL"),
@@ -2047,7 +2059,10 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 sel(&c, "stdout", "''"),
                 sel(&c, "stderr", "''"),
                 sel(&c, "notes", "''"),
-                sel(&c, "created_at", "''")
+                sel(&c, "created_at", "''"),
+                sel(&c, "repository_id", "NULL"),
+                sel(&c, "repository_name", "NULL"),
+                sel(&c, "worktree_root", "NULL")
             );
             type ImportedCommandRun = (
                 String,
@@ -2058,6 +2073,9 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 String,
                 String,
                 String,
+                Option<String>,
+                Option<String>,
+                Option<String>,
             );
             let rows: Vec<ImportedCommandRun> = {
                 let mut stmt = conn
@@ -2073,6 +2091,9 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                         r.get(5)?,
                         r.get(6)?,
                         r.get(7)?,
+                        r.get(8)?,
+                        r.get(9)?,
+                        r.get(10)?,
                     ))
                 });
                 let rows = mapped
@@ -2081,7 +2102,20 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     .map_err(|err| format!("failed to decode imported command runs: {err}"))?;
                 rows
             };
-            for (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at) in rows {
+            for (
+                command,
+                argv_json,
+                cwd,
+                exit_code,
+                stdout,
+                stderr,
+                notes,
+                created_at,
+                repository_id,
+                repository_name,
+                worktree_root,
+            ) in rows
+            {
                 let command = memorywhale_cli::sanitize_capture(&command);
                 // Tolerate malformed argv from older writers instead of
                 // aborting the whole merge; sanitize contextually so split
@@ -2107,9 +2141,23 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     .unwrap_or(0);
                 if exists == 0 {
                     conn.execute(
-                        "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                        params![command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at],
+                        "INSERT INTO command_runs
+                            (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
+                             repository_id, repository_name, worktree_root)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                        params![
+                            command,
+                            argv_json,
+                            cwd,
+                            exit_code,
+                            stdout,
+                            stderr,
+                            notes,
+                            created_at,
+                            repository_id,
+                            repository_name,
+                            worktree_root
+                        ],
                     )
                     .map_err(|err| format!("failed to merge command run: {err}"))?;
                 }
@@ -2122,7 +2170,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "sessions");
         if c.contains("started_at") && c.contains("transcript_path") {
             let sql = format!(
-                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.sessions s",
+                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.sessions s",
                 sel(&c, "shell", "''"),
                 sel(&c, "cwd", "NULL"),
                 sel(&c, "transcript_path", "''"),
@@ -2131,7 +2179,10 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 sel(&c, "started_at", "''"),
                 sel(&c, "ended_at", "''"),
                 sel(&c, "byte_count", "0"),
-                sel(&c, "status", "'finished'")
+                sel(&c, "status", "'finished'"),
+                sel(&c, "repository_id", "NULL"),
+                sel(&c, "repository_name", "NULL"),
+                sel(&c, "worktree_root", "NULL")
             );
             type ImportedSession = (
                 String,
@@ -2143,6 +2194,9 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 String,
                 i64,
                 String,
+                Option<String>,
+                Option<String>,
+                Option<String>,
             );
             let rows: Vec<ImportedSession> = {
                 let mut stmt = conn
@@ -2159,6 +2213,9 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                         r.get(6)?,
                         r.get(7)?,
                         r.get(8)?,
+                        r.get(9)?,
+                        r.get(10)?,
+                        r.get(11)?,
                     ))
                 });
                 let rows = mapped
@@ -2167,7 +2224,20 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     .map_err(|err| format!("failed to decode imported sessions: {err}"))?;
                 rows
             };
-            for (shell, cwd, path, transcript, notes, started, ended, source_bytes, status) in rows
+            for (
+                shell,
+                cwd,
+                path,
+                transcript,
+                notes,
+                started,
+                ended,
+                source_bytes,
+                status,
+                repository_id,
+                repository_name,
+                worktree_root,
+            ) in rows
             {
                 let transcript = memorywhale_cli::sanitize_capture(&transcript);
                 let notes = memorywhale_cli::sanitize_capture(&notes);
@@ -2185,9 +2255,24 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     .unwrap_or(0);
                 if exists == 0 {
                     conn.execute(
-                        "INSERT INTO sessions (shell, cwd, transcript_path, transcript, notes, started_at, ended_at, byte_count, status)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                        params![shell, cwd, path, transcript, notes, started, ended, stored_bytes, status],
+                        "INSERT INTO sessions
+                            (shell, cwd, transcript_path, transcript, notes, started_at, ended_at,
+                             byte_count, status, repository_id, repository_name, worktree_root)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                        params![
+                            shell,
+                            cwd,
+                            path,
+                            transcript,
+                            notes,
+                            started,
+                            ended,
+                            stored_bytes,
+                            status,
+                            repository_id,
+                            repository_name,
+                            worktree_root
+                        ],
                     )
                     .map_err(|err| format!("failed to merge session: {err}"))?;
                 }

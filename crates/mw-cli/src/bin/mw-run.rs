@@ -174,6 +174,7 @@ fn remember_command(
     let argv_json = serde_json::to_string(&stored_args)
         .map_err(|err| format!("failed to encode argv: {err}"))?;
     let created_at = Utc::now().to_rfc3339();
+    let repository = memorywhale_cli::repository::discover(&cwd.to_string_lossy());
     let db_path = database_path()?;
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
@@ -191,8 +192,10 @@ fn remember_command(
     };
     conn.execute(
         "
-        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, error_fingerprint)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        INSERT INTO command_runs
+            (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
+             error_fingerprint, repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
         ",
         params![
             command,
@@ -203,7 +206,10 @@ fn remember_command(
             redacted_stderr,
             memorywhale_cli::sanitize_capture(notes),
             created_at,
-            fingerprint
+            fingerprint,
+            repository.as_ref().map(|repo| repo.id.as_str()),
+            repository.as_ref().map(|repo| repo.name.as_str()),
+            repository.as_ref().map(|repo| repo.worktree_root.as_str())
         ],
     )
     .map_err(|err| format!("failed to insert command run: {err}"))?;

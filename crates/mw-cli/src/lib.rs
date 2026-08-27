@@ -3,6 +3,7 @@
 pub mod agent_hook;
 pub mod integrate;
 pub mod remember;
+pub mod repository;
 
 /// Deprecated: use [`integrate::hermes`] instead.
 #[deprecated(
@@ -125,7 +126,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 8;
+pub const LATEST_SCHEMA_VERSION: i64 = 9;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -243,6 +244,23 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
              PRAGMA user_version = 8;",
         )
         .map_err(|e| format!("failed to migrate memory links: {e}"))?;
+    }
+    if version < 9 {
+        for table in ["sessions", "command_runs"] {
+            if table_exists(conn, table)? {
+                add_column_if_missing(conn, table, "repository_id", "TEXT")?;
+                add_column_if_missing(conn, table, "repository_name", "TEXT")?;
+                add_column_if_missing(conn, table, "worktree_root", "TEXT")?;
+                conn.execute_batch(&format!(
+                    "CREATE INDEX IF NOT EXISTS idx_{table}_repository_id ON {table}(repository_id);
+                     CREATE INDEX IF NOT EXISTS idx_{table}_worktree_root ON {table}(worktree_root);"
+                ))
+                .map_err(|e| format!("failed to index {table} repository identities: {e}"))?;
+            }
+        }
+        backfill_repository_identities(conn)?;
+        conn.execute_batch("PRAGMA user_version = 9;")
+            .map_err(|e| format!("failed to migrate repository identities: {e}"))?;
     }
     Ok(())
 }
@@ -659,10 +677,7 @@ fn add_column_if_missing(
     column: &str,
     decl: &str,
 ) -> Result<(), String> {
-    let present = conn
-        .prepare("SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2")
-        .and_then(|mut s| s.exists(params![table, column]))
-        .map_err(|e| format!("failed to inspect {table} columns: {e}"))?;
+    let present = column_exists(conn, table, column)?;
     if !present {
         // Two writers (e.g. two shell hooks firing at once on a fresh DB) can
         // both read the column as missing and both try to add it. The loser
@@ -678,6 +693,12 @@ fn add_column_if_missing(
         }
     }
     Ok(())
+}
+
+fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool, String> {
+    conn.prepare("SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2")
+        .and_then(|mut statement| statement.exists(params![table, column]))
+        .map_err(|e| format!("failed to inspect {table} columns: {e}"))
 }
 
 /// Lift the legacy `project:<name>` note convention into `sessions.project`.
@@ -698,6 +719,36 @@ fn backfill_project_from_notes(conn: &Connection) -> Result<(), String> {
                 params![project, id],
             )
             .map_err(|e| format!("failed to backfill session {id}: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn backfill_repository_identities(conn: &Connection) -> Result<(), String> {
+    for table in ["sessions", "command_runs"] {
+        if !table_exists(conn, table)? || !column_exists(conn, table, "cwd")? {
+            continue;
+        }
+        let sql =
+            format!("SELECT id, cwd FROM {table} WHERE repository_id IS NULL AND cwd IS NOT NULL");
+        let rows: Vec<(i64, String)> = conn
+            .prepare(&sql)
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                    .collect()
+            })
+            .map_err(|e| format!("failed to read {table} repository metadata: {e}"))?;
+        for (id, cwd) in rows {
+            let Some(repository) = repository::discover(&cwd) else {
+                continue;
+            };
+            conn.execute(
+                &format!(
+                    "UPDATE {table} SET repository_id = ?1, repository_name = ?2, worktree_root = ?3 WHERE id = ?4"
+                ),
+                params![repository.id, repository.name, repository.worktree_root, id],
+            )
+            .map_err(|e| format!("failed to backfill {table} row {id}: {e}"))?;
         }
     }
     Ok(())

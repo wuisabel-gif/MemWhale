@@ -46,6 +46,9 @@ export type CommandRun = {
   command: string;
   argv_json: string;
   cwd?: string | null;
+  repository_id?: string | null;
+  repository_name?: string | null;
+  worktree_root?: string | null;
   exit_code?: number | null;
   stdout: string;
   stderr: string;

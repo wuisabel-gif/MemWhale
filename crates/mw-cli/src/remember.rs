@@ -40,6 +40,7 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
     let argv_json = serde_json::to_string(&stored_args)
         .map_err(|err| format!("failed to encode argv: {err}"))?;
     let created_at = Utc::now().to_rfc3339();
+    let repository = record.cwd.as_deref().and_then(crate::repository::discover);
     let db_path = crate::database_path()?;
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent).map_err(|err| format!("failed to create data dir: {err}"))?;
@@ -49,8 +50,10 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
     crate::restrict_path_permissions(&db_path, false)?;
     conn.execute(
         "
-        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, capture_kind)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        INSERT INTO command_runs
+            (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
+             capture_kind, repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
         ",
         params![
             command,
@@ -61,7 +64,10 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
             crate::sanitize_capture(&record.stderr),
             crate::sanitize_capture(&record.notes),
             created_at,
-            record.capture_kind
+            record.capture_kind,
+            repository.as_ref().map(|repo| repo.id.as_str()),
+            repository.as_ref().map(|repo| repo.name.as_str()),
+            repository.as_ref().map(|repo| repo.worktree_root.as_str())
         ],
     )
     .map_err(|err| format!("failed to insert command run: {err}"))?;
