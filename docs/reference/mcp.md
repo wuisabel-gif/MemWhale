@@ -43,8 +43,8 @@ For broader guidance on protecting captured terminal data, see the
 ## Protocol compatibility
 
 `mw-mcp` supports the current date-based MCP revision, `2026-07-28`, and the
-legacy initialization-based revision `2024-11-05`. MCP does not use an
-"MCP 2.0" version string.
+legacy initialization-based revisions `2025-11-25` and `2024-11-05`. MCP does
+not use an "MCP 2.0" version string.
 
 Current clients send their protocol version, identity, and capabilities in
 each request's `_meta` object. The server implements `server/discover`, reports
@@ -53,10 +53,10 @@ and `requested` version data when no match is possible. Current responses use
 the revision's `resultType`, capability, cache, and server metadata fields.
 
 Legacy clients may still open the stdio process with an `initialize` request
-for `2024-11-05`, followed by `notifications/initialized`. Requests for other
-initialization revisions fail with the same explicit unsupported-version
-error. Protocol selection does not change the six MemoryWhale tools or their
-semantics.
+for either supported legacy revision, followed by `notifications/initialized`.
+For another initialization revision, the server negotiates `2025-11-25` as its
+latest supported legacy revision. Protocol selection does not change the six
+MemoryWhale tools or their semantics.
 
 A direct current-protocol discovery check is:
 

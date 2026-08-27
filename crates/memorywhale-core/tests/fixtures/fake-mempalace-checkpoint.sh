@@ -8,7 +8,7 @@ while IFS= read -r line; do
       printf '%s\n' '{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}'
       ;;
     *'"initialize"'*)
-      printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"protocolVersion":"2024-11-05","capabilities":{},"serverInfo":{"name":"mempalace","version":"fake"}}}'
+      printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"mempalace","version":"fake"}}}'
       ;;
     *'mempalace_checkpoint'*)
       printf '%s\n' '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"{\"added\":[{\"drawer_id\":\"a\"},{\"drawer_id\":\"b\"}],\"duplicates\":[{\"drawer_id\":\"c\"}],\"errors\":[]}"}]}}'

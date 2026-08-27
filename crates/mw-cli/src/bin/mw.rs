@@ -3999,7 +3999,7 @@ fn mcp_remediation(error: &str) -> String {
 const MAX_MCP_LINE_BYTES: usize = 64 * 1024;
 const MAX_MCP_LINES: usize = 128;
 const CURRENT_MCP_PROTOCOL: &str = "2026-07-28";
-const LEGACY_MCP_PROTOCOL: &str = "2024-11-05";
+const LEGACY_MCP_PROTOCOLS: [&str; 2] = ["2025-11-25", "2024-11-05"];
 
 #[derive(Debug, PartialEq, Eq)]
 struct McpProbe {
@@ -4094,7 +4094,7 @@ fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<McpProbe,
                 "id": 2,
                 "method": "initialize",
                 "params": {
-                    "protocolVersion": LEGACY_MCP_PROTOCOL,
+                    "protocolVersion": LEGACY_MCP_PROTOCOLS[0],
                     "capabilities": {},
                     "clientInfo": {
                         "name": "memorywhale-doctor",
@@ -4106,7 +4106,7 @@ fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<McpProbe,
                 .and_then(|_| stdin.flush())
                 .map_err(|err| format!("mw-mcp legacy initialize write failed: {err}"))?;
             let initialized = read_mcp_response(&mut reader, 2)?;
-            validate_initialize_result(&initialized, LEGACY_MCP_PROTOCOL)?;
+            let negotiated = validate_initialize_result(&initialized)?;
             let notification = serde_json::json!({
                 "jsonrpc": "2.0",
                 "method": "notifications/initialized",
@@ -4115,7 +4115,7 @@ fn run_mcp_probe<W: Write, R: Read>(mut stdin: W, stdout: R) -> Result<McpProbe,
             writeln!(stdin, "{notification}")
                 .and_then(|_| stdin.flush())
                 .map_err(|err| format!("mw-mcp initialized notification failed: {err}"))?;
-            (LEGACY_MCP_PROTOCOL.to_string(), 3, serde_json::json!({}))
+            (negotiated, 3, serde_json::json!({}))
         }
         Err(error) => return Err(error),
     };
@@ -4252,22 +4252,19 @@ fn is_legacy_discovery_response(message: &serde_json::Value) -> bool {
     message.pointer("/result/supportedVersions").is_none()
 }
 
-fn validate_initialize_result(
-    message: &serde_json::Value,
-    expected_protocol: &str,
-) -> Result<(), String> {
+fn validate_initialize_result(message: &serde_json::Value) -> Result<String, String> {
     reject_mcp_error(message, 2)?;
     let result = message
         .get("result")
         .and_then(|value| value.as_object())
         .ok_or_else(|| "initialize response did not contain a result object".to_string())?;
-    if result
+    let negotiated = result
         .get("protocolVersion")
         .and_then(|value| value.as_str())
-        != Some(expected_protocol)
-    {
+        .ok_or_else(|| "initialize result is missing protocolVersion".to_string())?;
+    if !LEGACY_MCP_PROTOCOLS.contains(&negotiated) {
         return Err(format!(
-            "initialize result protocolVersion is unsupported; expected {expected_protocol}"
+            "initialize result protocolVersion is unsupported: {negotiated}"
         ));
     }
     if !result
@@ -4282,7 +4279,7 @@ fn validate_initialize_result(
     {
         return Err("initialize result is missing serverInfo".to_string());
     }
-    Ok(())
+    Ok(negotiated.to_string())
 }
 
 fn append_environment_tags(notes: String) -> String {
@@ -4336,7 +4333,7 @@ mod tests {
     fn mcp_probe_accepts_discovery_and_tools_list() {
         let output = concat!(
             "not-json\n",
-            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":\"complete\",\"supportedVersions\":[\"2026-07-28\",\"2024-11-05\"],\"capabilities\":{\"tools\":{}},\"ttlMs\":3600000,\"cacheScope\":\"public\"}}\n",
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":\"complete\",\"supportedVersions\":[\"2026-07-28\",\"2025-11-25\",\"2024-11-05\"],\"capabilities\":{\"tools\":{}}}}\n",
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"resultType\":\"complete\",\"tools\":[{\"name\":\"stats\"},{\"name\":\"remember\"}]}}\n"
         );
         let mut sent = Vec::new();
@@ -4349,19 +4346,22 @@ mod tests {
     }
 
     #[test]
-    fn mcp_probe_falls_back_to_legacy_initialize() {
-        let output = concat!(
-            "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}\n",
-            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}}\n",
-            "{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"tools\":[{\"name\":\"stats\"}]}}\n"
-        );
-        let mut sent = Vec::new();
-        let probe = run_mcp_probe(&mut sent, Cursor::new(output.as_bytes())).unwrap();
-        assert_eq!(probe.protocol_version, LEGACY_MCP_PROTOCOL);
-        assert_eq!(probe.tools, ["stats"]);
-        let sent = String::from_utf8(sent).unwrap();
-        assert!(sent.contains("initialize"));
-        assert!(sent.contains("notifications/initialized"));
+    fn mcp_probe_negotiates_supported_legacy_protocols() {
+        for protocol in LEGACY_MCP_PROTOCOLS {
+            let output = format!(
+                "{{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{{\"code\":-32601,\"message\":\"Method not found\"}}}}\n\
+                 {{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{{\"protocolVersion\":\"{protocol}\",\"capabilities\":{{\"tools\":{{}}}},\"serverInfo\":{{\"name\":\"fixture\",\"version\":\"1\"}}}}}}\n\
+                 {{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{{\"tools\":[{{\"name\":\"stats\"}}]}}}}\n"
+            );
+            let mut sent = Vec::new();
+            let probe = run_mcp_probe(&mut sent, Cursor::new(output.as_bytes())).unwrap();
+            assert_eq!(probe.protocol_version, protocol);
+            assert_eq!(probe.tools, ["stats"]);
+            let sent = String::from_utf8(sent).unwrap();
+            assert!(sent.contains("initialize"));
+            assert!(sent.contains(LEGACY_MCP_PROTOCOLS[0]));
+            assert!(sent.contains("notifications/initialized"));
+        }
     }
 
     #[test]

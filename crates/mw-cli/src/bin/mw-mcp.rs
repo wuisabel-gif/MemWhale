@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 
 const CURRENT_PROTOCOL_VERSION: &str = "2026-07-28";
-const LEGACY_PROTOCOL_VERSION: &str = "2024-11-05";
+const LEGACY_PROTOCOL_VERSIONS: [&str; 2] = ["2025-11-25", "2024-11-05"];
 const CACHE_TTL_MS: u64 = 3_600_000;
 
 #[derive(Debug)]
@@ -120,9 +120,11 @@ fn dispatch(
             .get("protocolVersion")
             .and_then(Value::as_str)
             .ok_or_else(|| RpcError::new(-32602, "initialize requires protocolVersion"))?;
-        if requested != LEGACY_PROTOCOL_VERSION {
-            return Err(unsupported_protocol(requested));
-        }
+        let negotiated = if LEGACY_PROTOCOL_VERSIONS.contains(&requested) {
+            requested
+        } else {
+            LEGACY_PROTOCOL_VERSIONS[0]
+        };
         if params_object
             .get("capabilities")
             .is_some_and(|value| !value.is_object())
@@ -149,7 +151,7 @@ fn dispatch(
             .map(str::to_string);
         *legacy_initialized = true;
         return Ok(json!({
-            "protocolVersion": LEGACY_PROTOCOL_VERSION,
+            "protocolVersion": negotiated,
             "capabilities": {"tools": {"listChanged": false}},
             "serverInfo": server_info()
         }));
@@ -181,7 +183,11 @@ fn handle(
     match method {
         "server/discover" if modern => Ok(json!({
             "resultType": "complete",
-            "supportedVersions": [CURRENT_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION],
+            "supportedVersions": [
+                CURRENT_PROTOCOL_VERSION,
+                LEGACY_PROTOCOL_VERSIONS[0],
+                LEGACY_PROTOCOL_VERSIONS[1]
+            ],
             "capabilities": {"tools": {"listChanged": false}},
             "_meta": server_meta(),
             "instructions": "MemoryWhale provides local development memory retrieval and explicit note storage.",
@@ -287,7 +293,11 @@ fn unsupported_protocol(requested: &str) -> RpcError {
         code: -32022,
         message: "Unsupported protocol version".to_string(),
         data: Some(json!({
-            "supported": [CURRENT_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION],
+            "supported": [
+                CURRENT_PROTOCOL_VERSION,
+                LEGACY_PROTOCOL_VERSIONS[0],
+                LEGACY_PROTOCOL_VERSIONS[1]
+            ],
             "requested": requested
         })),
     }
@@ -856,25 +866,24 @@ mod tests {
     }
 
     #[test]
-    fn legacy_protocol_initializes_and_lists_tools() {
-        let responses = protocol_responses(&[
-            json!({
-                "jsonrpc": "2.0", "id": 1, "method": "initialize",
-                "params": {
-                    "protocolVersion": LEGACY_PROTOCOL_VERSION,
-                    "capabilities": {},
-                    "clientInfo": {"name": "legacy-test", "version": "1"}
-                }
-            }),
-            json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
-            json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
-        ]);
-        assert_eq!(
-            responses[0]["result"]["protocolVersion"],
-            LEGACY_PROTOCOL_VERSION
-        );
-        assert_eq!(responses[1]["result"]["tools"].as_array().unwrap().len(), 6);
-        assert!(responses[1]["result"].get("resultType").is_none());
+    fn legacy_protocols_initialize_and_list_tools() {
+        for protocol in LEGACY_PROTOCOL_VERSIONS {
+            let responses = protocol_responses(&[
+                json!({
+                    "jsonrpc": "2.0", "id": 1, "method": "initialize",
+                    "params": {
+                        "protocolVersion": protocol,
+                        "capabilities": {},
+                        "clientInfo": {"name": "legacy-test", "version": "1"}
+                    }
+                }),
+                json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+                json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+            ]);
+            assert_eq!(responses[0]["result"]["protocolVersion"], protocol);
+            assert_eq!(responses[1]["result"]["tools"].as_array().unwrap().len(), 6);
+            assert!(responses[1]["result"].get("resultType").is_none());
+        }
     }
 
     #[test]

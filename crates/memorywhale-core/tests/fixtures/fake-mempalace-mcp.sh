@@ -6,7 +6,7 @@ ESCAPED=$(printf '%s' "$RESULTS" | sed 's/"/\\"/g')
 while IFS= read -r line; do
   case "$line" in
     *'"method":"server/discover"'*)
-      printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{}},"ttlMs":3600000,"cacheScope":"public"}}'
+      printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{}}}}'
       ;;
     *'"method":"initialize"'*)
       printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"mempalace","version":"0.0.0-fake"}}}'

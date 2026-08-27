@@ -13,7 +13,7 @@ use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 
 const CURRENT_PROTOCOL_VERSION: &str = "2026-07-28";
-const LEGACY_PROTOCOL_VERSION: &str = "2024-11-05";
+const LEGACY_PROTOCOL_VERSIONS: [&str; 2] = ["2025-11-25", "2024-11-05"];
 
 #[derive(Clone, Copy)]
 enum ProtocolEra {
@@ -60,17 +60,16 @@ impl McpClient {
                 .request_raw(
                     "initialize",
                     json!({
-                        "protocolVersion": LEGACY_PROTOCOL_VERSION,
+                        "protocolVersion": LEGACY_PROTOCOL_VERSIONS[0],
                         "capabilities": {},
                         "clientInfo": {"name": "memorywhale", "version": env!("CARGO_PKG_VERSION")}
                     }),
                 )
                 .with_context(|| format!("MCP handshake with `{command}` failed"))?;
-            if initialized
+            let negotiated = initialized
                 .pointer("/result/protocolVersion")
-                .and_then(Value::as_str)
-                != Some(LEGACY_PROTOCOL_VERSION)
-            {
+                .and_then(Value::as_str);
+            if !negotiated.is_some_and(|version| LEGACY_PROTOCOL_VERSIONS.contains(&version)) {
                 return Err(response_error("initialize", &initialized));
             }
             client.notify("notifications/initialized", json!({}))?;
@@ -197,16 +196,6 @@ fn validate_discovery(response: &Value) -> Result<bool> {
             "MCP `server/discover` failed: missing capabilities"
         ));
     }
-    if !result.get("ttlMs").is_some_and(Value::is_number)
-        || !matches!(
-            result.get("cacheScope").and_then(Value::as_str),
-            Some("public" | "private")
-        )
-    {
-        return Err(anyhow!(
-            "MCP `server/discover` failed: missing cache metadata"
-        ));
-    }
     Ok(true)
 }
 
@@ -268,6 +257,16 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("unsupported"));
+    }
+
+    #[test]
+    fn discovery_accepts_results_without_optional_cache_metadata() {
+        let response = json!({"result": {
+            "resultType": "complete",
+            "supportedVersions": [CURRENT_PROTOCOL_VERSION],
+            "capabilities": {}
+        }});
+        assert!(validate_discovery(&response).unwrap());
     }
 
     #[test]
