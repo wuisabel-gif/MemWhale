@@ -47,6 +47,21 @@ fn wait_for_port(port: u16) {
     panic!("mw-serve did not bind 127.0.0.1:{port}");
 }
 
+fn post_mcp(port: u16, body: &str) -> String {
+    let request = format!(
+        "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    stream.write_all(request.as_bytes()).unwrap();
+    let mut response = String::new();
+    stream.read_to_string(&mut response).unwrap();
+    response
+}
+
 #[test]
 fn print_token_mints_and_reuses_the_file() {
     let dir = sandbox("print-token");
@@ -95,17 +110,7 @@ fn serve_mcp_discovers_current_protocol() {
         "params": {"_meta": modern_meta()}
     })
     .to_string();
-    let request = format!(
-        "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Length: {}\r\n\r\n{body}",
-        body.len()
-    );
-    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
-    stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
-        .unwrap();
-    stream.write_all(request.as_bytes()).unwrap();
-    let mut response = String::new();
-    stream.read_to_string(&mut response).unwrap();
+    let response = post_mcp(port, &body);
     let _ = child.kill();
     let _ = child.wait();
 
@@ -114,5 +119,55 @@ fn serve_mcp_discovers_current_protocol() {
         "unexpected response: {response}"
     );
     assert!(response.contains("2026-07-28"));
-    assert!(response.contains("\"resultType\":\"complete\"") || response.contains("resultType"));
+    assert!(
+        response.contains("\"resultType\":\"complete\""),
+        "unexpected discovery result: {response}"
+    );
+}
+
+#[test]
+fn serve_mcp_accepts_rho_initialize_handshake() {
+    let dir = sandbox("serve-rho");
+    let port = free_port();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_mw-serve"))
+        .args(["--port", &port.to_string()])
+        .env("MEMORYWHALE_DATA_DIR", &dir)
+        .env_remove("MEMORYWHALE_TOKEN")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn mw-serve");
+    wait_for_port(port);
+
+    let init = post_mcp(
+        port,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {"roots": {"listChanged": false}},
+                "clientInfo": {"name": "rho", "version": "2.2.0"}
+            }
+        })
+        .to_string(),
+    );
+    assert!(init.starts_with("HTTP/1.1 200 OK"), "{init}");
+    assert!(init.contains("2025-11-25"), "{init}");
+
+    let listed = post_mcp(
+        port,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {}
+        })
+        .to_string(),
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+    assert!(listed.starts_with("HTTP/1.1 200 OK"), "{listed}");
+    assert!(listed.contains("recent_errors"), "{listed}");
 }

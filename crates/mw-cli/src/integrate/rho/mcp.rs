@@ -68,12 +68,16 @@ fn mcp_server_matches(doc: &DocumentMut, target: &McpTarget) -> bool {
     })
 }
 
+fn header_from_env<'a>(server: &'a dyn TableLike, key: &str) -> Option<&'a str> {
+    let item = server.get("headers_from_env")?;
+    if let Some(inline) = item.as_inline_table() {
+        return inline.get(key).and_then(|value| value.as_str());
+    }
+    item.as_table_like()?.get(key).and_then(Item::as_str)
+}
+
 fn http_auth_matches(server: &dyn TableLike, with_auth: bool) -> bool {
-    let headers = server
-        .get("headers_from_env")
-        .and_then(Item::as_inline_table);
-    let authorization =
-        headers.and_then(|table| table.get("Authorization").and_then(|item| item.as_str()));
+    let authorization = header_from_env(server, "Authorization");
     if with_auth {
         authorization == Some("MEMORYWHALE_AUTHORIZATION")
     } else {
@@ -230,7 +234,7 @@ pub(super) fn merge_mcp(existing: &str, target: &McpTarget) -> Result<(String, b
         if target.authorization_from_env {
             changed |= set_authorization_from_env(server);
         } else {
-            changed |= remove_key(server, "headers_from_env");
+            changed |= remove_authorization_from_env(server);
         }
     }
     if server.get("enabled").and_then(Item::as_bool) == Some(false) {
@@ -251,9 +255,44 @@ fn set_authorization_from_env(table: &mut dyn TableLike) -> bool {
     if http_auth_matches(table, true) {
         return false;
     }
+    if let Some(item) = table.get_mut("headers_from_env") {
+        if let Some(inline) = item.as_inline_table_mut() {
+            inline.insert("Authorization", "MEMORYWHALE_AUTHORIZATION".into());
+            return true;
+        }
+        if let Some(existing) = item.as_table_like_mut() {
+            existing.insert("Authorization", value("MEMORYWHALE_AUTHORIZATION"));
+            return true;
+        }
+    }
     let mut headers = InlineTable::new();
     headers.insert("Authorization", "MEMORYWHALE_AUTHORIZATION".into());
     table.insert("headers_from_env", Item::Value(headers.into()));
+    true
+}
+
+fn remove_authorization_from_env(table: &mut dyn TableLike) -> bool {
+    let drop_table = {
+        let Some(item) = table.get_mut("headers_from_env") else {
+            return false;
+        };
+        if let Some(inline) = item.as_inline_table_mut() {
+            if inline.remove("Authorization").is_none() {
+                return false;
+            }
+            inline.is_empty()
+        } else if let Some(existing) = item.as_table_like_mut() {
+            if existing.remove("Authorization").is_none() {
+                return false;
+            }
+            existing.is_empty()
+        } else {
+            return false;
+        }
+    };
+    if drop_table {
+        table.remove("headers_from_env");
+    }
     true
 }
 
@@ -548,6 +587,33 @@ command = "npx"
         let (again, changed_again) = super::merge_mcp(&merged, &mode).unwrap();
         assert!(!changed_again);
         assert_eq!(again, merged);
+    }
+
+    #[test]
+    fn merge_mcp_http_preserves_unrelated_headers_from_env() {
+        let original = r#"[mcp.servers.memorywhale]
+transport = "streamable_http"
+url = "http://192.168.1.42:7071/mcp"
+headers_from_env = { X-Tenant = "acme" }
+"#;
+        let lan = McpTarget::http("http://192.168.1.42:7071/mcp".into(), true, true);
+        let (merged, changed) = super::merge_mcp(original, &lan).unwrap();
+        assert!(changed);
+        let headers = &merged.parse::<DocumentMut>().unwrap()["mcp"]["servers"]["memorywhale"]
+            ["headers_from_env"];
+        assert_eq!(headers["X-Tenant"].as_str(), Some("acme"));
+        assert_eq!(
+            headers["Authorization"].as_str(),
+            Some("MEMORYWHALE_AUTHORIZATION")
+        );
+
+        let loopback = McpTarget::http("http://127.0.0.1:7071/mcp".into(), false, false);
+        let (cleared, changed) = super::merge_mcp(&merged, &loopback).unwrap();
+        assert!(changed);
+        let headers = &cleared.parse::<DocumentMut>().unwrap()["mcp"]["servers"]["memorywhale"]
+            ["headers_from_env"];
+        assert_eq!(headers["X-Tenant"].as_str(), Some("acme"));
+        assert!(headers.get("Authorization").is_none());
     }
 
     #[test]

@@ -64,6 +64,7 @@ pub fn load_or_mint_serve_token(explicit: &str) -> Result<LoadedToken, String> {
 
 /// Persist `Bearer <raw>` for a Rho HTTP client. Export
 /// `MEMORYWHALE_AUTHORIZATION` from this file; the capture hook does not load it.
+/// `mw integrate rho --revert` removes this copy. It does not touch `serve.token`.
 pub fn write_mcp_authorization(raw_token: &str) -> Result<PathBuf, String> {
     let raw_token = raw_token.trim();
     if raw_token.is_empty() {
@@ -72,6 +73,16 @@ pub fn write_mcp_authorization(raw_token: &str) -> Result<PathBuf, String> {
     let path = mcp_authorization_path()?;
     write_secret_file(&path, &format!("Bearer {raw_token}"))?;
     Ok(path)
+}
+
+/// Delete the client-side bearer copy. Returns whether a file was removed.
+pub fn remove_mcp_authorization() -> Result<bool, String> {
+    let path = mcp_authorization_path()?;
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(format!("failed to remove {}: {e}", path.display())),
+    }
 }
 
 fn mint_token() -> Result<String, String> {
@@ -180,6 +191,9 @@ mod tests {
             let path = write_mcp_authorization("abc").unwrap();
             assert_eq!(path, dir.join(MCP_AUTHORIZATION_FILE));
             assert_eq!(fs::read_to_string(&path).unwrap().trim(), "Bearer abc");
+            assert!(remove_mcp_authorization().unwrap());
+            assert!(!path.exists());
+            assert!(!remove_mcp_authorization().unwrap());
         });
     }
 }

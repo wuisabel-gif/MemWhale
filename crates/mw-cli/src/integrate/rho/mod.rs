@@ -49,7 +49,8 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         if let Some(token) = parsed.token.as_deref() {
             crate::serve_auth::write_mcp_authorization(token)?;
         }
-        McpTarget::http(url, kind.http && !kind.loopback, !kind.loopback)
+        let with_auth = parsed.token.is_some() || !kind.loopback;
+        McpTarget::http(url, kind.http && !kind.loopback, with_auth)
     } else {
         McpTarget::stdio()
     };
@@ -150,6 +151,7 @@ struct RevertResult {
     skill_removed: bool,
     hooks_updated: bool,
     mcp_updated: bool,
+    auth_removed: bool,
 }
 
 struct RhoPaths {
@@ -233,6 +235,7 @@ fn uninstall() -> Result<RevertResult, String> {
 
     let hook_removed = remove_legacy_python_hook(&paths.bundled.config_dir)?;
     let skill_removed = remove_skill(&paths.bundled)?;
+    let auth_removed = crate::serve_auth::remove_mcp_authorization()?;
 
     Ok(RevertResult {
         config_dir: paths.bundled.config_dir,
@@ -240,6 +243,7 @@ fn uninstall() -> Result<RevertResult, String> {
         skill_removed,
         hooks_updated: hooks_changed,
         mcp_updated: config_changed,
+        auth_removed,
     })
 }
 
@@ -476,6 +480,9 @@ fn report_revert(result: RevertResult) {
     }
     if result.mcp_updated {
         println!("  mcp:      memorywhale unregistered");
+    }
+    if result.auth_removed {
+        println!("  auth:     client bearer copy removed");
     }
     println!("Restart Rho to pick up the change.");
 }

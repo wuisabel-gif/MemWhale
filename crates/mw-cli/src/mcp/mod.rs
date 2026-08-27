@@ -1,8 +1,9 @@
 //! Shared MCP protocol dispatch for `mw-mcp` (stdio) and `mw-serve` (`POST /mcp`).
 //!
-//! Stdio still speaks legacy initialize handshakes. HTTP is `2026-07-28` only:
-//! one JSON-RPC object per POST. Rho's `streamable_http` transport key points
-//! at this endpoint.
+//! HTTP is one JSON-RPC object per POST (not an SSE session). Clients that
+//! speak `2026-07-28` send `_meta` on each request. Clients that still
+//! handshake (Rho `streamable_http`) send `initialize`, then `tools/list`
+//! without `_meta`; HTTP accepts that path without keeping session state.
 
 mod tools;
 
@@ -42,8 +43,8 @@ pub struct HttpMcpReply {
     pub body: String,
 }
 
-/// One JSON-RPC object per POST. HTTP is `2026-07-28` only: no legacy
-/// initialize session.
+/// One JSON-RPC object per POST. Modern `_meta` and a stateless initialize
+/// handshake are both accepted.
 pub fn handle_http_rpc(body: &str) -> HttpMcpReply {
     let msg: Value = match serde_json::from_str(body.trim()) {
         Ok(v) => v,
@@ -142,16 +143,14 @@ fn rpc_reply(
 }
 
 fn dispatch_http(method: &str, params: &Value) -> Result<Value, RpcError> {
-    require_params_object(params)?;
+    let params_object = require_params_object(params)?;
     if method == "initialize" {
-        return Err(RpcError::new(
-            -32601,
-            "HTTP MCP is 2026-07-28 only; send server/discover with _meta",
-        ));
+        let (result, _) = initialize_handshake(params_object)?;
+        return Ok(result);
     }
     match classify_protocol(params)? {
         ProtocolClass::Modern { client_name } => handle(method, params, client_name, true),
-        ProtocolClass::Legacy => Err(RpcError::new(-32602, "HTTP MCP requires 2026-07-28 _meta")),
+        ProtocolClass::Legacy => handle(method, params, None, false),
     }
 }
 
@@ -162,45 +161,10 @@ fn dispatch_stdio(
 ) -> Result<Value, RpcError> {
     let params_object = require_params_object(params)?;
     if method == "initialize" {
-        let requested = params_object
-            .get("protocolVersion")
-            .and_then(Value::as_str)
-            .ok_or_else(|| RpcError::new(-32602, "initialize requires protocolVersion"))?;
-        let negotiated = if LEGACY_PROTOCOL_VERSIONS.contains(&requested) {
-            requested
-        } else {
-            LEGACY_PROTOCOL_VERSIONS[0]
-        };
-        if params_object
-            .get("capabilities")
-            .is_some_and(|value| !value.is_object())
-        {
-            return Err(RpcError::new(
-                -32602,
-                "initialize capabilities must be an object",
-            ));
-        }
-        if params_object
-            .get("clientInfo")
-            .is_some_and(|value| !value.is_object())
-        {
-            return Err(RpcError::new(
-                -32602,
-                "initialize clientInfo must be an object",
-            ));
-        }
-        session.client_name = params_object
-            .get("clientInfo")
-            .and_then(|client| client.get("name"))
-            .and_then(Value::as_str)
-            .filter(|name| !name.is_empty())
-            .map(str::to_string);
+        let (result, client_name) = initialize_handshake(params_object)?;
+        session.client_name = client_name;
         session.initialized = true;
-        return Ok(json!({
-            "protocolVersion": negotiated,
-            "capabilities": {"tools": {"listChanged": false}},
-            "serverInfo": server_info()
-        }));
+        return Ok(result);
     }
 
     match classify_protocol(params)? {
@@ -219,6 +183,52 @@ fn require_params_object(params: &Value) -> Result<&serde_json::Map<String, Valu
     params
         .as_object()
         .ok_or_else(|| RpcError::new(-32602, "Request params must be an object"))
+}
+
+fn initialize_handshake(
+    params_object: &serde_json::Map<String, Value>,
+) -> Result<(Value, Option<String>), RpcError> {
+    let requested = params_object
+        .get("protocolVersion")
+        .and_then(Value::as_str)
+        .ok_or_else(|| RpcError::new(-32602, "initialize requires protocolVersion"))?;
+    let negotiated = if LEGACY_PROTOCOL_VERSIONS.contains(&requested) {
+        requested
+    } else {
+        LEGACY_PROTOCOL_VERSIONS[0]
+    };
+    if params_object
+        .get("capabilities")
+        .is_some_and(|value| !value.is_object())
+    {
+        return Err(RpcError::new(
+            -32602,
+            "initialize capabilities must be an object",
+        ));
+    }
+    if params_object
+        .get("clientInfo")
+        .is_some_and(|value| !value.is_object())
+    {
+        return Err(RpcError::new(
+            -32602,
+            "initialize clientInfo must be an object",
+        ));
+    }
+    let client_name = params_object
+        .get("clientInfo")
+        .and_then(|client| client.get("name"))
+        .and_then(Value::as_str)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string);
+    Ok((
+        json!({
+            "protocolVersion": negotiated,
+            "capabilities": {"tools": {"listChanged": false}},
+            "serverInfo": server_info()
+        }),
+        client_name,
+    ))
 }
 
 enum ProtocolClass<'a> {
@@ -267,6 +277,7 @@ fn handle(
             "cacheScope": "public"
         })),
         "tools/list" => Ok(json!({"tools": tool_defs()})),
+        "ping" => Ok(json!({})),
         "tools/call" => {
             let name = params
                 .get("name")
@@ -481,7 +492,7 @@ mod tests {
     }
 
     #[test]
-    fn http_discovers_current_protocol_and_rejects_legacy_initialize() {
+    fn http_discovers_current_protocol() {
         let reply = handle_http_rpc(
             &json!({
                 "jsonrpc": "2.0", "id": 1, "method": "server/discover",
@@ -492,19 +503,48 @@ mod tests {
         assert_eq!(reply.status, "200 OK");
         let body: Value = serde_json::from_str(&reply.body).unwrap();
         assert_eq!(body["result"]["resultType"], "complete");
+    }
 
-        let legacy = handle_http_rpc(
+    #[test]
+    fn http_accepts_rho_initialize_then_tools_list() {
+        let init = handle_http_rpc(
             &json!({
                 "jsonrpc": "2.0", "id": 1, "method": "initialize",
                 "params": {
                     "protocolVersion": "2025-11-25",
-                    "capabilities": {},
-                    "clientInfo": {"name": "legacy", "version": "1"}
+                    "capabilities": {"roots": {"listChanged": false}},
+                    "clientInfo": {"name": "rho", "version": "2.2.0"}
                 }
             })
             .to_string(),
         );
-        let body: Value = serde_json::from_str(&legacy.body).unwrap();
-        assert_eq!(body["error"]["code"], -32601);
+        assert_eq!(init.status, "200 OK");
+        let body: Value = serde_json::from_str(&init.body).unwrap();
+        assert_eq!(body["result"]["protocolVersion"], "2025-11-25");
+        assert!(body["result"]["capabilities"]["tools"].is_object());
+
+        let initialized = handle_http_rpc(
+            &json!({"jsonrpc": "2.0", "method": "notifications/initialized"}).to_string(),
+        );
+        assert_eq!(initialized.status, "202 Accepted");
+        assert!(initialized.body.is_empty());
+
+        let listed = handle_http_rpc(
+            &json!({
+                "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}
+            })
+            .to_string(),
+        );
+        assert_eq!(listed.status, "200 OK");
+        let body: Value = serde_json::from_str(&listed.body).unwrap();
+        assert_eq!(body["result"]["tools"].as_array().unwrap().len(), 6);
+        assert!(body["result"].get("resultType").is_none());
+
+        let ping = handle_http_rpc(
+            &json!({"jsonrpc": "2.0", "id": 3, "method": "ping", "params": {}}).to_string(),
+        );
+        assert_eq!(ping.status, "200 OK");
+        let body: Value = serde_json::from_str(&ping.body).unwrap();
+        assert_eq!(body["result"], json!({}));
     }
 }

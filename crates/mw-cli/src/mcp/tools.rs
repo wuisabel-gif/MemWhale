@@ -5,6 +5,12 @@ use memorywhale_core::engine::MemoryEngine;
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 
+/// Default `recent_errors` page size, matching `mw context`.
+const RECENT_ERRORS_DEFAULT_LIMIT: i64 = 8;
+/// Upper bound so a remote MCP client cannot ask SQLite for every failed run.
+/// Named in the tool schema and in the error when the asked value is outside it.
+const RECENT_ERRORS_MAX_LIMIT: i64 = 64;
+
 pub(super) const TOOL_NAMES: [&str; 6] = [
     "recent_errors",
     "search_memory",
@@ -24,7 +30,7 @@ pub(super) fn tool_defs() -> Value {
             "name": "recent_errors",
             "description": "Recent failed commands (non-zero exit) with their error output. Use this first when debugging a recurring failure.",
             "inputSchema": {"type": "object", "properties": {
-                "limit": {"type": "integer", "description": "max results (default 8)"}
+                "limit": {"type": "integer", "description": "max results (default 8, max 64)"}
             }}
         },
         {
@@ -78,7 +84,7 @@ pub(super) fn call_tool(
 ) -> Result<String, String> {
     match name {
         "recent_errors" => {
-            let limit = args.get("limit").and_then(Value::as_i64).unwrap_or(8);
+            let limit = recent_errors_limit(args)?;
             recent_errors(limit)
         }
         "search_memory" => {
@@ -114,6 +120,21 @@ pub(super) fn call_tool(
         "stats" => stats(),
         other => Err(format!("unknown tool: {other}")),
     }
+}
+
+fn recent_errors_limit(args: &Value) -> Result<i64, String> {
+    let Some(limit) = args.get("limit") else {
+        return Ok(RECENT_ERRORS_DEFAULT_LIMIT);
+    };
+    let Some(limit) = limit.as_i64() else {
+        return Ok(RECENT_ERRORS_DEFAULT_LIMIT);
+    };
+    if !(1..=RECENT_ERRORS_MAX_LIMIT).contains(&limit) {
+        return Err(format!(
+            "recent_errors limit is {RECENT_ERRORS_MAX_LIMIT} (asked {limit})"
+        ));
+    }
+    Ok(limit)
 }
 
 fn recent_errors(limit: i64) -> Result<String, String> {
@@ -583,5 +604,18 @@ mod tests {
         assert_eq!(v["memories"], 2);
         assert_eq!(v["errors"], 1);
         assert_eq!(v["latest"], "2026-07-21T10:00:00Z");
+    }
+
+    #[test]
+    fn recent_errors_limit_names_the_budget() {
+        let missing = recent_errors_limit(&json!({})).unwrap();
+        assert_eq!(missing, RECENT_ERRORS_DEFAULT_LIMIT);
+        assert_eq!(recent_errors_limit(&json!({"limit": 4})).unwrap(), 4);
+        let low = recent_errors_limit(&json!({"limit": -1})).unwrap_err();
+        assert!(low.contains("64"), "{low}");
+        assert!(low.contains("-1"), "{low}");
+        let high = recent_errors_limit(&json!({"limit": 10_000})).unwrap_err();
+        assert!(high.contains("64"), "{high}");
+        assert!(high.contains("10000"), "{high}");
     }
 }

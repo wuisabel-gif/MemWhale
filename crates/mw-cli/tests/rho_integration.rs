@@ -72,6 +72,29 @@ fn user_can_install_streamable_http_mcp_for_loopback() {
 }
 
 #[test]
+fn loopback_http_with_token_sets_authorization_header() {
+    let rho_dir = sandbox("http-loopback-token");
+    let data_dir = sandbox("http-loopback-token-data");
+
+    let output = mw_cmd()
+        .args(["integrate", "rho", "--http", "--token", "loop-secret"])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho loopback HTTP with token");
+
+    assert!(output.status.success(), "command failed: {output:?}");
+    let config = std::fs::read_to_string(rho_dir.join("config.toml")).unwrap();
+    assert!(config.contains("MEMORYWHALE_AUTHORIZATION"));
+    assert!(
+        !config.contains("loop-secret"),
+        "token leaked into config.toml: {config}"
+    );
+    let auth = std::fs::read_to_string(data_dir.join("mcp-authorization")).unwrap();
+    assert_eq!(auth.trim(), "Bearer loop-secret");
+}
+
+#[test]
 fn lan_http_requires_token_and_writes_authorization_file() {
     let rho_dir = sandbox("http-lan");
     let data_dir = sandbox("http-lan-data");
@@ -105,6 +128,10 @@ fn lan_http_requires_token_and_writes_authorization_file() {
     let config = std::fs::read_to_string(rho_dir.join("config.toml")).unwrap();
     assert!(config.contains("allow_insecure_http = true"));
     assert!(config.contains("MEMORYWHALE_AUTHORIZATION"));
+    assert!(
+        !config.contains("lan-secret"),
+        "token leaked into config.toml: {config}"
+    );
     let auth = std::fs::read_to_string(data_dir.join("mcp-authorization")).unwrap();
     assert_eq!(auth.trim(), "Bearer lan-secret");
     assert!(
@@ -232,17 +259,28 @@ fn invalid_rho_config_is_left_untouched() {
 #[test]
 fn revert_removes_installed_rho_integration() {
     let rho_dir = sandbox("revert");
+    let data_dir = sandbox("revert-data");
 
     let install = mw_cmd()
-        .args(["integrate", "rho"])
+        .args([
+            "integrate",
+            "rho",
+            "--http",
+            "http://192.168.1.42:7071/mcp",
+            "--token",
+            "revert-secret",
+        ])
         .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
         .output()
         .expect("run Rho install");
     assert!(install.status.success(), "install failed: {install:?}");
+    assert!(data_dir.join("mcp-authorization").exists());
 
     let revert = mw_cmd()
         .args(["integrate", "rho", "--revert"])
         .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
         .output()
         .expect("run Rho revert");
     assert!(revert.status.success(), "revert failed: {revert:?}");
@@ -251,9 +289,14 @@ fn revert_removes_installed_rho_integration() {
     assert!(!rho_dir.join("skills/memorywhale/SKILL.md").exists());
     assert!(!rho_dir.join("hooks.toml").exists());
     assert!(!rho_dir.join("config.toml").exists());
+    assert!(!data_dir.join("mcp-authorization").exists());
     assert!(
         String::from_utf8_lossy(&revert.stdout).contains("removed from Rho"),
         "missing revert message: {revert:?}"
+    );
+    assert!(
+        String::from_utf8_lossy(&revert.stdout).contains("client bearer copy removed"),
+        "missing auth cleanup message: {revert:?}"
     );
 }
 

@@ -243,11 +243,11 @@ fn request_path(raw_path: &str) -> &str {
 
 fn bearer_token(authorization: &str) -> Option<&str> {
     let value = authorization.trim();
-    value
-        .strip_prefix("Bearer ")
-        .or_else(|| value.strip_prefix("bearer "))
-        .map(str::trim)
-        .filter(|token| !token.is_empty())
+    let (scheme, token) = value.split_once(' ')?;
+    if !scheme.eq_ignore_ascii_case("bearer") {
+        return None;
+    }
+    Some(token.trim()).filter(|token| !token.is_empty())
 }
 
 fn is_loopback_host(host: &str) -> bool {
@@ -2525,6 +2525,7 @@ mod tests {
     fn bearer_header_strips_scheme() {
         assert_eq!(bearer_token("Bearer secret"), Some("secret"));
         assert_eq!(bearer_token("bearer secret"), Some("secret"));
+        assert_eq!(bearer_token("BEARER secret"), Some("secret"));
         assert!(bearer_token("secret").is_none());
     }
 

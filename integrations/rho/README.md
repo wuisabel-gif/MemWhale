@@ -54,11 +54,15 @@ mw integrate rho --http
 mw integrate rho --http http://192.168.1.42:7071/mcp --token "$(ssh jetson mw-serve --print-token)"
 ```
 
-Loopback HTTP needs no token. A LAN `http://` URL sets `allow_insecure_http =
+Loopback HTTP needs no token. Pass `--token` if the loopback server itself
+was started with a token. A LAN `http://` URL sets `allow_insecure_http =
 true` and `headers_from_env = { Authorization = "MEMORYWHALE_AUTHORIZATION" }`.
-The raw token is stored as `Bearer …` in
-`$MEMORYWHALE_DATA_DIR/mcp-authorization` (not in `config.toml`). Export it
-in the Rho process:
+The raw token is stored as `Bearer …` in `mcp-authorization` under the
+MemoryWhale data directory, not in `config.toml`. That directory is
+`$MEMORYWHALE_DATA_DIR` when set, otherwise the platform default
+(`~/.local/share/MemoryWhale/` on Linux, `~/Library/Application
+Support/MemoryWhale/` on macOS). The installer prints the export line with
+the resolved path. For a manual export when the variable is set:
 
 ```bash
 export MEMORYWHALE_AUTHORIZATION="$(tr -d '\n' < "$MEMORYWHALE_DATA_DIR/mcp-authorization")"
