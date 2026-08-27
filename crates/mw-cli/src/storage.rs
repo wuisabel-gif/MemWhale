@@ -39,7 +39,10 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
             byte_count INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'finished',
             project TEXT,
-            machine TEXT
+            machine TEXT,
+            repository_id TEXT,
+            repository_name TEXT,
+            worktree_root TEXT
         );
 
         CREATE TABLE IF NOT EXISTS command_runs (
@@ -53,7 +56,10 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
             notes TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL,
             capture_kind TEXT NOT NULL DEFAULT 'full',
-            error_fingerprint TEXT
+            error_fingerprint TEXT,
+            repository_id TEXT,
+            repository_name TEXT,
+            worktree_root TEXT
         );
 
         CREATE TABLE IF NOT EXISTS command_arguments (
@@ -93,9 +99,13 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
     crate::migrate(conn)?;
     conn.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
+         CREATE INDEX IF NOT EXISTS idx_sessions_repository_id ON sessions(repository_id);
+         CREATE INDEX IF NOT EXISTS idx_sessions_worktree_root ON sessions(worktree_root);
          CREATE INDEX IF NOT EXISTS idx_command_runs_command ON command_runs(command);
          CREATE INDEX IF NOT EXISTS idx_command_runs_exit_code ON command_runs(exit_code);
          CREATE INDEX IF NOT EXISTS idx_command_runs_fingerprint ON command_runs(error_fingerprint);
+         CREATE INDEX IF NOT EXISTS idx_command_runs_repository_id ON command_runs(repository_id);
+         CREATE INDEX IF NOT EXISTS idx_command_runs_worktree_root ON command_runs(worktree_root);
          CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
          CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
          CREATE INDEX IF NOT EXISTS idx_screenshots_command_run_id ON screenshots(command_run_id);
@@ -310,6 +320,18 @@ mod tests {
                 .unwrap(),
             crate::LATEST_SCHEMA_VERSION
         );
+        for table in ["sessions", "command_runs"] {
+            for column in ["repository_id", "repository_name", "worktree_root"] {
+                let exists: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM pragma_table_info(?1) WHERE name = ?2",
+                        [table, column],
+                        |row| row.get(0),
+                    )
+                    .unwrap();
+                assert_eq!(exists, 1, "missing {table}.{column}");
+            }
+        }
     }
 
     #[test]

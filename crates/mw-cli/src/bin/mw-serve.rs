@@ -554,10 +554,7 @@ fn form_param(body: &str, key: &str) -> Option<String> {
 fn route(raw_path: &str) -> (&'static str, String) {
     let path = raw_path.split('?').next().unwrap_or("/");
     if path == "/" {
-        return (
-            "200 OK",
-            dashboard(&query_param(raw_path, "q").unwrap_or_default()),
-        );
+        return ("200 OK", dashboard(raw_path));
     }
     if path == "/graph" {
         return ("200 OK", graph_page());
@@ -566,7 +563,14 @@ fn route(raw_path: &str) -> (&'static str, String) {
         return ("200 OK", project_page(rest));
     }
     if let Some(rest) = path.strip_prefix("/repo/") {
-        return ("200 OK", repo_page(rest));
+        return (
+            "200 OK",
+            repo_page(
+                rest,
+                query_param(raw_path, "worktree"),
+                &query_param(raw_path, "q").unwrap_or_default(),
+            ),
+        );
     }
     if let Some(rest) = path.strip_prefix("/runs/") {
         return ("200 OK", runs_page(rest));
@@ -605,7 +609,9 @@ fn route(raw_path: &str) -> (&'static str, String) {
     )
 }
 
-fn dashboard(query: &str) -> String {
+fn dashboard(raw_path: &str) -> String {
+    let query = query_param(raw_path, "q").unwrap_or_default();
+    let distinguish_worktrees = query_param(raw_path, "worktrees").as_deref() == Some("1");
     let conn = match open_db() {
         Ok(c) => c,
         Err(e) => {
@@ -624,24 +630,42 @@ fn dashboard(query: &str) -> String {
     body.push_str("<p class=\"sub\">Your previous commands and recorded sessions, served locally. <a class=\"glink\" href=\"/graph\">open graph view →</a></p>\n");
     body.push_str(&format!(
         "<form class=\"search\" method=\"get\" action=\"/\"><input name=\"q\" value=\"{}\" placeholder=\"Search commands, logs, notes, sessions, cwd, tags\"/><button type=\"submit\">Search</button></form>\n",
-        esc(query)
+        esc(&query)
     ));
     body.push_str(&tz_selector());
 
     if !query.trim().is_empty() {
-        body.push_str(&search_results(&conn, query));
+        body.push_str(&search_results(&conn, &query));
     }
 
-    let repos = repo_counts(&conn);
+    let repos = repo_counts(&conn, distinguish_worktrees);
     if !repos.is_empty() {
-        let mut names: Vec<(&String, &i64)> = repos.iter().collect();
-        names.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
-        body.push_str("<h2>Repos</h2>\n<div class=\"chips\">\n");
-        for (name, n) in names {
+        let mut entries: Vec<(&RepoKey, &i64)> = repos.iter().collect();
+        entries.sort_by(|a, b| b.1.cmp(a.1).then(a.0.name.cmp(&b.0.name)));
+        body.push_str("<h2>Repos</h2>\n");
+        body.push_str(if distinguish_worktrees {
+            "<p class=\"sub\">Grouped by worktree. <a href=\"/\">Group linked worktrees together</a></p>\n"
+        } else {
+            "<p class=\"sub\">Grouped by canonical repository. <a href=\"/?worktrees=1\">Distinguish worktrees</a></p>\n"
+        });
+        body.push_str("<div class=\"chips\">\n");
+        for (repo, n) in entries {
+            let mut href = format!("/repo/{}", percent_encode(&repo.id));
+            let label = if let Some(worktree) = &repo.worktree {
+                let leaf = Path::new(worktree)
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| worktree.clone());
+                href.push_str(&format!("?worktree={}", percent_encode(worktree)));
+                format!("{} · {}", repo.name, leaf)
+            } else {
+                repo.name.clone()
+            };
             body.push_str(&format!(
-                "<a class=\"chip\" href=\"/repo/{}\">{} <span>{}</span></a>\n",
-                esc(name),
-                esc(name),
+                "<a class=\"chip\" href=\"{}\" title=\"{}\">{} <span>{}</span></a>\n",
+                esc(&href),
+                esc(&repo.id),
+                esc(&label),
                 n
             ));
         }
@@ -835,84 +859,109 @@ each cell links to its setup guide in the repository.</p>\n<div class=\"igrid\">
     )
 }
 
-/// Extract a `project:<name>` tag from a notes string, if present.
-/// Nearest ancestor of `cwd` that is a git repository root (contains `.git`),
-/// as (root_path, basename). Filesystem-based, so it only resolves for paths
-/// that still exist on the machine running the dashboard.
-fn repo_of(cwd: &str) -> Option<(String, String)> {
-    if cwd.trim().is_empty() {
-        return None;
-    }
-    let mut dir: Option<&std::path::Path> = Some(std::path::Path::new(cwd));
-    while let Some(d) = dir {
-        if d.join(".git").exists() {
-            let name = d.file_name()?.to_string_lossy().into_owned();
-            return Some((d.to_string_lossy().into_owned(), name));
-        }
-        dir = d.parent();
-    }
-    None
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct RepoKey {
+    id: String,
+    name: String,
+    worktree: Option<String>,
 }
 
-/// Unique git repo roots discovered across all recorded working directories.
-fn discovered_repo_roots(conn: &Connection) -> Vec<(String, String)> {
-    let mut seen: HashMap<String, String> = HashMap::new(); // root_path -> basename
-    for sql in ["SELECT cwd FROM command_runs", "SELECT cwd FROM sessions"] {
+fn repo_key(
+    id: Option<String>,
+    name: Option<String>,
+    worktree: Option<String>,
+    distinguish_worktrees: bool,
+) -> Option<RepoKey> {
+    Some(RepoKey {
+        id: id?,
+        name: name?,
+        worktree: if distinguish_worktrees {
+            Some(worktree?)
+        } else {
+            None
+        },
+    })
+}
+
+/// Unique persisted worktree roots. Unlike the old cwd-based discovery, these
+/// remain useful after a worktree is deleted or the dashboard moves machines.
+fn discovered_repositories(conn: &Connection) -> Vec<RepoKey> {
+    let mut seen = HashSet::new();
+    for sql in [
+        "SELECT repository_id, repository_name, worktree_root FROM command_runs",
+        "SELECT repository_id, repository_name, worktree_root FROM sessions",
+    ] {
         if let Ok(mut stmt) = conn.prepare(sql) {
-            if let Ok(it) = stmt.query_map([], |r| r.get::<_, Option<String>>(0)) {
-                for cwd in it.flatten().flatten() {
-                    if let Some((root, name)) = repo_of(&cwd) {
-                        seen.entry(root).or_insert(name);
-                    }
-                }
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok(repo_key(row.get(0)?, row.get(1)?, row.get(2)?, true))
+            }) {
+                seen.extend(rows.flatten().flatten());
             }
         }
     }
     seen.into_iter().collect()
 }
 
-/// The repos a session touched: the repo of its start directory, plus any repo
-/// whose root path appears in the transcript. This is what lets a session that
-/// `cd`-ed between repos show up under each of them.
 fn session_repos(
-    cwd: &Option<String>,
+    own: Option<RepoKey>,
     transcript: &str,
-    roots: &[(String, String)],
-) -> std::collections::HashSet<String> {
-    let mut set = std::collections::HashSet::new();
-    if let Some(c) = cwd {
-        if let Some((_, name)) = repo_of(c) {
-            set.insert(name);
+    roots: &[RepoKey],
+    distinguish_worktrees: bool,
+) -> HashSet<RepoKey> {
+    let canonical = |mut repo: RepoKey| {
+        if !distinguish_worktrees {
+            repo.worktree = None;
+        }
+        repo
+    };
+    let mut repos = HashSet::new();
+    if let Some(repo) = own {
+        repos.insert(canonical(repo));
+    }
+    for repo in roots {
+        if repo
+            .worktree
+            .as_deref()
+            .is_some_and(|root| transcript.contains(root))
+        {
+            repos.insert(canonical(repo.clone()));
         }
     }
-    for (root, name) in roots {
-        if transcript.contains(root.as_str()) {
-            set.insert(name.clone());
-        }
-    }
-    set
+    repos
 }
 
-/// Command-runs + sessions per repo (a session can count under several repos).
-fn repo_counts(conn: &Connection) -> HashMap<String, i64> {
-    let mut counts: HashMap<String, i64> = HashMap::new();
-    if let Ok(mut stmt) = conn.prepare("SELECT cwd FROM command_runs") {
-        if let Ok(it) = stmt.query_map([], |r| r.get::<_, Option<String>>(0)) {
-            for cwd in it.flatten().flatten() {
-                if let Some((_, name)) = repo_of(&cwd) {
-                    *counts.entry(name).or_insert(0) += 1;
-                }
+/// Command-runs + sessions per repository (a session can count under several).
+fn repo_counts(conn: &Connection, distinguish_worktrees: bool) -> HashMap<RepoKey, i64> {
+    let mut counts = HashMap::new();
+    if let Ok(mut stmt) =
+        conn.prepare("SELECT repository_id, repository_name, worktree_root FROM command_runs")
+    {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok(repo_key(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                distinguish_worktrees,
+            ))
+        }) {
+            for repo in rows.flatten().flatten() {
+                *counts.entry(repo).or_insert(0) += 1;
             }
         }
     }
-    let roots = discovered_repo_roots(conn);
-    if let Ok(mut stmt) = conn.prepare("SELECT cwd, transcript FROM sessions") {
-        if let Ok(it) = stmt.query_map([], |r| {
-            Ok((r.get::<_, Option<String>>(0)?, r.get::<_, String>(1)?))
+    let roots = discovered_repositories(conn);
+    if let Ok(mut stmt) = conn
+        .prepare("SELECT repository_id, repository_name, worktree_root, transcript FROM sessions")
+    {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                repo_key(row.get(0)?, row.get(1)?, row.get(2)?, true),
+                row.get::<_, String>(3)?,
+            ))
         }) {
-            for (cwd, transcript) in it.flatten() {
-                for name in session_repos(&cwd, &transcript, &roots) {
-                    *counts.entry(name).or_insert(0) += 1;
+            for (own, transcript) in rows.flatten() {
+                for repo in session_repos(own, &transcript, &roots, distinguish_worktrees) {
+                    *counts.entry(repo).or_insert(0) += 1;
                 }
             }
         }
@@ -1353,21 +1402,27 @@ fn project_page(raw_name: &str) -> String {
     page(&format!("{} · MemoryWhale", name), &body)
 }
 
-/// Everything that happened in a given git repo — command runs whose working
-/// directory is inside it, plus sessions that touched it (start dir or any repo
-/// path seen in the transcript), newest first.
-fn repo_page(raw_name: &str) -> String {
-    let name = raw_name.trim_end_matches('/').to_string();
+/// Everything that happened in a canonical repository, optionally narrowed to
+/// one worktree, newest first.
+fn repo_page(raw_id: &str, worktree: Option<String>, query: &str) -> String {
+    let repository_id = percent_decode(raw_id.trim_end_matches('/'));
     let conn = match open_db() {
         Ok(c) => c,
         Err(e) => return page("Repo", &format!("<p>{}</p>", esc(&e))),
     };
-    let roots = discovered_repo_roots(&conn);
+    let roots = discovered_repositories(&conn);
+    let name = roots
+        .iter()
+        .find(|repo| repo.id == repository_id)
+        .map(|repo| repo.name.clone())
+        .unwrap_or_else(|| repository_id.clone());
 
     let mut items: Vec<(String, String)> = Vec::new(); // (timestamp, row html)
 
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT id, command, argv_json, exit_code, created_at, notes, cwd FROM command_runs",
+        "SELECT id, command, argv_json, exit_code, created_at, notes, cwd,
+                repository_id, repository_name, worktree_root
+         FROM command_runs",
     ) {
         if let Ok(it) = stmt.query_map([], |r| {
             Ok((
@@ -1378,12 +1433,23 @@ fn repo_page(raw_name: &str) -> String {
                 r.get::<_, String>(4)?,
                 r.get::<_, String>(5)?,
                 r.get::<_, Option<String>>(6)?,
+                r.get::<_, Option<String>>(7)?,
+                r.get::<_, Option<String>>(8)?,
+                r.get::<_, Option<String>>(9)?,
             ))
         }) {
-            for (id, cmd, argv_json, code, at, notes, cwd) in it.flatten() {
-                let in_repo = cwd.as_deref().and_then(repo_of).map(|(_, n)| n).as_deref()
-                    == Some(name.as_str());
-                if !in_repo {
+            for (id, cmd, argv_json, code, at, notes, cwd, repo_id, _, worktree_root) in
+                it.flatten()
+            {
+                if repo_id.as_deref() != Some(repository_id.as_str())
+                    || worktree
+                        .as_deref()
+                        .is_some_and(|wanted| worktree_root.as_deref() != Some(wanted))
+                    || !matches_repo_query(
+                        query,
+                        &[&cmd, &argv_json, &notes, cwd.as_deref().unwrap_or("")],
+                    )
+                {
                     continue;
                 }
                 let ok = code == Some(0);
@@ -1400,7 +1466,9 @@ fn repo_page(raw_name: &str) -> String {
     }
 
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT id, started_at, ended_at, byte_count, notes, status, cwd, transcript FROM sessions",
+        "SELECT id, started_at, ended_at, byte_count, notes, status, cwd, transcript,
+                repository_id, repository_name, worktree_root
+         FROM sessions",
     ) {
         if let Ok(it) = stmt.query_map([], |r| {
             Ok((
@@ -1412,10 +1480,40 @@ fn repo_page(raw_name: &str) -> String {
                 r.get::<_, String>(5)?,
                 r.get::<_, Option<String>>(6)?,
                 r.get::<_, String>(7)?,
+                r.get::<_, Option<String>>(8)?,
+                r.get::<_, Option<String>>(9)?,
+                r.get::<_, Option<String>>(10)?,
             ))
         }) {
-            for (id, at, ended_at, bytes, notes, status, cwd, transcript) in it.flatten() {
-                if !session_repos(&cwd, &transcript, &roots).contains(&name) {
+            for (
+                id,
+                at,
+                ended_at,
+                bytes,
+                notes,
+                status,
+                cwd,
+                transcript,
+                repo_id,
+                repo_name,
+                worktree_root,
+            ) in it.flatten()
+            {
+                let own = repo_key(repo_id, repo_name, worktree_root, true);
+                let belongs = session_repos(own, &transcript, &roots, worktree.is_some())
+                    .into_iter()
+                    .any(|repo| {
+                        repo.id == repository_id
+                            && worktree
+                                .as_deref()
+                                .is_none_or(|wanted| repo.worktree.as_deref() == Some(wanted))
+                    });
+                if !belongs
+                    || !matches_repo_query(
+                        query,
+                        &[&notes, &transcript, cwd.as_deref().unwrap_or("")],
+                    )
+                {
                     continue;
                 }
                 items.push((
@@ -1431,10 +1529,31 @@ fn repo_page(raw_name: &str) -> String {
     let mut body = String::from("<a class=\"back\" href=\"/\">← all memory</a>\n");
     body.push_str(&format!(
         "<div class=\"eyebrow\">repo</div>\n<h1>{}</h1>\n",
-        esc(&name)
+        esc(&name),
+    ));
+    if let Some(worktree) = &worktree {
+        body.push_str(&format!(
+            "<p class=\"sub\">Worktree: <code>{}</code> · <a href=\"/repo/{}\">all worktrees</a></p>\n",
+            esc(worktree),
+            percent_encode(&repository_id),
+        ));
+    }
+    body.push_str(&format!(
+        "<form class=\"search\" method=\"get\" action=\"/repo/{}\">",
+        percent_encode(&repository_id)
+    ));
+    if let Some(worktree) = &worktree {
+        body.push_str(&format!(
+            "<input type=\"hidden\" name=\"worktree\" value=\"{}\"/>",
+            esc(worktree)
+        ));
+    }
+    body.push_str(&format!(
+        "<input name=\"q\" value=\"{}\" placeholder=\"Search this repository\"/><button type=\"submit\">Search</button></form>\n",
+        esc(query)
     ));
     body.push_str(&format!(
-        "<p class=\"sub\">{} memory item(s) in this repository, newest first. A session that also touched another repo appears under that one too.</p>\n",
+        "<p class=\"sub\">{} matching memory item(s), newest first. A session that also touched another repo appears under that one too.</p>\n",
         items.len()
     ));
     body.push_str("<div class=\"list\">\n");
@@ -1449,6 +1568,14 @@ fn repo_page(raw_name: &str) -> String {
     }
     body.push_str("</div>\n");
     page(&format!("{} · MemoryWhale", name), &body)
+}
+
+fn matches_repo_query(query: &str, values: &[&str]) -> bool {
+    let query = query.trim().to_ascii_lowercase();
+    query.is_empty()
+        || values
+            .iter()
+            .any(|value| value.to_ascii_lowercase().contains(&query))
 }
 
 fn command_page(id: i64) -> Result<String, String> {
@@ -1795,6 +1922,18 @@ fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+fn percent_encode(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
 }
 
 fn hex_value(byte: u8) -> Option<u8> {
@@ -2165,6 +2304,70 @@ fn memorywhale_dir() -> Result<PathBuf, String> {
 mod tests {
     use super::*;
     use std::net::Shutdown;
+
+    #[test]
+    fn repository_counts_group_canonical_repos_and_can_split_worktrees() {
+        let conn = Connection::open_in_memory().unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
+        for (id, name, root) in [
+            ("remote:example.com/acme/project", "project", "/gone/main"),
+            (
+                "remote:example.com/acme/project",
+                "project",
+                "/gone/feature",
+            ),
+            (
+                "remote:example.com/other/project",
+                "project",
+                "/gone/unrelated",
+            ),
+        ] {
+            conn.execute(
+                "INSERT INTO command_runs
+                    (command, argv_json, created_at, repository_id, repository_name, worktree_root)
+                 VALUES ('cargo', '[\"cargo\"]', '2026-01-01T00:00:00Z', ?1, ?2, ?3)",
+                params![id, name, root],
+            )
+            .unwrap();
+        }
+        conn.execute(
+            "INSERT INTO sessions
+                (transcript_path, transcript, started_at, ended_at, repository_id,
+                 repository_name, worktree_root)
+             VALUES ('', 'cd /gone/feature', '2026-01-01T00:00:00Z',
+                     '2026-01-01T00:01:00Z', ?1, 'project', '/gone/main')",
+            ["remote:example.com/acme/project"],
+        )
+        .unwrap();
+
+        let canonical = repo_counts(&conn, false);
+        assert_eq!(canonical.len(), 2);
+        assert_eq!(
+            canonical
+                .iter()
+                .find(|(repo, _)| repo.id == "remote:example.com/acme/project")
+                .map(|(_, count)| *count),
+            Some(3)
+        );
+
+        let worktrees = repo_counts(&conn, true);
+        assert_eq!(worktrees.len(), 3);
+        for root in ["/gone/main", "/gone/feature"] {
+            assert_eq!(
+                worktrees
+                    .iter()
+                    .find(|(repo, _)| repo.worktree.as_deref() == Some(root))
+                    .map(|(_, count)| *count),
+                Some(2)
+            );
+        }
+    }
+
+    #[test]
+    fn repository_route_ids_round_trip() {
+        let id = "remote:github.com/acme/a repo";
+        assert_eq!(percent_decode(&percent_encode(id)), id);
+    }
 
     #[test]
     fn dashboard_defaults_to_loopback() {

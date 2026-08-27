@@ -81,6 +81,9 @@ struct CommandRun {
     command: String,
     argv_json: String,
     cwd: Option<String>,
+    repository_id: Option<String>,
+    repository_name: Option<String>,
+    worktree_root: Option<String>,
     exit_code: Option<i64>,
     stdout: String,
     stderr: String,
@@ -278,6 +281,7 @@ fn init_connection() -> anyhow::Result<Connection> {
         CREATE INDEX IF NOT EXISTS idx_links_to ON links(to_id);
         ",
     )?;
+    memorywhale_cli::migrate(&conn).map_err(anyhow::Error::msg)?;
     Ok(conn)
 }
 
@@ -712,6 +716,10 @@ fn save_command_run(
     let stderr = memorywhale_core::privacy::sanitize_capture(&request.stderr.unwrap_or_default());
     let notes = memorywhale_core::privacy::sanitize_capture(&request.notes.unwrap_or_default());
     let created_at = Utc::now().to_rfc3339();
+    let repository = request
+        .cwd
+        .as_deref()
+        .and_then(memorywhale_cli::repository::discover);
     let argv_json = serde_json::to_string(&stored_argv)
         .map_err(|err| AppError::Message(format!("failed to encode argv: {err}")))?;
 
@@ -722,8 +730,10 @@ fn save_command_run(
     let tx = conn.transaction()?;
     tx.execute(
         "
-        INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        INSERT INTO command_runs
+            (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
+             repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
         ",
         params![
             command,
@@ -733,7 +743,10 @@ fn save_command_run(
             stdout,
             stderr,
             notes,
-            created_at
+            created_at,
+            repository.as_ref().map(|repo| repo.id.as_str()),
+            repository.as_ref().map(|repo| repo.name.as_str()),
+            repository.as_ref().map(|repo| repo.worktree_root.as_str())
         ],
     )?;
     let run_id = tx.last_insert_rowid();
@@ -775,7 +788,8 @@ fn save_command_run(
 
     conn.query_row(
         "
-        SELECT id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at
+        SELECT id, command, argv_json, cwd, repository_id, repository_name, worktree_root,
+            exit_code, stdout, stderr, notes, created_at
         FROM command_runs
         WHERE id = ?1
         ",
@@ -987,7 +1001,8 @@ fn load_terminal_memory(
     let runs = if trimmed.is_empty() {
         conn.prepare(
             "
-            SELECT id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at
+            SELECT id, command, argv_json, cwd, repository_id, repository_name, worktree_root,
+                exit_code, stdout, stderr, notes, created_at
             FROM command_runs
             ORDER BY created_at DESC
             LIMIT 80
@@ -999,8 +1014,9 @@ fn load_terminal_memory(
         let pattern = format!("%{trimmed}%");
         conn.prepare(
             "
-            SELECT DISTINCT cr.id, cr.command, cr.argv_json, cr.cwd, cr.exit_code,
-                cr.stdout, cr.stderr, cr.notes, cr.created_at
+            SELECT DISTINCT cr.id, cr.command, cr.argv_json, cr.cwd, cr.repository_id,
+                cr.repository_name, cr.worktree_root, cr.exit_code, cr.stdout, cr.stderr,
+                cr.notes, cr.created_at
             FROM command_runs cr
             LEFT JOIN command_arguments ca ON ca.command_run_id = cr.id
             WHERE cr.command LIKE ?1
@@ -1062,11 +1078,14 @@ fn row_to_command_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandRun> {
         command: row.get(1)?,
         argv_json: row.get(2)?,
         cwd: row.get(3)?,
-        exit_code: row.get(4)?,
-        stdout: row.get(5)?,
-        stderr: row.get(6)?,
-        notes: row.get(7)?,
-        created_at: row.get(8)?,
+        repository_id: row.get(4)?,
+        repository_name: row.get(5)?,
+        worktree_root: row.get(6)?,
+        exit_code: row.get(7)?,
+        stdout: row.get(8)?,
+        stderr: row.get(9)?,
+        notes: row.get(10)?,
+        created_at: row.get(11)?,
     })
 }
 
