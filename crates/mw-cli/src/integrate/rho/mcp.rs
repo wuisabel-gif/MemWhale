@@ -205,6 +205,11 @@ const HTTP_REMOVE: [&str; 5] = ["command", "args", "cwd", "env", "env_from_env"]
 pub(super) fn merge_mcp(existing: &str, target: &McpTarget) -> Result<(String, bool), String> {
     let mut doc = parse_toml(existing, "config.toml")?;
     require_mcp_tables(&doc)?;
+    if let Some(server) = memorywhale_server(&doc) {
+        if server.get("headers_from_env").is_some() {
+            headers_from_env_is_table(server)?;
+        }
+    }
     if mcp_server_matches(&doc, target) {
         return Ok((existing.to_string(), false));
     }
@@ -647,6 +652,10 @@ headers_from_env = "nope"
         let err = super::merge_mcp(original, &lan).unwrap_err();
         assert!(err.contains("headers_from_env"));
         assert!(err.contains("was not changed"));
+
+        let loopback = McpTarget::http("http://127.0.0.1:7071/mcp".into(), false, false);
+        let err = super::merge_mcp(original, &loopback).unwrap_err();
+        assert!(err.contains("headers_from_env"));
     }
 
     #[test]

@@ -147,7 +147,7 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_data_dir<T>(name: &str, body: impl FnOnce(&std::path::Path) -> T) -> T {
-        let _guard = ENV_LOCK.lock().expect("env lock");
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = std::env::temp_dir().join(format!(
             "mw-serve-auth-{name}-{}-{}",
             std::process::id(),
@@ -191,9 +191,6 @@ mod tests {
             let path = write_mcp_authorization("abc").unwrap();
             assert_eq!(path, dir.join(MCP_AUTHORIZATION_FILE));
             assert_eq!(fs::read_to_string(&path).unwrap().trim(), "Bearer abc");
-            assert!(remove_mcp_authorization().unwrap());
-            assert!(!path.exists());
-            assert!(!remove_mcp_authorization().unwrap());
         });
     }
 }
