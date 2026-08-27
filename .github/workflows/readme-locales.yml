@@ -1,0 +1,84 @@
+name: Sync localized READMEs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - scripts/sync-readme-locales.py
+      - .github/workflows/readme-locales.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: readme-locales
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Translate stale README locales
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Check translation provider configuration
+        if: env.OPENAI_API_KEY == ''
+        run: |
+          echo "::warning::OPENAI_API_KEY is not configured; localized README files were not regenerated."
+          echo "Configure the repository secret or run the script locally with an OpenAI-compatible provider."
+          python3 scripts/sync-readme-locales.py --check || true
+
+      - name: Translate stale locales
+        if: env.OPENAI_API_KEY != ''
+        env:
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+        run: python3 scripts/sync-readme-locales.py --translate-stale
+
+      - name: Validate synchronized locales
+        if: env.OPENAI_API_KEY != ''
+        run: python3 scripts/sync-readme-locales.py --check
+
+      - name: Open translation pull request
+        if: env.OPENAI_API_KEY != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if git diff --quiet -- README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md; then
+            echo "All localized README files are current."
+            exit 0
+          fi
+
+          branch="automation/sync-readme-locales"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md
+          git commit -m "docs: sync localized README files"
+          git push --force origin "$branch"
+
+          if pr_url=$(gh pr create --base main --head "$branch" \
+            --title "docs: sync localized README files" \
+            --body "Automated translation sync from README.md. Please review technical terminology and commands before merging." 2>&1); then
+            echo "$pr_url"
+          else
+            echo "$pr_url" >&2
+            existing_pr=""
+            if ! existing_pr=$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty'); then
+              echo "::warning::Could not check for an existing translation PR; inspect the gh error above."
+            fi
+            if [ -n "$existing_pr" ]; then
+              echo "Translation PR already exists: $existing_pr"
+            else
+              echo "::warning::Automated translation PR creation failed; inspect the gh error above."
+              echo "Translation branch pushed successfully: https://github.com/${GITHUB_REPOSITORY}/tree/${branch}"
+            fi
+          fi

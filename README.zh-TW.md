@@ -1,3 +1,5 @@
+<!-- memorywhale-i18n-source-sha: 56e6c63448da6721f7dde644b36260108c114b3eef29e8ec4d705c9e03c61f07 -->
+
 # MemoryWhale
 
 為開發者與程式設計 Agent 提供持久化、本地優先的除錯記憶。

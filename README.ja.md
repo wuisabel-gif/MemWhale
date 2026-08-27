@@ -1,3 +1,5 @@
+<!-- memorywhale-i18n-source-sha: 56e6c63448da6721f7dde644b36260108c114b3eef29e8ec4d705c9e03c61f07 -->
+
 # MemoryWhale
 
 開発者とコーディングエージェントのための、永続的でローカル優先のデバッグメモリです。
