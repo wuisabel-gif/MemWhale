@@ -23,8 +23,9 @@ permissions of the operating-system user establish the local trust context.
 port (default `http://127.0.0.1:7071/mcp`). HTTP MCP is one JSON-RPC object
 per POST, not an SSE session. Clients may send `2026-07-28` `_meta` on each
 request, or the usual `initialize` handshake then `tools/list` without
-`_meta` (Rho `streamable_http` does this). Loopback is open. A non-loopback
-bind requires a token; MCP clients send `Authorization: Bearer <token>`.
+`_meta` (Rho `streamable_http` does this). Loopback is open by default. If
+`--token` is set, MCP clients must send `Authorization: Bearer <token>`. A
+non-loopback bind always requires a token.
 `--lan` mints `serve.token` in the MemoryWhale data directory when no token
 is supplied. `mw-serve --print-token` prints the token this process would
 use. A Rho client on another machine stores `Bearer <token>` in

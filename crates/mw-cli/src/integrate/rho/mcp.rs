@@ -232,7 +232,7 @@ pub(super) fn merge_mcp(existing: &str, target: &McpTarget) -> Result<(String, b
             changed |= remove_key(server, "allow_insecure_http");
         }
         if target.authorization_from_env {
-            changed |= set_authorization_from_env(server);
+            changed |= set_authorization_from_env(server)?;
         } else {
             changed |= remove_authorization_from_env(server);
         }
@@ -251,24 +251,44 @@ fn remove_key(table: &mut dyn TableLike, key: &str) -> bool {
     table.remove(key).is_some()
 }
 
-fn set_authorization_from_env(table: &mut dyn TableLike) -> bool {
-    if http_auth_matches(table, true) {
-        return false;
+fn headers_from_env_is_table(table: &dyn TableLike) -> Result<bool, String> {
+    match table.get("headers_from_env") {
+        None => Ok(false),
+        Some(item) if item.as_inline_table().is_some() || item.as_table_like().is_some() => {
+            Ok(true)
+        }
+        Some(_) => Err(
+            "invalid Rho config.toml; headers_from_env must be a table and the file was not changed"
+                .to_string(),
+        ),
     }
-    if let Some(item) = table.get_mut("headers_from_env") {
+}
+
+fn set_authorization_from_env(table: &mut dyn TableLike) -> Result<bool, String> {
+    if http_auth_matches(table, true) {
+        return Ok(false);
+    }
+    if headers_from_env_is_table(table)? {
+        let item = table
+            .get_mut("headers_from_env")
+            .expect("headers_from_env exists");
         if let Some(inline) = item.as_inline_table_mut() {
             inline.insert("Authorization", "MEMORYWHALE_AUTHORIZATION".into());
-            return true;
+            return Ok(true);
         }
         if let Some(existing) = item.as_table_like_mut() {
             existing.insert("Authorization", value("MEMORYWHALE_AUTHORIZATION"));
-            return true;
+            return Ok(true);
         }
+        return Err(
+            "invalid Rho config.toml; headers_from_env must be a table and the file was not changed"
+                .to_string(),
+        );
     }
     let mut headers = InlineTable::new();
     headers.insert("Authorization", "MEMORYWHALE_AUTHORIZATION".into());
     table.insert("headers_from_env", Item::Value(headers.into()));
-    true
+    Ok(true)
 }
 
 fn remove_authorization_from_env(table: &mut dyn TableLike) -> bool {
@@ -614,6 +634,19 @@ headers_from_env = { X-Tenant = "acme" }
             ["headers_from_env"];
         assert_eq!(headers["X-Tenant"].as_str(), Some("acme"));
         assert!(headers.get("Authorization").is_none());
+    }
+
+    #[test]
+    fn merge_mcp_rejects_non_table_headers_from_env() {
+        let original = r#"[mcp.servers.memorywhale]
+transport = "streamable_http"
+url = "http://192.168.1.42:7071/mcp"
+headers_from_env = "nope"
+"#;
+        let lan = McpTarget::http("http://192.168.1.42:7071/mcp".into(), true, true);
+        let err = super::merge_mcp(original, &lan).unwrap_err();
+        assert!(err.contains("headers_from_env"));
+        assert!(err.contains("was not changed"));
     }
 
     #[test]
