@@ -145,6 +145,7 @@ fn rpc_reply(
 fn dispatch_http(method: &str, params: &Value) -> Result<Value, RpcError> {
     let params_object = require_params_object(params)?;
     if method == "initialize" {
+        // HTTP is one POST at a time: the name cannot follow to later calls.
         let (result, _) = initialize_handshake(params_object)?;
         return Ok(result);
     }

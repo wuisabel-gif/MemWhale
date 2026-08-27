@@ -82,6 +82,11 @@ For another initialization revision, the server negotiates `2025-11-25` as its
 latest supported legacy revision. Protocol selection does not change the six
 MemoryWhale tools or their semantics.
 
+`remember` attribution follows the transport. Stdio keeps the initialize
+`clientInfo.name` for the process. HTTP is one POST at a time, so a later
+`tools/call` without `_meta` is stored as a generic agent write. Current
+clients that send `clientInfo` in `_meta` keep their name on that request.
+
 A direct current-protocol discovery check is:
 
 ```bash
