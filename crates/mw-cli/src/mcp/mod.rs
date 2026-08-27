@@ -64,7 +64,7 @@ pub fn handle_http_rpc(body: &str) -> HttpMcpReply {
             .to_string(),
         };
     }
-    match rpc_reply(&msg, |method, params| dispatch_http(method, params)) {
+    match rpc_reply(&msg, dispatch_http) {
         None => HttpMcpReply {
             status: "202 Accepted",
             body: String::new(),
@@ -134,9 +134,7 @@ fn rpc_reply(
     }
     let params = msg.get("params").cloned().unwrap_or(json!({}));
     // Notifications (no `id`) get no reply.
-    let Some(id) = msg.get("id").cloned() else {
-        return None;
-    };
+    let id = msg.get("id").cloned()?;
     Some(match dispatch(method, &params) {
         Ok(result) => json!({"jsonrpc": "2.0", "id": id, "result": result}),
         Err(error) => error_response(id, error),
