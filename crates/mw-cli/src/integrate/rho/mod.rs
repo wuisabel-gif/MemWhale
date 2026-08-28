@@ -43,7 +43,8 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         let kind = classify_http_url(&url)?;
         if !kind.loopback && parsed.token.is_none() {
             return Err(
-                "LAN HTTP requires --token (on the server: mw-serve --print-token)".to_string(),
+                "LAN HTTP requires --token (on the server: mw-serve --lan --print-token)"
+                    .to_string(),
             );
         }
         if let Some(token) = parsed.token.as_deref() {
@@ -52,6 +53,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         let with_auth = parsed.token.is_some() || !kind.loopback;
         McpTarget::http(url, kind.http && !kind.loopback, with_auth)
     } else {
+        crate::serve_auth::remove_mcp_authorization()?;
         McpTarget::stdio()
     };
     report_install(install(&mode)?);

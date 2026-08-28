@@ -95,6 +95,34 @@ fn loopback_http_with_token_sets_authorization_header() {
 }
 
 #[test]
+fn switching_to_stdio_removes_mcp_authorization() {
+    let rho_dir = sandbox("http-to-stdio");
+    let data_dir = sandbox("http-to-stdio-data");
+
+    let http = mw_cmd()
+        .args(["integrate", "rho", "--http", "--token", "switch-secret"])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho HTTP install");
+    assert!(http.status.success(), "http install failed: {http:?}");
+    assert!(data_dir.join("mcp-authorization").exists());
+
+    let stdio = mw_cmd()
+        .args(["integrate", "rho"])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho stdio install");
+    assert!(stdio.status.success(), "stdio install failed: {stdio:?}");
+    assert!(!data_dir.join("mcp-authorization").exists());
+    let config = std::fs::read_to_string(rho_dir.join("config.toml")).unwrap();
+    assert!(config.contains("transport = \"stdio\""));
+    assert!(config.contains("command = \"mw-mcp\""));
+    assert!(!config.contains("streamable_http"));
+}
+
+#[test]
 fn lan_http_requires_token_and_writes_authorization_file() {
     let rho_dir = sandbox("http-lan");
     let data_dir = sandbox("http-lan-data");

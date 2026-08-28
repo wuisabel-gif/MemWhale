@@ -51,7 +51,7 @@ POST, not SSE):
 ```bash
 mw integrate rho --http
 # remote Jetson, token from the server:
-mw integrate rho --http http://192.168.1.42:7071/mcp --token "$(ssh jetson mw-serve --print-token)"
+mw integrate rho --http http://192.168.1.42:7071/mcp --token "$(ssh jetson mw-serve --lan --print-token)"
 ```
 
 Loopback HTTP needs no token. Pass `--token` if the loopback server itself

@@ -57,27 +57,48 @@ fn mcp_server_matches(doc: &DocumentMut, target: &McpTarget) -> bool {
         if server.get("url").and_then(Item::as_str) != target.url.as_deref() {
             return false;
         }
-        let insecure = server
-            .get("allow_insecure_http")
-            .and_then(Item::as_bool)
-            .unwrap_or(false);
-        if insecure != target.allow_insecure_http {
+        let remove = if target.command.is_some() {
+            STDIO_REMOVE.as_slice()
+        } else {
+            HTTP_REMOVE.as_slice()
+        };
+        if remove.iter().any(|key| server.get(key).is_some()) {
+            return false;
+        }
+        if target.allow_insecure_http {
+            if server.get("allow_insecure_http").and_then(Item::as_bool) != Some(true) {
+                return false;
+            }
+        } else if server.get("allow_insecure_http").is_some() {
             return false;
         }
         http_auth_matches(server, target.authorization_from_env)
     })
 }
 
-fn header_from_env<'a>(server: &'a dyn TableLike, key: &str) -> Option<&'a str> {
-    let item = server.get("headers_from_env")?;
-    if let Some(inline) = item.as_inline_table() {
-        return inline.get(key).and_then(|value| value.as_str());
+fn authorization_env_name(server: &dyn TableLike) -> Result<Option<&str>, ()> {
+    let Some(headers) = server.get("headers_from_env") else {
+        return Ok(None);
+    };
+    if let Some(inline) = headers.as_inline_table() {
+        return match inline.get("Authorization") {
+            None => Ok(None),
+            Some(value) => Ok(Some(value.as_str().ok_or(())?)),
+        };
     }
-    item.as_table_like()?.get(key).and_then(Item::as_str)
+    let Some(table) = headers.as_table_like() else {
+        return Ok(None);
+    };
+    match table.get("Authorization") {
+        None => Ok(None),
+        Some(item) => Ok(Some(item.as_str().ok_or(())?)),
+    }
 }
 
 fn http_auth_matches(server: &dyn TableLike, with_auth: bool) -> bool {
-    let authorization = header_from_env(server, "Authorization");
+    let Ok(authorization) = authorization_env_name(server) else {
+        return false;
+    };
     if with_auth {
         authorization == Some("MEMORYWHALE_AUTHORIZATION")
     } else {
@@ -656,6 +677,63 @@ headers_from_env = "nope"
         let loopback = McpTarget::http("http://127.0.0.1:7071/mcp".into(), false, false);
         let err = super::merge_mcp(original, &loopback).unwrap_err();
         assert!(err.contains("headers_from_env"));
+    }
+
+    #[test]
+    fn merge_mcp_http_rewrites_loopback_when_insecure_is_false() {
+        let original = r#"[mcp.servers.memorywhale]
+transport = "streamable_http"
+url = "http://127.0.0.1:7071/mcp"
+allow_insecure_http = false
+"#;
+        let loopback = McpTarget::http("http://127.0.0.1:7071/mcp".into(), false, false);
+        let (merged, changed) = super::merge_mcp(original, &loopback).unwrap();
+        assert!(changed);
+        let server = merged.parse::<DocumentMut>().unwrap()["mcp"]["servers"]["memorywhale"]
+            .as_table()
+            .unwrap()
+            .clone();
+        assert!(server.get("allow_insecure_http").is_none());
+    }
+
+    #[test]
+    fn merge_mcp_http_rewrites_leftover_stdio_env() {
+        let original = r#"[mcp.servers.memorywhale]
+transport = "streamable_http"
+url = "http://127.0.0.1:7071/mcp"
+env = { MEMORYWHALE_DATA_DIR = "/custom" }
+"#;
+        let loopback = McpTarget::http("http://127.0.0.1:7071/mcp".into(), false, false);
+        let (merged, changed) = super::merge_mcp(original, &loopback).unwrap();
+        assert!(changed);
+        let server = merged.parse::<DocumentMut>().unwrap()["mcp"]["servers"]["memorywhale"]
+            .as_table()
+            .unwrap()
+            .clone();
+        assert!(server.get("env").is_none());
+        assert_eq!(
+            server.get("url").and_then(Item::as_str),
+            Some("http://127.0.0.1:7071/mcp")
+        );
+    }
+
+    #[test]
+    fn merge_mcp_http_rejects_non_string_authorization() {
+        let original = r#"[mcp.servers.memorywhale]
+transport = "streamable_http"
+url = "http://192.168.1.42:7071/mcp"
+allow_insecure_http = true
+headers_from_env = { Authorization = 1 }
+"#;
+        let lan = McpTarget::http("http://192.168.1.42:7071/mcp".into(), true, true);
+        let (merged, changed) = super::merge_mcp(original, &lan).unwrap();
+        assert!(changed);
+        assert_eq!(
+            merged.parse::<DocumentMut>().unwrap()["mcp"]["servers"]["memorywhale"]
+                ["headers_from_env"]["Authorization"]
+                .as_str(),
+            Some("MEMORYWHALE_AUTHORIZATION")
+        );
     }
 
     #[test]

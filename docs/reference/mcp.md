@@ -27,8 +27,9 @@ request, or the usual `initialize` handshake then `tools/list` without
 `--token` is set, MCP clients must send `Authorization: Bearer <token>`. A
 non-loopback bind always requires a token.
 `--lan` mints `serve.token` in the MemoryWhale data directory when no token
-is supplied. `mw-serve --print-token` prints the token this process would
-use. A Rho client on another machine stores `Bearer <token>` in
+is supplied. `mw-serve --lan --print-token` prints that LAN token. Default
+loopback serving has no token unless `--token` or `MEMORYWHALE_TOKEN` is
+set. A Rho client on another machine stores `Bearer <token>` in
 `mcp-authorization` under that same data directory and sets
 `headers_from_env = { Authorization = "MEMORYWHALE_AUTHORIZATION" }`. The
 data directory is `$MEMORYWHALE_DATA_DIR` when set, otherwise the platform

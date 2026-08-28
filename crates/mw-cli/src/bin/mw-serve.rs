@@ -9,7 +9,7 @@
 // Usage:
 //   mw-serve                 serve on 127.0.0.1:7071
 //   mw-serve --lan           serve on the LAN; mints serve.token if needed
-//   mw-serve --print-token   print the token this process would use, then exit
+//   mw-serve --lan --print-token   print the LAN token this process would use, then exit
 //   mw-serve --port 8080     serve on a different port
 
 use chrono::{DateTime, FixedOffset, Local, Utc};

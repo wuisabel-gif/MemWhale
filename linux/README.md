@@ -53,7 +53,7 @@ linux/systemd/enable-dashboard.sh
 
 For LAN access (open the dashboard from another machine), add `--lan`. If no
 token is set, `mw-serve` mints `serve.token` in the data directory. `mw-serve
---print-token` prints the token this process would use. MCP clients send it as
+--lan --print-token` prints that LAN token. MCP clients send it as
 `Authorization: Bearer …` to `POST /mcp`.
 
 ## Per-command recording vs. whole-session
