@@ -19,6 +19,10 @@ pub mod hermes {
 pub mod storage;
 pub mod tui;
 
+/// Serializes unit tests that mutate `MEMORYWHALE_DATA_DIR` or related env.
+#[cfg(test)]
+pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 use chrono::Utc;
 use regex::Regex;
 use rusqlite::{params, Connection};
@@ -1922,7 +1926,9 @@ mod tests {
 
     #[test]
     fn mempalace_command_reads_config() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = fresh_data_dir("mempalace-cfg");
 
         // No config → builtin (None).
@@ -1953,7 +1959,9 @@ mod tests {
 
     #[test]
     fn mempalace_tool_names_default_to_real_server() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = fresh_data_dir("mempalace-tools");
 
         // Defaults match the real MemPalace server (not the generic "search").
@@ -2196,9 +2204,7 @@ mod tests {
     }
 
     // Tests that mutate process-global env (MEMORYWHALE_DATA_DIR / review flag)
-    // are serialized so they don't clobber each other under parallel runs.
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
+    // share crate::TEST_ENV_LOCK with serve_auth so they don't clobber each other.
     fn fresh_data_dir(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
             "mw-{tag}-{}-{:?}",
@@ -2213,7 +2219,9 @@ mod tests {
 
     #[test]
     fn remember_writes_and_redacts() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         let dir = fresh_data_dir("remember-test");
 
@@ -2258,7 +2266,9 @@ mod tests {
     // `mw remember` / `mw mark` (CLI) attribute the lesson to a human.
     #[test]
     fn cli_remember_is_human() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         let dir = fresh_data_dir("prov-human");
 
@@ -2282,7 +2292,9 @@ mod tests {
     // The MCP `remember` tool attributes the lesson and defaults it to pending.
     #[test]
     fn mcp_remember_is_agent_attributed() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         let dir = fresh_data_dir("prov-agent");
 
@@ -2314,7 +2326,9 @@ mod tests {
     // Users can explicitly opt into automatic approval.
     #[test]
     fn review_opt_out_auto_approves_agent_memories() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = fresh_data_dir("prov-review");
         std::env::set_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES", "0");
 
@@ -2609,7 +2623,9 @@ mod tests {
     // default — and every answer names the rule that produced it.
     #[test]
     fn mwignore_beats_global_config_beats_default() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let data = fresh_data_dir("capture-precedence");
         let root = scratch("precedence");
         let gated = root.join("gated");
@@ -2651,7 +2667,9 @@ mod tests {
     // before the database is touched (not as post-hoc deletion).
     #[test]
     fn off_directory_writes_zero_rows() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         std::env::remove_var("MEMORYWHALE_REVIEW_AGENT_MEMORIES");
         let data = fresh_data_dir("capture-off");
         let secret = scratch("off-dir");
@@ -2689,7 +2707,9 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn symlinked_cwd_still_hits_the_gate() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _guard = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let data = fresh_data_dir("capture-symlink");
         let root = scratch("symlink");
         let real = root.join("finances");

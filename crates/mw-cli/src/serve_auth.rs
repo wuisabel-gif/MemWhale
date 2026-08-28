@@ -210,9 +210,6 @@ fn write_secret_file(path: &Path, contents: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     struct EnvDirGuard {
         dir: PathBuf,
@@ -230,7 +227,9 @@ mod tests {
     }
 
     fn with_data_dir<T>(name: &str, body: impl FnOnce(&std::path::Path) -> T) -> T {
-        let _lock = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let dir = std::env::temp_dir().join(format!(
             "mw-serve-auth-{name}-{}-{}",
             std::process::id(),
@@ -277,31 +276,42 @@ mod tests {
 
     #[test]
     fn exclusive_create_loser_leaves_the_winner() {
-        with_data_dir("race", |dir| {
-            let path = dir.join(SERVE_TOKEN_FILE);
-            let (first, second) = std::thread::scope(|scope| {
-                let a = scope.spawn(|| {
-                    let token = mint_token().unwrap();
-                    let created = create_secret_file_exclusive(&path, &token).unwrap();
-                    (created, token)
-                });
-                let b = scope.spawn(|| {
-                    let token = mint_token().unwrap();
-                    let created = create_secret_file_exclusive(&path, &token).unwrap();
-                    (created, token)
-                });
-                (a.join().unwrap(), b.join().unwrap())
+        let dir = std::env::temp_dir().join(format!(
+            "mw-serve-auth-race-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(SERVE_TOKEN_FILE);
+        let (first, second) = std::thread::scope(|scope| {
+            let a = scope.spawn(|| {
+                let token = mint_token().unwrap();
+                let created = create_secret_file_exclusive(&path, &token).unwrap();
+                (created, token)
             });
-            assert_ne!(first.0, second.0, "exactly one creator");
-            let file = read_secret_file(&path).unwrap();
-            let winner = if first.0 { &first.1 } else { &second.1 };
-            assert_eq!(&file, winner);
+            let b = scope.spawn(|| {
+                let token = mint_token().unwrap();
+                let created = create_secret_file_exclusive(&path, &token).unwrap();
+                (created, token)
+            });
+            (a.join().unwrap(), b.join().unwrap())
         });
+        assert_ne!(first.0, second.0, "exactly one creator");
+        let file = read_secret_file(&path).unwrap();
+        let winner = if first.0 { &first.1 } else { &second.1 };
+        assert_eq!(&file, winner);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn env_dir_guard_restores_env_after_panic() {
-        let _lock = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = crate::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let previous = std::env::var_os("MEMORYWHALE_DATA_DIR");
         let dir = std::env::temp_dir().join(format!(
             "mw-serve-auth-panic-{}-{}",
