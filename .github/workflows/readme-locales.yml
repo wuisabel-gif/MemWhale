@@ -21,33 +21,43 @@ jobs:
   sync:
     name: Translate stale README locales
     runs-on: ubuntu-latest
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
+      - name: Check translation provider configuration
+        id: config
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ -n "$OPENAI_API_KEY" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v5
         with:
           ref: main
 
       - name: Check translation provider configuration
-        if: env.OPENAI_API_KEY == ''
+        if: steps.config.outputs.configured != 'true'
         run: |
           echo "::warning::OPENAI_API_KEY is not configured; localized README files were not regenerated."
           echo "Configure the repository secret or run the script locally with an OpenAI-compatible provider."
           python3 scripts/sync-readme-locales.py --check || true
 
       - name: Translate stale locales
-        if: env.OPENAI_API_KEY != ''
+        if: steps.config.outputs.configured == 'true'
         env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
         run: python3 scripts/sync-readme-locales.py --translate-stale
 
       - name: Validate synchronized locales
-        if: env.OPENAI_API_KEY != ''
+        if: steps.config.outputs.configured == 'true'
         run: python3 scripts/sync-readme-locales.py --check
 
       - name: Open translation pull request
-        if: env.OPENAI_API_KEY != ''
+        if: steps.config.outputs.configured == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

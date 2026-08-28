@@ -10,7 +10,6 @@ translated file is written.
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import hashlib
 import json
 import os
@@ -31,9 +30,9 @@ LOCALES = {
 MARKER_RE = re.compile(r"^<!-- memorywhale-i18n-source-sha: ([0-9a-f]{64}) -->\s*$", re.MULTILINE)
 FENCE_RE = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
 URL_RE = re.compile(r"https?://[^\s)>'\"]+")
-LINK_TARGET_RE = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
+LINK_TARGET_RE = re.compile(r"(?<=\]\()([^)\n]+)(?=\))")
 INLINE_CODE_RE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
-HTML_TAG_RE = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)\b[^>]*>")
+HTML_TAG_RE = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*\b[^>]*>")
 HTML_ATTR_RE = re.compile(r"\b(?:href|src)\s*=\s*[\"']([^\"']+)[\"']")
 HEADING_RE = re.compile(r"^(#{1,6})\s+", re.MULTILINE)
 
@@ -67,6 +66,31 @@ def protected_tokens(text: str) -> tuple[list[str], ...]:
     )
 
 
+def mask_protected(text: str) -> tuple[str, list[str], list[str]]:
+    """Replace protected regions with ordered placeholders for the provider."""
+    tokens: list[str] = []
+    patterns = (FENCE_RE, HTML_TAG_RE, INLINE_CODE_RE, LINK_TARGET_RE, URL_RE)
+    masked = text
+    for pattern in patterns:
+        def replace(match: re.Match[str]) -> str:
+            token = f"[[MW_PROTECTED_{len(tokens)}]]"
+            tokens.append(match.group(0))
+            return token
+
+        masked = pattern.sub(replace, masked)
+    order = re.findall(r"\[\[MW_PROTECTED_(\d+)\]\]", masked)
+    return masked, tokens, order
+
+
+def unmask_protected(text: str, tokens: list[str], order: list[str], locale: str) -> str:
+    markers = re.findall(r"\[\[MW_PROTECTED_(\d+)\]\]", text)
+    if markers != order:
+        raise ValueError(f"translation for {locale} changed protected token order or count")
+    for index, token in reversed(list(enumerate(tokens))):
+        text = text.replace(f"[[MW_PROTECTED_{index}]]", token)
+    return text
+
+
 def validate_translation(source: str, translated: str, locale: str) -> None:
     source_tokens = protected_tokens(source)
     translated_tokens = protected_tokens(translated)
@@ -81,7 +105,7 @@ def validate_translation(source: str, translated: str, locale: str) -> None:
     changed = [
         name
         for name, expected, actual in zip(token_names, source_tokens, translated_tokens)
-        if Counter(expected) != Counter(actual)
+        if expected != actual
     ]
     if changed:
         raise ValueError(
@@ -99,6 +123,7 @@ def translate(source: str, existing: str, locale: str) -> str:
         raise RuntimeError("OPENAI_API_KEY is not configured")
     endpoint = (os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
     model = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
+    masked_source, tokens, marker_order = mask_protected(source)
     prompt = f"""You maintain the {locale} translation of a public technical README.
 Update the existing translation using the English source below. Return only the
 complete translated Markdown document, without an outer code fence or commentary.
@@ -111,8 +136,8 @@ Rules:
 - do not translate code, shell commands, URLs, or identifiers;
 - keep the document useful to a technical reader.
 
-ENGLISH SOURCE:
-{source}
+ENGLISH SOURCE (protected regions are placeholders and must remain unchanged):
+{masked_source}
 
 EXISTING {locale} TRANSLATION:
 {existing}
@@ -151,7 +176,7 @@ EXISTING {locale} TRANSLATION:
     content = content.strip()
     if content.startswith("```markdown\n") and content.endswith("\n```"):
         content = content[len("```markdown\n") : -len("\n```")]
-    return content
+    return unmask_protected(content, tokens, marker_order, locale)
 
 
 def check(digest: str) -> int:
@@ -172,12 +197,16 @@ def check(digest: str) -> int:
 
 def stamp_existing(digest: str) -> None:
     source = SOURCE.read_text(encoding="utf-8")
+    pending: list[tuple[Path, str]] = []
     for locale, path in LOCALES.items():
         if not path.exists():
             raise RuntimeError(f"{locale}: missing {path}")
         existing = read_locale(path)
         validate_translation(source, existing, locale)
-        path.write_text(stamp(existing, digest), encoding="utf-8")
+        pending.append((path, stamp(existing, digest)))
+    for path, text in pending:
+        path.write_text(text, encoding="utf-8")
+    for locale, _ in LOCALES.items():
         print(f"{locale}: stamped {digest}")
 
 
