@@ -61,6 +61,7 @@ fn dashboard_auth_cannot_be_bypassed_by_query_and_cookie_flow_works() {
             &port.to_string(),
             "--token",
             "shared-secret",
+            "--api",
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -71,6 +72,15 @@ fn dashboard_auth_cannot_be_bypassed_by_query_and_cookie_flow_works() {
 
     let unauthenticated = request(&address, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
     assert!(unauthenticated.starts_with("HTTP/1.1 401 Unauthorized"));
+
+    let unauthenticated_api = request(
+        &address,
+        "GET /api/v1/health HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    );
+    assert!(unauthenticated_api.starts_with("HTTP/1.1 401 Unauthorized"));
+    assert!(unauthenticated_api.contains("Content-Type: application/json"));
+    assert!(unauthenticated_api.contains("\"code\":\"unauthorized\""));
+    assert!(!unauthenticated_api.contains("WWW-Authenticate:"));
 
     let query_token = request(
         &address,
