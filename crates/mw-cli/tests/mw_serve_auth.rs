@@ -80,7 +80,14 @@ fn dashboard_auth_cannot_be_bypassed_by_query_and_cookie_flow_works() {
     assert!(unauthenticated_api.starts_with("HTTP/1.1 401 Unauthorized"));
     assert!(unauthenticated_api.contains("Content-Type: application/json"));
     assert!(unauthenticated_api.contains("\"code\":\"unauthorized\""));
-    assert!(!unauthenticated_api.contains("WWW-Authenticate:"));
+    assert!(unauthenticated_api.contains("WWW-Authenticate: Bearer"));
+
+    let bearer_api = request(
+        &address,
+        "GET /api/v1/health HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer shared-secret\r\n\r\n",
+    );
+    assert!(bearer_api.starts_with("HTTP/1.1 200 OK"));
+    assert!(bearer_api.contains("Content-Type: application/json"));
 
     let query_token = request(
         &address,

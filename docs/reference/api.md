@@ -121,9 +121,10 @@ canonical `id`.
 ## Authentication
 
 Loopback requests use the same local trust model as the dashboard. When the
-server is bound beyond loopback, every API request must first authenticate with
-the dashboard's `mw_token` cookie obtained from `POST /login`; API keys or
-tokens in query strings are not supported.
+server uses a token, API requests may authenticate with the dashboard's
+`mw_token` cookie obtained from `POST /login` or with
+`Authorization: Bearer <token>`. API keys or tokens in query strings are not
+supported. A protected failure returns a JSON error plus a Bearer challenge.
 
 ## Example
 

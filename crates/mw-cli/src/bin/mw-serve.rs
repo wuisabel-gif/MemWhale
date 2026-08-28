@@ -955,6 +955,8 @@ fn serve_dashboard<R: BufRead>(
             .split(';')
             .filter_map(|c| c.trim().strip_prefix("mw_token="))
             .any(|v| ct_eq(v, want));
+        let via_bearer =
+            is_api_path && bearer_token(&msg.authorization).is_some_and(|token| ct_eq(token, want));
         let login_attempt = method == "POST" && raw_path == "/login";
         let supplied = form_param(&request_body, "token");
         if login_attempt && supplied.as_deref().is_some_and(|s| ct_eq(s, want)) {
@@ -969,14 +971,14 @@ fn serve_dashboard<R: BufRead>(
             );
             let _ = stream.write_all(response.as_bytes());
             return;
-        } else if !via_cookie {
+        } else if !via_cookie && !via_bearer {
             if is_api_path {
                 let (status, body) = api_error(
                     "401 Unauthorized",
                     "unauthorized",
                     "authentication required",
                 );
-                let response = json_response(status, &body, "");
+                let response = json_response(status, &body, "WWW-Authenticate: Bearer\r\n");
                 let _ = stream.write_all(response.as_bytes());
                 if !is_head {
                     let _ = stream.write_all(body.as_bytes());

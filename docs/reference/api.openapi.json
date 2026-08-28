@@ -42,6 +42,9 @@
           {
             "mw_token": []
           },
+          {
+            "bearerAuth": []
+          },
           {}
         ]
       }
@@ -88,6 +91,9 @@
           {
             "mw_token": []
           },
+          {
+            "bearerAuth": []
+          },
           {}
         ]
       }
@@ -127,6 +133,9 @@
         "security": [
           {
             "mw_token": []
+          },
+          {
+            "bearerAuth": []
           },
           {}
         ]
@@ -168,6 +177,9 @@
           {
             "mw_token": []
           },
+          {
+            "bearerAuth": []
+          },
           {}
         ]
       }
@@ -208,6 +220,9 @@
           {
             "mw_token": []
           },
+          {
+            "bearerAuth": []
+          },
           {}
         ]
       }
@@ -239,6 +254,9 @@
         "security": [
           {
             "mw_token": []
+          },
+          {
+            "bearerAuth": []
           },
           {}
         ]
@@ -808,6 +826,11 @@
         "in": "cookie",
         "name": "mw_token",
         "description": "Required when the server uses a token or a non-loopback bind. Loopback binds without an explicit token are open."
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Accepted when the server uses a token; query-string credentials are never accepted."
       }
     }
   }
