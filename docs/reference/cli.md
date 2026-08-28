@@ -164,11 +164,15 @@ add/update/skip breakdown without contacting the server.
 ## mw-serve / mw-view / mw-recover / mw-mcp
 
 ```bash
-mw-serve [--lan | --host addr] [--port n] [--token secret] [--print-token]  # web dashboard + POST /mcp
+mw-serve [--lan | --host addr] [--port n] [--token secret] [--print-token] [--api]  # dashboard, HTTP MCP, optional JSON API
 mw-view <id>                                        # open one memory directly
 mw-recover                                          # recover interrupted recordings
 mw-mcp                                              # MCP server for AI agents (stdio): recent_errors, search_memory, get_context, remember, similar_failures, stats — see docs/reference/mcp.md
 ```
+
+The opt-in `/api/v1` JSON API is enabled with `mw-serve --api`. See the
+[local JSON API reference](api.md) for its read-only endpoints and response
+envelopes.
 
 ## Data location
 

@@ -128,6 +128,7 @@ end-to-end scenario with real commands.
 - [Terminal capture](docs/guides/terminal-capture.md)
 - [Agent memory](docs/guides/agent-memory.md)
 - [CLI reference](docs/reference/cli.md)
+- [Local JSON API](docs/reference/api.md)
 - [MCP reference](docs/reference/mcp.md)
 - [Security and local threat model](docs/SECURITY.md)
 - [Ecosystem](ECOSYSTEM.md) — Delphin, ContextGC, and MemoryWhale together

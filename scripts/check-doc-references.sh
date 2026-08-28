@@ -30,4 +30,33 @@ if grep -Eq 'Binaries \\(`src-tauri/src/bin/`\\)|Build the helper binaries from 
   exit 1
 fi
 
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+spec = json.loads(Path("docs/reference/api.openapi.json").read_text())
+assert spec.get("openapi", "").startswith("3.")
+assert "mw_token" in spec["components"]["securitySchemes"]
+for response in spec["components"]["responses"].values():
+    media = response.get("content", {}).get("application/json")
+    if media is not None:
+        assert "schema" in media
+for path_item in spec["paths"].values():
+    for operation in path_item.values():
+        if not isinstance(operation, dict):
+            continue
+        assert any(
+            isinstance(requirement.get("mw_token"), list)
+            for requirement in operation.get("security", [])
+        )
+        assert "401" in operation.get("responses", {})
+        for response in operation.get("responses", {}).values():
+            media = response.get("content", {}).get("application/json")
+            if media is not None:
+                assert "schema" in media
+assert spec["components"]["schemas"]["SearchResponse"]["allOf"][1]["properties"]["data"]["properties"]["results"]["maxItems"] == 50
+assert spec["components"]["schemas"]["CommandResponse"]["allOf"][1]["properties"]["data"]["$ref"] == "#/components/schemas/Command"
+assert "command_id" in spec["components"]["schemas"]["SearchResult"]["required"]
+PY
+
 echo "documentation references match $count MCP tools and all CLI binaries"

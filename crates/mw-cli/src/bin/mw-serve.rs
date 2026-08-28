@@ -16,6 +16,7 @@ use chrono::{DateTime, FixedOffset, Local, Utc};
 use regex::Regex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
+use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -30,6 +31,8 @@ static STARTUP_NOTICE: OnceLock<String> = OnceLock::new();
 static AUTH_TOKEN: OnceLock<String> = OnceLock::new();
 /// Whether the server bound a loopback address (drives Host-header checks).
 static LOOPBACK_BIND: OnceLock<bool> = OnceLock::new();
+/// Whether the versioned JSON API is enabled for this server process.
+static API_ENABLED: OnceLock<bool> = OnceLock::new();
 
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_CONNECTIONS: usize = 64;
@@ -74,7 +77,7 @@ fn run() -> Result<(), String> {
     let mut config = parse_server_args(std::env::args().skip(1))?;
     if config.help {
         println!(
-            "mw-serve [--lan | --host <addr>] [--port <n>] [--token <secret>] [--print-token]  — serve memory as a web dashboard and MCP HTTP endpoint"
+            "mw-serve [--lan | --host <addr>] [--port <n>] [--token <secret>] [--print-token] [--api]  — serve memory locally"
         );
         return Ok(());
     }
@@ -98,6 +101,7 @@ fn run() -> Result<(), String> {
         let _ = AUTH_TOKEN.set(config.token.clone());
     }
     let _ = LOOPBACK_BIND.set(is_loopback_host(&config.host));
+    let _ = API_ENABLED.set(config.api);
 
     let db = database_path()?;
 
@@ -197,6 +201,7 @@ struct ServerConfig {
     token: String,
     help: bool,
     print_token: bool,
+    api: bool,
 }
 
 fn parse_server_args<I>(args: I) -> Result<ServerConfig, String>
@@ -208,6 +213,7 @@ where
     let mut token = std::env::var("MEMORYWHALE_TOKEN").unwrap_or_default();
     let mut help = false;
     let mut print_token = false;
+    let mut api = false;
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -216,6 +222,7 @@ where
                 break;
             }
             "--lan" => host = "0.0.0.0".to_string(),
+            "--api" => api = true,
             "--host" => host = args.next().ok_or("--host needs an address")?,
             "--port" => {
                 port = args
@@ -234,6 +241,7 @@ where
         token,
         help,
         print_token,
+        api,
     })
 }
 
@@ -318,6 +326,353 @@ fn json_http(status: &str, body: &str, extra_headers: &str) -> String {
     format!(
         "HTTP/1.1 {status}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n{SECURITY_HEADERS}{extra_headers}Connection: close\r\n\r\n{body}",
         body.len()
+    )
+}
+
+fn json_response(status: &str, body: &str, extra_headers: &str) -> String {
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n{SECURITY_HEADERS}{extra_headers}Connection: close\r\n\r\n",
+        body.len()
+    )
+}
+
+const API_VERSION: &str = "v1";
+const API_DEFAULT_LIMIT: usize = 20;
+const API_MAX_LIMIT: usize = 50;
+
+fn redact_json(value: &mut Value) {
+    match value {
+        Value::String(text) => *text = redact_secrets(text),
+        Value::Array(values) => values.iter_mut().for_each(redact_json),
+        Value::Object(values) => values.values_mut().for_each(redact_json),
+        Value::Null | Value::Bool(_) | Value::Number(_) => {}
+    }
+}
+
+fn api_envelope(mut data: Value) -> String {
+    redact_json(&mut data);
+    serde_json::to_string(&json!({ "api_version": API_VERSION, "data": data }))
+        .expect("JSON API envelope is serializable")
+}
+
+fn api_error(status: &'static str, code: &str, message: &str) -> (&'static str, String) {
+    (
+        status,
+        serde_json::to_string(&json!({
+            "api_version": API_VERSION,
+            "error": {"code": code, "message": redact_secrets(message)}
+        }))
+        .expect("JSON API error is serializable"),
+    )
+}
+
+fn api_http_error(status: &'static str) -> (&'static str, String) {
+    let (code, message) = match status {
+        "408 Request Timeout" => ("request_timeout", "request timed out"),
+        "413 Payload Too Large" => ("body_too_large", "request body is too large"),
+        "431 Request Header Fields Too Large" => {
+            ("headers_too_large", "request headers are too large")
+        }
+        _ => ("bad_request", "request could not be parsed"),
+    };
+    api_error(status, code, message)
+}
+
+fn api_route(raw_path: &str) -> (&'static str, String) {
+    let path = raw_path.split('?').next().unwrap_or("/");
+    match path {
+        "/api/v1" | "/api/v1/" => {
+            api_error("404 Not Found", "not_found", "use a versioned API endpoint")
+        }
+        "/api/v1/health" => api_health(),
+        "/api/v1/search" => api_search(raw_path),
+        "/api/v1/repositories" => api_repositories(),
+        "/api/v1/sessions" => api_sessions(raw_path),
+        _ if path.starts_with("/api/v1/memories/") => {
+            api_memory(path.trim_start_matches("/api/v1/memories/"))
+        }
+        _ if path.starts_with("/api/v1/commands/") => {
+            api_command(path.trim_start_matches("/api/v1/commands/"))
+        }
+        _ => api_error("404 Not Found", "not_found", "unknown API endpoint"),
+    }
+}
+
+fn api_open() -> Result<Connection, (&'static str, String)> {
+    open_db().map_err(|error| api_error("500 Internal Server Error", "database", &error))
+}
+
+fn api_health() -> (&'static str, String) {
+    let conn = match api_open() {
+        Ok(conn) => conn,
+        Err(response) => return response,
+    };
+    let memory_count = match memorywhale_core::sqlite::load_memories(&conn) {
+        Ok(memories) => memories.len(),
+        Err(error) => {
+            return api_error("503 Service Unavailable", "memory_load", &error.to_string())
+        }
+    };
+    (
+        "200 OK",
+        api_envelope(json!({
+            "status": "ok",
+            "version": env!("CARGO_PKG_VERSION"),
+            "memory_count": memory_count
+        })),
+    )
+}
+
+fn api_limit(raw_path: &str) -> Result<usize, (&'static str, String)> {
+    let Some(value) = query_param(raw_path, "limit") else {
+        return Ok(API_DEFAULT_LIMIT);
+    };
+    let limit = value.parse::<usize>().map_err(|_| {
+        api_error(
+            "400 Bad Request",
+            "invalid_limit",
+            "limit must be a positive integer",
+        )
+    })?;
+    if !(1..=API_MAX_LIMIT).contains(&limit) {
+        return Err(api_error(
+            "400 Bad Request",
+            "invalid_limit",
+            "limit must be between 1 and 50",
+        ));
+    }
+    Ok(limit)
+}
+
+fn api_search(raw_path: &str) -> (&'static str, String) {
+    let query = query_param(raw_path, "q").unwrap_or_default();
+    if query.trim().is_empty() {
+        return api_error("400 Bad Request", "missing_query", "q is required");
+    }
+    let limit = match api_limit(raw_path) {
+        Ok(limit) => limit,
+        Err(response) => return response,
+    };
+    let conn = match api_open() {
+        Ok(conn) => conn,
+        Err(response) => return response,
+    };
+    let memories = match memorywhale_core::sqlite::load_memories(&conn) {
+        Ok(memories) => memories,
+        Err(error) => {
+            return api_error("503 Service Unavailable", "memory_load", &error.to_string())
+        }
+    };
+    let engine = memorywhale_core::engine::BuiltinEngine::new(memories);
+    let hits = memorywhale_core::engine::MemoryEngine::retrieve(
+        &engine,
+        &memorywhale_core::Query::new(&query, Utc::now()),
+        limit,
+    );
+    let results: Vec<Value> = hits
+        .into_iter()
+        .map(|hit| {
+            let reasons = hit.reasons();
+            let (source, source_id) = memorywhale_core::sqlite::decode_id(hit.memory.id);
+            json!({
+                "id": hit.memory.id,
+                "source": source.tag(),
+                "source_id": source_id,
+                "command_id": (source == memorywhale_core::sqlite::Source::Command)
+                    .then_some(source_id),
+                "score": hit.score,
+                "memory": hit.memory,
+                "signals": hit.signals,
+                "reasons": reasons
+            })
+        })
+        .collect();
+    (
+        "200 OK",
+        api_envelope(json!({"query": query, "results": results})),
+    )
+}
+
+fn api_memory(raw_id: &str) -> (&'static str, String) {
+    let Ok(id) = percent_decode(raw_id).parse::<i64>() else {
+        return api_error(
+            "400 Bad Request",
+            "invalid_id",
+            "memory id must be an integer",
+        );
+    };
+    let conn = match api_open() {
+        Ok(conn) => conn,
+        Err(response) => return response,
+    };
+    let memories = match memorywhale_core::sqlite::load_memories(&conn) {
+        Ok(memories) => memories,
+        Err(error) => {
+            return api_error("503 Service Unavailable", "memory_load", &error.to_string())
+        }
+    };
+    match memories.into_iter().find(|memory| memory.id == id) {
+        Some(memory) => ("200 OK", api_envelope(json!({"memory": memory}))),
+        None => api_error("404 Not Found", "not_found", "memory was not found"),
+    }
+}
+
+type ApiCommandRow = (
+    String,
+    String,
+    Option<String>,
+    Option<i64>,
+    String,
+    String,
+    String,
+    String,
+);
+
+fn api_command(raw_id: &str) -> (&'static str, String) {
+    let Ok(id) = percent_decode(raw_id).parse::<i64>() else {
+        return api_error(
+            "400 Bad Request",
+            "invalid_id",
+            "command id must be an integer",
+        );
+    };
+    let conn = match api_open() {
+        Ok(conn) => conn,
+        Err(response) => return response,
+    };
+    let row: Option<ApiCommandRow> = match conn
+        .query_row(
+            "SELECT command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at
+                 FROM command_runs WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                ))
+            },
+        )
+        .optional()
+    {
+        Ok(row) => row,
+        Err(error) => {
+            return api_error("500 Internal Server Error", "database", &error.to_string())
+        }
+    };
+    let Some((command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)) = row else {
+        return api_error("404 Not Found", "not_found", "command was not found");
+    };
+    let argv = serde_json::from_str::<Value>(&argv_json).unwrap_or(Value::Null);
+    (
+        "200 OK",
+        api_envelope(json!({
+            "id": id,
+            "command": command,
+            "argv": argv,
+            "cwd": cwd,
+            "exit_code": exit_code,
+            "stdout": stdout,
+            "stderr": stderr,
+            "notes": notes,
+            "created_at": created_at
+        })),
+    )
+}
+
+fn api_sessions(raw_path: &str) -> (&'static str, String) {
+    let limit = match api_limit(raw_path) {
+        Ok(limit) => limit,
+        Err(response) => return response,
+    };
+    let conn = match api_open() {
+        Ok(conn) => conn,
+        Err(response) => return response,
+    };
+    let mut stmt = match conn.prepare(
+        "SELECT id, started_at, ended_at, status, byte_count, notes, cwd
+         FROM sessions ORDER BY id DESC LIMIT ?1",
+    ) {
+        Ok(stmt) => stmt,
+        Err(error) => {
+            return api_error("500 Internal Server Error", "database", &error.to_string())
+        }
+    };
+    let rows = match stmt.query_map(params![limit as i64], |row| {
+        Ok(json!({
+            "id": row.get::<_, i64>(0)?,
+            "started_at": row.get::<_, String>(1)?,
+            "ended_at": row.get::<_, String>(2)?,
+            "status": row.get::<_, String>(3)?,
+            "byte_count": row.get::<_, i64>(4)?,
+            "notes": row.get::<_, String>(5)?,
+            "cwd": row.get::<_, Option<String>>(6)?
+        }))
+    }) {
+        Ok(rows) => rows,
+        Err(error) => {
+            return api_error("500 Internal Server Error", "database", &error.to_string())
+        }
+    };
+    let mut sessions = Vec::new();
+    for row in rows {
+        match row {
+            Ok(row) => sessions.push(row),
+            Err(error) => {
+                return api_error("500 Internal Server Error", "database", &error.to_string())
+            }
+        }
+    }
+    ("200 OK", api_envelope(json!({"sessions": sessions})))
+}
+
+fn api_repositories() -> (&'static str, String) {
+    let conn = match api_open() {
+        Ok(conn) => conn,
+        Err(response) => return response,
+    };
+    let mut stmt = match conn.prepare(
+        "SELECT repository_id, repository_name, worktree_root FROM command_runs
+         WHERE repository_id IS NOT NULL
+         UNION
+         SELECT repository_id, repository_name, worktree_root FROM sessions
+         WHERE repository_id IS NOT NULL
+         ORDER BY repository_name, worktree_root",
+    ) {
+        Ok(stmt) => stmt,
+        Err(error) => {
+            return api_error("500 Internal Server Error", "database", &error.to_string())
+        }
+    };
+    let rows = match stmt.query_map([], |row| {
+        Ok(json!({
+            "id": row.get::<_, String>(0)?,
+            "name": row.get::<_, Option<String>>(1)?,
+            "worktree_root": row.get::<_, Option<String>>(2)?
+        }))
+    }) {
+        Ok(rows) => rows,
+        Err(error) => {
+            return api_error("500 Internal Server Error", "database", &error.to_string())
+        }
+    };
+    let mut repositories = Vec::new();
+    for row in rows {
+        match row {
+            Ok(row) => repositories.push(row),
+            Err(error) => {
+                return api_error("500 Internal Server Error", "database", &error.to_string())
+            }
+        }
+    }
+    (
+        "200 OK",
+        api_envelope(json!({"repositories": repositories})),
     )
 }
 
@@ -503,24 +858,43 @@ fn serve_dashboard<R: BufRead>(
     method: String,
     raw_path: String,
 ) {
+    let path = request_path(&raw_path);
+    let is_api_path = path == "/api/v1" || path.starts_with("/api/v1/");
     let msg = match read_http_message(reader, MAX_BODY_BYTES) {
         Ok(msg) => msg,
         Err(status) => {
-            let _ = write_error(stream, status);
+            if is_api_path {
+                let (status, body) = api_http_error(status);
+                let response = json_response(status, &body, "");
+                let _ = stream.write_all(response.as_bytes());
+                if method != "HEAD" {
+                    let _ = stream.write_all(body.as_bytes());
+                }
+            } else {
+                let _ = write_error(stream, status);
+            }
             return;
         }
     };
     // DNS-rebinding protection: on loopback binds, only loopback Host names
     // may reach the dashboard. A rebound attacker hostname gets 403.
     if !host_ok(&msg.host_header) {
-        let _ = write_error(stream, "403 Forbidden");
+        if is_api_path {
+            let (status, body) = api_error("403 Forbidden", "forbidden", "host is not allowed");
+            let response = json_response(status, &body, "");
+            let _ = stream.write_all(response.as_bytes());
+            if method != "HEAD" {
+                let _ = stream.write_all(body.as_bytes());
+            }
+        } else {
+            let _ = write_error(stream, "403 Forbidden");
+        }
         return;
     }
 
     let cookie = msg.cookie;
     let request_body = msg.body;
     let is_head = method == "HEAD";
-    let path = request_path(&raw_path);
     let method_allowed = method == "GET" || is_head || (method == "POST" && path == "/login");
     if !method_allowed {
         let allow = if path == "/login" {
@@ -528,8 +902,25 @@ fn serve_dashboard<R: BufRead>(
         } else {
             "GET, HEAD"
         };
-        let response = response("405 Method Not Allowed", "", &format!("Allow: {allow}\r\n"));
+        let response = if is_api_path {
+            let (status, body) = api_error(
+                "405 Method Not Allowed",
+                "method_not_allowed",
+                "the JSON API accepts GET and HEAD",
+            );
+            json_response(status, &body, &format!("Allow: {allow}\r\n"))
+        } else {
+            response("405 Method Not Allowed", "", &format!("Allow: {allow}\r\n"))
+        };
         let _ = stream.write_all(response.as_bytes());
+        if is_api_path && !is_head {
+            let (_, body) = api_error(
+                "405 Method Not Allowed",
+                "method_not_allowed",
+                "the JSON API accepts GET and HEAD",
+            );
+            let _ = stream.write_all(body.as_bytes());
+        }
         return;
     }
 
@@ -579,6 +970,19 @@ fn serve_dashboard<R: BufRead>(
             let _ = stream.write_all(response.as_bytes());
             return;
         } else if !via_cookie {
+            if is_api_path {
+                let (status, body) = api_error(
+                    "401 Unauthorized",
+                    "unauthorized",
+                    "authentication required",
+                );
+                let response = json_response(status, &body, "WWW-Authenticate: Bearer\r\n");
+                let _ = stream.write_all(response.as_bytes());
+                if !is_head {
+                    let _ = stream.write_all(body.as_bytes());
+                }
+                return;
+            }
             let message = if login_attempt {
                 "<p>That token was not accepted.</p>"
             } else {
@@ -599,11 +1003,24 @@ fn serve_dashboard<R: BufRead>(
         }
     }
 
-    let (status, body) = route(&raw_path);
     let cookie_header: String = cookies
         .iter()
         .map(|c| format!("Set-Cookie: {c}\r\n"))
         .collect();
+    if is_api_path {
+        let (status, body) = if *API_ENABLED.get().unwrap_or(&false) {
+            api_route(&raw_path)
+        } else {
+            api_error("404 Not Found", "api_disabled", "the JSON API is disabled")
+        };
+        let response = json_response(status, &body, &cookie_header);
+        let _ = stream.write_all(response.as_bytes());
+        if !is_head {
+            let _ = stream.write_all(body.as_bytes());
+        }
+        return;
+    }
+    let (status, body) = route(&raw_path);
     let response = response(status, &body, &cookie_header);
     let _ = stream.write_all(response.as_bytes());
     if !is_head {
@@ -2868,6 +3285,23 @@ mod tests {
         // Set-Cookie extras are still appended for normal routes.
         let r2 = response("200 OK", "x", "Set-Cookie: mw_tz=utc\r\n");
         assert!(r2.contains("Set-Cookie: mw_tz=utc"));
+    }
+
+    #[test]
+    fn api_search_requires_a_query_and_returns_json() {
+        let _ = API_ENABLED.set(true);
+        let response = raw_response(b"GET /api/v1/search HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        assert!(response.starts_with("HTTP/1.1 400 Bad Request"));
+        assert!(response.contains("Content-Type: application/json; charset=utf-8"));
+        assert!(response.contains("\"api_version\":\"v1\""));
+        assert!(response.contains("\"code\":\"missing_query\""));
+    }
+
+    #[test]
+    fn api_limit_rejects_unbounded_requests() {
+        assert!(api_limit("/api/v1/search?limit=0").is_err());
+        assert!(api_limit("/api/v1/search?limit=51").is_err());
+        assert!(api_limit("/api/v1/search?limit=not-a-number").is_err());
     }
 
     #[test]
