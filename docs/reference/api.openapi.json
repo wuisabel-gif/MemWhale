@@ -3,7 +3,7 @@
   "info": {
     "title": "MemoryWhale Local JSON API",
     "version": "1.0.0",
-    "description": "Opt-in, loopback-only, read-only API served by mw-serve --api. Loopback binds may be unauthenticated; non-loopback binds and explicitly configured tokens require the mw_token cookie."
+      "description": "Opt-in, loopback-only, read-only API served by mw-serve --api. Loopback binds may be unauthenticated; token-protected requests accept either the mw_token cookie or Authorization: Bearer credentials, and non-loopback binds always require a token."
   },
   "servers": [
     {
