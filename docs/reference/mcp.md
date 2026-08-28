@@ -28,9 +28,10 @@ request, or the usual `initialize` handshake then `tools/list` without
 non-loopback bind always requires a token.
 `--lan` mints `serve.token` in the MemoryWhale data directory when no token
 is supplied. `mw-serve --lan --print-token` prints that LAN token.
-`--print-token` alone can still mint `serve.token`; default loopback serving
-does not use that file unless `--token` or `MEMORYWHALE_TOKEN` is set. A Rho client on another machine stores `Bearer <token>` in
-`mcp-authorization` under that same data directory and sets
+`--print-token` alone can still mint `serve.token`; tokenless loopback serving
+ignores that file. Loopback authentication is enabled when `--token` or
+`MEMORYWHALE_TOKEN` is set. A Rho client on another machine stores
+`Bearer <token>` in `mcp-authorization` under that same data directory and sets
 `headers_from_env = { Authorization = "MEMORYWHALE_AUTHORIZATION" }`. The
 data directory is `$MEMORYWHALE_DATA_DIR` when set, otherwise the platform
 default (`~/.local/share/MemoryWhale/` on Linux, `~/Library/Application

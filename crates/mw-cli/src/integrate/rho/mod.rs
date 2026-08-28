@@ -35,6 +35,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         report_revert(uninstall()?);
         return Ok(());
     }
+    let mut auth_snapshot = None;
     let mode = if parsed.http {
         let url = parsed
             .url
@@ -48,6 +49,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
             );
         }
         if let Some(token) = parsed.token.as_deref() {
+            auth_snapshot = Some(crate::serve_auth::snapshot_mcp_authorization()?);
             crate::serve_auth::write_mcp_authorization(token)?;
         }
         let with_auth = parsed.token.is_some() || !kind.loopback;
@@ -55,12 +57,27 @@ pub fn cli(args: &[String]) -> Result<(), String> {
     } else {
         McpTarget::stdio()
     };
-    let installed = install(&mode)?;
-    if !parsed.http {
-        crate::serve_auth::remove_mcp_authorization()?;
+    match install(&mode) {
+        Ok(installed) => {
+            if !parsed.http {
+                crate::serve_auth::remove_mcp_authorization()?;
+            }
+            report_install(installed);
+            Ok(())
+        }
+        Err(err) => {
+            if let Some(previous) = auth_snapshot {
+                if let Err(restore_err) =
+                    crate::serve_auth::restore_mcp_authorization(previous.as_deref())
+                {
+                    return Err(format!(
+                        "{err}; also failed to restore mcp-authorization: {restore_err}"
+                    ));
+                }
+            }
+            Err(err)
+        }
     }
-    report_install(installed);
-    Ok(())
 }
 
 fn parse_cli(args: &[String]) -> Result<CliArgs, String> {

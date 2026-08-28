@@ -83,6 +83,31 @@ pub fn write_mcp_authorization(raw_token: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+/// Current `mcp-authorization` text, if the file exists.
+pub fn snapshot_mcp_authorization() -> Result<Option<String>, String> {
+    let path = mcp_authorization_path()?;
+    match fs::read_to_string(&path) {
+        Ok(text) => Ok(Some(text)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("failed to read {}: {e}", path.display())),
+    }
+}
+
+/// Restore a snapshot from [`snapshot_mcp_authorization`].
+pub fn restore_mcp_authorization(previous: Option<&str>) -> Result<(), String> {
+    match previous {
+        Some(text) => {
+            let path = mcp_authorization_path()?;
+            write_secret_file(&path, text.trim_end_matches(['\n', '\r']))?;
+            Ok(())
+        }
+        None => {
+            remove_mcp_authorization()?;
+            Ok(())
+        }
+    }
+}
+
 /// Delete the client-side bearer copy. Returns whether a file was removed.
 pub fn remove_mcp_authorization() -> Result<bool, String> {
     let path = mcp_authorization_path()?;
@@ -270,6 +295,14 @@ mod tests {
         with_data_dir("authz", |dir| {
             let path = write_mcp_authorization("abc").unwrap();
             assert_eq!(path, dir.join(MCP_AUTHORIZATION_FILE));
+            assert_eq!(fs::read_to_string(&path).unwrap().trim(), "Bearer abc");
+            let snapshot = snapshot_mcp_authorization().unwrap();
+            write_mcp_authorization("replacement").unwrap();
+            assert_eq!(
+                fs::read_to_string(&path).unwrap().trim(),
+                "Bearer replacement"
+            );
+            restore_mcp_authorization(snapshot.as_deref()).unwrap();
             assert_eq!(fs::read_to_string(&path).unwrap().trim(), "Bearer abc");
         });
     }

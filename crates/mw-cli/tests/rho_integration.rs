@@ -157,6 +157,41 @@ fn failed_stdio_switch_keeps_mcp_authorization() {
 }
 
 #[test]
+fn failed_http_token_replace_keeps_prior_authorization() {
+    let rho_dir = sandbox("http-token-replace-fail");
+    let data_dir = sandbox("http-token-replace-fail-data");
+
+    let http = mw_cmd()
+        .args(["integrate", "rho", "--http", "--token", "keep-secret"])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho HTTP install");
+    assert!(http.status.success(), "http install failed: {http:?}");
+
+    std::fs::write(rho_dir.join("hooks.toml"), "version = [").unwrap();
+
+    let replace = mw_cmd()
+        .args(["integrate", "rho", "--http", "--token", "new-secret"])
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run Rho HTTP token replace against invalid hooks");
+    assert!(
+        !replace.status.success(),
+        "invalid hooks were accepted: {replace:?}"
+    );
+    let auth = std::fs::read_to_string(data_dir.join("mcp-authorization")).unwrap();
+    assert_eq!(auth.trim(), "Bearer keep-secret");
+    let config = std::fs::read_to_string(rho_dir.join("config.toml")).unwrap();
+    assert!(config.contains("streamable_http"));
+    assert!(
+        !config.contains("new-secret"),
+        "token leaked into config.toml: {config}"
+    );
+}
+
+#[test]
 fn lan_http_requires_token_and_writes_authorization_file() {
     let rho_dir = sandbox("http-lan");
     let data_dir = sandbox("http-lan-data");
