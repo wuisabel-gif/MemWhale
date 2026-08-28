@@ -1,3 +1,5 @@
+<!-- README-SOURCE-SHA256: 652ad87f7ae8e947eb1cdf6f8e255f55eee82b30ad81c77e5b756c5680c6a67a -->
+
 # MemoryWhale
 
 개발자와 코딩 에이전트를 위한 지속적이고 로컬 우선인 디버깅 메모리입니다.

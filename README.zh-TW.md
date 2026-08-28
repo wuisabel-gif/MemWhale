@@ -1,3 +1,5 @@
+<!-- README-SOURCE-SHA256: 549ef1e456cdc737af888a321cab2241e5e3cc032eea3f5a4ffe033f129ed530 -->
+
 # MemoryWhale
 
 為開發者與程式設計 Agent 提供持久化、本地優先的除錯記憶。

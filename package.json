@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "test": "vitest run --root .",
     "test:site": "node scripts/check-site.mjs",
+    "test:readme-locales": "node --test scripts/sync-readme-locales.tests.mjs",
     "test:site:browser": "node scripts/site-smoke.mjs",
     "preview": "vite preview",
     "tauri:dev": "tauri dev",

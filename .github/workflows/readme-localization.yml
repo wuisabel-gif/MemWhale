@@ -1,0 +1,136 @@
+name: README localization
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - README.zh-CN.md
+      - README.zh-TW.md
+      - README.ko.md
+      - README.ja.md
+      - scripts/sync-readme-locales.mjs
+      - scripts/sync-readme-locales.tests.mjs
+      - .github/workflows/readme-localization.yml
+  pull_request:
+    paths:
+      - README.md
+      - README.zh-CN.md
+      - README.zh-TW.md
+      - README.ko.md
+      - README.ja.md
+      - scripts/sync-readme-locales.mjs
+      - scripts/sync-readme-locales.tests.mjs
+      - .github/workflows/readme-localization.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readme-localization-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate README localization contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Test localization safeguards
+        run: node --test scripts/sync-readme-locales.tests.mjs
+      - name: Validate localized READMEs
+        run: node scripts/sync-readme-locales.mjs --validate
+
+  translate:
+    name: Translate stale localized READMEs
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Always use trusted main content when this job can access the provider secret.
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Check translation provider configuration
+        id: provider
+        env:
+          README_TRANSLATION_API_KEY: ${{ secrets.README_TRANSLATION_API_KEY }}
+          README_TRANSLATION_BASE_URL: ${{ vars.README_TRANSLATION_BASE_URL }}
+          README_TRANSLATION_MODEL: ${{ vars.README_TRANSLATION_MODEL }}
+        shell: bash
+        run: |
+          if [ -z "$README_TRANSLATION_API_KEY" ]; then
+            echo "::notice::README_TRANSLATION_API_KEY is not configured; validation completed and translation was skipped."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$README_TRANSLATION_BASE_URL" ] || [ -z "$README_TRANSLATION_MODEL" ]; then
+            echo "::error::Set README_TRANSLATION_BASE_URL and README_TRANSLATION_MODEL repository variables when configuring README_TRANSLATION_API_KEY."
+            exit 1
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+      - name: Translate stale READMEs
+        if: steps.provider.outputs.enabled == 'true'
+        env:
+          README_TRANSLATION_API_KEY: ${{ secrets.README_TRANSLATION_API_KEY }}
+          README_TRANSLATION_BASE_URL: ${{ vars.README_TRANSLATION_BASE_URL }}
+          README_TRANSLATION_MODEL: ${{ vars.README_TRANSLATION_MODEL }}
+        run: node scripts/sync-readme-locales.mjs --translate
+      - name: Detect translated files
+        if: steps.provider.outputs.enabled == 'true'
+        id: changes
+        shell: bash
+        run: |
+          if git diff --quiet -- README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Push translation branch and open review PR
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha="$(sha256sum README.md | cut -d' ' -f1)"
+          branch="automation/readme-localizations-${source_sha:0:12}"
+          title="docs(i18n): synchronize localized READMEs"
+          printf -v body 'Automated translations for README.md source hash `%s`.\n\nGenerated through the configured translation provider and validated for headings, HTML, code, commands, links, and images. Human language review is required before merge.' "$source_sha"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md
+          git commit -m "$title"
+
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            git fetch origin "$branch:refs/remotes/origin/$branch"
+          fi
+          git push --force-with-lease="refs/heads/$branch" origin "HEAD:refs/heads/$branch"
+
+          if pr_url="$(gh pr create --base main --head "$branch" --title "$title" --body "$body" 2>&1)"; then
+            echo "$pr_url"
+            exit 0
+          fi
+
+          echo "$pr_url" >&2
+          existing_pr=""
+          if existing_pr="$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty')" && [ -n "$existing_pr" ]; then
+            echo "Translation PR already exists: $existing_pr"
+            exit 0
+          fi
+
+          echo "::warning::The translation branch was pushed, but GitHub Actions could not create its review PR."
+          echo "Branch: https://github.com/${GITHUB_REPOSITORY}/tree/${branch}"
+          echo "Manual recovery: gh pr create --base main --head ${branch} --title \"${title}\" --body \"${body}\""

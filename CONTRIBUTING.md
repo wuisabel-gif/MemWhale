@@ -79,11 +79,19 @@ Run repository consistency checks:
 ```bash
 bash scripts/check-release-version.sh
 bash scripts/check-doc-references.sh
+npm run test:readme-locales
 ```
 
 The release-version check keeps the CLI, npm, lockfile, and Tauri versions in
 sync. The documentation-reference check verifies the MCP tool list and CLI
-binary names against the runtime and reference docs.
+binary names against the runtime and reference docs. The README localization
+tests protect source hashes, structure, commands, links, and images.
+
+On trusted `main` runs, the README localization workflow can use an
+OpenAI-compatible provider when the `README_TRANSLATION_API_KEY` repository
+secret and the `README_TRANSLATION_BASE_URL` and `README_TRANSLATION_MODEL`
+repository variables are configured. Without the secret, it performs validation
+only and does not contact a remote provider.
 
 Try the terminal memory helper:
 

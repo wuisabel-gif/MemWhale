@@ -1,3 +1,5 @@
+<!-- README-SOURCE-SHA256: f3b5ec3615595ebea8d4ad16149293b4c63d6aa8c8756363a6c569eb4de0272b -->
+
 # MemoryWhale
 
 開発者とコーディングエージェントのための、永続的でローカル優先のデバッグメモリです。

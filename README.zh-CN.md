@@ -1,3 +1,5 @@
+<!-- README-SOURCE-SHA256: bb73cee26d3732de1338def697fd510e5468861350dccbc5f41f3acd3d9b1ab2 -->
+
 # MemoryWhale
 
 为开发者和编程智能体提供持久化、本地优先的调试记忆。
