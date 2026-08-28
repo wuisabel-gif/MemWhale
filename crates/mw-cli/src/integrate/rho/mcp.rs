@@ -284,10 +284,25 @@ pub(super) fn configured(existing: &str) -> Result<bool, String> {
             return false;
         }
         match server.get("transport").and_then(Item::as_str) {
-            Some(MCP_TRANSPORT) => {
-                server.get("command").and_then(Item::as_str) == Some(MCP_COMMAND)
+            Some(MCP_TRANSPORT) => mcp_server_matches(&doc, &McpTarget::stdio()),
+            Some(MCP_HTTP_TRANSPORT) => {
+                let Some(url) = server.get("url").and_then(Item::as_str) else {
+                    return false;
+                };
+                if url.trim().is_empty() {
+                    return false;
+                }
+                let allow_insecure = server
+                    .get("allow_insecure_http")
+                    .and_then(Item::as_bool)
+                    .unwrap_or(false);
+                let authorization_from_env =
+                    authorization_env_name(server).ok().flatten().is_some();
+                mcp_server_matches(
+                    &doc,
+                    &McpTarget::http(url.to_string(), allow_insecure, authorization_from_env),
+                )
             }
-            Some(MCP_HTTP_TRANSPORT) => server.get("url").and_then(Item::as_str).is_some(),
             _ => false,
         }
     }))

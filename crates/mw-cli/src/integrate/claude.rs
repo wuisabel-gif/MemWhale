@@ -59,28 +59,93 @@ struct ClaudePaths {
 }
 
 /// Inspect the configured Claude Code files without modifying them.
-pub fn diagnose() -> Result<super::IntegrationDiagnostics, String> {
-    let paths = ClaudePaths::resolve()?;
-    let settings = read_or_empty(&paths.settings_path)?;
-    let auto_capture = if settings.trim().is_empty() {
-        false
-    } else {
-        let settings = parse_settings(&settings)?;
-        settings.hooks.as_ref().is_some_and(|hooks| {
-            hooks
-                .post_tool_use
-                .iter()
-                .chain(hooks.post_tool_use_failure.iter())
-                .flat_map(|group| group.hooks.as_deref().unwrap_or_default())
-                .any(HookEntry::is_memorywhale)
-        })
+pub fn diagnose() -> super::IntegrationDiagnostics {
+    let config_dir = claude_config_dir().unwrap_or_default();
+    let paths = ClaudePaths {
+        bundled: BundledLayout::from_config_dir(config_dir.clone()),
+        settings_path: config_dir.join("settings.json"),
     };
-    Ok(super::IntegrationDiagnostics {
-        config_dir: paths.bundled.config_dir,
-        mcp: user_scoped_mcp_registered(MCP_SERVER_NAME),
+    let auto_capture = match read_or_empty(&paths.settings_path) {
+        Ok(settings) if settings.trim().is_empty() => super::ComponentStatus::Missing,
+        Ok(settings) => match parse_settings(&settings) {
+            Ok(settings) => {
+                let Some(remember_path) = mw_remember_executable().ok() else {
+                    return super::IntegrationDiagnostics {
+                        config_dir,
+                        mcp: claude_mcp_status(MCP_SERVER_NAME),
+                        auto_capture: super::ComponentStatus::Invalid(
+                            "mw-remember executable was not found".to_string(),
+                        ),
+                        skill: component_file_status(&paths.bundled.skill_path),
+                    };
+                };
+                let Some(hooks) = settings.hooks else {
+                    return super::IntegrationDiagnostics {
+                        config_dir,
+                        mcp: claude_mcp_status(MCP_SERVER_NAME),
+                        auto_capture: super::ComponentStatus::Missing,
+                        skill: component_file_status(&paths.bundled.skill_path),
+                    };
+                };
+                let has_hook = |groups: &[HookGroup]| {
+                    groups
+                        .iter()
+                        .filter(|group| group.matcher.as_deref() == Some("Bash"))
+                        .flat_map(|group| group.hooks.as_deref().unwrap_or_default())
+                        .any(|hook| hook.matches(&remember_path))
+                };
+                if has_hook(&hooks.post_tool_use) && has_hook(&hooks.post_tool_use_failure) {
+                    super::ComponentStatus::Healthy
+                } else {
+                    super::ComponentStatus::Invalid(
+                        "one or both Bash capture hooks are missing or stale".to_string(),
+                    )
+                }
+            }
+            Err(error) => super::ComponentStatus::Invalid(error),
+        },
+        Err(error) => super::ComponentStatus::Invalid(error),
+    };
+    super::IntegrationDiagnostics {
+        config_dir,
+        mcp: claude_mcp_status(MCP_SERVER_NAME),
         auto_capture,
-        skill: paths.bundled.skill_path.is_file(),
-    })
+        skill: component_file_status(&paths.bundled.skill_path),
+    }
+}
+
+fn component_file_status(path: &Path) -> super::ComponentStatus {
+    if path.is_file() {
+        super::ComponentStatus::Healthy
+    } else {
+        super::ComponentStatus::Missing
+    }
+}
+
+fn claude_mcp_status(server_name: &str) -> super::ComponentStatus {
+    let Some(path) = user_scoped_mcp_config_path() else {
+        return super::ComponentStatus::Missing;
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return super::ComponentStatus::Missing
+        }
+        Err(error) => {
+            return super::ComponentStatus::Invalid(format!(
+                "failed to read {}: {error}",
+                path.display()
+            ))
+        }
+    };
+    let Some(entry) = user_scoped_mcp_entry_in_config(&content, server_name) else {
+        return super::ComponentStatus::Missing;
+    };
+    if mcp_server_entry_matches(&entry) {
+        super::ComponentStatus::Healthy
+    } else {
+        super::ComponentStatus::Invalid("memorywhale MCP entry is stale or unusable".to_string())
+    }
 }
 
 impl ClaudePaths {
@@ -156,6 +221,11 @@ impl HookEntry {
         self.command
             .as_deref()
             .is_some_and(is_memorywhale_hook_command)
+    }
+
+    fn matches(&self, remember_path: &Path) -> bool {
+        self.hook_type.as_deref() == Some("command")
+            && self.command.as_deref() == Some(hook_command(remember_path).as_str())
     }
 }
 

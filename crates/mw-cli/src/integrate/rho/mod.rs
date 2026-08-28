@@ -183,23 +183,73 @@ struct RhoPaths {
 }
 
 /// Inspect the configured Rho files without modifying them.
-pub fn diagnose() -> Result<super::IntegrationDiagnostics, String> {
-    let paths = RhoPaths::resolve()?;
-    let remember_path = mw_remember_executable()?;
-    let hooks = read_or_empty(&paths.hooks_path)?;
-    let hooks_doc = parse_toml(&hooks, "hooks.toml")?;
-    require_hooks_version(&hooks_doc)?;
-    let auto_capture = hooks_doc
-        .get("hook")
-        .and_then(Item::as_array_of_tables)
-        .is_some_and(|hooks| hooks.iter().any(|hook| hook_matches(hook, &remember_path)));
-    let config = read_or_empty(&paths.config_path)?;
-    Ok(super::IntegrationDiagnostics {
-        config_dir: paths.bundled.config_dir,
-        mcp: mcp::configured(&config)?,
+pub fn diagnose() -> super::IntegrationDiagnostics {
+    let config_dir = rho_home().unwrap_or_default();
+    let paths = RhoPaths {
+        bundled: BundledLayout::from_config_dir(config_dir.clone()),
+        hooks_path: config_dir.join("hooks.toml"),
+        config_path: config_dir.join("config.toml"),
+    };
+    let auto_capture = match read_or_empty(&paths.hooks_path) {
+        Ok(hooks) if hooks.trim().is_empty() => super::ComponentStatus::Missing,
+        Ok(hooks) => match parse_toml(&hooks, "hooks.toml") {
+            Ok(hooks_doc) => {
+                let Some(remember_path) = mw_remember_executable().ok() else {
+                    return super::IntegrationDiagnostics {
+                        config_dir,
+                        mcp: mcp_status(&paths.config_path),
+                        auto_capture: super::ComponentStatus::Invalid(
+                            "mw-remember executable was not found".to_string(),
+                        ),
+                        skill: component_file_status(&paths.bundled.skill_path),
+                    };
+                };
+                if hooks_doc
+                    .get("hook")
+                    .and_then(Item::as_array_of_tables)
+                    .is_some_and(|hooks| {
+                        hooks.iter().any(|hook| hook_matches(hook, &remember_path))
+                    })
+                {
+                    super::ComponentStatus::Healthy
+                } else {
+                    super::ComponentStatus::Invalid(
+                        "Rho capture hook is missing or stale".to_string(),
+                    )
+                }
+            }
+            Err(error) => super::ComponentStatus::Invalid(error),
+        },
+        Err(error) => super::ComponentStatus::Invalid(error),
+    };
+    super::IntegrationDiagnostics {
+        config_dir,
+        mcp: mcp_status(&paths.config_path),
         auto_capture,
-        skill: paths.bundled.skill_path.is_file(),
-    })
+        skill: component_file_status(&paths.bundled.skill_path),
+    }
+}
+
+fn component_file_status(path: &Path) -> super::ComponentStatus {
+    if path.is_file() {
+        super::ComponentStatus::Healthy
+    } else {
+        super::ComponentStatus::Missing
+    }
+}
+
+fn mcp_status(path: &Path) -> super::ComponentStatus {
+    match read_or_empty(path) {
+        Ok(config) if config.trim().is_empty() => super::ComponentStatus::Missing,
+        Ok(config) => match mcp::configured(&config) {
+            Ok(true) => super::ComponentStatus::Healthy,
+            Ok(false) => super::ComponentStatus::Invalid(
+                "Rho memorywhale MCP entry is stale or unusable".to_string(),
+            ),
+            Err(error) => super::ComponentStatus::Invalid(error),
+        },
+        Err(error) => super::ComponentStatus::Invalid(error),
+    }
 }
 
 impl RhoPaths {

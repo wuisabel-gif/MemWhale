@@ -4077,37 +4077,33 @@ fn doctor() -> Result<(), String> {
 fn print_integration_diagnostics(
     name: &str,
     command_name: &str,
-    diagnostics: Result<memorywhale_cli::integrate::IntegrationDiagnostics, String>,
+    diagnostics: memorywhale_cli::integrate::IntegrationDiagnostics,
 ) {
     println!("  {name}");
-    match diagnostics {
-        Ok(status) => {
-            doctor_integration_check(
-                "MCP",
-                status.mcp,
-                &format!("not configured — run `mw integrate {command_name}`"),
-            );
-            doctor_integration_check(
-                "auto-capture",
-                status.auto_capture,
-                &format!("not installed — run `mw integrate {command_name}`"),
-            );
-            doctor_integration_check(
-                "skill",
-                status.skill,
-                &format!("not installed — run `mw integrate {command_name}`"),
-            );
-            println!("    config:       {}", status.config_dir.display());
-        }
-        Err(error) => println!("    WARN:          {error}"),
-    }
+    doctor_integration_check("MCP", &diagnostics.mcp, command_name);
+    doctor_integration_check("auto-capture", &diagnostics.auto_capture, command_name);
+    doctor_integration_check("skill", &diagnostics.skill, command_name);
+    println!("    config:       {}", diagnostics.config_dir.display());
 }
 
-fn doctor_integration_check(label: &str, present: bool, remediation: &str) {
-    if present {
+fn doctor_integration_check(
+    label: &str,
+    status: &memorywhale_cli::integrate::ComponentStatus,
+    command_name: &str,
+) {
+    if matches!(status, memorywhale_cli::integrate::ComponentStatus::Healthy) {
         println!("    {label:<14} ok");
     } else {
-        println!("    {label:<14} WARN {remediation}");
+        let detail = match status {
+            memorywhale_cli::integrate::ComponentStatus::Missing => {
+                format!("not installed — run `mw integrate {command_name}`")
+            }
+            memorywhale_cli::integrate::ComponentStatus::Invalid(error) => {
+                format!("invalid ({error}) — run `mw integrate {command_name}`")
+            }
+            memorywhale_cli::integrate::ComponentStatus::Healthy => unreachable!(),
+        };
+        println!("    {label:<14} WARN {detail}");
     }
 }
 
