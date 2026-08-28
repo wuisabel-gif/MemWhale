@@ -1,0 +1,53 @@
+name: Second-Opinion Review
+
+# This must be pull_request_target: the action reads the PR diff through the
+# GitHub API and intentionally does not check out or execute PR-head code.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: second-opinion-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Agent-agnostic review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check reviewer configuration
+        id: config
+        env:
+          REVIEW_API_KEY: ${{ secrets.REVIEW_API_KEY }}
+        run: |
+          if [[ -n "$REVIEW_API_KEY" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Explain disabled review
+        if: steps.config.outputs.configured != 'true'
+        run: |
+          echo "::warning::REVIEW_API_KEY is not configured; Second-Opinion review was skipped."
+          echo "Configure the repository secret to enable this reviewer."
+
+      - name: Run Second-Opinion
+        if: steps.config.outputs.configured == 'true'
+        uses: wuisabel-gif/second-opinion@e5cce405ea722fb7c7c5cfa28224c5735127cf6d # v0.3.0
+        with:
+          api-key: ${{ secrets.REVIEW_API_KEY }}
+          provider: ${{ vars.REVIEW_ENDPOINT != '' && 'webhook' || vars.REVIEW_PROVIDER || 'anthropic' }}
+          model: ${{ vars.REVIEW_MODEL }}
+          base-url: ${{ vars.REVIEW_BASE_URL }}
+          endpoint: ${{ vars.REVIEW_ENDPOINT }}
+          auth-header: ${{ vars.REVIEW_AUTH_HEADER || 'Authorization' }}
+          auth-scheme: ${{ vars.REVIEW_AUTH_SCHEME || 'Bearer' }}
+          response-json-pointer: ${{ vars.REVIEW_RESPONSE_JSON_POINTER }}
+          passes: ${{ vars.REVIEW_PASSES || '1' }}
+          vote-threshold: ${{ vars.REVIEW_VOTE_THRESHOLD }}
+          context-bytes: ${{ vars.REVIEW_CONTEXT_BYTES || '60000' }}
