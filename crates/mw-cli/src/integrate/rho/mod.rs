@@ -182,6 +182,26 @@ struct RhoPaths {
     config_path: PathBuf,
 }
 
+/// Inspect the configured Rho files without modifying them.
+pub fn diagnose() -> Result<super::IntegrationDiagnostics, String> {
+    let paths = RhoPaths::resolve()?;
+    let remember_path = mw_remember_executable()?;
+    let hooks = read_or_empty(&paths.hooks_path)?;
+    let hooks_doc = parse_toml(&hooks, "hooks.toml")?;
+    require_hooks_version(&hooks_doc)?;
+    let auto_capture = hooks_doc
+        .get("hook")
+        .and_then(Item::as_array_of_tables)
+        .is_some_and(|hooks| hooks.iter().any(|hook| hook_matches(hook, &remember_path)));
+    let config = read_or_empty(&paths.config_path)?;
+    Ok(super::IntegrationDiagnostics {
+        config_dir: paths.bundled.config_dir,
+        mcp: mcp::configured(&config)?,
+        auto_capture,
+        skill: paths.bundled.skill_path.is_file(),
+    })
+}
+
 impl RhoPaths {
     fn resolve() -> Result<Self, String> {
         let bundled = BundledLayout::from_config_dir(rho_home()?);

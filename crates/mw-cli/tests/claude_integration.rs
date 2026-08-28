@@ -42,6 +42,51 @@ fn custom_claude_config_dir_mcp_state_is_read_from_matching_claude_json() {
 }
 
 #[test]
+fn doctor_reports_claude_and_rho_integration_components() {
+    let claude_dir = sandbox("doctor-claude");
+    let rho_dir = sandbox("doctor-rho");
+    let data_dir = sandbox("doctor-data");
+
+    for (client, home_var) in [("claude", "CLAUDE_CONFIG_DIR"), ("rho", "RHO_HOME")] {
+        let home = if client == "claude" {
+            &claude_dir
+        } else {
+            &rho_dir
+        };
+        let output = mw_cmd()
+            .args(["integrate", client])
+            .env(home_var, home)
+            .env("MEMORYWHALE_DATA_DIR", &data_dir)
+            .output()
+            .expect("run integration installer");
+        assert!(output.status.success(), "installer failed: {output:?}");
+    }
+
+    let output = mw_cmd()
+        .arg("doctor")
+        .env("CLAUDE_CONFIG_DIR", &claude_dir)
+        .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run doctor");
+    assert!(output.status.success(), "doctor failed: {output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Claude Code"),
+        "missing Claude section: {stdout}"
+    );
+    assert!(stdout.contains("Rho"), "missing Rho section: {stdout}");
+    assert!(
+        stdout.contains("auto-capture   ok"),
+        "missing hook status: {stdout}"
+    );
+    assert!(
+        stdout.contains("skill          ok"),
+        "missing skill status: {stdout}"
+    );
+}
+
+#[test]
 fn user_can_install_memorywhale_into_a_fresh_claude_config() {
     let claude_dir = sandbox("fresh");
 

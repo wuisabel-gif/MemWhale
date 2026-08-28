@@ -94,7 +94,9 @@ the payload was secret-redacted at capture time.
 read-only MCP handshake and `tools/list` request. It reports whether the
 binary is missing, timed out, returned an invalid response, or advertised the
 expected six tools. It never calls a memory tool or edits a client
-configuration.
+configuration. The `Integrations` section independently reports whether the
+Claude Code and Rho MCP registration, automatic-capture hook, and skill are
+present, honoring `CLAUDE_CONFIG_DIR` and `RHO_HOME`.
 
 `mw git-fix` recognizes a handful of common git failure shapes — push rejected
 (non-fast-forward), merge conflicts, a dirty working tree blocking an

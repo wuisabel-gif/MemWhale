@@ -4063,7 +4063,52 @@ fn doctor() -> Result<(), String> {
         Err(err) => warn("mcp", mcp_remediation(&err)),
     }
 
+    println!("\nIntegrations");
+    print_integration_diagnostics(
+        "Claude Code",
+        "claude",
+        memorywhale_cli::integrate::claude::diagnose(),
+    );
+    print_integration_diagnostics("Rho", "rho", memorywhale_cli::integrate::rho::diagnose());
+
     Ok(())
+}
+
+fn print_integration_diagnostics(
+    name: &str,
+    command_name: &str,
+    diagnostics: Result<memorywhale_cli::integrate::IntegrationDiagnostics, String>,
+) {
+    println!("  {name}");
+    match diagnostics {
+        Ok(status) => {
+            doctor_integration_check(
+                "MCP",
+                status.mcp,
+                &format!("not configured — run `mw integrate {command_name}`"),
+            );
+            doctor_integration_check(
+                "auto-capture",
+                status.auto_capture,
+                &format!("not installed — run `mw integrate {command_name}`"),
+            );
+            doctor_integration_check(
+                "skill",
+                status.skill,
+                &format!("not installed — run `mw integrate {command_name}`"),
+            );
+            println!("    config:       {}", status.config_dir.display());
+        }
+        Err(error) => println!("    WARN:          {error}"),
+    }
+}
+
+fn doctor_integration_check(label: &str, present: bool, remediation: &str) {
+    if present {
+        println!("    {label:<14} ok");
+    } else {
+        println!("    {label:<14} WARN {remediation}");
+    }
 }
 
 fn mcp_remediation(error: &str) -> String {

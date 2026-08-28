@@ -273,6 +273,26 @@ pub(super) fn merge_mcp(existing: &str, target: &McpTarget) -> Result<(String, b
     Ok((doc.to_string(), true))
 }
 
+pub(super) fn configured(existing: &str) -> Result<bool, String> {
+    if existing.trim().is_empty() {
+        return Ok(false);
+    }
+    let doc = parse_toml(existing, "config.toml")?;
+    require_mcp_tables(&doc)?;
+    Ok(memorywhale_server(&doc).is_some_and(|server| {
+        if server.get("enabled").and_then(Item::as_bool) == Some(false) {
+            return false;
+        }
+        match server.get("transport").and_then(Item::as_str) {
+            Some(MCP_TRANSPORT) => {
+                server.get("command").and_then(Item::as_str) == Some(MCP_COMMAND)
+            }
+            Some(MCP_HTTP_TRANSPORT) => server.get("url").and_then(Item::as_str).is_some(),
+            _ => false,
+        }
+    }))
+}
+
 fn remove_key(table: &mut dyn TableLike, key: &str) -> bool {
     table.remove(key).is_some()
 }

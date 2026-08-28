@@ -58,6 +58,31 @@ struct ClaudePaths {
     settings_path: PathBuf,
 }
 
+/// Inspect the configured Claude Code files without modifying them.
+pub fn diagnose() -> Result<super::IntegrationDiagnostics, String> {
+    let paths = ClaudePaths::resolve()?;
+    let settings = read_or_empty(&paths.settings_path)?;
+    let auto_capture = if settings.trim().is_empty() {
+        false
+    } else {
+        let settings = parse_settings(&settings)?;
+        settings.hooks.as_ref().is_some_and(|hooks| {
+            hooks
+                .post_tool_use
+                .iter()
+                .chain(hooks.post_tool_use_failure.iter())
+                .flat_map(|group| group.hooks.as_deref().unwrap_or_default())
+                .any(HookEntry::is_memorywhale)
+        })
+    };
+    Ok(super::IntegrationDiagnostics {
+        config_dir: paths.bundled.config_dir,
+        mcp: user_scoped_mcp_registered(MCP_SERVER_NAME),
+        auto_capture,
+        skill: paths.bundled.skill_path.is_file(),
+    })
+}
+
 impl ClaudePaths {
     fn resolve() -> Result<Self, String> {
         let bundled = BundledLayout::from_config_dir(claude_config_dir()?);
