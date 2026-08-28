@@ -1,5 +1,3 @@
-<!-- memorywhale-i18n-source-sha: 56e6c63448da6721f7dde644b36260108c114b3eef29e8ec4d705c9e03c61f07 -->
-
 # MemoryWhale
 
 개발자와 코딩 에이전트를 위한 지속적이고 로컬 우선인 디버깅 메모리입니다.

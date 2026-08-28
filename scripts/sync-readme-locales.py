@@ -4,11 +4,13 @@
 The script deliberately uses only the Python standard library so it can run in
 GitHub Actions without installing a translation SDK. Translation uses an
 OpenAI-compatible chat-completions endpoint and returns a complete Markdown
-file. Code fences and URLs are validated before a translated file is written.
+file. Protected Markdown, HTML, and code tokens are validated before a
+translated file is written.
 """
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
@@ -29,6 +31,10 @@ LOCALES = {
 MARKER_RE = re.compile(r"^<!-- memorywhale-i18n-source-sha: ([0-9a-f]{64}) -->\s*$", re.MULTILINE)
 FENCE_RE = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
 URL_RE = re.compile(r"https?://[^\s)>'\"]+")
+LINK_TARGET_RE = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
+INLINE_CODE_RE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
+HTML_TAG_RE = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)\b[^>]*>")
+HTML_ATTR_RE = re.compile(r"\b(?:href|src)\s*=\s*[\"']([^\"']+)[\"']")
 HEADING_RE = re.compile(r"^(#{1,6})\s+", re.MULTILINE)
 
 
@@ -50,25 +56,40 @@ def stamp(text: str, digest: str) -> str:
     return f"<!-- memorywhale-i18n-source-sha: {digest} -->\n\n{text}"
 
 
-def protected_tokens(text: str) -> tuple[list[str], list[str]]:
-    return FENCE_RE.findall(text), URL_RE.findall(text)
+def protected_tokens(text: str) -> tuple[list[str], ...]:
+    return (
+        FENCE_RE.findall(text),
+        URL_RE.findall(text),
+        LINK_TARGET_RE.findall(text),
+        INLINE_CODE_RE.findall(text),
+        HTML_TAG_RE.findall(text),
+        HTML_ATTR_RE.findall(text),
+    )
 
 
 def validate_translation(source: str, translated: str, locale: str) -> None:
-    source_fences, source_urls = protected_tokens(source)
-    translated_fences, translated_urls = protected_tokens(translated)
-    missing_fences = [block for block in source_fences if block not in translated_fences]
-    missing_urls = [url for url in source_urls if url not in translated_urls]
-    if missing_fences or missing_urls:
-        details = []
-        if missing_fences:
-            details.append(f"{len(missing_fences)} protected code block(s)")
-        if missing_urls:
-            details.append(f"{len(missing_urls)} protected URL(s)")
-        raise ValueError(f"translation for {locale} changed protected content: {', '.join(details)}")
+    source_tokens = protected_tokens(source)
+    translated_tokens = protected_tokens(translated)
+    token_names = (
+        "code block",
+        "URL",
+        "link target",
+        "inline code",
+        "HTML tag",
+        "HTML link target",
+    )
+    changed = [
+        name
+        for name, expected, actual in zip(token_names, source_tokens, translated_tokens)
+        if Counter(expected) != Counter(actual)
+    ]
+    if changed:
+        raise ValueError(
+            f"translation for {locale} changed protected content: {', '.join(changed)}"
+        )
     if HEADING_RE.findall(source) != HEADING_RE.findall(translated):
         raise ValueError(f"translation for {locale} changed the README heading structure")
-    if not translated.lstrip().startswith("#"):
+    if not HEADING_RE.search(translated):
         raise ValueError(f"translation for {locale} is not a Markdown document")
 
 
@@ -150,10 +171,13 @@ def check(digest: str) -> int:
 
 
 def stamp_existing(digest: str) -> None:
+    source = SOURCE.read_text(encoding="utf-8")
     for locale, path in LOCALES.items():
         if not path.exists():
             raise RuntimeError(f"{locale}: missing {path}")
-        path.write_text(stamp(read_locale(path), digest), encoding="utf-8")
+        existing = read_locale(path)
+        validate_translation(source, existing, locale)
+        path.write_text(stamp(existing, digest), encoding="utf-8")
         print(f"{locale}: stamped {digest}")
 
 
