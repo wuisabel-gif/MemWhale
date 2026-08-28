@@ -184,7 +184,17 @@ struct RhoPaths {
 
 /// Inspect the configured Rho files without modifying them.
 pub fn diagnose() -> super::IntegrationDiagnostics {
-    let config_dir = rho_home().unwrap_or_default();
+    let config_dir = match rho_home() {
+        Ok(config_dir) => config_dir,
+        Err(error) => {
+            return super::IntegrationDiagnostics {
+                config_dir: None,
+                mcp: super::ComponentStatus::Invalid(error.clone()),
+                auto_capture: super::ComponentStatus::Invalid(error.clone()),
+                skill: super::ComponentStatus::Invalid(error),
+            }
+        }
+    };
     let paths = RhoPaths {
         bundled: BundledLayout::from_config_dir(config_dir.clone()),
         hooks_path: config_dir.join("hooks.toml"),
@@ -196,7 +206,7 @@ pub fn diagnose() -> super::IntegrationDiagnostics {
             Ok(hooks_doc) => {
                 let Some(remember_path) = mw_remember_executable().ok() else {
                     return super::IntegrationDiagnostics {
-                        config_dir,
+                        config_dir: Some(config_dir),
                         mcp: mcp_status(&paths.config_path),
                         auto_capture: super::ComponentStatus::Invalid(
                             "mw-remember executable was not found".to_string(),
@@ -223,7 +233,7 @@ pub fn diagnose() -> super::IntegrationDiagnostics {
         Err(error) => super::ComponentStatus::Invalid(error),
     };
     super::IntegrationDiagnostics {
-        config_dir,
+        config_dir: Some(config_dir),
         mcp: mcp_status(&paths.config_path),
         auto_capture,
         skill: component_file_status(&paths.bundled.skill_path),
@@ -242,8 +252,9 @@ fn mcp_status(path: &Path) -> super::ComponentStatus {
     match read_or_empty(path) {
         Ok(config) if config.trim().is_empty() => super::ComponentStatus::Missing,
         Ok(config) => match mcp::configured(&config) {
-            Ok(true) => super::ComponentStatus::Healthy,
-            Ok(false) => super::ComponentStatus::Invalid(
+            Ok(Some(true)) => super::ComponentStatus::Healthy,
+            Ok(None) => super::ComponentStatus::Missing,
+            Ok(Some(false)) => super::ComponentStatus::Invalid(
                 "Rho memorywhale MCP entry is stale or unusable".to_string(),
             ),
             Err(error) => super::ComponentStatus::Invalid(error),

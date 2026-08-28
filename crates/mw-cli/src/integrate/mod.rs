@@ -21,7 +21,7 @@ pub enum ComponentStatus {
 /// The independently detectable pieces of an agent integration.
 #[derive(Debug, Clone)]
 pub struct IntegrationDiagnostics {
-    pub config_dir: PathBuf,
+    pub config_dir: Option<PathBuf>,
     pub mcp: ComponentStatus,
     pub auto_capture: ComponentStatus,
     pub skill: ComponentStatus,

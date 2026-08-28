@@ -273,39 +273,46 @@ pub(super) fn merge_mcp(existing: &str, target: &McpTarget) -> Result<(String, b
     Ok((doc.to_string(), true))
 }
 
-pub(super) fn configured(existing: &str) -> Result<bool, String> {
+pub(super) fn configured(existing: &str) -> Result<Option<bool>, String> {
     if existing.trim().is_empty() {
-        return Ok(false);
+        return Ok(None);
     }
     let doc = parse_toml(existing, "config.toml")?;
     require_mcp_tables(&doc)?;
-    Ok(memorywhale_server(&doc).is_some_and(|server| {
-        if server.get("enabled").and_then(Item::as_bool) == Some(false) {
-            return false;
-        }
-        match server.get("transport").and_then(Item::as_str) {
-            Some(MCP_TRANSPORT) => mcp_server_matches(&doc, &McpTarget::stdio()),
-            Some(MCP_HTTP_TRANSPORT) => {
-                let Some(url) = server.get("url").and_then(Item::as_str) else {
-                    return false;
-                };
-                if url.trim().is_empty() {
-                    return false;
-                }
-                let allow_insecure = server
-                    .get("allow_insecure_http")
-                    .and_then(Item::as_bool)
-                    .unwrap_or(false);
-                let authorization_from_env =
-                    authorization_env_name(server).ok().flatten().is_some();
-                mcp_server_matches(
-                    &doc,
-                    &McpTarget::http(url.to_string(), allow_insecure, authorization_from_env),
-                )
+    let Some(server) = memorywhale_server(&doc) else {
+        return Ok(None);
+    };
+    if server.get("enabled").and_then(Item::as_bool) == Some(false)
+        || headers_from_env_is_table(server).is_err()
+    {
+        return Ok(Some(false));
+    }
+    let configured = match server.get("transport").and_then(Item::as_str) {
+        Some(MCP_TRANSPORT) => mcp_server_matches(&doc, &McpTarget::stdio()),
+        Some(MCP_HTTP_TRANSPORT) => {
+            let Some(url) = server.get("url").and_then(Item::as_str) else {
+                return Ok(Some(false));
+            };
+            if url.trim().is_empty() {
+                return Ok(Some(false));
             }
-            _ => false,
+            let kind = match super::classify_http_url(url) {
+                Ok(kind) => kind,
+                Err(_) => return Ok(Some(false)),
+            };
+            let allow_insecure = kind.http && !kind.loopback;
+            let authorization_from_env = authorization_env_name(server)
+                .ok()
+                .flatten()
+                .is_some_and(|name| name == "MEMORYWHALE_AUTHORIZATION");
+            mcp_server_matches(
+                &doc,
+                &McpTarget::http(url.to_string(), allow_insecure, authorization_from_env),
+            )
         }
-    }))
+        _ => false,
+    };
+    Ok(Some(configured))
 }
 
 fn remove_key(table: &mut dyn TableLike, key: &str) -> bool {

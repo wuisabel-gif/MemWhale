@@ -4083,7 +4083,11 @@ fn print_integration_diagnostics(
     doctor_integration_check("MCP", &diagnostics.mcp, command_name);
     doctor_integration_check("auto-capture", &diagnostics.auto_capture, command_name);
     doctor_integration_check("skill", &diagnostics.skill, command_name);
-    println!("    config:       {}", diagnostics.config_dir.display());
+    if let Some(config_dir) = diagnostics.config_dir.as_deref() {
+        println!("    config:       {}", config_dir.display());
+    } else {
+        println!("    config:       unavailable");
+    }
 }
 
 fn doctor_integration_check(
@@ -4095,6 +4099,9 @@ fn doctor_integration_check(
         println!("    {label:<14} ok");
     } else {
         let detail = match status {
+            memorywhale_cli::integrate::ComponentStatus::Missing if label == "MCP" => {
+                format!("not configured — run `mw integrate {command_name}`")
+            }
             memorywhale_cli::integrate::ComponentStatus::Missing => {
                 format!("not installed — run `mw integrate {command_name}`")
             }

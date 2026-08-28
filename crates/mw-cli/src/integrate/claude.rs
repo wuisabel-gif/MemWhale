@@ -60,7 +60,17 @@ struct ClaudePaths {
 
 /// Inspect the configured Claude Code files without modifying them.
 pub fn diagnose() -> super::IntegrationDiagnostics {
-    let config_dir = claude_config_dir().unwrap_or_default();
+    let config_dir = match claude_config_dir() {
+        Ok(config_dir) => config_dir,
+        Err(error) => {
+            return super::IntegrationDiagnostics {
+                config_dir: None,
+                mcp: super::ComponentStatus::Invalid(error.clone()),
+                auto_capture: super::ComponentStatus::Invalid(error.clone()),
+                skill: super::ComponentStatus::Invalid(error),
+            }
+        }
+    };
     let paths = ClaudePaths {
         bundled: BundledLayout::from_config_dir(config_dir.clone()),
         settings_path: config_dir.join("settings.json"),
@@ -71,7 +81,7 @@ pub fn diagnose() -> super::IntegrationDiagnostics {
             Ok(settings) => {
                 let Some(remember_path) = mw_remember_executable().ok() else {
                     return super::IntegrationDiagnostics {
-                        config_dir,
+                        config_dir: Some(config_dir),
                         mcp: claude_mcp_status(MCP_SERVER_NAME),
                         auto_capture: super::ComponentStatus::Invalid(
                             "mw-remember executable was not found".to_string(),
@@ -81,7 +91,7 @@ pub fn diagnose() -> super::IntegrationDiagnostics {
                 };
                 let Some(hooks) = settings.hooks else {
                     return super::IntegrationDiagnostics {
-                        config_dir,
+                        config_dir: Some(config_dir),
                         mcp: claude_mcp_status(MCP_SERVER_NAME),
                         auto_capture: super::ComponentStatus::Missing,
                         skill: component_file_status(&paths.bundled.skill_path),
@@ -107,7 +117,7 @@ pub fn diagnose() -> super::IntegrationDiagnostics {
         Err(error) => super::ComponentStatus::Invalid(error),
     };
     super::IntegrationDiagnostics {
-        config_dir,
+        config_dir: Some(config_dir),
         mcp: claude_mcp_status(MCP_SERVER_NAME),
         auto_capture,
         skill: component_file_status(&paths.bundled.skill_path),
