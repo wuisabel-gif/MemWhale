@@ -46,13 +46,15 @@ TCP port to listen on. Default
 .TP
 .B --print-token
 Print the token this process would use and exit without binding.
-A token exists for
-.B --lan
-or when
+This can mint
+.B serve.token
+even without
+.BR --lan .
+Default loopback serving stays open unless
 .B --token
 or
 .B MEMORYWHALE_TOKEN
-is set. Default loopback serving has none.
+is set.
 .PP
 .B POST /mcp
 on the same port is one JSON-RPC object per request (no SSE session).

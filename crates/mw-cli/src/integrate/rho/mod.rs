@@ -53,10 +53,13 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         let with_auth = parsed.token.is_some() || !kind.loopback;
         McpTarget::http(url, kind.http && !kind.loopback, with_auth)
     } else {
-        crate::serve_auth::remove_mcp_authorization()?;
         McpTarget::stdio()
     };
-    report_install(install(&mode)?);
+    let installed = install(&mode)?;
+    if !parsed.http {
+        crate::serve_auth::remove_mcp_authorization()?;
+    }
+    report_install(installed);
     Ok(())
 }
 
