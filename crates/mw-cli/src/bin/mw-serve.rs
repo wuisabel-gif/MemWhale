@@ -976,7 +976,7 @@ fn serve_dashboard<R: BufRead>(
                     "unauthorized",
                     "authentication required",
                 );
-                let response = json_response(status, &body, "WWW-Authenticate: Bearer\r\n");
+                let response = json_response(status, &body, "");
                 let _ = stream.write_all(response.as_bytes());
                 if !is_head {
                     let _ = stream.write_all(body.as_bytes());
