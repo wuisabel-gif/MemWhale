@@ -4443,6 +4443,8 @@ mod tests {
     use std::io::Cursor;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    static IMPORT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn mcp_probe_accepts_discovery_and_tools_list() {
         let output = concat!(
@@ -4524,6 +4526,7 @@ mod tests {
     }
     #[test]
     fn import_redacts_split_secret_argv_and_survives_malformed_json() {
+        let _env_guard = IMPORT_ENV_LOCK.lock().unwrap();
         let previous_data_dir = env::var_os("MEMORYWHALE_DATA_DIR");
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -4639,6 +4642,7 @@ mod tests {
 
     #[test]
     fn import_validates_agent_provenance_and_fills_legacy_duplicate() {
+        let _env_guard = IMPORT_ENV_LOCK.lock().unwrap();
         let previous_data_dir = env::var_os("MEMORYWHALE_DATA_DIR");
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
