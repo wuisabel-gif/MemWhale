@@ -187,6 +187,9 @@ fn recent_errors(limit: i64) -> Result<String, String> {
     for row in rows {
         let (argv_json, cwd, exit_code, stderr, notes, created_at, agent) =
             row.map_err(|e| e.to_string())?;
+        if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+            continue;
+        }
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
         out.push_str(&format!(
             "- `{}` (exit {}, {}, agent: {})\n  cwd: {}\n  err: {}\n  note: {}\n",

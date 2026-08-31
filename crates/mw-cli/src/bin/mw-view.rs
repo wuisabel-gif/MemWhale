@@ -155,6 +155,9 @@ fn list_all() -> Result<(), String> {
         .map_err(|e| format!("read command_runs: {e}"))?;
     for row in rows {
         let (id, cmd, code, at, notes, agent) = row.map_err(|e| format!("row: {e}"))?;
+        if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+            continue;
+        }
         let code = code.map(|c| c.to_string()).unwrap_or_else(|| "-".into());
         println!(
             "  #{id}\t{cmd}\texit {code}\t{at}\tagent: {}\t{notes}",
@@ -192,6 +195,9 @@ fn render_command(conn: &Connection, id: i64) -> Result<String, String> {
         .map_err(|e| format!("read command run: {e}"))?
         .ok_or_else(|| format!("no command run #{id}"))?;
     let (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, agent) = row;
+    if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+        return Err("invalid stored agent provenance".to_string());
+    }
 
     let argv: Vec<String> =
         serde_json::from_str(&argv_json).unwrap_or_else(|_| vec![command.clone()]);

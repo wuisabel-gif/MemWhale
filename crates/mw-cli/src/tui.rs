@@ -129,14 +129,12 @@ impl App {
                 return;
             }
         };
-        let allowed: std::collections::HashSet<i64> =
-            crate::filter_memories(self.engine.memories.clone(), &filters)
-                .into_iter()
-                .map(|memory| memory.id)
-                .collect();
+        // Apply metadata filters before ranking/truncating so an agent match
+        // cannot be hidden behind MAX_RESULTS higher-ranked other agents.
+        let filtered = crate::filter_memories(self.engine.memories.clone(), &filters);
         let q = Query::new(&search_text, self.now);
-        let mut hits = self.engine.retrieve(&q, MAX_RESULTS);
-        hits.retain(|sm| allowed.contains(&sm.memory.id));
+        let engine = BuiltinEngine::new(filtered);
+        let mut hits = engine.retrieve(&q, MAX_RESULTS);
         let terms: Vec<String> = search_text
             .to_lowercase()
             .split_whitespace()
@@ -687,6 +685,27 @@ mod tests {
         app.recompute();
         assert!(app.results.is_empty());
         assert_eq!(app.state.selected(), None);
+    }
+
+    #[test]
+    fn agent_filter_is_applied_before_result_limit() {
+        let mut memories = (1..=MAX_RESULTS as i64)
+            .map(|id| {
+                let mut memory = mem(id, "same unrelated memory");
+                memory.agent = Some("claude".to_string());
+                memory
+            })
+            .collect::<Vec<_>>();
+        let mut rho_memory = mem(MAX_RESULTS as i64 + 1, "target rho memory");
+        rho_memory.agent = Some("rho".to_string());
+        memories.push(rho_memory);
+
+        let mut app = App::new(BuiltinEngine::new(memories), conn_with_pending(&[]));
+        app.query = "agent:rho".to_string();
+        app.recompute();
+
+        assert_eq!(app.results.len(), 1);
+        assert_eq!(app.results[0].memory.agent.as_deref(), Some("rho"));
     }
 
     #[test]

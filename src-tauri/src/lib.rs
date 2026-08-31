@@ -1080,6 +1080,12 @@ fn row_to_concept(row: &rusqlite::Row<'_>) -> rusqlite::Result<Concept> {
 }
 
 fn row_to_command_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandRun> {
+    let agent: Option<String> = row.get(12)?;
+    if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "invalid stored agent provenance".to_string(),
+        ));
+    }
     Ok(CommandRun {
         id: row.get(0)?,
         command: row.get(1)?,
@@ -1093,7 +1099,7 @@ fn row_to_command_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandRun> {
         stderr: row.get(9)?,
         notes: row.get(10)?,
         created_at: row.get(11)?,
-        agent: row.get(12)?,
+        agent,
     })
 }
 

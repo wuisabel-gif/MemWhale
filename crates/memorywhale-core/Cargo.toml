@@ -1,6 +1,6 @@
 [package]
 name = "memorywhale-core"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 description = "Explainable retrieval for MemoryWhale: a MemoryEngine interface, a built-in scorer that ranks memories with per-signal reasons, and an optional MemPalace backend over MCP."
 license = "MIT"

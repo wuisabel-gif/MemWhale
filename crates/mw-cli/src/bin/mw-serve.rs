@@ -611,6 +611,13 @@ fn api_command(raw_id: &str) -> (&'static str, String) {
     else {
         return api_error("404 Not Found", "not_found", "command was not found");
     };
+    if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+        return api_error(
+            "500 Internal Server Error",
+            "invalid_provenance",
+            "stored command provenance is invalid",
+        );
+    }
     let argv = serde_json::from_str::<Value>(&argv_json).unwrap_or(Value::Null);
     (
         "200 OK",
@@ -1295,6 +1302,9 @@ fn dashboard(raw_path: &str) -> String {
         }) {
             for row in iter.flatten() {
                 let (id, cmd, argv_json, code, at, notes, agent) = row;
+                if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+                    continue;
+                }
                 let day = fmt_date(&at);
                 if day != cur_date {
                     if !cur_date.is_empty() {
@@ -1647,6 +1657,9 @@ fn search_results(conn: &Connection, query: &str) -> String {
         }) {
             for row in iter.flatten() {
                 let (id, cmd, argv_json, code, at, notes, stdout, stderr, agent) = row;
+                if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+                    continue;
+                }
                 if !agent_matches(agent.as_deref(), &agents) {
                     continue;
                 }
@@ -1717,6 +1730,9 @@ fn search_results(conn: &Connection, query: &str) -> String {
             ))
         }) {
             for (id, label, cwd, created_at) in iter.flatten() {
+                if !agent_matches(None, &agents) {
+                    continue;
+                }
                 out.push_str(&format!(
                     "<div class=\"row\"><span class=\"badge sess\">mark</span><span class=\"cmd\">#{id}</span><span class=\"when\">{}</span><span class=\"note\">{} {}</span></div>\n",
                     esc(&fmt_datetime(&created_at)),
@@ -1989,6 +2005,9 @@ fn project_page(raw_name: &str) -> String {
             ))
         }) {
             for (id, cmd, argv_json, code, at, notes, agent) in it.flatten() {
+                if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+                    continue;
+                }
                 if project_of(&notes).as_deref() != Some(name.as_str()) {
                     continue;
                 }
@@ -2096,6 +2115,9 @@ fn repo_page(raw_id: &str, worktree: Option<String>, query: &str) -> String {
             for (id, cmd, argv_json, code, at, notes, cwd, agent, repo_id, _, worktree_root) in
                 it.flatten()
             {
+                if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+                    continue;
+                }
                 if repo_id.as_deref() != Some(repository_id.as_str())
                     || worktree
                         .as_deref()
@@ -2259,6 +2281,9 @@ fn command_page(id: i64) -> Result<String, String> {
         .map_err(|e| format!("read command run: {e}"))?
         .ok_or_else(|| format!("no command run #{id}"))?;
     let (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, agent) = row;
+    if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+        return Err("invalid stored agent provenance".to_string());
+    }
     let argv: Vec<String> =
         serde_json::from_str(&argv_json).unwrap_or_else(|_| vec![command.clone()]);
     let ok = exit_code == Some(0);
@@ -2646,6 +2671,9 @@ fn runs_page(raw: &str) -> String {
             ))
         }) {
             for (id, argv_json, code, at, notes, agent) in it.flatten() {
+                if !memorywhale_core::provenance::is_valid(agent.as_deref()) {
+                    continue;
+                }
                 let ok = code == Some(0);
                 body.push_str(&format!(
                     "<a class=\"row\" href=\"/command/{id}\"><span class=\"badge {}\">{}</span>\

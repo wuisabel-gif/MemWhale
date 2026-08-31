@@ -292,7 +292,7 @@
         "name": "agent",
         "in": "query",
         "required": false,
-        "description": "Producing agent filter. terminal matches NULL/manual command records.",
+        "description": "Producing agent filter. terminal matches NULL/manual records.",
         "schema": {
           "type": "string",
           "enum": ["claude", "rho", "terminal"]
