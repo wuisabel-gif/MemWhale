@@ -468,6 +468,7 @@ fn map_hits(payload: &str, query: &Query) -> anyhow::Result<Vec<ScoredMemory>> {
                     })
                     .unwrap_or_default(),
                 embedding: None,
+                agent: h.get("agent").and_then(Value::as_str).map(str::to_string),
             };
             ScoredMemory {
                 memory,
@@ -657,6 +658,7 @@ mod tests {
                 importance: 0.98,
                 tags: vec!["rust".into()],
                 embedding: None,
+                agent: None,
             },
             Memory {
                 id: 7,
@@ -667,6 +669,7 @@ mod tests {
                 importance: 0.01,
                 tags: vec![],
                 embedding: None,
+                agent: None,
             },
             Memory {
                 id: 22,
@@ -677,6 +680,7 @@ mod tests {
                 importance: 0.6,
                 tags: vec!["rust".into(), "tokio".into()],
                 embedding: None,
+                agent: None,
             },
         ]
     }
@@ -736,6 +740,7 @@ mod tests {
             importance: 0.5,
             tags: vec![],
             embedding: None,
+            agent: None,
         }]);
         let query = Query::new("cache-invalidation-token", now());
         let before = engine.explain(1, &query).unwrap();
@@ -781,6 +786,7 @@ mod tests {
             importance: 0.5,
             tags: vec!["single-flight".to_string()],
             embedding: None,
+            agent: None,
         }]);
         let barrier = Arc::new(Barrier::new(8));
         let threads: Vec<_> = (0..8)
@@ -845,6 +851,7 @@ mod tests {
                 importance: 0.0,
                 tags: vec!["flaky".into()],
                 embedding: None,
+                agent: None,
             },
             Memory {
                 id: 2,
@@ -857,6 +864,7 @@ mod tests {
                 importance: 0.0,
                 tags: vec![],
                 embedding: None,
+                agent: None,
             },
         ];
         let eng = BuiltinEngine::new(mems);

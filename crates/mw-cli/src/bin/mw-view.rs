@@ -138,7 +138,7 @@ fn list_all() -> Result<(), String> {
 
     println!("\nCommand runs (open with `mw-view command <id>`):");
     let mut c = conn
-        .prepare("SELECT id, command, exit_code, created_at, notes FROM command_runs ORDER BY id DESC LIMIT 20")
+        .prepare("SELECT id, command, exit_code, created_at, notes, agent FROM command_runs ORDER BY id DESC LIMIT 20")
         .map_err(|e| format!("query command_runs: {e}"))?;
     let mut any2 = false;
     let rows = c
@@ -149,13 +149,17 @@ fn list_all() -> Result<(), String> {
                 r.get::<_, Option<i64>>(2)?,
                 r.get::<_, String>(3)?,
                 r.get::<_, String>(4)?,
+                r.get::<_, Option<String>>(5)?,
             ))
         })
         .map_err(|e| format!("read command_runs: {e}"))?;
     for row in rows {
-        let (id, cmd, code, at, notes) = row.map_err(|e| format!("row: {e}"))?;
+        let (id, cmd, code, at, notes, agent) = row.map_err(|e| format!("row: {e}"))?;
         let code = code.map(|c| c.to_string()).unwrap_or_else(|| "-".into());
-        println!("  #{id}\t{cmd}\texit {code}\t{at}\t{notes}");
+        println!(
+            "  #{id}\t{cmd}\texit {code}\t{at}\tagent: {}\t{notes}",
+            memorywhale_core::provenance::label(agent.as_deref())
+        );
         any2 = true;
     }
     if !any2 {
@@ -167,7 +171,7 @@ fn list_all() -> Result<(), String> {
 fn render_command(conn: &Connection, id: i64) -> Result<String, String> {
     let row = conn
         .query_row(
-            "SELECT command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at
+            "SELECT command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, agent
              FROM command_runs WHERE id = ?1",
             params![id],
             |r| {
@@ -180,13 +184,14 @@ fn render_command(conn: &Connection, id: i64) -> Result<String, String> {
                     r.get::<_, String>(5)?,
                     r.get::<_, String>(6)?,
                     r.get::<_, String>(7)?,
+                    r.get::<_, Option<String>>(8)?,
                 ))
             },
         )
         .optional()
         .map_err(|e| format!("read command run: {e}"))?
         .ok_or_else(|| format!("no command run #{id}"))?;
-    let (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at) = row;
+    let (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, agent) = row;
 
     let argv: Vec<String> =
         serde_json::from_str(&argv_json).unwrap_or_else(|_| vec![command.clone()]);
@@ -212,6 +217,10 @@ fn render_command(conn: &Connection, id: i64) -> Result<String, String> {
     if let Some(cwd) = &cwd {
         body.push_str(&format!("<div><span>cwd</span>{}</div>", esc(cwd)));
     }
+    body.push_str(&format!(
+        "<div><span>agent</span>{}</div>",
+        esc(memorywhale_core::provenance::label(agent.as_deref()))
+    ));
     body.push_str(&format!("<div><span>when</span>{}</div>", esc(&created_at)));
     body.push_str("</div>\n");
 

@@ -31,8 +31,8 @@ impl Agent {
 
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Claude => "claude",
-            Self::Rho => "rho",
+            Self::Claude => memorywhale_core::provenance::AGENT_CLAUDE,
+            Self::Rho => memorywhale_core::provenance::AGENT_RHO,
         }
     }
 }

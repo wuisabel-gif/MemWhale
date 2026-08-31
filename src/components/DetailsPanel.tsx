@@ -41,6 +41,7 @@ export function DetailsPanel({
           <p className="summary">
             Exit {selected.value.exit_code ?? "unknown"} · {selected.value.cwd || "cwd unknown"}
           </p>
+          <p className="summary">Producing agent: {selected.value.agent ?? "terminal"}</p>
           {selectedArgs.length > 0 && (
             <div className="arg-list">
               {selectedArgs.map((argument) => (

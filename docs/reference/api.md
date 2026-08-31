@@ -63,10 +63,13 @@ Returns server version, status, and the number of loaded memories:
 }
 ```
 
-### `GET /api/v1/search?q=<text>&limit=<n>`
+### `GET /api/v1/search?q=<text>&limit=<n>&agent=<agent>`
 
 Searches the same explainable retrieval engine as the CLI. `q` is required;
-`limit` defaults to 20 and accepts 1–50.
+`limit` defaults to 20 and accepts 1–50. The optional `agent` filter accepts
+`claude`, `rho`, or `terminal`; `terminal` matches command rows whose nullable
+storage value is `NULL`. The same filter can also be written inline in `q`,
+for example `q=linker+error+agent%3Aclaude`.
 
 Each result includes the namespaced memory ID, score, full stored memory,
 signals, and human-readable ranking reasons:
@@ -82,6 +85,8 @@ signals, and human-readable ranking reasons:
         "source": "command",
         "source_id": 1,
         "command_id": 1,
+        "agent": "claude",
+        "agent_label": "claude",
         "score": 0.91,
         "memory": {},
         "signals": [],
@@ -99,8 +104,10 @@ Returns one namespaced memory by ID, or `404` if it is not present.
 ### `GET /api/v1/commands/:id`
 
 Returns one captured command run by its raw `command_runs.id`, including command, argv, cwd, exit code,
-stdout, stderr, notes, and timestamp. Malformed historical `argv_json` is
-returned as `null` rather than crashing the API.
+stdout, stderr, notes, timestamp, and nullable `agent` metadata. `agent` is
+`null` for terminal/manual or legacy rows; `agent_label` renders that value as
+the canonical `terminal` label. Malformed historical `argv_json` is returned as
+`null` rather than crashing the API.
 
 Search results include `command_id` when the result comes from a command
 record. Pass that value to this endpoint; do not use the namespaced search

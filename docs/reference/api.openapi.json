@@ -58,6 +58,9 @@
           },
           {
             "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Agent"
           }
         ],
         "responses": {
@@ -283,6 +286,16 @@
           "minimum": 1,
           "maximum": 50,
           "default": 20
+        }
+      },
+      "Agent": {
+        "name": "agent",
+        "in": "query",
+        "required": false,
+        "description": "Producing agent filter. terminal matches NULL/manual command records.",
+        "schema": {
+          "type": "string",
+          "enum": ["claude", "rho", "terminal"]
         }
       },
       "MemoryId": {
@@ -572,6 +585,7 @@
           "importance",
           "tags",
           "embedding"
+          ,"agent"
         ],
         "properties": {
           "id": {
@@ -612,6 +626,14 @@
             "items": {
               "type": "number"
             }
+          },
+          "agent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": ["claude", "rho", null],
+            "description": "Structured producing agent; null means terminal/manual or legacy capture."
           }
         }
       },
@@ -649,6 +671,8 @@
           "source",
           "source_id",
           "command_id",
+          "agent",
+          "agent_label",
           "score",
           "memory",
           "signals",
@@ -672,6 +696,15 @@
               "null"
             ],
             "format": "int64"
+          },
+          "agent": {
+            "type": ["string", "null"],
+            "enum": ["claude", "rho", null],
+            "description": "Structured producing agent; null means terminal/manual or legacy capture."
+          },
+          "agent_label": {
+            "type": "string",
+            "enum": ["claude", "rho", "terminal"]
           },
           "score": {
             "type": "number"
@@ -705,6 +738,8 @@
           "stderr",
           "notes",
           "created_at"
+          ,"agent",
+          "agent_label"
         ],
         "properties": {
           "id": {
@@ -751,6 +786,15 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "agent": {
+            "type": ["string", "null"],
+            "enum": ["claude", "rho", null],
+            "description": "Structured producing agent; null means terminal/manual or legacy capture."
+          },
+          "agent_label": {
+            "type": "string",
+            "enum": ["claude", "rho", "terminal"]
           }
         }
       },

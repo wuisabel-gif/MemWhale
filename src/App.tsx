@@ -406,7 +406,7 @@ function App() {
                 type="button"
               >
                 <span className={`dot ${run.exit_code === 0 ? "command-dot" : "error-dot"}`} />
-                <span>{run.command}</span>
+                <span>{run.command} · {run.agent ?? "terminal"}</span>
               </button>
             ))}
           </div>
@@ -642,6 +642,8 @@ function demoRecallHits(): RecallHit[] {
       mentions: 4,
       importance: 0.65,
       tags: ["command", "error"]
+      ,agent: null,
+      agent_label: "terminal"
     },
     {
       id: 1,
@@ -660,6 +662,8 @@ function demoRecallHits(): RecallHit[] {
       mentions: 1,
       importance: 0.5,
       tags: ["document", "markdown"]
+      ,agent: null,
+      agent_label: "terminal"
     }
   ];
 }

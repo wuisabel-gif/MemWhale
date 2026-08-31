@@ -1289,6 +1289,9 @@ pub struct SearchFilters {
     pub tags: Vec<String>,
     /// Any may match (OR): command|session|note|document|conversation.
     pub sources: Vec<String>,
+    /// Any producing agent may match (OR). `terminal` matches NULL/manual
+    /// records; it is a render/filter label, never a stored value.
+    pub agents: Vec<String>,
     /// created_at on or after this day (start of day, UTC).
     pub after: Option<chrono::DateTime<Utc>>,
     /// created_at on or before this day (end of day, UTC).
@@ -1299,6 +1302,9 @@ pub struct SearchFilters {
 
 /// The source names accepted by `source:` — the same strings `Source::tag()` emits.
 pub const SEARCH_SOURCES: [&str; 5] = ["command", "session", "note", "document", "conversation"];
+/// The agent names accepted by `agent:`. Keep this sourced from core so every
+/// interface uses the same vocabulary.
+pub const SEARCH_AGENTS: [&str; 3] = memorywhale_core::provenance::SUPPORTED_AGENTS;
 
 fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
     let d = chrono::NaiveDate::parse_from_str(val, "%Y-%m-%d")
@@ -1333,6 +1339,15 @@ pub fn parse_search_filters(terms: &[&str]) -> Result<(SearchFilters, String), S
                 ));
             }
             f.sources.push(v);
+        } else if let Some(v) = t.strip_prefix("agent:") {
+            let v = v.to_lowercase();
+            if !SEARCH_AGENTS.contains(&v.as_str()) {
+                return Err(format!(
+                    "unknown agent:{v} — use one of {}",
+                    SEARCH_AGENTS.join("|")
+                ));
+            }
+            f.agents.push(v);
         } else if let Some(v) = t.strip_prefix("after:") {
             f.after = Some(parse_filter_day("after", v)?);
         } else if let Some(v) = t.strip_prefix("before:") {
@@ -1370,6 +1385,13 @@ pub fn filter_memories(
     }
     if !f.sources.is_empty() {
         mems.retain(|m| f.sources.iter().any(|s| s == decode_id(m.id).0.tag()));
+    }
+    if !f.agents.is_empty() {
+        mems.retain(|m| {
+            f.agents
+                .iter()
+                .any(|want| memorywhale_core::provenance::label(m.agent.as_deref()) == want)
+        });
     }
     mems
 }
@@ -1738,6 +1760,7 @@ mod tests {
             importance: 0.5,
             tags: tags.iter().map(|s| s.to_string()).collect(),
             embedding: None,
+            agent: None,
         }
     }
 
@@ -1833,12 +1856,18 @@ mod tests {
 
     #[test]
     fn parse_search_filters_splits_filters_from_query() {
-        let (f, q) =
-            parse_search_filters(&["docker", "after:2026-01-01", "tag:Infra", "source:command"])
-                .unwrap();
+        let (f, q) = parse_search_filters(&[
+            "docker",
+            "after:2026-01-01",
+            "tag:Infra",
+            "source:command",
+            "agent:claude",
+        ])
+        .unwrap();
         assert_eq!(q, "docker");
         assert_eq!(f.tags, vec!["infra"]); // lowercased
         assert_eq!(f.sources, vec!["command"]);
+        assert_eq!(f.agents, vec!["claude"]);
         assert!(f.after.is_some());
         // Unknown prefixes stay as query text; a bare word too.
         let (f2, q2) = parse_search_filters(&["ratio:1", "hello"]).unwrap();
@@ -1850,6 +1879,7 @@ mod tests {
     fn parse_search_filters_rejects_bad_values() {
         assert!(parse_search_filters(&["before:nope"]).is_err());
         assert!(parse_search_filters(&["source:banana"]).is_err());
+        assert!(parse_search_filters(&["agent:codex"]).is_err());
         assert!(parse_search_filters(&["limit:x"]).is_err());
     }
 
@@ -1885,6 +1915,41 @@ mod tests {
         let out = filter_memories(mems.clone(), &f);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, 3_000_000_001);
+    }
+
+    #[test]
+    fn filter_memories_matches_each_agent_without_changing_source_filters() {
+        let mut claude = mem(1_000_000_001, &["command"], "2026-06-01T00:00:00Z");
+        claude.agent = Some("claude".into());
+        let mut rho = mem(1_000_000_002, &["command"], "2026-06-01T00:00:00Z");
+        rho.agent = Some("rho".into());
+        let manual = mem(1_000_000_003, &["command"], "2026-06-01T00:00:00Z");
+        let note = mem(3_000_000_004, &["note"], "2026-06-01T00:00:00Z");
+        let all = vec![claude, rho, manual, note];
+
+        for (agent, expected) in [
+            ("claude", vec![1_000_000_001]),
+            ("rho", vec![1_000_000_002]),
+            ("terminal", vec![1_000_000_003, 3_000_000_004]),
+        ] {
+            let filters = parse_search_filters(&[&format!("agent:{agent}")])
+                .unwrap()
+                .0;
+            let ids: Vec<_> = filter_memories(all.clone(), &filters)
+                .into_iter()
+                .map(|m| m.id)
+                .collect();
+            assert_eq!(ids, expected, "agent:{agent}");
+        }
+
+        let filters = parse_search_filters(&["source:command", "agent:terminal"])
+            .unwrap()
+            .0;
+        let ids: Vec<_> = filter_memories(all, &filters)
+            .into_iter()
+            .map(|m| m.id)
+            .collect();
+        assert_eq!(ids, vec![1_000_000_003]);
     }
 
     /// End-to-end scoring over the REAL retrieval path (load_memories +

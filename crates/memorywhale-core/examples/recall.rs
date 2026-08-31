@@ -23,6 +23,7 @@ fn main() {
         importance,
         tags: tags.iter().map(|s| s.to_string()).collect(),
         embedding: None,
+        agent: None,
     };
 
     let memories = vec![

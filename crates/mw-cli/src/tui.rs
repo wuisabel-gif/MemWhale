@@ -119,10 +119,25 @@ impl App {
     /// the engine returns everything (just reordered), which reads wrong for a
     /// search box.
     fn recompute(&mut self) {
-        let q = Query::new(&self.query, self.now);
+        let terms: Vec<&str> = self.query.split_whitespace().collect();
+        let (filters, search_text) = match crate::parse_search_filters(&terms) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                self.results.clear();
+                self.state.select(None);
+                self.status = format!("  {error}");
+                return;
+            }
+        };
+        let allowed: std::collections::HashSet<i64> =
+            crate::filter_memories(self.engine.memories.clone(), &filters)
+                .into_iter()
+                .map(|memory| memory.id)
+                .collect();
+        let q = Query::new(&search_text, self.now);
         let mut hits = self.engine.retrieve(&q, MAX_RESULTS);
-        let terms: Vec<String> = self
-            .query
+        hits.retain(|sm| allowed.contains(&sm.memory.id));
+        let terms: Vec<String> = search_text
             .to_lowercase()
             .split_whitespace()
             .map(String::from)
@@ -241,7 +256,11 @@ fn render(app: &mut App, f: &mut Frame) {
                     Style::default().fg(Color::Cyan),
                 ),
                 Span::styled(
-                    format!("{:<8} ", source.tag()),
+                    format!(
+                        "{:<8} {:<8} ",
+                        source.tag(),
+                        memorywhale_core::provenance::label(sm.memory.agent.as_deref())
+                    ),
                     Style::default().fg(Color::DarkGray),
                 ),
                 Span::raw(snippet(&sm.memory.text, 48)),
@@ -268,7 +287,11 @@ fn render(app: &mut App, f: &mut Frame) {
             let mut lines = vec![
                 Line::from(vec![
                     Span::styled(
-                        format!("[{}] ", source.tag()),
+                        format!(
+                            "[{} · {}] ",
+                            source.tag(),
+                            memorywhale_core::provenance::label(sm.memory.agent.as_deref())
+                        ),
                         Style::default().fg(Color::Yellow),
                     ),
                     Span::styled(format!("#{id}  "), Style::default().fg(Color::DarkGray)),
@@ -607,6 +630,7 @@ mod tests {
             importance: 0.5,
             tags: vec![],
             embedding: None,
+            agent: None,
         }
     }
 

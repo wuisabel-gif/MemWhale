@@ -84,6 +84,8 @@ struct CommandRun {
     repository_id: Option<String>,
     repository_name: Option<String>,
     worktree_root: Option<String>,
+    /// Nullable storage provenance; NULL is rendered as terminal/manual.
+    agent: Option<String>,
     exit_code: Option<i64>,
     stdout: String,
     stderr: String,
@@ -473,6 +475,8 @@ struct RecallHit {
     mentions: u32,
     importance: f32,
     tags: Vec<String>,
+    agent: Option<String>,
+    agent_label: String,
 }
 
 fn to_hit(sm: &memorywhale_core::ScoredMemory) -> RecallHit {
@@ -498,6 +502,8 @@ fn to_hit(sm: &memorywhale_core::ScoredMemory) -> RecallHit {
         mentions: sm.memory.mentions,
         importance: sm.memory.importance,
         tags: sm.memory.tags.clone(),
+        agent: sm.memory.agent.clone(),
+        agent_label: memorywhale_core::provenance::label(sm.memory.agent.as_deref()).to_string(),
     }
 }
 
@@ -790,7 +796,7 @@ fn save_command_run(
     conn.query_row(
         "
         SELECT id, command, argv_json, cwd, repository_id, repository_name, worktree_root,
-            exit_code, stdout, stderr, notes, created_at
+            exit_code, stdout, stderr, notes, created_at, agent
         FROM command_runs
         WHERE id = ?1
         ",
@@ -1003,7 +1009,7 @@ fn load_terminal_memory(
         conn.prepare(
             "
             SELECT id, command, argv_json, cwd, repository_id, repository_name, worktree_root,
-                exit_code, stdout, stderr, notes, created_at
+                exit_code, stdout, stderr, notes, created_at, agent
             FROM command_runs
             ORDER BY created_at DESC
             LIMIT 80
@@ -1017,7 +1023,7 @@ fn load_terminal_memory(
             "
             SELECT DISTINCT cr.id, cr.command, cr.argv_json, cr.cwd, cr.repository_id,
                 cr.repository_name, cr.worktree_root, cr.exit_code, cr.stdout, cr.stderr,
-                cr.notes, cr.created_at
+                cr.notes, cr.created_at, cr.agent
             FROM command_runs cr
             LEFT JOIN command_arguments ca ON ca.command_run_id = cr.id
             WHERE cr.command LIKE ?1
@@ -1087,6 +1093,7 @@ fn row_to_command_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandRun> {
         stderr: row.get(9)?,
         notes: row.get(10)?,
         created_at: row.get(11)?,
+        agent: row.get(12)?,
     })
 }
 

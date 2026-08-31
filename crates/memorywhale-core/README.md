@@ -25,6 +25,7 @@ let memories = vec![
         importance: 0.55,
         tags: vec!["db".into()],
         embedding: None,
+        agent: None,
     },
     // ...more memories
 ];

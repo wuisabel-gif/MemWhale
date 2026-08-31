@@ -301,7 +301,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
@@ -1349,7 +1349,7 @@ fn export_memory(args: &[String]) -> Result<(), String> {
     let mut sessions = Vec::new();
     let mut stmt = conn
         .prepare(
-            "SELECT id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at
+            "SELECT id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, agent
              FROM command_runs
              WHERE ?1 IS NULL OR notes LIKE ?1
              ORDER BY id",
@@ -1367,16 +1367,18 @@ fn export_memory(args: &[String]) -> Result<(), String> {
                 r.get::<_, String>(6)?,
                 r.get::<_, String>(7)?,
                 r.get::<_, String>(8)?,
+                r.get::<_, Option<String>>(9)?,
             ))
         })
         .map_err(|err| format!("failed to export commands: {err}"))?;
     for row in rows {
-        let (id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at) =
+        let (id, command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, agent) =
             row.map_err(|err| format!("command row error: {err}"))?;
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
         md.push_str(&format!(
-            "## Command #{id}: `{}`\n\n- when: `{created_at}`\n- cwd: `{}`\n- exit: `{:?}`\n- notes: {}\n\n```text\n{}\n{}\n```\n\n",
+            "## Command #{id}: `{}`\n\n- when: `{created_at}`\n- agent: `{}`\n- cwd: `{}`\n- exit: `{:?}`\n- notes: {}\n\n```text\n{}\n{}\n```\n\n",
             argv.join(" "),
+            memorywhale_core::provenance::label(agent.as_deref()),
             cwd.clone().unwrap_or_default(),
             exit_code,
             notes,
@@ -1392,7 +1394,8 @@ fn export_memory(args: &[String]) -> Result<(), String> {
             "stdout": stdout,
             "stderr": stderr,
             "notes": notes,
-            "created_at": created_at
+            "created_at": created_at,
+            "agent": agent
         }));
     }
 
@@ -2504,7 +2507,12 @@ fn print_external_hits(query: &str, hits: &[memorywhale_core::ScoredMemory], exp
             .chars()
             .take(100)
             .collect();
-        println!("{:>3}%  [mempalace] {}", sm.percent(), snippet);
+        println!(
+            "{:>3}%  [mempalace · {}] {}",
+            sm.percent(),
+            memorywhale_core::provenance::label(sm.memory.agent.as_deref()),
+            snippet
+        );
         if explain {
             for reason in sm.reasons() {
                 println!("      {reason}");
@@ -2707,16 +2715,17 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         .map(|s| s.as_str())
         .filter(|a| *a != "--explain")
         .collect();
-    // Pull inline `tag:`/`source:`/`before:`/`after:`/`limit:` filters out of the
+    // Pull inline `tag:`/`source:`/`agent:`/`before:`/`after:`/`limit:` filters out of the
     // terms; whatever's left is the free-text query.
     let (filters, query) = memorywhale_cli::parse_search_filters(&terms)?;
     let has_filter = !filters.tags.is_empty()
         || !filters.sources.is_empty()
+        || !filters.agents.is_empty()
         || filters.before.is_some()
         || filters.after.is_some();
     if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }
@@ -2725,17 +2734,19 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // ranks server-side over its own corpus, so the local scope filters don't
     // apply. If the server is unreachable we print a notice and fall through to
     // the builtin engine over local memory, so a misconfig never hard-fails.
-    if let Some(argv) = memorywhale_cli::mempalace_command() {
-        let (cmd, rest) = argv.split_first().expect("mempalace_command is non-empty");
-        let eng = memorywhale_core::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec())
-            .with_tool(memorywhale_cli::mempalace_search_tool());
-        match eng.try_retrieve(&memorywhale_core::Query::new(&query, Utc::now()), 20) {
-            Ok(hits) => {
-                print_external_hits(&query, &hits, explain);
-                return Ok(());
-            }
-            Err(e) => {
-                eprintln!("mw: mempalace unavailable ({e:#}); using the local engine");
+    if !has_filter {
+        if let Some(argv) = memorywhale_cli::mempalace_command() {
+            let (cmd, rest) = argv.split_first().expect("mempalace_command is non-empty");
+            let eng = memorywhale_core::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec())
+                .with_tool(memorywhale_cli::mempalace_search_tool());
+            match eng.try_retrieve(&memorywhale_core::Query::new(&query, Utc::now()), 20) {
+                Ok(hits) => {
+                    print_external_hits(&query, &hits, explain);
+                    return Ok(());
+                }
+                Err(e) => {
+                    eprintln!("mw: mempalace unavailable ({e:#}); using the local engine");
+                }
             }
         }
     }
@@ -2789,6 +2800,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
             .trim();
         let snippet: String = snippet.chars().take(100).collect();
         // Only remembered notes carry provenance — who wrote this lesson, and when.
+        let agent = memorywhale_core::provenance::label(sm.memory.agent.as_deref());
         let prov = match source {
             memorywhale_core::sqlite::Source::Note => note_provenance(&conn, real_id)
                 .map(|p| format!("  ({p})"))
@@ -2796,9 +2808,10 @@ fn search_memory(args: &[String]) -> Result<(), String> {
             _ => String::new(),
         };
         println!(
-            "{:>3}%  [{}] #{} {}{}{}",
+            "{:>3}%  [{} · {}] #{} {}{}{}",
             sm.percent(),
             source.tag(),
+            agent,
             sm.memory.id,
             snippet,
             action,
@@ -2908,17 +2921,25 @@ fn classify_git_failure(text: &str) -> Option<&'static GitPattern> {
 /// Diagnose the last failed `git` command (or a specific `command_run` id):
 /// what the error means, the fix, and whether this exact class of failure has
 /// come up before — in past command runs or a remembered lesson.
+type GitFailureRow = (
+    i64,
+    String,
+    Option<i64>,
+    String,
+    String,
+    String,
+    Option<String>,
+);
+
 fn git_fix_cmd(args: &[String]) -> Result<(), String> {
     let conn = open_session_db()?;
 
-    let row: Option<(i64, String, Option<i64>, String, String, String)> = if let Some(id_str) =
-        args.first()
-    {
+    let row: Option<GitFailureRow> = if let Some(id_str) = args.first() {
         let id: i64 = id_str
             .parse()
             .map_err(|_| format!("invalid id {id_str:?}"))?;
         match conn.query_row(
-            "SELECT id, argv_json, exit_code, stdout, stderr, created_at FROM command_runs WHERE id = ?1",
+            "SELECT id, argv_json, exit_code, stdout, stderr, created_at, agent FROM command_runs WHERE id = ?1",
             params![id],
             |r| {
                 Ok((
@@ -2928,6 +2949,7 @@ fn git_fix_cmd(args: &[String]) -> Result<(), String> {
                     r.get(3)?,
                     r.get(4)?,
                     r.get(5)?,
+                    r.get(6)?,
                 ))
             },
         ) {
@@ -2937,7 +2959,7 @@ fn git_fix_cmd(args: &[String]) -> Result<(), String> {
         }
     } else {
         conn.query_row(
-            "SELECT id, argv_json, exit_code, stdout, stderr, created_at FROM command_runs
+            "SELECT id, argv_json, exit_code, stdout, stderr, created_at, agent FROM command_runs
              WHERE command LIKE 'git%' AND exit_code IS NOT NULL AND exit_code != 0
              ORDER BY id DESC LIMIT 1",
             [],
@@ -2949,13 +2971,14 @@ fn git_fix_cmd(args: &[String]) -> Result<(), String> {
                     r.get(3)?,
                     r.get(4)?,
                     r.get(5)?,
+                    r.get(6)?,
                 ))
             },
         )
         .ok()
     };
 
-    let Some((id, argv_json, exit_code, stdout, stderr, created_at)) = row else {
+    let Some((id, argv_json, exit_code, stdout, stderr, created_at, agent)) = row else {
         println!(
             "mw: no recent failed git commands found.\n\
              Give a specific id with `mw git-fix <id>`, or make sure MemoryWhale is\n\
@@ -2967,9 +2990,10 @@ fn git_fix_cmd(args: &[String]) -> Result<(), String> {
 
     let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
     println!(
-        "# git-fix: command_run #{id} — `{}` (exit {}, {created_at})\n",
+        "# git-fix: command_run #{id} — `{}` (exit {}, {created_at}, agent: {})\n",
         argv.join(" "),
-        exit_code.unwrap_or(-1)
+        exit_code.unwrap_or(-1),
+        memorywhale_core::provenance::label(agent.as_deref())
     );
 
     let haystack = format!("{stderr}\n{stdout}");
@@ -3127,7 +3151,7 @@ fn agent_cmd(args: &[String]) -> Result<(), String> {
     // A few recent failures for extra context.
     let mut stmt = conn
         .prepare(
-            "SELECT argv_json, exit_code, stderr, created_at FROM command_runs
+            "SELECT argv_json, exit_code, stderr, created_at, agent FROM command_runs
              WHERE exit_code IS NOT NULL AND exit_code != 0
              ORDER BY id DESC LIMIT 5",
         )
@@ -3139,22 +3163,25 @@ fn agent_cmd(args: &[String]) -> Result<(), String> {
                 r.get::<_, Option<i64>>(1)?,
                 r.get::<_, String>(2)?,
                 r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
             ))
         })
         .map_err(|err| format!("failed to read command runs: {err}"))?;
     let mut any = false;
     for row in rows {
-        let (argv_json, code, stderr, at) = row.map_err(|err| format!("row error: {err}"))?;
+        let (argv_json, code, stderr, at, agent) =
+            row.map_err(|err| format!("row error: {err}"))?;
         if !any {
             println!("## Recent failed commands\n");
             any = true;
         }
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
         println!(
-            "- `{}` (exit {}, {})",
+            "- `{}` (exit {}, {}, agent: {})",
             argv.join(" "),
             code.unwrap_or(-1),
-            at
+            at,
+            memorywhale_core::provenance::label(agent.as_deref())
         );
         let tail = stderr
             .lines()
@@ -3290,7 +3317,7 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
     // The most recent failed command.
     let failure = conn
         .query_row(
-            "SELECT id, argv_json, cwd, exit_code, stderr, stdout, notes, created_at
+            "SELECT id, argv_json, cwd, exit_code, stderr, stdout, notes, created_at, agent
              FROM command_runs
              WHERE exit_code IS NOT NULL AND exit_code != 0
              ORDER BY id DESC LIMIT 1",
@@ -3305,6 +3332,7 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
                     r.get::<_, String>(5)?,
                     r.get::<_, String>(6)?,
                     r.get::<_, String>(7)?,
+                    r.get::<_, Option<String>>(8)?,
                 ))
             },
         )
@@ -3319,7 +3347,7 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
 
     // Words to find related history/lessons: from the error tail + the question.
     let mut terms: Vec<String> = Vec::new();
-    if let Some((_, _, _, _, stderr, _, _, _)) = &failure {
+    if let Some((_, _, _, _, stderr, _, _, _, _)) = &failure {
         terms.extend(
             tail(stderr, 200)
                 .split(|c: char| !c.is_alphanumeric())
@@ -3338,7 +3366,14 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
     terms.dedup();
 
     // Similar past failures (FTS if available, else LIKE on the first term).
-    type SimilarFailure = (String, Option<i64>, String, Option<String>, String);
+    type SimilarFailure = (
+        String,
+        Option<i64>,
+        String,
+        Option<String>,
+        String,
+        Option<String>,
+    );
     let mut similar: Vec<SimilarFailure> = Vec::new();
     let exclude_id = failure.as_ref().map(|f| f.0).unwrap_or(-1);
     if !terms.is_empty() {
@@ -3353,6 +3388,7 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
                         r.get::<_, String>(2)?,
                         r.get::<_, Option<String>>(3)?,
                         r.get::<_, String>(4)?,
+                        r.get::<_, Option<String>>(5)?,
                     ))
                 }) {
                     out.extend(rows.flatten());
@@ -3367,7 +3403,7 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
             .collect::<Vec<_>>()
             .join(" OR ");
         similar = collect(
-            "SELECT argv_json, exit_code, stderr, cwd, created_at FROM command_runs
+            "SELECT argv_json, exit_code, stderr, cwd, created_at, agent FROM command_runs
              WHERE exit_code IS NOT NULL AND exit_code != 0 AND id != ?2
                AND id IN (SELECT rowid FROM command_fts WHERE command_fts MATCH ?1)
              ORDER BY id DESC LIMIT 3",
@@ -3376,7 +3412,7 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
         if similar.is_empty() {
             if let Some(t) = terms.first() {
                 similar = collect(
-                    "SELECT argv_json, exit_code, stderr, cwd, created_at FROM command_runs
+                    "SELECT argv_json, exit_code, stderr, cwd, created_at, agent FROM command_runs
                      WHERE exit_code IS NOT NULL AND exit_code != 0 AND id != ?2
                        AND (stderr LIKE ?1 OR stdout LIKE ?1)
                      ORDER BY id DESC LIMIT 3",
@@ -3424,7 +3460,8 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
         "Help me debug a terminal failure. Below is the failing command, its exact\n\
          output, and relevant history from my local memory (past attempts + lessons).\n\n",
     );
-    if let Some((_, argv_json, cwd, exit_code, stderr, stdout, notes, created_at)) = &failure {
+    if let Some((_, argv_json, cwd, exit_code, stderr, stdout, notes, created_at, agent)) = &failure
+    {
         let argv: Vec<String> = serde_json::from_str(argv_json).unwrap_or_default();
         p.push_str("## The failure (just now)\n");
         p.push_str(&format!("Command:   {}\n", argv.join(" ")));
@@ -3438,6 +3475,10 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
         }
         p.push_str(&format!("Exit code: {}\n", exit_code.unwrap_or(-1)));
         p.push_str(&format!("When:      {created_at}\n\n"));
+        p.push_str(&format!(
+            "Producing agent: {}\n\n",
+            memorywhale_core::provenance::label(agent.as_deref())
+        ));
         let err_blob = if stderr.trim().is_empty() {
             stdout
         } else {
@@ -3447,13 +3488,14 @@ fn ask_cmd(args: &[String]) -> Result<(), String> {
     }
     if !similar.is_empty() {
         p.push_str("## I've hit similar errors before\n");
-        for (argv_json, code, stderr, cwd, at) in &similar {
+        for (argv_json, code, stderr, cwd, at, agent) in &similar {
             let argv: Vec<String> = serde_json::from_str(argv_json).unwrap_or_default();
             p.push_str(&format!(
-                "- `{}` (exit {}, {}, cwd {})\n  err: {}\n",
+                "- `{}` (exit {}, {}, agent: {}, cwd {})\n  err: {}\n",
                 argv.join(" "),
                 code.unwrap_or(-1),
                 at,
+                memorywhale_core::provenance::label(agent.as_deref()),
                 cwd.clone().unwrap_or_default(),
                 tail(stderr, 200)
             ));
@@ -3840,7 +3882,7 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
     // Failed commands are the highest-signal thing for a debugging agent.
     let mut stmt = conn
         .prepare(
-            "SELECT argv_json, cwd, exit_code, stderr, notes, created_at
+            "SELECT argv_json, cwd, exit_code, stderr, notes, created_at, agent
              FROM command_runs
              WHERE (exit_code IS NOT NULL AND exit_code != 0)
                AND (?1 IS NULL OR notes LIKE ?1)
@@ -3858,6 +3900,7 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
                     r.get::<_, String>(3)?,
                     r.get::<_, String>(4)?,
                     r.get::<_, String>(5)?,
+                    r.get::<_, Option<String>>(6)?,
                 ))
             },
         )
@@ -3866,15 +3909,16 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
     let mut any = false;
     println!("## Recent failed commands");
     for row in rows {
-        let (argv_json, cwd, exit_code, stderr, notes, created_at) =
+        let (argv_json, cwd, exit_code, stderr, notes, created_at, agent) =
             row.map_err(|err| format!("row error: {err}"))?;
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
         any = true;
         println!(
-            "- `{}` (exit {}, {})\n  cwd: {}\n  err: {}{}",
+            "- `{}` (exit {}, {}, agent: {})\n  cwd: {}\n  err: {}{}",
             argv.join(" "),
             exit_code.unwrap_or(-1),
             created_at,
+            memorywhale_core::provenance::label(agent.as_deref()),
             cwd.unwrap_or_default(),
             tail(&stderr, 200),
             if notes.trim().is_empty() {

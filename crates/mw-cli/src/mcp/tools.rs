@@ -39,7 +39,8 @@ pub(super) fn tool_defs() -> Value {
             "inputSchema": {"type": "object", "properties": {
                 "query": {"type": "string", "description": "text to search for"},
                 "project": {"type": "string", "description": "optional: only memory recorded for this project, e.g. demo"},
-                "machine": {"type": "string", "description": "optional: only memory recorded on this machine"}
+                "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
+                "agent": {"type": "string", "enum": ["claude", "rho", "terminal"], "description": "optional producing agent; terminal matches NULL/manual records"}
             }, "required": ["query"]}
         },
         {
@@ -47,7 +48,8 @@ pub(super) fn tool_defs() -> Value {
             "description": "The most relevant remembered memory, engine-ranked, optionally scoped to a project or machine. Each result includes the reasons it was ranked where it did.",
             "inputSchema": {"type": "object", "properties": {
                 "project": {"type": "string", "description": "project tag, e.g. project:demo"},
-                "machine": {"type": "string", "description": "optional: only memory recorded on this machine"}
+                "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
+                "agent": {"type": "string", "enum": ["claude", "rho", "terminal"], "description": "optional producing agent; terminal matches NULL/manual records"}
             }}
         },
         {
@@ -92,11 +94,16 @@ pub(super) fn call_tool(
                 .get("query")
                 .and_then(Value::as_str)
                 .ok_or_else(|| "search_memory needs a 'query'".to_string())?;
-            search_memory(q, scope_arg(args, "project"), scope_arg(args, "machine"))
+            search_memory(
+                q,
+                scope_arg(args, "project"),
+                scope_arg(args, "machine"),
+                agent_arg(args)?,
+            )
         }
         "get_context" => {
             let project = args.get("project").and_then(Value::as_str);
-            get_context(project, scope_arg(args, "machine"))
+            get_context(project, scope_arg(args, "machine"), agent_arg(args)?)
         }
         "remember" => {
             let text = args
@@ -157,7 +164,7 @@ fn recent_errors(limit: i64) -> Result<String, String> {
     }
     let mut stmt = conn
         .prepare(
-            "SELECT argv_json, cwd, exit_code, stderr, notes, created_at
+            "SELECT argv_json, cwd, exit_code, stderr, notes, created_at, agent
              FROM command_runs
              WHERE exit_code IS NOT NULL AND exit_code != 0
              ORDER BY id DESC LIMIT ?1",
@@ -172,19 +179,21 @@ fn recent_errors(limit: i64) -> Result<String, String> {
                 r.get::<_, String>(3)?,
                 r.get::<_, String>(4)?,
                 r.get::<_, String>(5)?,
+                r.get::<_, Option<String>>(6)?,
             ))
         })
         .map_err(|e| e.to_string())?;
     let mut out = String::new();
     for row in rows {
-        let (argv_json, cwd, exit_code, stderr, notes, created_at) =
+        let (argv_json, cwd, exit_code, stderr, notes, created_at, agent) =
             row.map_err(|e| e.to_string())?;
         let argv: Vec<String> = serde_json::from_str(&argv_json).unwrap_or_default();
         out.push_str(&format!(
-            "- `{}` (exit {}, {})\n  cwd: {}\n  err: {}\n  note: {}\n",
+            "- `{}` (exit {}, {}, agent: {})\n  cwd: {}\n  err: {}\n  note: {}\n",
             argv.join(" "),
             exit_code.unwrap_or(-1),
             created_at,
+            memorywhale_core::provenance::label(agent.as_deref()),
             cwd.unwrap_or_default(),
             last_line(&stderr, 240),
             notes.trim()
@@ -226,11 +235,12 @@ fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory) -> String 
         reasons.join("; ")
     };
     format!(
-        "- [{} #{}] {}% — {}\n  reasons: {}{}\n",
+        "- [{} #{}] {}% — {}\n  agent: {}\n  reasons: {}{}\n",
         source.tag(),
         real_id,
         sm.percent(),
         snippet,
+        memorywhale_core::provenance::label(sm.memory.agent.as_deref()),
         reasons,
         prov
     )
@@ -262,6 +272,7 @@ fn search_memory(
     query: &str,
     project: Option<&str>,
     machine: Option<&str>,
+    agent: Option<String>,
 ) -> Result<String, String> {
     let conn = open()?;
     let now = Utc::now();
@@ -274,6 +285,11 @@ fn search_memory(
         machine,
         None,
     );
+    let filters = crate::SearchFilters {
+        agents: agent.into_iter().collect(),
+        ..Default::default()
+    };
+    let mems = crate::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(query, now);
     let tags = task_tags(&[project, machine]);
@@ -305,7 +321,20 @@ fn scope_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
         .filter(|s| !s.is_empty())
 }
 
-fn get_context(project: Option<&str>, machine: Option<&str>) -> Result<String, String> {
+fn agent_arg(args: &Value) -> Result<Option<String>, String> {
+    let Some(value) = scope_arg(args, "agent") else {
+        return Ok(None);
+    };
+    let term = format!("agent:{value}");
+    let (filters, _) = crate::parse_search_filters(&[term.as_str()])?;
+    Ok(filters.agents.into_iter().next())
+}
+
+fn get_context(
+    project: Option<&str>,
+    machine: Option<&str>,
+    agent: Option<String>,
+) -> Result<String, String> {
     let conn = open()?;
     // Callers have always passed the tag form ("project:demo"); the column
     // holds the bare name, so accept either.
@@ -318,6 +347,11 @@ fn get_context(project: Option<&str>, machine: Option<&str>) -> Result<String, S
         machine,
         None,
     );
+    let filters = crate::SearchFilters {
+        agents: agent.into_iter().collect(),
+        ..Default::default()
+    };
+    let mems = crate::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     // Scope by project tag when given: it's both the query text and a task tag
     // so the task-relevance signal can fire when a memory carries the tag.

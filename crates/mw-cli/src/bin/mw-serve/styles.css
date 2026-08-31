@@ -26,6 +26,7 @@ h2{font-size:.95rem;margin:1.8em 0 .6em;text-transform:uppercase;letter-spacing:
 .row .cmd{font:600 .95rem ui-monospace,monospace}
 .row .when{font:.78rem ui-monospace,monospace;color:var(--muted)}
 .row .note{font-size:.85rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent{font:600 .72rem ui-monospace,monospace;color:var(--azure);white-space:nowrap}
 .badge{display:inline-block;font:600 .72rem ui-monospace,monospace;padding:4px 10px;border-radius:999px;text-align:center}
 .badge.ok{background:#e6f6ef;color:var(--ok)}
 .badge.bad{background:#fceee7;color:var(--bad)}

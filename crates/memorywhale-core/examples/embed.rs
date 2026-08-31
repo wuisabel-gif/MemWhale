@@ -25,6 +25,7 @@ fn main() {
                 importance,
                 tags: tags.iter().map(|s| s.to_string()).collect(),
                 embedding: None, // lexical/BM25 path — no embeddings needed
+                agent: None,
             }
         };
 

@@ -320,6 +320,7 @@ fn documents(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
                 importance: 0.5,
                 tags: vec!["document".into(), source_type],
                 embedding: None,
+                agent: None,
             }
         })
         .collect())
@@ -328,22 +329,44 @@ fn documents(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
 /// Command runs (both). Reinforcement = how often the same command recurs;
 /// failures are more important than successes.
 fn command_runs(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
-    let rows = load_rows(
-        conn,
-        "command_runs",
-        "SELECT id, command, argv_json, notes, stderr, exit_code, created_at FROM command_runs",
-        |r| {
-            Ok((
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, String>(4)?,
-                r.get::<_, Option<i64>>(5)?,
-                r.get::<_, String>(6)?,
-            ))
-        },
-    )?;
+    let Some(columns) = table_columns(conn, "command_runs")? else {
+        return Ok(Vec::new());
+    };
+    let has_agent = columns
+        .iter()
+        .any(|column| column.eq_ignore_ascii_case("agent"));
+    // `agent` was added after command_runs first shipped. Select a typed NULL
+    // for old databases instead of making the otherwise usable source fail.
+    let agent_column = if has_agent { "agent" } else { "NULL" };
+    let sql = format!(
+        "SELECT id, command, argv_json, notes, stderr, exit_code, created_at, {agent_column}
+         FROM command_runs"
+    );
+    let rows = load_rows_existing(conn, "command_runs", &sql, |r| {
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, String>(3)?,
+            r.get::<_, String>(4)?,
+            r.get::<_, Option<i64>>(5)?,
+            r.get::<_, String>(6)?,
+            r.get::<_, Option<String>>(7)?,
+        ))
+    })?;
+    for (row, (_, _, _, _, _, _, _, agent)) in rows.iter().enumerate() {
+        if let Some(agent) = agent.as_deref() {
+            if !matches!(
+                agent,
+                crate::provenance::AGENT_CLAUDE | crate::provenance::AGENT_RHO
+            ) {
+                return Err(LoadError::unsupported_schema(
+                    "command_runs",
+                    format!("unsupported agent value {agent:?} in row {}", row + 1),
+                ));
+            }
+        }
+    }
     let mut counts: HashMap<String, u32> = HashMap::new();
     for (_, cmd, ..) in &rows {
         *counts.entry(cmd.to_lowercase()).or_insert(0) += 1;
@@ -351,7 +374,7 @@ fn command_runs(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
     Ok(rows
         .into_iter()
         .map(
-            |(id, command, argv_json, notes, stderr, exit_code, created)| {
+            |(id, command, argv_json, notes, stderr, exit_code, created, agent)| {
                 let when = parse_ts(&created);
                 let ok = exit_code == Some(0);
                 Memory {
@@ -370,6 +393,7 @@ fn command_runs(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
                         if ok { "ok".into() } else { "error".into() },
                     ],
                     embedding: None,
+                    agent,
                 }
             },
         )
@@ -418,6 +442,7 @@ fn agent_turns(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
                 importance,
                 tags: vec!["conversation".into(), direction],
                 embedding: None,
+                agent: None,
             }
         })
         .collect())
@@ -475,6 +500,7 @@ fn bookmarks(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
                 importance: 0.55,
                 tags: vec!["note".into()],
                 embedding: None,
+                agent: None,
             }
         })
         .collect())
@@ -513,6 +539,7 @@ fn sessions(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
                 importance: 0.5,
                 tags: vec!["session".into()],
                 embedding: None,
+                agent: None,
             })
         })
         .collect())
@@ -567,6 +594,49 @@ mod tests {
             .find(|m| decode_id(m.id) == (Source::Command, 1))
             .unwrap();
         assert_eq!(cmd.mentions, 2);
+        assert_eq!(cmd.agent, None);
+    }
+
+    #[test]
+    fn loads_agent_column_and_keeps_legacy_rows_nullable() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE command_runs (
+                 id INTEGER PRIMARY KEY, command TEXT, argv_json TEXT,
+                 notes TEXT, stderr TEXT, exit_code INTEGER, created_at TEXT, agent TEXT
+             );
+             INSERT INTO command_runs VALUES
+               (1, 'claude-run', '[\"claude-run\"]', '', '', 0,
+                '2026-01-01T00:00:00Z', 'claude'),
+               (2, 'rho-run', '[\"rho-run\"]', '', '', 0,
+                '2026-01-02T00:00:00Z', 'rho'),
+               (3, 'manual-run', '[\"manual-run\"]', 'agent:claude', '', 0,
+                '2026-01-03T00:00:00Z', NULL);",
+        )
+        .unwrap();
+        let mems = load_memories(&conn).unwrap();
+        let agent_for = |id| {
+            mems.iter()
+                .find(|m| decode_id(m.id) == (Source::Command, id))
+        };
+        assert_eq!(agent_for(1).unwrap().agent.as_deref(), Some("claude"));
+        assert_eq!(agent_for(2).unwrap().agent.as_deref(), Some("rho"));
+        // A note-looking string in notes is not provenance.
+        assert_eq!(agent_for(3).unwrap().agent, None);
+
+        let legacy = Connection::open_in_memory().unwrap();
+        legacy
+            .execute_batch(
+                "CREATE TABLE command_runs (
+                     id INTEGER PRIMARY KEY, command TEXT, argv_json TEXT,
+                     notes TEXT, stderr TEXT, exit_code INTEGER, created_at TEXT
+                 );
+                 INSERT INTO command_runs VALUES
+                   (1, 'legacy', '[\"legacy\"]', '', '', 0, '2026-01-01T00:00:00Z');",
+            )
+            .unwrap();
+        let legacy_mems = load_memories(&legacy).unwrap();
+        assert_eq!(legacy_mems[0].agent, None);
     }
 
     #[test]

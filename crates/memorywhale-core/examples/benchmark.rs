@@ -307,6 +307,7 @@ fn main() -> anyhow::Result<()> {
             importance: m.importance,
             tags: m.tags.clone(),
             embedding: None,
+            agent: None,
         })
         .collect();
 

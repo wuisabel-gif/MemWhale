@@ -29,6 +29,7 @@
 //!     importance: 0.6,
 //!     tags: vec!["rust".into(), "tokio".into()],
 //!     embedding: None,
+//!     agent: None,
 //! }];
 //! let engine = BuiltinEngine::new(mems);
 //! let hits = engine.retrieve(&Query::new("async runtime", now), 5);
@@ -66,6 +67,7 @@ pub mod engine;
 mod mcp;
 pub mod policy;
 pub mod privacy;
+pub mod provenance;
 pub mod scorer;
 pub mod sqlite;
 
@@ -91,6 +93,10 @@ pub struct Memory {
     /// similarity is semantic (cosine); otherwise it falls back to lexical.
     #[serde(default)]
     pub embedding: Option<Vec<f32>>,
+    /// Producing agent for structured command captures. `None` represents a
+    /// terminal/manual record, including legacy rows with unknown provenance.
+    #[serde(default)]
+    pub agent: Option<String>,
 }
 
 /// A retrieval request plus the context that makes scoring explainable.
@@ -219,6 +225,10 @@ impl ScoredMemory {
             m.last_used.date_naive(),
             m.mentions,
             m.importance
+        ));
+        out.push_str(&format!(
+            "  agent: {}\n",
+            provenance::label(m.agent.as_deref())
         ));
         if !m.tags.is_empty() {
             out.push_str(&format!("  links: {}\n", m.tags.join(", ")));
