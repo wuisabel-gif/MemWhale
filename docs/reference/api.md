@@ -67,8 +67,7 @@ Returns server version, status, and the number of loaded memories:
 
 Searches the same explainable retrieval engine as the CLI. `q` is required;
 `limit` defaults to 20 and accepts 1–50. The optional `agent` filter accepts
-`claude`, `rho`, or `terminal`; `terminal` matches command rows whose nullable
-storage value is `NULL`. The same filter can also be written inline in `q`,
+`claude`, `rho`, or `terminal`; `terminal` matches records whose nullable storage value is `NULL`. The same filter can also be written inline in `q`,
 for example `q=linker+error+agent%3Aclaude`.
 
 Each result includes the namespaced memory ID, score, full stored memory,
