@@ -1635,14 +1635,34 @@ fn search_results(conn: &Connection, query: &str) -> String {
     let mut rows = 0;
     out.push_str("<h2>Search results</h2>\n<div class=\"list\">\n");
 
-    if let Ok(mut stmt) = conn.prepare(
+    let mut command_sql = String::from(
         "SELECT id, command, argv_json, exit_code, created_at, notes, stdout, stderr, agent
          FROM command_runs
-         WHERE command LIKE ?1 OR argv_json LIKE ?1 OR IFNULL(cwd, '') LIKE ?1
-            OR stdout LIKE ?1 OR stderr LIKE ?1 OR notes LIKE ?1
-         ORDER BY id DESC LIMIT 40",
-    ) {
-        if let Ok(iter) = stmt.query_map(params![needle.as_str()], |r| {
+         WHERE (command LIKE ?1 OR argv_json LIKE ?1 OR IFNULL(cwd, '') LIKE ?1
+            OR stdout LIKE ?1 OR stderr LIKE ?1 OR notes LIKE ?1)
+           AND (agent IS NULL OR agent IN ('claude', 'rho'))",
+    );
+    let mut command_params = vec![needle.clone()];
+    if !agents.is_empty() {
+        let clauses: Vec<String> = agents
+            .iter()
+            .map(|agent| {
+                if agent == "terminal" {
+                    "agent IS NULL".to_string()
+                } else {
+                    command_params.push(agent.clone());
+                    format!("agent = ?{}", command_params.len())
+                }
+            })
+            .collect();
+        command_sql.push_str(" AND (");
+        command_sql.push_str(&clauses.join(" OR "));
+        command_sql.push(')');
+    }
+    command_sql.push_str(" ORDER BY id DESC LIMIT 40");
+
+    if let Ok(mut stmt) = conn.prepare(&command_sql) {
+        if let Ok(iter) = stmt.query_map(rusqlite::params_from_iter(command_params.iter()), |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,
