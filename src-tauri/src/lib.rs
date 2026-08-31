@@ -239,7 +239,8 @@ fn init_connection() -> anyhow::Result<Connection> {
             stdout TEXT NOT NULL DEFAULT '',
             stderr TEXT NOT NULL DEFAULT '',
             notes TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            agent TEXT
         );
 
         CREATE TABLE IF NOT EXISTS command_arguments (
@@ -732,8 +733,8 @@ fn save_command_run(
         "
         INSERT INTO command_runs
             (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
-             repository_id, repository_name, worktree_root)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+             agent, repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10, ?11)
         ",
         params![
             command,

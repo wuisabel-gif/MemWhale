@@ -55,6 +55,7 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
             stderr TEXT NOT NULL DEFAULT '',
             notes TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL,
+            agent TEXT,
             capture_kind TEXT NOT NULL DEFAULT 'full',
             error_fingerprint TEXT,
             repository_id TEXT,
@@ -245,6 +246,15 @@ mod tests {
             )
             .unwrap();
         assert_eq!(lifecycle, ("active".to_string(), None));
+        let legacy_agent: Option<String> = conn
+            .query_row("SELECT agent FROM command_runs WHERE id = 12", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert!(
+            legacy_agent.is_none(),
+            "upgraded rows preserve NULL agent provenance"
+        );
 
         for (table, expected) in [
             ("sessions", 1_i64),
@@ -332,6 +342,15 @@ mod tests {
                 assert_eq!(exists, 1, "missing {table}.{column}");
             }
         }
+        let agent_decl: (String, String, i64) = conn
+            .query_row(
+                "SELECT name, type, \"notnull\" FROM pragma_table_info('command_runs')
+                 WHERE name = 'agent'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(agent_decl, ("agent".to_string(), "TEXT".to_string(), 0));
     }
 
     #[test]
@@ -364,5 +383,11 @@ mod tests {
             )
             .unwrap();
         assert_eq!(capture_kind, "full");
+        let agent: Option<String> = conn
+            .query_row("SELECT agent FROM command_runs WHERE id = 1", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(agent.is_none(), "legacy command rows default to NULL agent");
     }
 }

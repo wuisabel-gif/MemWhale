@@ -132,7 +132,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 9;
+pub const LATEST_SCHEMA_VERSION: i64 = 10;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -163,6 +163,10 @@ pub const LATEST_SCHEMA_VERSION: i64 = 9;
 /// Migration 6 — memory lifecycle: adds `status` and `superseded_by_id` to
 /// bookmarks. Existing memories remain active; stale and superseded memories
 /// retain their evidence while leaving normal retrieval.
+///
+/// Migration 10 — structured command provenance: adds nullable `agent` to
+/// `command_runs`. Existing command runs remain NULL because their capture
+/// client is not known retroactively.
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -267,6 +271,11 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         backfill_repository_identities(conn)?;
         conn.execute_batch("PRAGMA user_version = 9;")
             .map_err(|e| format!("failed to migrate repository identities: {e}"))?;
+    }
+    if version < 10 {
+        ensure_agent(conn)?;
+        conn.execute_batch("PRAGMA user_version = 10;")
+            .map_err(|e| format!("failed to migrate command agent provenance: {e}"))?;
     }
     Ok(())
 }
@@ -416,6 +425,16 @@ pub fn ensure_capture_kind(conn: &Connection) -> Result<(), String> {
             "capture_kind",
             "TEXT NOT NULL DEFAULT 'full'",
         )?;
+    }
+    Ok(())
+}
+
+/// Add `command_runs.agent` if the table exists and lacks it. The field is
+/// deliberately nullable: only verified Claude/Rho hook captures know their
+/// client, while ordinary terminal and manual captures stay NULL.
+pub fn ensure_agent(conn: &Connection) -> Result<(), String> {
+    if table_exists(conn, "command_runs")? {
+        add_column_if_missing(conn, "command_runs", "agent", "TEXT")?;
     }
     Ok(())
 }

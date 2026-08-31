@@ -105,6 +105,7 @@ fn claude(payload: &serde_json::Map<String, Value>) -> Option<CommandRecord> {
         notes: "agent:claude-code".to_string(),
         command_parts: vec![command],
         capture_kind: "full".to_string(),
+        agent: Some(Agent::Claude.as_str().to_string()),
     })
 }
 
@@ -201,6 +202,7 @@ fn rho(payload: &Value) -> Option<CommandRecord> {
             vec![command]
         },
         capture_kind: "full".to_string(),
+        agent: Some(Agent::Rho.as_str().to_string()),
     })
 }
 
@@ -420,6 +422,7 @@ mod tests {
         assert_eq!(record.stdout, "ok");
         assert_eq!(record.exit_code, Some(0));
         assert_eq!(record.notes, "agent:claude-code");
+        assert_eq!(record.agent.as_deref(), Some("claude"));
     }
 
     #[test]
@@ -478,6 +481,7 @@ mod tests {
         assert!(record.exit_code.is_none());
         assert!(record.notes.contains("status:failed"));
         assert!(record.notes.contains("command:unknown"));
+        assert_eq!(record.agent.as_deref(), Some("rho"));
     }
 
     #[test]

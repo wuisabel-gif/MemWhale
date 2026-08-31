@@ -134,6 +134,18 @@ fn hook_records_command_cwd_and_exit_code() {
         "wrong cwd {:?} in {rows:?}",
         hit.1
     );
+    let conn = rusqlite::Connection::open(home.join("data/memorywhale.sqlite3")).unwrap();
+    let agent: Option<String> = conn
+        .query_row(
+            "SELECT agent FROM command_runs WHERE command = ?1",
+            [&hit.0],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(
+        agent.is_none(),
+        "normal terminal hook rows stay unattributed"
+    );
 }
 
 #[test]

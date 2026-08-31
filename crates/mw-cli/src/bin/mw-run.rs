@@ -194,8 +194,8 @@ fn remember_command(
         "
         INSERT INTO command_runs
             (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
-             error_fingerprint, repository_id, repository_name, worktree_root)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+             agent, error_fingerprint, repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10, ?11, ?12)
         ",
         params![
             command,

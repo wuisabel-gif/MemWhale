@@ -91,6 +91,7 @@ fn run() -> Result<(), String> {
             notes,
             command_parts,
             capture_kind,
+            agent: None,
         })?;
     if let Some(run_id) = run_id {
         println!("remembered command run #{run_id}");

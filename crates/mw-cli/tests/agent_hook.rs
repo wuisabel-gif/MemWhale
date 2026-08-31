@@ -56,13 +56,14 @@ fn from_hook_records_a_claude_bash_payload() {
     );
 
     let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
-    let command: String = conn
+    let (agent, command): (Option<String>, String) = conn
         .query_row(
-            "SELECT command FROM command_runs WHERE notes LIKE '%agent:claude-code%'",
+            "SELECT agent, command FROM command_runs WHERE notes LIKE '%agent:claude-code%'",
             [],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .unwrap();
+    assert_eq!(agent.as_deref(), Some("claude"));
     assert_eq!(command, "cargo test --from-hook-claude");
 }
 
@@ -85,18 +86,103 @@ fn from_hook_records_a_rho_failure_without_command_text() {
     assert!(output.status.success(), "{output:?}");
 
     let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
-    let (command, exit_code, notes): (String, Option<i64>, String) = conn
+    let (agent, command, exit_code, notes): (Option<String>, String, Option<i64>, String) = conn
         .query_row(
-            "SELECT command, exit_code, notes FROM command_runs",
+            "SELECT agent, command, exit_code, notes FROM command_runs",
             [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
         .unwrap();
+    assert_eq!(agent.as_deref(), Some("rho"));
     assert_eq!(command, "[rho:after_tool_use]");
     assert!(exit_code.is_none());
     assert!(notes.contains("agent:rho"), "{notes}");
     assert!(notes.contains("status:failed"), "{notes}");
     assert!(notes.contains("command:unknown"), "{notes}");
+}
+
+#[test]
+fn repeated_claude_hook_writes_keep_each_row_attributed() {
+    let data_dir = sandbox("claude-repeated");
+    let payload = r#"{
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "cwd": "/work",
+        "tool_input": {"command": "cargo test --repeated"},
+        "tool_response": {"stdout": "ok", "stderr": ""}
+    }"#;
+
+    for _ in 0..2 {
+        let output = remember_from_hook(&data_dir, "claude", payload);
+        assert!(output.status.success(), "{output:?}");
+    }
+
+    let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
+    let (rows, attributed): (i64, i64) = conn
+        .query_row(
+            "SELECT COUNT(*), COUNT(agent) FROM command_runs",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!((rows, attributed), (2, 2));
+}
+
+#[test]
+fn manual_capture_keeps_agent_null() {
+    let data_dir = sandbox("manual");
+    let output = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
+        .args([
+            "--cwd",
+            "/work",
+            "--exit-code",
+            "0",
+            "--stdout",
+            "manual stdout",
+            "--stderr",
+            "manual stderr",
+            "--notes",
+            "manual capture",
+            "--",
+            "cargo",
+            "test",
+        ])
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .env("PATH", "")
+        .output()
+        .expect("run manual mw-remember capture");
+    assert!(output.status.success(), "{output:?}");
+
+    let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
+    let (agent, cwd, exit_code, stdout, stderr, notes): (
+        Option<String>,
+        Option<String>,
+        Option<i64>,
+        String,
+        String,
+        String,
+    ) = conn
+        .query_row(
+            "SELECT agent, cwd, exit_code, stdout, stderr, notes FROM command_runs",
+            [],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            },
+        )
+        .unwrap();
+    assert!(agent.is_none());
+    assert_eq!(cwd.as_deref(), Some("/work"));
+    assert_eq!(exit_code, Some(0));
+    assert_eq!(stdout, "manual stdout");
+    assert_eq!(stderr, "manual stderr");
+    assert!(notes.contains("manual capture"));
 }
 
 #[test]

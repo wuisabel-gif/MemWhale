@@ -2051,7 +2051,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "command_runs");
         if c.contains("command") && c.contains("argv_json") && c.contains("created_at") {
             let sql = format!(
-                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs s",
+                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs s",
                 sel(&c, "command", "''"),
                 sel(&c, "argv_json", "'[]'"),
                 sel(&c, "cwd", "NULL"),
@@ -2060,6 +2060,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 sel(&c, "stderr", "''"),
                 sel(&c, "notes", "''"),
                 sel(&c, "created_at", "''"),
+                sel(&c, "agent", "NULL"),
                 sel(&c, "repository_id", "NULL"),
                 sel(&c, "repository_name", "NULL"),
                 sel(&c, "worktree_root", "NULL")
@@ -2073,6 +2074,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 String,
                 String,
                 String,
+                Option<String>,
                 Option<String>,
                 Option<String>,
                 Option<String>,
@@ -2094,6 +2096,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                         r.get(8)?,
                         r.get(9)?,
                         r.get(10)?,
+                        r.get(11)?,
                     ))
                 });
                 let rows = mapped
@@ -2111,6 +2114,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 stderr,
                 notes,
                 created_at,
+                agent,
                 repository_id,
                 repository_name,
                 worktree_root,
@@ -2143,8 +2147,8 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     conn.execute(
                         "INSERT INTO command_runs
                             (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
-                             repository_id, repository_name, worktree_root)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                             agent, repository_id, repository_name, worktree_root)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                         params![
                             command,
                             argv_json,
@@ -2154,6 +2158,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                             stderr,
                             notes,
                             created_at,
+                            agent,
                             repository_id,
                             repository_name,
                             worktree_root

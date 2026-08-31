@@ -17,6 +17,9 @@ pub struct CommandRecord {
     pub notes: String,
     pub command_parts: Vec<String>,
     pub capture_kind: String,
+    /// Controlled provenance for verified agent hooks; ordinary captures use
+    /// `None` and persist SQL NULL.
+    pub agent: Option<String>,
 }
 
 /// Persist one command run. Returns `Ok(None)` when capture is off for `cwd`.
@@ -52,8 +55,8 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
         "
         INSERT INTO command_runs
             (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
-             capture_kind, repository_id, repository_name, worktree_root)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+             capture_kind, agent, repository_id, repository_name, worktree_root)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
         ",
         params![
             command,
@@ -65,6 +68,7 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
             crate::sanitize_capture(&record.notes),
             created_at,
             record.capture_kind,
+            record.agent,
             repository.as_ref().map(|repo| repo.id.as_str()),
             repository.as_ref().map(|repo| repo.name.as_str()),
             repository.as_ref().map(|repo| repo.worktree_root.as_str())
