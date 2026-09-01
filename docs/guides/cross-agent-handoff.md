@@ -45,8 +45,8 @@ scripts/agent-handoff-demo.sh
 The script creates a temporary data directory, runs the Claude hook parser with
 `tests/fixtures/agent-handoff/claude-post-tool-use-failure.json`, verifies the
 stored/searchable `agent:claude` result, records a separate terminal command,
-and sends `server/discover`, `tools/list`, and `search_memory` requests to the
-actual `mw-mcp` binary as a Rho client.
+and sends Rho's legacy `initialize`, `notifications/initialized`, `tools/list`,
+and `search_memory` requests to the actual `mw-mcp` binary.
 
 Expected output includes:
 

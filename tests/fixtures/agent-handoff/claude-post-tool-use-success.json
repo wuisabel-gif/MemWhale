@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "cwd": "/tmp/memorywhale-agent-handoff",
+  "tool_input": {
+    "command": "cargo test -p demo --no-default-features # fix: rerun without --features cuda"
+  },
+  "tool_response": {
+    "stdout": "cargo test passed",
+    "stderr": ""
+  }
+}
