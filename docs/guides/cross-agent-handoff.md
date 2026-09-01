@@ -43,18 +43,21 @@ scripts/agent-handoff-demo.sh
 ```
 
 The script creates a temporary data directory, runs the Claude hook parser with
-`tests/fixtures/agent-handoff/claude-post-tool-use-failure.json`, verifies the
-stored/searchable `agent:claude` result, records a separate terminal command,
-and sends Rho's legacy `initialize`, `notifications/initialized`, `tools/list`,
-and `search_memory` requests to the actual `mw-mcp` binary.
+both `tests/fixtures/agent-handoff/claude-post-tool-use-failure.json` and
+`tests/fixtures/agent-handoff/claude-post-tool-use-success.json`, verifies the
+stored/searchable `agent:claude` failure and fix, records a separate terminal
+command, and sends Rho's legacy `initialize`, `notifications/initialized`,
+`tools/list`, and `search_memory` requests to the actual `mw-mcp` binary.
 
 Expected output includes:
 
 ```text
-captured and searchable as agent:claude
+failure captured and searchable as agent:claude
+fix retained with Claude provenance
 terminal-only command remains terminal-attributed
-Rho retrieved Claude's prior failure from the shared store
-Agent handoff complete: Claude captured the failure; Rho found it without rediscovery.
+Rho completed initialize → initialized → tools/list → search_memory
+Rho retrieved Claude's failure and verified fix from the shared store
+Agent handoff complete: Claude captured the failure and fix; Rho found both without rediscovery.
 ```
 
 The script defaults to `target/debug` binaries. Override them when testing a
