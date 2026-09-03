@@ -1,6 +1,7 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
 pub mod agent_hook;
+pub mod github;
 pub mod integrate;
 pub mod mcp;
 pub mod remember;
