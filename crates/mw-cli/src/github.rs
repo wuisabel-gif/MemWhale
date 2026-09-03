@@ -217,7 +217,7 @@ fn validate_repository(repository: &str) -> Result<String, String> {
 fn neutralize_terminal_controls(value: &str) -> String {
     value
         .chars()
-        .filter(|character| matches!(character, '\n' | '\r' | '\t') || !character.is_control())
+        .filter(|character| matches!(character, '\n' | '\t') || !character.is_control())
         .collect()
 }
 
@@ -464,7 +464,7 @@ mod tests {
             "number": 7,
             "title": "title\u{1b}[2J",
             "state": "open",
-            "body": "body\u{1b}]52;c;clipboard\u{7}",
+            "body": "body\u{1b}]52;c;clipboard\u{7}\rhidden",
             "head": {"sha": "head"}
         });
         let output = render_context("octo/example", &pr, None, None);
