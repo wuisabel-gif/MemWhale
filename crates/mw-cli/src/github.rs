@@ -6,12 +6,19 @@
 //! adds that behavior deliberately.
 
 use serde_json::Value;
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::thread;
+use std::time::{Duration, Instant};
 
 const MAX_GH_RESPONSE_BYTES: usize = 512 * 1024;
 const MAX_CONTEXT_BYTES: usize = 60 * 1024;
 const MAX_BODY_BYTES: usize = 8 * 1024;
 const MAX_REVIEW_BYTES: usize = 4 * 1024;
+const MAX_CHECKS_SECTION_BYTES: usize = 16 * 1024;
+const MAX_REVIEWS_SECTION_BYTES: usize = 24 * 1024;
+const MAX_GH_RUNTIME: Duration = Duration::from_secs(120);
 
 /// Fetch a bounded, redacted, agent-ready context summary for a pull request in
 /// the repository containing the current working directory.
@@ -63,24 +70,121 @@ pub fn context(number: u64) -> Result<String, String> {
     Ok(cap(&crate::sanitize_capture(&output), MAX_CONTEXT_BYTES))
 }
 
+enum CaptureMessage {
+    Complete { stdout: bool, bytes: Vec<u8> },
+    TooLarge { stdout: bool },
+}
+
+fn read_bounded<R: Read>(mut reader: R, stdout: bool, sender: mpsc::Sender<CaptureMessage>) {
+    let mut bytes = Vec::new();
+    let mut buffer = [0_u8; 8192];
+    loop {
+        let count = match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(count) => count,
+            Err(_) => {
+                let _ = sender.send(CaptureMessage::Complete { stdout, bytes });
+                return;
+            }
+        };
+        if bytes.len().saturating_add(count) > MAX_GH_RESPONSE_BYTES {
+            let _ = sender.send(CaptureMessage::TooLarge { stdout });
+            return;
+        }
+        bytes.extend_from_slice(&buffer[..count]);
+    }
+    let _ = sender.send(CaptureMessage::Complete { stdout, bytes });
+}
+
+fn stop_child(
+    child: &mut std::process::Child,
+    stdout_thread: thread::JoinHandle<()>,
+    stderr_thread: thread::JoinHandle<()>,
+) {
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = stdout_thread.join();
+    let _ = stderr_thread.join();
+}
+
 fn run_gh(args: &[&str]) -> Result<String, String> {
-    let output = Command::new("gh")
+    let mut child = Command::new("gh")
         .args(args)
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|error| format!("GitHub CLI (`gh`) is unavailable: {error}"))?;
-    if !output.status.success() {
-        let detail = String::from_utf8_lossy(&output.stderr);
-        let detail = cap(&crate::sanitize_capture(&detail), 1000);
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "GitHub CLI stdout pipe is unavailable".to_string())?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "GitHub CLI stderr pipe is unavailable".to_string())?;
+    let (sender, receiver) = mpsc::channel();
+    let stdout_thread = thread::spawn({
+        let sender = sender.clone();
+        move || read_bounded(stdout, true, sender)
+    });
+    let stderr_thread = thread::spawn(move || read_bounded(stderr, false, sender));
+
+    let started = Instant::now();
+    let mut stdout_bytes = None;
+    let mut stderr_bytes = None;
+    while stdout_bytes.is_none() || stderr_bytes.is_none() {
+        let message = loop {
+            match receiver.recv_timeout(Duration::from_millis(100)) {
+                Ok(message) => break message,
+                Err(RecvTimeoutError::Timeout) if started.elapsed() < MAX_GH_RUNTIME => {}
+                Err(RecvTimeoutError::Timeout) => {
+                    stop_child(&mut child, stdout_thread, stderr_thread);
+                    return Err("GitHub CLI exceeded the 120 second runtime limit".to_string());
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    stop_child(&mut child, stdout_thread, stderr_thread);
+                    return Err("GitHub CLI output streams disconnected".to_string());
+                }
+            }
+        };
+        match message {
+            CaptureMessage::Complete {
+                stdout: true,
+                bytes,
+            } => stdout_bytes = Some(bytes),
+            CaptureMessage::Complete {
+                stdout: false,
+                bytes,
+            } => stderr_bytes = Some(bytes),
+            CaptureMessage::TooLarge { stdout } => {
+                stop_child(&mut child, stdout_thread, stderr_thread);
+                return Err(if stdout {
+                    "GitHub response exceeded the 512 KiB stdout safety limit".to_string()
+                } else {
+                    "GitHub response exceeded the 512 KiB stderr safety limit".to_string()
+                });
+            }
+        }
+    }
+    let status = child
+        .wait()
+        .map_err(|error| format!("failed waiting for GitHub CLI: {error}"))?;
+    let _ = stdout_thread.join();
+    let _ = stderr_thread.join();
+    let stdout = String::from_utf8(stdout_bytes.unwrap_or_default())
+        .map_err(|_| "GitHub CLI returned non-UTF-8 output".to_string())?;
+    if !status.success() {
+        let detail = external_text(
+            &String::from_utf8_lossy(&stderr_bytes.unwrap_or_default()),
+            1000,
+        );
         return Err(if detail.is_empty() {
-            format!("GitHub CLI exited with {}", output.status)
+            format!("GitHub CLI exited with {status}")
         } else {
-            format!("GitHub CLI exited with {}: {detail}", output.status)
+            format!("GitHub CLI exited with {status}: {detail}")
         });
     }
-    if output.stdout.len() > MAX_GH_RESPONSE_BYTES {
-        return Err("GitHub response exceeded the 512 KiB safety limit".to_string());
-    }
-    String::from_utf8(output.stdout).map_err(|_| "GitHub CLI returned non-UTF-8 output".to_string())
+    Ok(stdout)
 }
 
 fn run_gh_json(args: &[&str]) -> Result<Value, String> {
@@ -110,12 +214,23 @@ fn validate_repository(repository: &str) -> Result<String, String> {
     Ok(format!("{owner}/{name}"))
 }
 
+fn neutralize_terminal_controls(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| matches!(character, '\n' | '\r' | '\t') || !character.is_control())
+        .collect()
+}
+
+fn external_text(value: &str, limit: usize) -> String {
+    let value = neutralize_terminal_controls(&crate::sanitize_capture(value));
+    cap(&value, limit)
+}
+
 fn string_field(value: &Value, key: &str, limit: usize) -> String {
     value
         .get(key)
         .and_then(Value::as_str)
-        .map(crate::sanitize_capture)
-        .map(|value| cap(&value, limit))
+        .map(|value| external_text(value, limit))
         .unwrap_or_else(|| "(none)".to_string())
 }
 
@@ -124,8 +239,7 @@ fn nested_string(value: &Value, parent: &str, key: &str, limit: usize) -> String
         .get(parent)
         .and_then(|parent| parent.get(key))
         .and_then(Value::as_str)
-        .map(crate::sanitize_capture)
-        .map(|value| cap(&value, limit))
+        .map(|value| external_text(value, limit))
         .unwrap_or_else(|| "(none)".to_string())
 }
 
@@ -140,8 +254,6 @@ fn page_items(value: &Value, key: &str) -> Vec<Value> {
         .iter()
         .all(|page| !page.is_array() && page.get(key).is_none())
     {
-        // An endpoint such as pull-request reviews returns an array directly
-        // when only one page is present.
         return pages.clone();
     }
     let mut items = Vec::new();
@@ -149,12 +261,76 @@ fn page_items(value: &Value, key: &str) -> Vec<Value> {
         if let Some(page_items) = page.get(key).and_then(Value::as_array) {
             items.extend(page_items.iter().cloned());
         } else if let Some(page_items) = page.as_array() {
-            // `gh api --paginate --slurp` returns arrays of page payloads for
-            // endpoints whose response itself is an array (reviews).
             items.extend(page_items.iter().cloned());
         }
     }
     items
+}
+
+fn capped_section(title: &str, body: &str, max_bytes: usize) -> String {
+    let header = format!("\n## {title}\n");
+    let marker = "- [section truncated: additional items omitted]\n";
+    if header.len() + body.len() <= max_bytes {
+        return format!("{header}{body}");
+    }
+    let budget = max_bytes.saturating_sub(header.len() + marker.len());
+    format!("{header}{}{marker}", cap(body, budget))
+}
+
+fn checks_section(checks: Option<&Value>) -> String {
+    let Some(checks) = checks else {
+        return capped_section(
+            "CI checks",
+            "- unavailable (GitHub checks request failed; PR metadata remains available)\n",
+            MAX_CHECKS_SECTION_BYTES,
+        );
+    };
+    let items = page_items(checks, "check_runs");
+    let mut body = String::new();
+    if items.is_empty() {
+        body.push_str("- (none reported)\n");
+    }
+    for check in items.into_iter().take(200) {
+        body.push_str(&format!(
+            "- {}: {} / {} ({})\n",
+            string_field(&check, "name", 300),
+            string_field(&check, "status", 100),
+            string_field(&check, "conclusion", 100),
+            string_field(&check, "html_url", 1000),
+        ));
+    }
+    capped_section("CI checks", &body, MAX_CHECKS_SECTION_BYTES)
+}
+
+fn reviews_section(reviews: Option<&Value>) -> String {
+    let Some(reviews) = reviews else {
+        return capped_section(
+            "Reviews",
+            "- unavailable (GitHub reviews request failed; PR metadata remains available)\n",
+            MAX_REVIEWS_SECTION_BYTES,
+        );
+    };
+    let items = page_items(reviews, "reviews");
+    let mut body = String::new();
+    if items.is_empty() {
+        body.push_str("- (none reported)\n");
+    }
+    for review in items.into_iter().take(100) {
+        body.push_str(&format!(
+            "\n### {} — {} ({})\n",
+            nested_string(&review, "user", "login", 200),
+            string_field(&review, "state", 100),
+            string_field(&review, "submitted_at", 100),
+        ));
+        let review_body = review
+            .get("body")
+            .and_then(Value::as_str)
+            .map(|body| external_text(body, MAX_REVIEW_BYTES))
+            .unwrap_or_else(|| "(no review body)".to_string());
+        body.push_str(&review_body);
+        body.push('\n');
+    }
+    capped_section("Reviews", &body, MAX_REVIEWS_SECTION_BYTES)
 }
 
 pub(crate) fn render_context(
@@ -207,7 +383,7 @@ pub(crate) fn render_context(
         .into_iter()
         .flatten()
         .filter_map(|label| label.get("name").and_then(Value::as_str))
-        .map(|label| cap(&crate::sanitize_capture(label), 100))
+        .map(|label| external_text(label, 100))
         .take(30)
         .collect();
     output.push_str(&format!(
@@ -222,58 +398,14 @@ pub(crate) fn render_context(
     let body = pull_request
         .get("body")
         .and_then(Value::as_str)
-        .map(crate::sanitize_capture)
-        .map(|body| cap(&body, MAX_BODY_BYTES))
+        .map(|body| external_text(body, MAX_BODY_BYTES))
         .unwrap_or_else(|| "(none)".to_string());
     output.push_str("\n## Pull request description\n\n");
     output.push_str(&body);
     output.push('\n');
-
-    if let Some(checks) = checks {
-        output.push_str("\n## CI checks\n");
-        let items = page_items(checks, "check_runs");
-        if items.is_empty() {
-            output.push_str("- (none reported)\n");
-        }
-        for check in items.into_iter().take(200) {
-            output.push_str(&format!(
-                "- {}: {} / {} ({})\n",
-                string_field(&check, "name", 300),
-                string_field(&check, "status", 100),
-                string_field(&check, "conclusion", 100),
-                string_field(&check, "html_url", 1000),
-            ));
-        }
-    }
-
-    if let Some(reviews) = reviews {
-        output.push_str("\n## Reviews\n");
-        let items = if reviews.as_array().is_some() {
-            page_items(reviews, "reviews")
-        } else {
-            reviews.as_array().cloned().unwrap_or_default()
-        };
-        if items.is_empty() {
-            output.push_str("- (none reported)\n");
-        }
-        for review in items.into_iter().take(100) {
-            output.push_str(&format!(
-                "\n### {} — {} ({})\n",
-                nested_string(&review, "user", "login", 200),
-                string_field(&review, "state", 100),
-                string_field(&review, "submitted_at", 100),
-            ));
-            let body = review
-                .get("body")
-                .and_then(Value::as_str)
-                .map(crate::sanitize_capture)
-                .map(|body| cap(&body, MAX_REVIEW_BYTES))
-                .unwrap_or_else(|| "(no review body)".to_string());
-            output.push_str(&body);
-            output.push('\n');
-        }
-    }
-    output
+    output.push_str(&checks_section(checks));
+    output.push_str(&reviews_section(reviews));
+    neutralize_terminal_controls(&output)
 }
 
 fn cap(value: &str, max_bytes: usize) -> String {
@@ -324,5 +456,48 @@ mod tests {
         assert!(output.contains("[REDACTED]"));
         assert!(!output.contains("super-secret"));
         assert!(output.contains("reviewer"));
+    }
+
+    #[test]
+    fn external_text_has_no_active_terminal_controls() {
+        let pr = json!({
+            "number": 7,
+            "title": "title\u{1b}[2J",
+            "state": "open",
+            "body": "body\u{1b}]52;c;clipboard\u{7}",
+            "head": {"sha": "head"}
+        });
+        let output = render_context("octo/example", &pr, None, None);
+        assert!(!output.contains('\u{1b}'));
+        assert!(!output.contains('\u{7}'));
+    }
+
+    #[test]
+    fn bounded_reader_reports_overflow_before_completion() {
+        let (sender, receiver) = mpsc::channel();
+        read_bounded(
+            std::io::Cursor::new(vec![b'x'; MAX_GH_RESPONSE_BYTES + 1]),
+            true,
+            sender,
+        );
+        assert!(matches!(
+            receiver.recv().unwrap(),
+            CaptureMessage::TooLarge { stdout: true }
+        ));
+    }
+
+    #[test]
+    fn optional_sections_keep_status_and_truncation_markers() {
+        let checks = json!({
+            "check_runs": (0..200)
+                .map(|index| json!({"name": format!("check-{index}-{}", "x".repeat(200)), "status": "completed", "conclusion": "success", "html_url": "https://example.test/check"}))
+                .collect::<Vec<_>>()
+        });
+        let pull_request = json!({"number": 7, "title": "title", "state": "open"});
+        let output = render_context("octo/example", &pull_request, Some(&checks), None);
+        assert!(output.contains("## CI checks"));
+        assert!(output.contains("section truncated"));
+        assert!(output.contains("## Reviews"));
+        assert!(output.contains("unavailable"));
     }
 }
