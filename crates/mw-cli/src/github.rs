@@ -470,6 +470,7 @@ mod tests {
         let output = render_context("octo/example", &pr, None, None);
         assert!(!output.contains('\u{1b}'));
         assert!(!output.contains('\u{7}'));
+        assert!(!output.contains('\r'));
     }
 
     #[test]
