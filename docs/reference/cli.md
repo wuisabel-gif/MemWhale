@@ -20,6 +20,7 @@ mw link 1000000001 3000000001 rel:fixed-by   # link two memories (typed edge; id
 mw links 1000000001                   # show a memory's linked neighbors (both directions); mw unlink <a> <b> removes
 mw tui                                # interactive terminal browser (type to search, Enter to act, F1 help, Esc quit)
 mw git-fix                            # diagnose the last failed git command: what, why, the fix
+mw github context <pr>                 # fetch bounded, redacted GitHub PR context through gh
 mw mark "before the risky flash"      # bookmark the current debugging moment
 mw remember "the fix was passing --features vendored-ssl"  # save a lesson/conclusion (warns on a near-duplicate; add --force to save anyway)
 mw remember "staging creds rotate friday" ttl:7d   # auto-expires after 7d (m/h/d/w) — drops from retrieval, evidence preserved

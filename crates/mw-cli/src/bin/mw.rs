@@ -77,6 +77,7 @@ fn run() -> Result<(), String> {
         Some("status") => return global_status(),
         Some("hooks") => return hooks_cmd(&raw_args[1..]),
         Some("integrate") => return integrate_cmd(&raw_args[1..]),
+        Some("github") => return github_cmd(&raw_args[1..]),
         Some("--help") | Some("-h") => {
             print_help();
             return Ok(());
@@ -318,7 +319,7 @@ fn print_help() {
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          mw integrate claude [--revert]  install or remove Claude Code hook, skill, and MCP\n\
          mw integrate rho [--revert] [--http [url]] [--token secret]  Rho hook, skill, and MCP (stdio by default; --http for mw-serve /mcp)\n\
-         mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
+         mw integrate hermes       register mw-mcp in Hermes Agent's config\n         mw github context <pr>  fetch bounded, redacted GitHub PR context through your `gh` login\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
          Raw transcript: <data_local>/MemoryWhale/sessions/\n\
@@ -4019,6 +4020,29 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
         println!("(none)");
     }
     Ok(())
+}
+
+fn github_cmd(args: &[String]) -> Result<(), String> {
+    match args {
+        [subcommand, number] if subcommand == "context" => {
+            let number = number
+                .parse::<u64>()
+                .map_err(|_| format!("invalid pull request number {number:?}"))?;
+            let context = memorywhale_cli::github::context(number)?;
+            print!("{context}");
+            if !context.ends_with('\n') {
+                println!();
+            }
+            Ok(())
+        }
+        [subcommand] if subcommand == "context" => {
+            Err("usage: mw github context <pull-request-number>".to_string())
+        }
+        _ => Err(
+            "usage: mw github context <pull-request-number>\n         reads metadata, CI checks, and reviews without storing them"
+                .to_string(),
+        ),
+    }
 }
 
 /// Self-check the install so a confused user (or agent) can see what's wrong.
