@@ -10,8 +10,6 @@ jobs:
   memory-audit:
     name: Audit and search memory
     runs-on: ubuntu-latest
-    env:
-      MEMORYWHALE_DATA_DIR: ${{ runner.temp }}/memorywhale
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -23,12 +21,16 @@ jobs:
         run: cargo build --locked --release -p memorywhale-cli --bins
 
       - name: Run privacy audit
+        env:
+          MEMORYWHALE_DATA_DIR: ${{ runner.temp }}/memorywhale
         run: |
           mkdir -p "$MEMORYWHALE_DATA_DIR"
           target/release/mw audit
 
       - name: Verify memory capture and retrieval
         shell: bash
+        env:
+          MEMORYWHALE_DATA_DIR: ${{ runner.temp }}/memorywhale
         run: |
           set -euo pipefail
           mkdir -p "$MEMORYWHALE_DATA_DIR"
