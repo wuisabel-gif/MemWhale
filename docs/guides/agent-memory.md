@@ -1,5 +1,7 @@
 # Connect a coding agent
 
+For a deterministic Claude-to-Rho handoff walkthrough, see [Cross-agent handoff](cross-agent-handoff.md).
+
 MemoryWhale exposes local memory through the stdio MCP server `mw-mcp`, and
 through `POST /mcp` on `mw-serve` (one JSON-RPC object per request). Use the
 [generic MCP contract](../../integrations/generic-mcp/README.md) or a verified
