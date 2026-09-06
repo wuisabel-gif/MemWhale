@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c177f5ebba1899016da1a16ac5f7382f2cb7c39b0d2b0a8cfa73aa0fccf46aec -->
+<!-- README-SOURCE-SHA256: 0c0dee340943c6650cc58749d96cb86c7728e6fc31cef1f4daba0be190a01965 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -8,7 +8,7 @@
 
 <p align="center"><strong>開発者とコーディングエージェントのための、永続的なローカルデバッグメモリ。</strong></p>
 
-<p align="center"><a href="README.md">English README</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
+<p align="center"><a href="README.md">English README</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
