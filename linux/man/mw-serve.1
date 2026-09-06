@@ -1,6 +1,6 @@
-.TH MW-SERVE 1 "2026-06-22" "MemoryWhale" "User Commands"
+.TH MW-SERVE 1 "2026-09-06" "MemoryWhale 0.10.0" "User Commands"
 .SH NAME
-mw-serve \- serve the MemoryWhale memory store as a local web dashboard
+mw-serve \- local dashboard, HTTP MCP, and opt-in read-only JSON API
 .SH SYNOPSIS
 .B mw-serve
 .RI [ --lan ]
@@ -11,6 +11,7 @@ mw-serve \- serve the MemoryWhale memory store as a local web dashboard
 .RI [ --token
 .IR secret ]
 .RI [ --print-token ]
+.RI [ --api ]
 .SH DESCRIPTION
 .B mw-serve
 runs a small, dependency-free HTTP server that renders the local MemoryWhale
@@ -44,6 +45,21 @@ file.
 TCP port to listen on. Default
 .BR 7071 .
 .TP
+.BI "--token " secret
+Require a shared token, including on loopback. Overrides
+.BR MEMORYWHALE_TOKEN .
+Protected HTTP MCP requests must use Bearer authentication; JSON API requests
+may use Bearer authentication or the dashboard login cookie.
+.TP
+.B --api
+Enable the read-only
+.B /api/v1
+JSON API (disabled by default). Includes health, search, memory-by-ID,
+command-by-ID, session-list, and repository/worktree endpoints. Search and
+list responses are capped at 50 items. There are no API write, arbitrary SQL,
+or arbitrary file-read endpoints. The API shares the dashboard's listener,
+request bounds, host checks, and token gate.
+.TP
 .B --print-token
 Print the token this process would use and exit without binding.
 This can mint
@@ -55,7 +71,7 @@ Default loopback serving stays open unless
 or
 .B MEMORYWHALE_TOKEN
 is set.
-.PP
+.SH HTTP MCP
 .B POST /mcp
 on the same port is one JSON-RPC object per request (no SSE session).
 Clients may send
@@ -70,13 +86,51 @@ Loopback is open by default. An explicit
 or a LAN bind requires
 .B Authorization: Bearer
 matching the dashboard token.
+.PP
+The same six tools as
+.BR mw-mcp (1)
+are available independently of
+.BR --api .
+MCP can explicitly write a lesson through
+.BR remember ;
+agent-authored lessons are pending review by default. MCP access alone does
+not capture terminal commands.
+.SH API ENDPOINTS
+.nf
+GET /api/v1/health
+GET /api/v1/search?q=text&limit=20&agent=claude
+GET /api/v1/memories/:id
+GET /api/v1/commands/:id
+GET /api/v1/sessions?limit=20
+GET /api/v1/repositories
+.fi
+.PP
+The optional search agent filter accepts claude, rho, or terminal. Terminal
+matches NULL provenance, including manual and legacy records. Agent is
+separate from the command/session/note source type. Memory IDs are namespaced;
+command IDs are raw command_runs IDs, exposed as command_id in search results.
+.SH SECURITY
+Default loopback serving is open unless a token is explicitly configured.
+Non-loopback serving requires a token and should be limited to trusted
+networks. HTTP does not encrypt the token or retrieved evidence.
+.SH ENVIRONMENT
+.TP
+.B MEMORYWHALE_DATA_DIR
+Select the local memory store and persistent serve.token directory.
+.TP
+.B MEMORYWHALE_TOKEN
+Set an explicit access token without a command-line argument.
 .SH EXAMPLES
 .TP
 Localhost only:
 .B mw-serve
 .TP
+Local dashboard, HTTP MCP, and read-only JSON API:
+.B mw-serve --api
+.TP
 Authenticated LAN access at port 8080:
 .B MEMORYWHALE_TOKEN=shared-secret mw-serve --lan --port 8080
 .SH SEE ALSO
 .BR mw (1),
-.BR mw-remember (1)
+.BR mw-remember (1),
+.BR mw-mcp (1)

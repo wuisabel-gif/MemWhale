@@ -2156,7 +2156,7 @@ dependencies = [
 
 [[package]]
 name = "memorywhale"
-version = "0.7.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2177,7 +2177,7 @@ dependencies = [
 
 [[package]]
 name = "memorywhale-cli"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "chrono",
  "dirs 5.0.1",

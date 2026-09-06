@@ -6,12 +6,13 @@ _mw_complete() {
   local cur prev
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
+  COMPREPLY=()
 
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=( $(compgen -W "\
 list show mark remember memory rm prune audit share discard replay demo \
 export import push pull context agent ask search explain link unlink links \
-pet tui sync-mempalace git-fix doctor global status hooks integrate \
+pet tui sync-mempalace git-fix github doctor global status hooks integrate \
 --live --autosave --notes --version --help" -- "$cur") )
     return
   fi
@@ -21,7 +22,17 @@ pet tui sync-mempalace git-fix doctor global status hooks integrate \
       [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "on off status" -- "$cur") )
       ;;
     memory)
-      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "stale supersede" -- "$cur") )
+      if [ "$COMP_CWORD" -eq 2 ]; then
+        COMPREPLY=( $(compgen -W "stale supersede compact" -- "$cur") )
+      elif [ "${COMP_WORDS[2]}" = compact ]; then
+        case "$prev" in
+          --min-session-bytes|--stale-days|--max-output-bytes) return ;;
+        esac
+        COMPREPLY=( $(compgen -W "--apply --min-session-bytes --stale-days --max-output-bytes --help" -- "$cur") )
+      fi
+      ;;
+    github)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=( $(compgen -W "context" -- "$cur") )
       ;;
     hooks)
       if [ "$COMP_CWORD" -eq 2 ]; then
@@ -36,8 +47,20 @@ pet tui sync-mempalace git-fix doctor global status hooks integrate \
     integrate)
       if [ "$COMP_CWORD" -eq 2 ]; then
         COMPREPLY=( $(compgen -W "claude claude-code hermes rho" -- "$cur") )
-      elif [ "$COMP_CWORD" -eq 3 ] && { [ "${COMP_WORDS[2]}" = "claude" ] || [ "${COMP_WORDS[2]}" = "claude-code" ] || [ "${COMP_WORDS[2]}" = "rho" ]; }; then
-        COMPREPLY=( $(compgen -W "--revert" -- "$cur") )
+      else
+        case "${COMP_WORDS[2]}" in
+          claude|claude-code)
+            [ "$COMP_CWORD" -eq 3 ] && COMPREPLY=( $(compgen -W "--revert" -- "$cur") )
+            ;;
+          rho)
+            [ "$prev" = --token ] && return
+            if [ "$prev" = --http ]; then
+              COMPREPLY=( $(compgen -W "http://127.0.0.1:7071/mcp --token --revert" -- "$cur") )
+            else
+              COMPREPLY=( $(compgen -W "--revert --http --token" -- "$cur") )
+            fi
+            ;;
+        esac
       fi
       ;;
     sync-mempalace)
@@ -77,6 +100,24 @@ pet tui sync-mempalace git-fix doctor global status hooks integrate \
       ;;
     context)
       COMPREPLY=( $(compgen -W "--last-error --limit project:" -- "$cur") )
+      ;;
+    search)
+      case "$prev" in
+        --project|--machine|--since) return ;;
+        agent:) COMPREPLY=( $(compgen -W "claude rho terminal" -- "$cur") ); return ;;
+        source:) COMPREPLY=( $(compgen -W "command session note document conversation" -- "$cur") ); return ;;
+        :)
+          case "${COMP_WORDS[COMP_CWORD-2]}" in
+            agent) COMPREPLY=( $(compgen -W "claude rho terminal" -- "$cur") ); return ;;
+            source) COMPREPLY=( $(compgen -W "command session note document conversation" -- "$cur") ); return ;;
+          esac
+          ;;
+      esac
+      COMPREPLY=( $(compgen -W "--explain --project --machine --since tag: source:command source:session source:note source:document source:conversation agent:claude agent:rho agent:terminal before: after: limit:" -- "$cur") )
+      # Readline treats ':' as a word break by default; do not insert it twice.
+      if [[ "$cur" == *:* && "$COMP_WORDBREAKS" == *:* ]]; then
+        COMPREPLY=( "${COMPREPLY[@]#${cur%:*}:}" )
+      fi
       ;;
     ask)
       case "$prev" in

@@ -1,4 +1,4 @@
-.TH MW 1 "2026-07-02" "MemoryWhale" "User Commands"
+.TH MW 1 "2026-09-06" "MemoryWhale 0.10.0" "User Commands"
 .SH NAME
 mw \- record whole terminal sessions into local MemoryWhale storage
 .SH SYNOPSIS
@@ -17,6 +17,19 @@ mw \- record whole terminal sessions into local MemoryWhale storage
 .br
 .B mw git-fix
 .RI [ id ]
+.br
+.B mw github context
+.I pull-request-number
+.br
+.B mw integrate
+.RB { claude | rho }
+.RB [ --revert ]
+.br
+.B mw integrate rho
+.RB [ --http
+.RI [ url ]]
+.RB [ --token
+.IR secret ]
 .br
 .B mw mark
 .I text
@@ -107,8 +120,25 @@ Print the full faithful transcript of session
 .IR id .
 .TP
 .BI "mw search " text
-Search command runs (command, arguments, output, notes) and session
-transcripts for a substring; prints matches with follow-up hints.
+Rank command runs, session transcripts, and notes by relevance. Results include
+namespaced memory IDs, source types, and producing-agent labels.
+Use
+.B --explain
+for ranking reasons. Inline filters include
+.BR tag:X ,
+.BR source:command|session|note|document|conversation ,
+.BR agent:claude|rho|terminal ,
+.BR before:YYYY-MM-DD ,
+.BR after:YYYY-MM-DD ,
+and
+.BR limit:N .
+Agent is separate from source type: a Claude shell capture is still a command.
+.B terminal
+matches NULL provenance (terminal/manual or legacy records), not a stored
+agent string or proof of human authorship.
+.TP
+.BI "mw explain " "id [query]"
+Show the per-signal score breakdown for one namespaced memory ID from search.
 .TP
 .BI "mw git-fix " [id]
 Diagnose the last failed
@@ -122,6 +152,41 @@ happened, prints the fix, and checks whether this has come up before or was
 already resolved via
 .BR "mw remember" .
 .TP
+.BI "mw github context " pull-request-number
+Explicitly fetch bounded, redacted PR metadata, CI check-runs, classic commit
+statuses, and reviews
+through the existing
+.BR gh (1)
+login, using the repository containing the current working directory.
+Prints context without checking out code, submitting a review, automatically
+saving to memory, or background synchronization. An independently enabled
+terminal recorder can still capture the printed output.
+.TP
+.B mw integrate claude [--revert]
+Install Claude Code MCP registration, capture hook, and bundled memory-use
+skill. The hook uses
+.BR "mw-remember --from-hook claude" ;
+no checkout or Python runtime is required.
+.B claude-code
+is an alias. Revert removes the integration without deleting memory.
+.TP
+.BI "mw integrate rho [--revert] [--http [" url "]] [--token " secret ]
+Install Rho MCP registration, capture hook, and skill. Stdio is the default;
+.B --http
+selects the
+.B POST /mcp
+endpoint (default http://127.0.0.1:7071/mcp).
+.B --token
+requires
+.BR --http .
+LAN HTTP requires a token; the installer prints the authorization environment
+setup for the client. Revert removes the integration without deleting memory.
+Hooks capture supported events; a skill guides memory use, not automatic
+task-start recall, failure lookup, or pre-compaction saving.
+.TP
+.B mw integrate hermes
+Register the MCP server in Hermes Agent's config.
+.TP
 .BI "mw mark " text
 Bookmark the current debugging moment with a note.
 .TP
@@ -130,6 +195,32 @@ Save a freeform lesson or conclusion (e.g. what actually fixed a bug), so
 .BR "mw search" " and " "mw context"
 surface it later instead of it being re-derived. Shares storage with
 .BR "mw mark" .
+.TP
+.BI "mw memory stale " id
+Retire an outdated lesson while preserving its row.
+.TP
+.BI "mw memory supersede " "old-id new-id"
+Replace a lesson with a newer memory without deleting the original evidence.
+.TP
+.B mw memory compact [--apply]
+Preview conservative evidence compaction; only
+.B --apply
+changes retained text. Preserves rows and original session files.
+Threshold options are
+.BR --min-session-bytes ,
+.BR --stale-days ,
+and
+.BR --max-output-bytes ,
+each followed by a number.
+.TP
+.BI "mw link " "a b [rel:type]"
+Link two namespaced memory IDs; the default relation is related.
+.TP
+.BI "mw unlink " "a b [rel:type]"
+Remove a typed link between two memories.
+.TP
+.BI "mw links " id
+Show a memory's linked neighbors in both directions.
 .TP
 .BI "mw rm [session|command] " id
 Delete a saved session (default) or command run by id. A session's transcript
@@ -220,6 +311,34 @@ Check the install: data directory, database, the
 .BR script (1)
 dependency, auto-record hook status, the local MCP server, and Claude Code
 and Rho integration (MCP registration, capture hook, and skill).
+Each integration component is checked independently; missing optional clients
+are not detected, not failed installs. The bounded MCP probe discovers or
+initializes the protocol and lists tools, without calling memory tools,
+running client CLIs, changing configuration, or printing tokens.
+.TP
+.B mw tui
+Browse memory interactively, including pending agent-authored lessons
+for review.
+.TP
+.B mw pet [--watch]
+Show the whale whose mood reflects the store; optionally animate it. Read-only.
+.TP
+.B mw audit
+Inspect capture policy, retained volume, and high-volume sources.
+.TP
+.B mw status
+Print the effective capture mode for this directory and why it applies.
+.TP
+.B mw hooks install|uninstall [pwsh]
+Install or remove lightweight per-command shell capture, without output.
+.TP
+.BI "mw sync-mempalace " "[--wing name] [--limit n] [--dry-run]"
+Explicitly mirror memories into a configured MemPalace server, idempotently by
+memory ID. Dry-run prints the plan without contacting the server.
+.TP
+.B mw --version
+Print the product version without opening the database; alias
+.BR -V .
 .TP
 .B mw global on
 Wire a shell-startup hook so every new interactive terminal auto-records.
@@ -234,6 +353,12 @@ Show whether auto-recording is enabled and where it is wired.
 .B MEMORYWHALE_DATA_DIR
 Override the data directory (default
 .IR <data_local>/MemoryWhale ).
+.TP
+.B CLAUDE_CONFIG_DIR
+Override the Claude Code configuration directory used by integration and doctor.
+.TP
+.B RHO_HOME
+Override the Rho configuration directory used by integration and doctor.
 .TP
 .B MW_RECORDING
 Set to 1 inside a recorded shell; the global hook checks it to avoid nested

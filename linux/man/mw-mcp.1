@@ -1,14 +1,17 @@
-.TH MW-MCP 1 "2026-07-03" "MemoryWhale" "User Commands"
+.TH MW-MCP 1 "2026-09-06" "MemoryWhale 0.10.0" "User Commands"
 .SH NAME
 mw-mcp \- Model Context Protocol server over MemoryWhale memory
 .SH SYNOPSIS
 .B mw-mcp
+.RB [ --list-tools ]
 .SH DESCRIPTION
 .B mw-mcp
 is a Model Context Protocol (MCP) server that lets an AI agent query your
 MemoryWhale memory directly, instead of pasting it in. It speaks
-newline-delimited JSON-RPC 2.0 on standard input and output and takes no
-arguments. It reads the same local database as the rest of the CLI and honours
+newline-delimited JSON-RPC 2.0 on standard input and output. Use
+.B --list-tools
+to print the runtime tool names and exit. It reads the same local database as
+the rest of the CLI and honours
 .BR MEMORYWHALE_DATA_DIR .
 .PP
 Register it once with an MCP client, e.g. Claude Code:
@@ -16,6 +19,21 @@ Register it once with an MCP client, e.g. Claude Code:
 .RS
 .B claude mcp add memorywhale -- mw-mcp
 .RE
+.PP
+For Claude Code or Rho capture hooks and memory-use guidance as well as MCP
+registration, use
+.B mw integrate claude
+or
+.BR "mw integrate rho" .
+MCP alone does not automatically capture terminal or agent commands.
+.SH PROTOCOL AND TRUST
+Supports revision 2026-07-28 with per-request metadata and server/discover,
+plus legacy 2025-11-25 and 2024-11-05 initialization. Stdio has no network
+listener or separate protocol authentication: trust is inherited from the
+spawning client and OS user. Trusted clients can read evidence and explicitly
+save lessons. The same tools are available at POST /mcp through
+.BR mw-serve (1),
+with Bearer authentication when that listener uses a token.
 .SH TOOLS
 .TP
 .B recent_errors
@@ -23,9 +41,12 @@ Recent failed commands (non-zero exit) with their error output.
 .TP
 .B search_memory
 Search remembered commands, arguments, output, and notes for a term.
+Requires query; optional project, machine, and agent filters scope retrieval.
 .TP
 .B get_context
-A compact digest of recent failures, optionally scoped to a project tag.
+Ranked memory context, optionally scoped by project, machine, and agent.
+The agent filter accepts claude, rho, or terminal; terminal matches NULL
+provenance including manual and legacy records. Agent is separate from source.
 .TP
 .B remember
 Save a freeform lesson or conclusion for later, so a future
@@ -33,6 +54,15 @@ Save a freeform lesson or conclusion for later, so a future
 or
 .B get_context
 call finds it instead of re-deriving it.
+Requires text. Agent-authored lessons are pending review by default and do not
+enter retrieval until approved. This is the only tool that writes memory.
+.TP
+.B similar_failures
+Find evidence of prior occurrences and later successful runs. Requires
+error_text; optional command enables exact fingerprint matching.
+.TP
+.B stats
+Read the memory count, failure count, most recent timestamp, and database path.
 .SH ENVIRONMENT
 .TP
 .B MEMORYWHALE_DATA_DIR

@@ -1,32 +1,61 @@
-<!-- README-SOURCE-SHA256: 549ef1e456cdc737af888a321cab2241e5e3cc032eea3f5a4ffe033f129ed530 -->
+<!-- README-SOURCE-SHA256: 2f6582d6f7bc44c7565242f9d5f5baba95e2e7ccdea75c18230bad6b144369a5 -->
 
-# MemoryWhale
+<p align="center">
+  <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
+</p>
 
-為開發者與程式設計 Agent 提供持久化、本地優先的除錯記憶。
+<h1 align="center">MemoryWhale</h1>
 
-[English README](README.md) · [简体中文 README](README.zh-CN.md) · [한국어 README](README.ko.md)
+<p align="center"><strong>為開發者與程式設計代理提供持久的本機除錯記憶。</strong></p>
 
-MemoryWhale 會記錄你在除錯過程中真正發生過的事情：執行過的指令、輸出結果、錯誤與失敗，以及最後真正有效的解決方法。
+<p align="center"><a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
-這些資訊會儲存在本地 SQLite 資料庫中。即使終端機已經關閉、SSH 連線已經中斷，或 AI Agent 的工作階段已經結束，你和你的程式設計 Agent 仍然可以重新找到這些資訊。
+<p align="center">
+  <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
+  <a href="https://github.com/wuisabel-gif/MemWhale/releases"><img src="https://img.shields.io/github/v/release/wuisabel-gif/MemWhale?color=2b43dd&label=release" alt="發行版本"/></a>
+  <a href="https://crates.io/crates/memorywhale-cli"><img src="https://img.shields.io/crates/v/memorywhale-cli?color=2b43dd&label=crates.io" alt="crates.io"/></a>
+  <img src="https://img.shields.io/badge/license-MIT-2b43dd" alt="MIT 授權"/>
+  <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="本機優先，不上傳資料"/>
+</p>
 
-## 為什麼使用 MemoryWhale？
+MemoryWhale 記錄除錯時真正發生過的事：指令、輸出、失敗，以及最後有效的修正。
+這些證據儲存在本機 SQLite 中，即使終端機已關閉、SSH 已中斷，或代理工作階段已結束，
+你和程式設計代理仍能找回它們。
 
-- **記住真正發生過的事情。** 保留當時的指令、執行環境、輸出、錯誤與最後得到的經驗，而不只是一行 Shell History。
-- **讓不同的程式設計 Agent 共用同一份記憶。** 任何相容 stdio MCP 的客戶端，都可以透過 `mw-mcp` 讀取同一個本地記憶庫，並透過 `remember` 儲存單一筆記。
-- **讓開發歷史留在本地。** MemoryWhale 不需要帳號、不依賴託管服務，也不需要為「記憶」額外支付按 Token 計費的費用。
+**MemoryWhale 0.10.0 — Agent-Native Memory · 2026 年 9 月 6 日。**
+CLI、Web 介面與桌面應用程式統一採用產品版本 0.10.0；可重用的 Rust 核心版本為 0.5.0。
+升級指南與 Rust API 的不相容變更請參閱[發行說明](docs/releases/0.10.0.md)。
 
-MemoryWhale 記錄的是開發與除錯經驗，而不是所有資訊。它是一個除錯記憶層（debugging memory layer），不是自主程式設計 Agent、通用型個人記憶系統，也不能取代專案文件。
+## 為什麼選擇 MemoryWhale
+
+- **記住真正發生過的事。** 保留指令、環境、輸出、失敗與經驗，而不只是一行 Shell 歷史。
+- **讓不同程式設計代理共用記憶。** 任何相容的 stdio MCP 用戶端都能透過 `mw-mcp` 讀寫同一份本機記憶。
+- **讓開發歷史留在本機。** MemoryWhale 不需要帳號、代管服務或按 Token 計費的記憶服務。
+
+MemoryWhale 記錄開發經驗，而非所有資訊。它是除錯記憶層，不是自主程式設計代理、
+通用個人記憶系統，也不能取代專案文件。
+
+## Agent-Native Memory 的新功能
+
+- **連接並檢查代理。** 透過 `mw integrate` 安裝 Claude Code 或 Rho 的 MCP 存取、
+  擷取掛鉤與記憶使用指引；`mw doctor` 分別檢查 MCP、掛鉤和技能。
+- **明確保留來源資訊。** 資料庫結構版本 10 將指令的代理欄位儲存為 `claude`、`rho` 或 `NULL`。
+  顯示及篩選標籤 `terminal` 表示終端機、手動或舊記錄來源，並不能證明指令由人類執行。
+  代理身分獨立於 `command`、`session` 或 `note` 等資料來源類型。
+- **共用儲存庫身分，區分工作樹。** 標準化儲存庫 ID 將關聯工作樹歸為一組，同時保留各工作樹根目錄與既有專案標籤。
+  探索過程讀取本機 Git 中繼資料，不存取遠端服務。
+- **使用本機介面。** `mw-serve` 在 `POST /mcp` 提供 HTTP MCP；`mw-serve --api` 明確啟用唯讀 JSON API。
+  兩者共用儀表板的接聽器；非回環存取需要權杖。
+- **明確取得 GitHub 上下文。** `mw github context <pr>` 透過現有的 `gh` 登入讀取 PR 中繼資料、檢查結果與審查。
+  它輸出經過大小限制與敏感資訊遮蔽的上下文，不簽出程式碼，也不自動儲存到記憶中。沒有背景 GitHub 同步。
 
 ## 安裝
 
-Linux x86_64/aarch64 與 macOS 提供預先編譯的二進位檔：
+Linux x86_64/aarch64 和 macOS 提供預先編譯的二進位檔：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/v0.8.0/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
 ```
-
-這個版本化的安裝腳本會尋找最新的穩定版本，並在發布資產提供 SHA256 檔案時驗證下載內容。若要使用其他版本，請將 URL 中的標籤替換成對應的 release tag。
 
 也可以透過 Cargo 或 Homebrew 安裝：
 
@@ -37,95 +66,99 @@ brew tap wuisabel-gif/memorywhale https://github.com/wuisabel-gif/MemWhale
 brew install memorywhale
 ```
 
-Windows 使用者可以透過 [WSL](https://learn.microsoft.com/windows/wsl/) 執行 MemoryWhale。關於套件安裝、PATH 設定與各平台注意事項，請參閱[快速開始指南](docs/guides/getting-started.md)。
-
-## 60 秒快速上手
+安裝或升級後，檢查版本與本機設定：
 
 ```bash
-mw global on                         # 開始記錄之後執行的互動式 Shell 指令
-mw-run -- cargo check                # 記錄單一指令及其輸出
-mw remember "the linker needed libssl-dev"
-mw search "linker error"             # 找回之前的錯誤與解決方法
-mw context --last-error              # 為任何 Agent 或聊天產生精簡上下文
-mw pet                               # 看看你的記憶庫現在是什麼心情
-mw pet --watch                       # 讓記憶鯨持續展示狀態動畫
+mw --version
+mw doctor
 ```
 
-對於時間較長的工作，可以使用 `mw --live` 記錄具備崩潰恢復能力的 Shell 工作階段。
+Windows 使用者可以在 [WSL](https://learn.microsoft.com/windows/wsl/) 中執行 MemoryWhale。
+套件安裝、PATH 設定與平台說明請參閱[入門指南](docs/guides/getting-started.md)。
 
-`mw tui` 可以開啟互動式終端瀏覽器，而 `mw-serve` 則會啟動本地 Web Dashboard。
+## 60 秒範例
+
+```bash
+mw global on                         # capture future interactive shell commands
+mw-run -- cargo check                # capture one command and its output
+mw remember "the linker needed libssl-dev"
+mw search "linker error"             # recover the failure and its fix
+mw context --last-error              # compact context for any agent or chat
+mw pet                               # check your memory store's mood
+```
+
+![mw pet 心情示範](assets/pet-demo.gif)
+
+較長的工作可以用 `mw --live` 記錄具備當機復原能力的 Shell 工作階段。
+`mw tui` 開啟互動式終端機瀏覽器，`mw-serve` 啟動本機 Web 儀表板。
 
 ## 運作方式
 
 ```text
-擷取 CAPTURE              記憶 MEMORY                檢索 RETRIEVAL
-shell / mw-run ──────► 本地 SQLite ─────────────► search / context
-agent hooks ─────────► 除錯證據 + 經驗 ─────────► 相似的歷史錯誤
-                                                     │
-                                                   介面
-                                        CLI / MCP / TUI / Web / Desktop
+CAPTURE                 MEMORY                 RETRIEVAL
+shell / mw-run ──────► local SQLite ────────► search / context
+agent hooks ─────────► evidence + lessons ──► similar failures
+                                                   │
+                                              INTERFACES
+                                      CLI / MCP / TUI / Web / Desktop
 ```
 
-擷取（Capture）與檢索（Retrieval）彼此獨立。
+擷取與檢索彼此獨立。MCP 讓代理存取既有記憶，不會自動記錄一般終端機活動。
+完整模型請參閱[架構](docs/architecture.md)與[擷取概念](docs/concepts/capture.md)。
 
-MCP 可以讓 Agent 存取現有記憶，但它不會自動記錄一般終端機中的操作。完整運作模型請參閱 [Architecture](docs/architecture.md) 與 [Capture Concept](docs/concepts/capture.md) 文件。
+## 與程式設計代理搭配使用
 
-## 與你的程式設計 Agent 一起使用
-
-`mw-mcp` 是 MemoryWhale 與各種 AI 程式設計工具之間的共用整合介面：一個在本地執行的 stdio MCP Server，提供六個記憶工具：
-
-- `recent_errors`
-- `search_memory`
-- `get_context`
-- `remember`
-- `similar_failures`
-- `stats`
-
-目前已有整合指南涵蓋 Claude Code、Claude Desktop、Cursor、VS Code / GitHub Copilot、Windsurf、Zed、Codex CLI、Cline、Continue、Gemini CLI、Goose、OpenClaw、CrowClaw、Hermes Agent，以及其他相容的客戶端。整合矩陣目前包含 24 個客戶端與工具條目，並會標示各條目提供的功能。
-
-例如 Claude Code：
+`mw-mcp` 是共用的整合介面：一個提供六個記憶工具的本機 stdio MCP 伺服器，
+也能透過 `mw-serve` 以 HTTP 存取。現有指南涵蓋 Claude Code、Rho、Claude Desktop、
+Cursor、VS Code / GitHub Copilot、Windsurf、Zed、Codex CLI、Cline、Continue、
+Gemini CLI、Goose、OpenClaw、CrowClaw、Hermes Agent 以及其他相容用戶端。
 
 ```bash
-claude mcp add memorywhale -- mw-mcp
+mw integrate claude
+mw integrate rho
+mw doctor
 ```
 
-不同客戶端提供的能力並不完全相同。MCP 負責存取記憶；若要自動擷取指令執行過程，則需要針對特定客戶端設定 Hook。
+並非所有用戶端都具備相同能力。MCP 提供記憶存取；自動執行擷取需要用戶端專用掛鉤。
+[整合矩陣](integrations/README.md)區分存取、擷取與記憶使用指引，並連結各個已驗證的設定指南。
 
-[Integration Matrix](integrations/README.md) 會區分 Memory Access、Automatic Capture 與 Memory-use Guidance，並提供每個客戶端的設定指南。
+Rho 目前的掛鉤載荷缺少指令文字與 stdout：失敗可用中繼資料配合佔位指令記錄；
+沒有指令文字的成功呼叫會被略過。[跨代理交接示範](docs/guides/cross-agent-handoff.md)
+使用測試樣本與模擬的 Rho 用戶端連接真正的 MCP，並非執行真正的代理或驗證 Cargo 修正。
+
+內建技能提供記憶使用指引，但未實作任務開始時自動回憶、失敗時自動查找或壓縮前自動儲存。
+這些生命週期決策仍由用戶端負責。透過 MCP 撰寫的經驗預設處於待審查狀態。
 
 ## MemoryWhale 適合誰？
 
-MemoryWhale 適合那些除錯上下文經常散落在終端機捲動紀錄、Shell History、不同開發機器或暫時性 Agent 工作階段的開發者。
+MemoryWhale 適合除錯上下文散落在終端機捲動記錄、Shell 歷史、不同機器與臨時代理工作階段中的開發者。
+如果你經常遇到下列情況，它會特別有用：
 
-如果你經常：
+- 除錯建置、相依套件、Git、環境或部署問題；
+- 跨工作階段使用程式設計代理，或切換工具；
+- 透過 SSH 或在多台開發機器之間工作；
+- 希望重複出現的失敗及其修正保持可搜尋；
+- 偏好本機儲存，而不是代管記憶服務。
 
-- 除錯建置、相依套件、Git、開發環境或部署問題；
-- 跨多個工作階段使用程式設計 Agent，或在不同工具之間切換；
-- 透過 SSH 工作，或在多台開發機器之間切換；
-- 希望重複出現的錯誤及其解決方法能夠持續被搜尋；
-- 比起託管式記憶服務，更偏好將資料儲存在本地；
-
-那麼 MemoryWhale 會特別適合你。
-
-請參閱 [Use Cases](docs/concepts/use-cases.md)，查看這些情境的完整端到端流程與實際指令。
+[使用情境](docs/concepts/use-cases.md)提供各情境的端到端流程與實際指令。
 
 ## 文件
 
-- [Documentation Map](docs/README.md)
-- [快速開始](docs/guides/getting-started.md)
-- [`mw pet` Reference](docs/reference/pet.md)
-- [Terminal Capture](docs/guides/terminal-capture.md)
-- [Agent Memory](docs/guides/agent-memory.md)
-- [CLI Reference](docs/reference/cli.md)
-- [MCP Reference](docs/reference/mcp.md)
-- [Memory Compaction](docs/reference/compaction.md)
-- [Security and Local Threat Model](docs/SECURITY.md)
-- [Integration Guides and Capability Matrix](integrations/README.md)
+- [文件地圖](docs/README.md)
+- [入門指南](docs/guides/getting-started.md)
+- [`mw pet` 參考](docs/reference/pet.md)
+- [終端機擷取](docs/guides/terminal-capture.md)
+- [代理記憶](docs/guides/agent-memory.md)
+- [CLI 參考](docs/reference/cli.md)
+- [本機 JSON API](docs/reference/api.md)
+- [MCP 參考](docs/reference/mcp.md)
+- [安全與本機威脅模型](docs/SECURITY.md)
+- [生態系統](ECOSYSTEM.md) — Delphin、ContextGC 與 MemoryWhale 協作
+- [整合指南與能力矩陣](integrations/README.md)
 
 ## 參與貢獻
 
-MemoryWhale 歡迎任何能改善開發經驗擷取、保存、檢索或共享方式的貢獻。
+MemoryWhale 接受能改善開發經驗擷取、保存、檢索或分享的變更。
+請閱讀 [CONTRIBUTING.md](CONTRIBUTING.md)，了解範圍規則、開發指令與提取要求檢查清單。
 
-請閱讀 [CONTRIBUTING.md](CONTRIBUTING.md)，了解專案的貢獻範圍、開發指令以及 Pull Request Checklist。
-
-MemoryWhale 採用 [MIT License](LICENSE) 授權。
+採用 [MIT 授權](LICENSE)。

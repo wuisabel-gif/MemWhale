@@ -19,7 +19,7 @@ case "$os-$arch" in
   Darwin-x86_64)           target="x86_64-apple-darwin" ;;
   Darwin-arm64)            target="aarch64-apple-darwin" ;;
   *) echo "unsupported platform: $os-$arch" >&2
-     echo "build from source instead: cargo install --git https://github.com/$REPO mw-cli" >&2
+     echo "build from source instead: cargo install --git https://github.com/$REPO memorywhale-cli" >&2
      exit 1 ;;
 esac
 
@@ -74,7 +74,7 @@ if [ "$release_status" -ne 0 ]; then
   echo "== ERROR: could not fetch release metadata from the GitHub API." >&2
   echo "   Check your network connection. Unauthenticated GitHub API requests" >&2
   echo "   are rate-limited; if you are hitting the limit, set GITHUB_TOKEN." >&2
-  echo "   Alternatively build from source: cargo install --git https://github.com/$REPO mw-cli" >&2
+  echo "   Alternatively build from source: cargo install --git https://github.com/$REPO memorywhale-cli" >&2
   exit 1
 fi
 
@@ -124,6 +124,14 @@ tar xzf "$tmp/$asset" -C "$tmp"
 mkdir -p "$BIN_DIR"
 cp "$tmp/memorywhale-${ver}-${target}/bin/"* "$BIN_DIR/"
 chmod +x "$BIN_DIR/"mw*
+
+# Re-sign copied macOS executables; an overwritten Mach-O file can retain a
+# stale code-signature cache and be killed by the OS even after a valid download.
+if [ "$os" = Darwin ]; then
+  for binary in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+    codesign --force --sign - "$BIN_DIR/$binary"
+  done
+fi
 
 echo "==> Installed to $BIN_DIR"
 case ":$PATH:" in

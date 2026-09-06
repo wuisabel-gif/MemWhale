@@ -1,4 +1,4 @@
-.TH MW-REMEMBER 1 "2026-06-22" "MemoryWhale" "User Commands"
+.TH MW-REMEMBER 1 "2026-09-06" "MemoryWhale 0.10.0" "User Commands"
 .SH NAME
 mw-remember \- record a single command run into local MemoryWhale storage
 .SH SYNOPSIS
@@ -16,6 +16,9 @@ mw-remember \- record a single command run into local MemoryWhale storage
 .B --
 .I command
 .RI [ args... ]
+.br
+.B mw-remember --from-hook
+.B claude|rho
 .SH DESCRIPTION
 .B mw-remember
 stores one command run \(em its command and arguments, working directory,
@@ -23,6 +26,10 @@ exit code, captured output, and an optional note \(em into the local
 MemoryWhale SQLite database. It is the low-level building block used by the
 per-command shell hook and can also be called directly from scripts. Nothing
 is uploaded.
+.PP
+Supported hooks store structured command provenance as claude or rho. Manual
+recording stores NULL, displayed and filtered as terminal. This producing-agent
+metadata is separate from source type; both are still command records.
 .SH OPTIONS
 .TP
 .BI "--cwd " path
@@ -40,10 +47,20 @@ Captured standard error to store.
 .BI "--notes " text
 Free-form note attached to the run.
 .TP
+.BI "--capture-kind " "full|hook"
+Capture mode, normally full; hook denotes lightweight shell-hook capture.
+.TP
 .BI "--from-hook " "claude|rho"
 Read that client's hook JSON object from standard input and record a
-matching bash/powershell tool call. Unknown or empty payloads are
-ignored. Always exits 0 so a recording failure cannot block the agent.
+supported tool event. Cannot be mixed with manual-recording options or
+a command.
+Unknown, malformed, or empty payloads are ignored. Once valid hook mode is
+selected, parsing/storage failures exit 0 so they cannot block the agent;
+invalid CLI arguments can still fail.
+.PP
+Rho events without command text preserve failed/unavailable status and failure
+metadata with a sentinel command, not invented command output. Successful
+events without command text are skipped. No Python runtime is required.
 .TP
 .B --
 Everything after this is the command and its arguments.

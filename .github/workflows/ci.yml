@@ -24,6 +24,25 @@ jobs:
       - name: Check documentation references
         run: bash scripts/check-doc-references.sh
 
+  release-packages:
+    name: Release package dry-run and smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify crate archives together in dependency order
+        run: cargo publish --dry-run --locked -p memorywhale-core -p memorywhale-cli
+      - name: Build release helpers
+        run: cargo build --locked --release -p memorywhale-cli --bins
+      - name: Exercise release contracts in an isolated store
+        run: python3 scripts/smoke-release.py target/release "$(node -p "require('./package.json').version")"
+      - name: Verify the offline handoff fixture
+        env:
+          MW_BIN: ${{ github.workspace }}/target/release/mw
+          MW_REMEMBER_BIN: ${{ github.workspace }}/target/release/mw-remember
+          MW_MCP_BIN: ${{ github.workspace }}/target/release/mw-mcp
+        run: bash scripts/agent-handoff-demo.sh
+
   frontend:
     name: Frontend build, tests, and audit
     runs-on: ubuntu-latest
@@ -39,6 +58,8 @@ jobs:
         run: npm test
       - name: Check release version consistency
         run: bash scripts/check-release-version.sh
+      - name: Test release version gate
+        run: python3 tests/release/test_versions.py
       - name: Check landing page contracts
         run: npm run test:site
       - name: Install browser for landing-page smoke test
@@ -48,7 +69,7 @@ jobs:
           python3 -m http.server 4173 --directory . > "$RUNNER_TEMP/memorywhale-site.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/memorywhale-site.pid"
           ready=false
-          for attempt in {1..20}; do
+          for _attempt in {1..20}; do
             if curl --fail --silent --show-error http://127.0.0.1:4173/index.html >/dev/null; then
               ready=true
               break

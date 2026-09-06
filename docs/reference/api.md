@@ -57,7 +57,7 @@ Returns server version, status, and the number of loaded memories:
   "api_version": "v1",
   "data": {
     "status": "ok",
-    "version": "0.9.1",
+    "version": "0.10.0",
     "memory_count": 42
   }
 }

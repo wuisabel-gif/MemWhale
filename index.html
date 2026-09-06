@@ -35,7 +35,8 @@
         "operatingSystem": "Linux, macOS",
         "description": "Persistent local debugging memory for developers and coding agents. Captures terminal evidence into local SQLite and serves it over MCP.",
         "url": "https://wuisabel-gif.github.io/MemWhale/",
-        "softwareVersion": "0.9.0",
+        "softwareVersion": "0.10.0",
+        "datePublished": "2026-09-06",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "license": "https://github.com/wuisabel-gif/MemWhale/blob/main/LICENSE"
       }
@@ -907,9 +908,9 @@
         </div>
       </nav>
 
-      <a class="release-banner" href="https://github.com/wuisabel-gif/MemWhale/releases/latest"
+      <a class="release-banner" href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/releases/0.10.0.md"
          style="display:block;text-align:center;padding:11px 16px;background:linear-gradient(105deg,#2b43dd 0%,#10b6c6 100%);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
-        🐋 v0.9.0 — memory stewardship release · assets, checksums, and installation notes →
+        🐋 v0.10.0 — Agent-Native Memory · September 6, 2026 · release notes and upgrade guide →
       </a>
 
       <main id="top">
@@ -1000,6 +1001,41 @@
           </div>
         </section>
 
+        <section id="release" class="section">
+          <p class="eyebrow">New in 0.10.0</p>
+          <h2>Shared memory. Explicit provenance.</h2>
+          <p class="section-copy">
+            Product 0.10.0 spans the CLI, web UI, and desktop app. The reusable
+            Rust core is 0.5.0: Rust <code>Memory</code> literals now require
+            <code>agent: Option&lt;String&gt;</code>; older JSON remains readable
+            through its serde default.
+          </p>
+          <div class="grid">
+            <article class="card">
+              <strong>Connect Claude Code and Rho</strong>
+              <p><code>mw integrate claude</code> and <code>mw integrate rho</code>
+                install MCP access, capture hooks, and a skill.
+                <code>mw doctor</code> checks those components independently.</p>
+            </article>
+            <article class="card">
+              <strong>Know where evidence came from</strong>
+              <p>Schema 10 stores command agents as <code>claude</code>,
+                <code>rho</code>, or <code>NULL</code>, displayed as
+                <code>terminal</code>. Agent is separate from source type.
+                Canonical repository IDs group linked worktrees without losing
+                each worktree's path.</p>
+            </article>
+            <article class="card">
+              <strong>Choose your local interface</strong>
+              <p><code>mw-serve</code> adds HTTP MCP at <code>POST /mcp</code>.
+                <code>--api</code> opts into a read-only JSON API.
+                <code>mw github context &lt;pr&gt;</code> explicitly reads PR
+                metadata, checks, commit statuses, and reviews via your <code>gh</code> login:
+                no checkout, automatic save, or background sync.</p>
+            </article>
+          </div>
+        </section>
+
         <section id="who" class="section">
           <p class="eyebrow">Who it's for</p>
           <h2>Built for three ways of working.</h2>
@@ -1034,8 +1070,8 @@
               <p>
                 Claude Code, Codex, Cursor — every session starts with
                 re-explaining your environment. With <code>mw-mcp</code>, the
-                agent queries grounded past failures (with exit codes) instead
-                of guessing, and saves verified fixes with <code>remember</code>.
+                agent can query prior evidence and explicitly save a lesson
+                with <code>remember</code>. You still need to verify that a fix works.
               </p>
             </article>
           </div>
@@ -1115,14 +1151,16 @@
             <p class="eyebrow">AI agents</p>
             <h2>Give your agent memory of what already failed.</h2>
             <p class="section-copy">
-              Coding agents forget everything between sessions and re-debug what
-              you already solved. <code>mw-mcp</code> is a Model Context Protocol
+              Coding-agent sessions can lose context and repeat debugging you
+              already did. <code>mw-mcp</code> is a Model Context Protocol
               server over your local memory — register it once and Claude Code,
-              Codex, or Cursor can query past failures directly. Retrieval stays
-              local unless you explicitly export or transfer the data.
+              Rho, Codex, or Cursor can query past failures directly. Trust the
+              client with the evidence it retrieves, including any model
+              provider to which that client sends context.
             </p>
-            <div class="client-strip" aria-label="Verified MCP client integrations">
+            <div class="client-strip" aria-label="Clients with integration guides">
               <span class="client-chip">Claude Code</span>
+              <span class="client-chip">Rho</span>
               <span class="client-chip">Claude Desktop</span>
               <span class="client-chip">Codex CLI</span>
               <span class="client-chip">Cursor</span>
@@ -1134,10 +1172,10 @@
               <span class="client-chip">Windsurf</span>
               <span class="client-chip">Goose</span>
               <span class="client-chip">OpenCode</span>
-              <span class="client-chip">+12 more</span>
+              <span class="client-chip">More in the matrix</span>
             </div>
             <p class="section-copy">
-              <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" style="color:var(--azure);text-decoration:underline;">Setup guides for 24 clients and tools</a>
+              <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" style="color:var(--azure);text-decoration:underline;">Setup guides for clients and tools</a>
               — the capability matrix documents MCP support, auto-capture, and
               verification status per client, including model gateways like
               OpenRouter and CLIProxyAPI.
@@ -1164,14 +1202,14 @@
               <span class="light"></span>
               <span class="light"></span>
             </div>
-            <pre><span class="prompt">$</span> claude mcp add memorywhale -- mw-mcp
+            <pre><span class="prompt">$</span> mw integrate claude
+<span class="prompt">$</span> mw integrate rho
+<span class="prompt">$</span> mw doctor
+<span class="prompt">$</span> mw search "linker error" agent:claude
 
-<span class="ok">&gt; why is this build failing?</span>
-<span class="ok">⏺ memorywhale · search_memory</span>
-  Past evidence: this linker error appeared 3 weeks ago.
-  The saved lesson says to rebuild with
-  <span class="error">--features vendored-ssl</span>.
-  The agent reviews that evidence before choosing what to try.</pre>
+<span class="ok"># Search captured Claude evidence from either client.</span>
+# MCP access, hooks, and skills are separate components.
+# A skill guides memory use; it does not force tool calls.</pre>
           </div>
         </section>
 
@@ -1184,6 +1222,15 @@
               search the local store when the same failure returns. MCP provides
               retrieval and explicit writing; it does not capture ordinary
               terminal activity automatically.
+            </p>
+            <p class="section-copy">
+              The <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/guides/cross-agent-handoff.md" style="color:var(--azure);text-decoration:underline;">offline Claude-to-Rho handoff demo</a>
+              imports fixtures and simulates a Rho client against real MCP. It
+              does not run live agents or execute and verify the fixture's Cargo
+              fix. Rho hooks currently retain failure metadata when command
+              text is absent; successful calls without command text are skipped.
+              Automatic task-start recall, failure lookup, and pre-compaction
+              saving remain client-orchestration work, not shipped automation.
             </p>
             <div class="terminal">
               <div class="terminal-bar"><span class="light"></span><span class="light"></span><span class="light"></span></div>
@@ -1229,6 +1276,9 @@
             local store. <code>mw-mcp</code> is a trusted local stdio process;
             the dashboard binds to loopback by default. A non-loopback dashboard
             requires a token, and should only be exposed on a trusted network.
+            Protected HTTP MCP requires Bearer authentication; the opt-in JSON
+            API shares the dashboard's access controls. HTTP does not encrypt
+            the connection. Neither interface makes client access automatic capture.
             See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md" style="color:var(--azure);text-decoration:underline;">local data threat model</a>.
           </p>
         </section>
@@ -1246,17 +1296,18 @@
               use the Linux build.
             </p>
             <div class="stat-list">
-              <div class="stat"><span>Try first</span><strong><code>mw demo</code> — seed data, zero risk</strong></div>
+              <div class="stat"><span>Try first</span><strong><code>mw demo</code> — writes sample data to the selected store</strong></div>
               <div class="stat"><span>Quick install</span><strong><code>curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh</code></strong></div>
               <div class="stat">
                 <span>Cargo</span>
-                <strong><code>cargo install --git https://github.com/wuisabel-gif/MemWhale.git memorywhale-cli</code></strong>
+                <strong><code>cargo install memorywhale-cli --version 0.10.0 --locked</code></strong>
               </div>
               <div class="stat">
                 <span>Debian / Jetson</span>
                 <strong>.deb on the releases page</strong>
               </div>
               <div class="stat"><span>Security</span><strong><a href="#security">Read the model</a></strong></div>
+              <div class="stat"><span>Verify</span><strong><code>mw --version</code> · <code>mw doctor</code></strong></div>
             </div>
           </div>
 
@@ -1267,14 +1318,11 @@
               <span class="light"></span>
             </div>
             <pre><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
-<span class="ok">installed mw — try the demo next, zero risk</span>
 <span class="prompt">$</span> export PATH="$HOME/.local/bin:$PATH"
-<span class="prompt">$</span> mw demo                 # seed a sample store, no real data touched
-<span class="ok">mw: demo memory inserted. Run `mw-serve` and search for project:demo.</span>
-<span class="prompt">$</span> mw-run -- cargo build
-<span class="ok">saved command, output, and exit code locally</span>
-<span class="prompt">$</span> mw search "openssl"
-<span class="ok">retrieved the matching failure and saved lesson</span>
+<span class="prompt">$</span> mw --version
+<span class="prompt">$</span> mw doctor
+<span class="prompt">$</span> mw-run -- cargo check   # in your project
+<span class="prompt">$</span> mw search "cargo check"
 <span class="prompt">$</span> mw global on   # optional, after reviewing capture</pre>
           </div>
         </section>
