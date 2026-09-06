@@ -19,13 +19,14 @@ case "$os-$arch" in
   Darwin-x86_64)           target="x86_64-apple-darwin" ;;
   Darwin-arm64)            target="aarch64-apple-darwin" ;;
   *) echo "unsupported platform: $os-$arch" >&2
-     echo "build from source instead: cargo install --git https://github.com/$REPO mw-cli" >&2
+     echo "build from source instead: cargo install --git https://github.com/$REPO memorywhale-cli" >&2
      exit 1 ;;
 esac
 
 echo "==> Finding latest MemoryWhale release…"
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+install_stage=""
+trap 'rm -rf "$tmp"; if [ -n "$install_stage" ]; then rm -rf "$install_stage"; fi' EXIT
 release_json="$tmp/latest-release.json"
 
 # --- release-tag library (extracted verbatim by tests/install/run-tests.sh) ---
@@ -74,7 +75,7 @@ if [ "$release_status" -ne 0 ]; then
   echo "== ERROR: could not fetch release metadata from the GitHub API." >&2
   echo "   Check your network connection. Unauthenticated GitHub API requests" >&2
   echo "   are rate-limited; if you are hitting the limit, set GITHUB_TOKEN." >&2
-  echo "   Alternatively build from source: cargo install --git https://github.com/$REPO mw-cli" >&2
+  echo "   Alternatively build from source: cargo install --git https://github.com/$REPO memorywhale-cli" >&2
   exit 1
 fi
 
@@ -122,8 +123,23 @@ fi
 tar xzf "$tmp/$asset" -C "$tmp"
 
 mkdir -p "$BIN_DIR"
-cp "$tmp/memorywhale-${ver}-${target}/bin/"* "$BIN_DIR/"
-chmod +x "$BIN_DIR/"mw*
+install_stage="$(mktemp -d "$BIN_DIR/.memorywhale-install.XXXXXX")"
+for binary in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+  cp "$tmp/memorywhale-${ver}-${target}/bin/$binary" "$install_stage/$binary"
+  chmod +x "$install_stage/$binary"
+done
+
+# Sign the entire staged set before changing any installed executable. A signing
+# failure leaves the existing installation untouched. Renames are per-file
+# atomic on the destination filesystem (not a transaction across all binaries).
+if [ "$os" = Darwin ]; then
+  for binary in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+    codesign --force --sign - "$install_stage/$binary"
+  done
+fi
+for binary in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+  mv -f "$install_stage/$binary" "$BIN_DIR/$binary"
+done
 
 echo "==> Installed to $BIN_DIR"
 case ":$PATH:" in

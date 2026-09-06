@@ -4,10 +4,31 @@ Everything needed to run MemoryWhale as a first-class Linux citizen: install the
 CLI binaries, auto-record commands with a shell hook, keep the dashboard alive
 as a service, and package it as a `.deb`.
 
-All of MemoryWhale is local-first. Nothing here uploads anything — every command,
-session, and note lands in `~/.local/share/MemoryWhale/memorywhale.sqlite3`.
+MemoryWhale 0.10.0 — Agent-Native Memory — uses the same product version on
+Linux, macOS, the CLI, and the UI. See the
+[release notes](../docs/releases/0.10.0.md).
+
+Storage is local-first: commands, sessions, and notes land in
+`~/.local/share/MemoryWhale/memorywhale.sqlite3` unless
+`MEMORYWHALE_DATA_DIR` selects another directory. Export, SSH transfer, and
+network access are explicit choices.
 
 ## Quick install
+
+For prebuilt Linux x86_64/aarch64 binaries, use the root installer:
+
+```bash
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/7c3864c743cec9a8fa813dcc0b2459cc2859c849/install.sh -o "$installer"
+  printf '%s  %s\n' '3e0cad72b29c1894d5ff5f7c30b099537f96501801c14b6320c12e169a3ac8d6' "$installer" | shasum -a 256 -c -
+  sh "$installer"
+)
+```
+
+Or, from a source checkout's repository root:
 
 ```bash
 # Build the binaries and install them into ~/.local/bin
@@ -17,13 +38,24 @@ linux/install.sh
 linux/install.sh --all
 ```
 
-Building compiles the crate, which pulls the Tauri/GTK dependency tree, so the
-build host needs the system libraries (already covered in `DEBUG.md`):
+The CLI is separate from the Tauri desktop shell: it does not require GTK or
+WebKit. With a Rust toolchain installed, a Debian/Ubuntu build host needs a C
+build toolchain for bundled SQLite:
 
 ```bash
-sudo apt install -y build-essential pkg-config libssl-dev \
-  libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-  librsvg2-dev libsoup-3.0-dev
+sudo apt install -y build-essential pkg-config
+cargo build --release -p memorywhale-cli --bins
+```
+
+After installing, ensure `~/.local/bin` (or Cargo's `~/.cargo/bin`) is on
+`PATH`, then verify the version and each integration component:
+
+```bash
+mw --version
+mw doctor
+mw integrate claude     # optional Claude Code hook, skill, and MCP setup
+mw integrate rho        # optional Rho hook, skill, and MCP setup
+mw doctor
 ```
 
 ## Pieces
@@ -35,7 +67,7 @@ sudo apt install -y build-essential pkg-config libssl-dev \
 | `systemd/enable-dashboard.sh` | Installs the unit, resolves the `mw-serve` path, enables it, and turns on lingering. |
 | `crates/mw-cli/shell/memorywhale.sh` | A bash/zsh hook that records every command (cwd + exit code) via `mw-remember`. |
 | `completions/mw.bash`, `completions/_mw` | Tab-completion for `mw` in bash and zsh. |
-| `man/*.1` | Man pages for `mw`, `mw-serve`, `mw-remember`. |
+| `man/*.1` | Man pages for `mw`, `mw-run`, `mw-remember`, `mw-serve`, `mw-mcp`, `mw-view`, and `mw-recover`. |
 
 ## Dashboard as a service (survives SSH logout)
 
@@ -55,6 +87,11 @@ For LAN access (open the dashboard from another machine), add `--lan`. If no
 token is set, `mw-serve` mints `serve.token` in the data directory. `mw-serve
 --lan --print-token` prints that LAN token. MCP clients send it as
 `Authorization: Bearer …` to `POST /mcp`.
+
+HTTP MCP is available on the dashboard listener without an extra flag;
+`mw-serve --api` additionally enables the read-only `/api/v1` JSON API.
+Explicit loopback tokens also protect MCP. See the [MCP](../docs/reference/mcp.md)
+and [JSON API](../docs/reference/api.md) references before exposing the service.
 
 ## Per-command recording vs. whole-session
 
@@ -79,8 +116,8 @@ With [`cargo-deb`](https://github.com/kornelski/cargo-deb):
 
 ```bash
 cargo install cargo-deb
-cd src-tauri
-cargo deb            # writes target/debian/memorywhale_0.1.0_<arch>.deb
+cargo deb -p memorywhale-cli   # run from the repository root
+# writes target/debian/memorywhale_0.10.0-1_<arch>.deb (revision may vary)
 sudo dpkg -i target/debian/memorywhale_*.deb
 ```
 

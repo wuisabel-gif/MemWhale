@@ -6,190 +6,200 @@
 //! adds that behavior deliberately.
 
 use serde_json::Value;
-use std::io::Read;
-use std::process::{Command, Stdio};
-use std::sync::mpsc::{self, RecvTimeoutError};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::path::PathBuf;
+use std::process::Command;
+use std::sync::OnceLock;
+use std::time::Duration;
+
+mod command;
 
 const MAX_GH_RESPONSE_BYTES: usize = 512 * 1024;
 const MAX_CONTEXT_BYTES: usize = 60 * 1024;
 const MAX_BODY_BYTES: usize = 8 * 1024;
 const MAX_REVIEW_BYTES: usize = 4 * 1024;
-const MAX_CHECKS_SECTION_BYTES: usize = 16 * 1024;
+const MAX_CHECKS_SECTION_BYTES: usize = 8 * 1024;
+const MAX_STATUSES_SECTION_BYTES: usize = 8 * 1024;
 const MAX_REVIEWS_SECTION_BYTES: usize = 24 * 1024;
 const MAX_GH_RUNTIME: Duration = Duration::from_secs(120);
+const PAGE_SIZE: usize = 100;
+
+struct Gh {
+    program: PathBuf,
+    runtime: Duration,
+}
+
+impl Gh {
+    fn run(&self, args: &[&str], stdout_limit: usize) -> Result<String, String> {
+        let mut command = Command::new(&self.program);
+        command.args(args);
+        command::run(command, stdout_limit, self.runtime)
+            .map_err(|error| external_text(&error, 1200))
+    }
+
+    fn json(&self, args: &[&str]) -> Result<Value, String> {
+        parse_json(&self.run(args, MAX_GH_RESPONSE_BYTES)?)
+    }
+}
 
 /// Fetch a bounded, redacted, agent-ready context summary for a pull request in
 /// the repository containing the current working directory.
 pub fn context(number: u64) -> Result<String, String> {
-    let repository = run_gh(&[
-        "repo",
-        "view",
-        "--json",
-        "nameWithOwner",
-        "--jq",
-        ".nameWithOwner",
-    ])?;
+    context_with(
+        number,
+        &Gh {
+            program: "gh".into(),
+            runtime: MAX_GH_RUNTIME,
+        },
+    )
+}
+
+fn context_with(number: u64, gh: &Gh) -> Result<String, String> {
+    if number == 0 {
+        return Err("GitHub pull request number must be positive".to_string());
+    }
+    let repository = gh.run(
+        &[
+            "repo",
+            "view",
+            "--json",
+            "nameWithOwner",
+            "--jq",
+            ".nameWithOwner",
+        ],
+        MAX_GH_RESPONSE_BYTES,
+    )?;
     let repository = validate_repository(&repository)?;
     let pull_url = format!("repos/{repository}/pulls/{number}");
-    let pull_request = run_gh_json(&["api", &pull_url])?;
+    let pull_request = gh.json(&["api", &pull_url])?;
+    let head_sha = validate_pull_request(&pull_request, number)?;
 
-    let head_sha = pull_request
-        .get("head")
-        .and_then(|head| head.get("sha"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| "GitHub pull request response is missing head.sha".to_string())?;
-
-    let checks_url = format!("repos/{repository}/commits/{head_sha}/check-runs?per_page=100");
-    let checks = run_gh_json(&["api", "--paginate", "--slurp", &checks_url]);
-    let reviews_url = format!("repos/{repository}/pulls/{number}/reviews?per_page=100");
-    let reviews = run_gh_json(&["api", "--paginate", "--slurp", &reviews_url]);
-
-    let mut output = render_context(
-        &repository,
-        &pull_request,
-        checks.as_ref().ok(),
-        reviews.as_ref().ok(),
+    let commit_url = format!("repos/{repository}/commits/{head_sha}");
+    let checks = fetch_pages(
+        gh,
+        &format!("{commit_url}/check-runs"),
+        PageKind::Checks,
+        200,
     );
-    if checks.is_err() || reviews.is_err() {
-        output.push_str("\n## Optional GitHub data\n");
-        if let Err(error) = checks {
-            output.push_str(&format!(
-                "- checks unavailable: {}\n",
-                crate::sanitize_capture(&error)
-            ));
-        }
-        if let Err(error) = reviews {
-            output.push_str(&format!(
-                "- reviews unavailable: {}\n",
-                crate::sanitize_capture(&error)
-            ));
-        }
-    }
+    // Classic status contexts are separate from the Checks API. The combined
+    // endpoint returns the current status of each context, not its whole history.
+    let statuses = fetch_pages(gh, &format!("{commit_url}/status"), PageKind::Statuses, 200);
+    let reviews = fetch_pages(gh, &format!("{pull_url}/reviews"), PageKind::Reviews, 100);
+
+    let output = render_context(&repository, &pull_request, &checks, &statuses, &reviews);
     Ok(cap(&crate::sanitize_capture(&output), MAX_CONTEXT_BYTES))
 }
 
-enum CaptureMessage {
-    Complete { stdout: bool, bytes: Vec<u8> },
-    TooLarge { stdout: bool },
+#[derive(Default)]
+struct Section {
+    items: Vec<Value>,
+    unavailable: Option<String>,
+    truncated: bool,
 }
 
-fn read_bounded<R: Read>(mut reader: R, stdout: bool, sender: mpsc::Sender<CaptureMessage>) {
-    let mut bytes = Vec::new();
-    let mut buffer = [0_u8; 8192];
-    loop {
-        let count = match reader.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(count) => count,
-            Err(_) => {
-                let _ = sender.send(CaptureMessage::Complete { stdout, bytes });
-                return;
-            }
-        };
-        if bytes.len().saturating_add(count) > MAX_GH_RESPONSE_BYTES {
-            let _ = sender.send(CaptureMessage::TooLarge { stdout });
-            return;
-        }
-        bytes.extend_from_slice(&buffer[..count]);
-    }
-    let _ = sender.send(CaptureMessage::Complete { stdout, bytes });
+#[derive(Clone, Copy)]
+enum PageKind {
+    Checks,
+    Statuses,
+    Reviews,
 }
 
-fn stop_child(
-    child: &mut std::process::Child,
-    stdout_thread: thread::JoinHandle<()>,
-    stderr_thread: thread::JoinHandle<()>,
-) {
-    let _ = child.kill();
-    let _ = child.wait();
-    let _ = stdout_thread.join();
-    let _ = stderr_thread.join();
-}
-
-fn run_gh(args: &[&str]) -> Result<String, String> {
-    let mut child = Command::new("gh")
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("GitHub CLI (`gh`) is unavailable: {error}"))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "GitHub CLI stdout pipe is unavailable".to_string())?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| "GitHub CLI stderr pipe is unavailable".to_string())?;
-    let (sender, receiver) = mpsc::channel();
-    let stdout_thread = thread::spawn({
-        let sender = sender.clone();
-        move || read_bounded(stdout, true, sender)
-    });
-    let stderr_thread = thread::spawn(move || read_bounded(stderr, false, sender));
-
-    let started = Instant::now();
-    let mut stdout_bytes = None;
-    let mut stderr_bytes = None;
-    while stdout_bytes.is_none() || stderr_bytes.is_none() {
-        let message = loop {
-            match receiver.recv_timeout(Duration::from_millis(100)) {
-                Ok(message) => break message,
-                Err(RecvTimeoutError::Timeout) if started.elapsed() < MAX_GH_RUNTIME => {}
-                Err(RecvTimeoutError::Timeout) => {
-                    stop_child(&mut child, stdout_thread, stderr_thread);
-                    return Err("GitHub CLI exceeded the 120 second runtime limit".to_string());
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    stop_child(&mut child, stdout_thread, stderr_thread);
-                    return Err("GitHub CLI output streams disconnected".to_string());
-                }
-            }
-        };
-        match message {
-            CaptureMessage::Complete {
-                stdout: true,
-                bytes,
-            } => stdout_bytes = Some(bytes),
-            CaptureMessage::Complete {
-                stdout: false,
-                bytes,
-            } => stderr_bytes = Some(bytes),
-            CaptureMessage::TooLarge { stdout } => {
-                stop_child(&mut child, stdout_thread, stderr_thread);
-                return Err(if stdout {
-                    "GitHub response exceeded the 512 KiB stdout safety limit".to_string()
+impl PageKind {
+    fn items(self, value: &Value) -> Result<(&[Value], Option<u64>), String> {
+        let invalid = || "GitHub returned an invalid paginated response shape".to_string();
+        let (items, total) = match self {
+            Self::Reviews => (value.as_array().ok_or_else(invalid)?, None),
+            Self::Checks | Self::Statuses => {
+                let key = if matches!(self, Self::Checks) {
+                    "check_runs"
                 } else {
-                    "GitHub response exceeded the 512 KiB stderr safety limit".to_string()
-                });
+                    "statuses"
+                };
+                let items = value
+                    .get(key)
+                    .and_then(Value::as_array)
+                    .ok_or_else(invalid)?;
+                let total = value
+                    .get("total_count")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(invalid)?;
+                if total < items.len() as u64 {
+                    return Err(invalid());
+                }
+                (items, Some(total))
+            }
+        };
+        let required: &[&str] = match self {
+            Self::Checks => &["name", "status"],
+            Self::Statuses => &["context", "state"],
+            Self::Reviews => &["state"],
+        };
+        if items.len() > PAGE_SIZE
+            || items.iter().any(|item| {
+                !item.is_object()
+                    || required.iter().any(|key| {
+                        item.get(key)
+                            .and_then(Value::as_str)
+                            .is_none_or(str::is_empty)
+                    })
+            })
+        {
+            return Err(invalid());
+        }
+        Ok((items, total))
+    }
+}
+
+fn fetch_pages(gh: &Gh, endpoint: &str, kind: PageKind, item_limit: usize) -> Section {
+    let mut section = Section::default();
+    let mut remaining = MAX_GH_RESPONSE_BYTES;
+    // gh --paginate --slurp buffers all pages *inside gh*. Request one page at
+    // a time instead, bounding both the number of requests and aggregate bytes.
+    for page in 1..=item_limit.div_ceil(PAGE_SIZE) {
+        let url = format!("{endpoint}?per_page={PAGE_SIZE}&page={page}");
+        let result = gh.run(&["api", &url], remaining).and_then(|output| {
+            remaining -= output.len();
+            let value = parse_json(&output)?;
+            let (items, total) = kind.items(&value)?;
+            let seen = section.items.len() + items.len();
+            if total.is_some_and(|total| {
+                total < seen as u64 || (items.len() < PAGE_SIZE && total > seen as u64)
+            }) {
+                return Err("GitHub returned inconsistent pagination counts".to_string());
+            }
+            let more = total.map_or(items.len() == PAGE_SIZE, |total| total > seen as u64);
+            Ok((items.to_vec(), more))
+        });
+        match result {
+            Ok((items, more)) => {
+                section.items.extend(items);
+                section.truncated = more;
+                if !more || remaining == 0 {
+                    break;
+                }
+            }
+            Err(error) => {
+                section.unavailable = Some(error);
+                break;
             }
         }
     }
-    let status = child
-        .wait()
-        .map_err(|error| format!("failed waiting for GitHub CLI: {error}"))?;
-    let _ = stdout_thread.join();
-    let _ = stderr_thread.join();
-    let stdout = String::from_utf8(stdout_bytes.unwrap_or_default())
-        .map_err(|_| "GitHub CLI returned non-UTF-8 output".to_string())?;
-    if !status.success() {
-        let detail = external_text(
-            &String::from_utf8_lossy(&stderr_bytes.unwrap_or_default()),
-            1000,
-        );
-        return Err(if detail.is_empty() {
-            format!("GitHub CLI exited with {status}")
-        } else {
-            format!("GitHub CLI exited with {status}: {detail}")
-        });
-    }
-    Ok(stdout)
+    section
 }
 
-fn run_gh_json(args: &[&str]) -> Result<Value, String> {
-    let output = run_gh(args)?;
-    serde_json::from_str(&output).map_err(|error| format!("GitHub returned invalid JSON: {error}"))
+fn parse_json(output: &str) -> Result<Value, String> {
+    serde_json::from_str(output).map_err(|error| format!("GitHub returned invalid JSON: {error}"))
+}
+
+fn validate_pull_request(pull_request: &Value, number: u64) -> Result<&str, String> {
+    if pull_request.get("number").and_then(Value::as_u64) != Some(number) {
+        return Err("GitHub pull request response has an invalid or mismatched number".to_string());
+    }
+    pull_request
+        .get("head")
+        .and_then(|head| head.get("sha"))
+        .and_then(Value::as_str)
+        .filter(|sha| sha.len() == 40 && sha.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .ok_or_else(|| "GitHub pull request response has an invalid head.sha".to_string())
 }
 
 fn validate_repository(repository: &str) -> Result<String, String> {
@@ -201,9 +211,12 @@ fn validate_repository(repository: &str) -> Result<String, String> {
     let Some(name) = parts.next() else {
         return Err("GitHub repository must be owner/name".to_string());
     };
-    if parts.next().is_some()
+    if repository.len() > 256
+        || parts.next().is_some()
         || owner.is_empty()
         || name.is_empty()
+        || matches!(owner, "." | "..")
+        || matches!(name, "." | "..")
         || !owner
             .chars()
             .chain(name.chars())
@@ -215,7 +228,16 @@ fn validate_repository(repository: &str) -> Result<String, String> {
 }
 
 fn neutralize_terminal_controls(value: &str) -> String {
-    value
+    // Remove complete CSI/OSC sequences as well as bare controls. Retaining
+    // their printable suffix (e.g. "[2Jpassword=") can obscure a secret label.
+    static ANSI: OnceLock<regex::Regex> = OnceLock::new();
+    let ansi = ANSI.get_or_init(|| {
+        regex::Regex::new(
+            r"(?:\x1b\[|\x{009b})[0-?]*[ -/]*[@-~]|(?:\x1b\]|\x{009d})[^\x07\x1b\x{009c}]*(?:\x07|\x1b\\|\x{009c})",
+        )
+        .expect("valid terminal control pattern")
+    });
+    ansi.replace_all(value, "")
         .chars()
         .filter(|character| matches!(character, '\n' | '\t') || !character.is_control())
         .collect()
@@ -223,7 +245,9 @@ fn neutralize_terminal_controls(value: &str) -> String {
 
 fn external_text(value: &str, limit: usize) -> String {
     let value = neutralize_terminal_controls(&crate::sanitize_capture(value));
-    cap(&value, limit)
+    // Redact before and after normalization: controls can either separate a
+    // label from preceding text or split/obscure the label itself.
+    cap(&crate::sanitize_capture(&value), limit)
 }
 
 fn string_field(value: &Value, key: &str, limit: usize) -> String {
@@ -243,84 +267,68 @@ fn nested_string(value: &Value, parent: &str, key: &str, limit: usize) -> String
         .unwrap_or_else(|| "(none)".to_string())
 }
 
-fn page_items(value: &Value, key: &str) -> Vec<Value> {
-    if let Some(items) = value.get(key).and_then(Value::as_array) {
-        return items.clone();
-    }
-    let Some(pages) = value.as_array() else {
-        return Vec::new();
-    };
-    if pages
-        .iter()
-        .all(|page| !page.is_array() && page.get(key).is_none())
-    {
-        return pages.clone();
-    }
-    let mut items = Vec::new();
-    for page in pages {
-        if let Some(page_items) = page.get(key).and_then(Value::as_array) {
-            items.extend(page_items.iter().cloned());
-        } else if let Some(page_items) = page.as_array() {
-            items.extend(page_items.iter().cloned());
-        }
-    }
-    items
-}
-
-fn capped_section(title: &str, body: &str, max_bytes: usize) -> String {
+fn capped_section(title: &str, body: &str, section: &Section, max_bytes: usize) -> String {
     let header = format!("\n## {title}\n");
-    let marker = "- [section truncated: additional items omitted]\n";
-    if header.len() + body.len() <= max_bytes {
-        return format!("{header}{body}");
-    }
-    let budget = max_bytes.saturating_sub(header.len() + marker.len());
-    format!("{header}{}{marker}", cap(body, budget))
+    let unavailable = section
+        .unavailable
+        .as_ref()
+        .map(|error| format!("\n- unavailable: {}\n", external_text(error, 1200)))
+        .unwrap_or_default();
+    let marker = "\n- [section truncated: additional items may be omitted]\n";
+    let truncated = section.truncated || header.len() + body.len() + unavailable.len() > max_bytes;
+    let marker = if truncated { marker } else { "" };
+    // Reserve footer space first: a long successful/partial body must never hide
+    // this source's failure or truncation, or consume another source's budget.
+    let budget = max_bytes.saturating_sub(header.len() + marker.len() + unavailable.len());
+    let body = if body.is_empty() && section.unavailable.is_none() {
+        "- (none reported)\n"
+    } else {
+        body
+    };
+    format!("{header}{}{marker}{unavailable}", cap(body, budget))
 }
 
-fn checks_section(checks: Option<&Value>) -> String {
-    let Some(checks) = checks else {
-        return capped_section(
-            "CI checks",
-            "- unavailable (GitHub checks request failed; PR metadata remains available)\n",
-            MAX_CHECKS_SECTION_BYTES,
-        );
-    };
-    let items = page_items(checks, "check_runs");
+fn checks_section(checks: &Section) -> String {
     let mut body = String::new();
-    if items.is_empty() {
-        body.push_str("- (none reported)\n");
-    }
-    for check in items.into_iter().take(200) {
+    for check in &checks.items {
         body.push_str(&format!(
             "- {}: {} / {} ({})\n",
-            string_field(&check, "name", 300),
-            string_field(&check, "status", 100),
-            string_field(&check, "conclusion", 100),
-            string_field(&check, "html_url", 1000),
+            string_field(check, "name", 300),
+            string_field(check, "status", 100),
+            string_field(check, "conclusion", 100),
+            string_field(check, "html_url", 1000),
         ));
     }
-    capped_section("CI checks", &body, MAX_CHECKS_SECTION_BYTES)
+    capped_section("CI checks", &body, checks, MAX_CHECKS_SECTION_BYTES)
 }
 
-fn reviews_section(reviews: Option<&Value>) -> String {
-    let Some(reviews) = reviews else {
-        return capped_section(
-            "Reviews",
-            "- unavailable (GitHub reviews request failed; PR metadata remains available)\n",
-            MAX_REVIEWS_SECTION_BYTES,
-        );
-    };
-    let items = page_items(reviews, "reviews");
+fn statuses_section(statuses: &Section) -> String {
     let mut body = String::new();
-    if items.is_empty() {
-        body.push_str("- (none reported)\n");
+    for status in &statuses.items {
+        body.push_str(&format!(
+            "- {}: {} — {} ({})\n",
+            string_field(status, "context", 300),
+            string_field(status, "state", 100),
+            string_field(status, "description", 1000),
+            string_field(status, "target_url", 1000),
+        ));
     }
-    for review in items.into_iter().take(100) {
+    capped_section(
+        "Commit statuses",
+        &body,
+        statuses,
+        MAX_STATUSES_SECTION_BYTES,
+    )
+}
+
+fn reviews_section(reviews: &Section) -> String {
+    let mut body = String::new();
+    for review in &reviews.items {
         body.push_str(&format!(
             "\n### {} — {} ({})\n",
-            nested_string(&review, "user", "login", 200),
-            string_field(&review, "state", 100),
-            string_field(&review, "submitted_at", 100),
+            nested_string(review, "user", "login", 200),
+            string_field(review, "state", 100),
+            string_field(review, "submitted_at", 100),
         ));
         let review_body = review
             .get("body")
@@ -330,14 +338,15 @@ fn reviews_section(reviews: Option<&Value>) -> String {
         body.push_str(&review_body);
         body.push('\n');
     }
-    capped_section("Reviews", &body, MAX_REVIEWS_SECTION_BYTES)
+    capped_section("Reviews", &body, reviews, MAX_REVIEWS_SECTION_BYTES)
 }
 
-pub(crate) fn render_context(
+fn render_context(
     repository: &str,
     pull_request: &Value,
-    checks: Option<&Value>,
-    reviews: Option<&Value>,
+    checks: &Section,
+    statuses: &Section,
+    reviews: &Section,
 ) -> String {
     let number = pull_request
         .get("number")
@@ -404,6 +413,7 @@ pub(crate) fn render_context(
     output.push_str(&body);
     output.push('\n');
     output.push_str(&checks_section(checks));
+    output.push_str(&statuses_section(statuses));
     output.push_str(&reviews_section(reviews));
     neutralize_terminal_controls(&output)
 }
@@ -412,7 +422,11 @@ fn cap(value: &str, max_bytes: usize) -> String {
     if value.len() <= max_bytes {
         return value.to_string();
     }
-    let suffix = "\n[truncated]";
+    let suffix = if max_bytes >= "\n[truncated]".len() {
+        "\n[truncated]"
+    } else {
+        ""
+    };
     let room = max_bytes.saturating_sub(suffix.len());
     let mut end = room.min(value.len());
     while end > 0 && !value.is_char_boundary(end) {
@@ -422,83 +436,4 @@ fn cap(value: &str, max_bytes: usize) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn repository_name_is_strictly_validated() {
-        assert_eq!(validate_repository("octo/example").unwrap(), "octo/example");
-        assert!(validate_repository("octo/example/extra").is_err());
-        assert!(validate_repository("octo/../secret").is_err());
-        assert!(validate_repository("octo/example\n--jq .token").is_err());
-    }
-
-    #[test]
-    fn rendered_context_redacts_and_bounds_external_text() {
-        let pr = json!({
-            "number": 7,
-            "title": "Build",
-            "state": "open",
-            "html_url": "https://github.com/octo/example/pull/7",
-            "body": "password=super-secret",
-            "user": {"login": "octo"},
-            "base": {"ref": "main", "sha": "base"},
-            "head": {"ref": "feature", "sha": "head"},
-            "labels": [{"name": "bug"}]
-        });
-        let checks = json!({"check_runs": [{"name": "tests", "status": "completed", "conclusion": "success"}]});
-        let reviews =
-            json!([{"user": {"login": "reviewer"}, "state": "commented", "body": "looks good"}]);
-        let output = render_context("octo/example", &pr, Some(&checks), Some(&reviews));
-        assert!(output.contains("pull_request: #7"));
-        assert!(output.contains("tests: completed / success"));
-        assert!(output.contains("[REDACTED]"));
-        assert!(!output.contains("super-secret"));
-        assert!(output.contains("reviewer"));
-    }
-
-    #[test]
-    fn external_text_has_no_active_terminal_controls() {
-        let pr = json!({
-            "number": 7,
-            "title": "title\u{1b}[2J",
-            "state": "open",
-            "body": "body\u{1b}]52;c;clipboard\u{7}\rhidden",
-            "head": {"sha": "head"}
-        });
-        let output = render_context("octo/example", &pr, None, None);
-        assert!(!output.contains('\u{1b}'));
-        assert!(!output.contains('\u{7}'));
-        assert!(!output.contains('\r'));
-    }
-
-    #[test]
-    fn bounded_reader_reports_overflow_before_completion() {
-        let (sender, receiver) = mpsc::channel();
-        read_bounded(
-            std::io::Cursor::new(vec![b'x'; MAX_GH_RESPONSE_BYTES + 1]),
-            true,
-            sender,
-        );
-        assert!(matches!(
-            receiver.recv().unwrap(),
-            CaptureMessage::TooLarge { stdout: true }
-        ));
-    }
-
-    #[test]
-    fn optional_sections_keep_status_and_truncation_markers() {
-        let checks = json!({
-            "check_runs": (0..200)
-                .map(|index| json!({"name": format!("check-{index}-{}", "x".repeat(200)), "status": "completed", "conclusion": "success", "html_url": "https://example.test/check"}))
-                .collect::<Vec<_>>()
-        });
-        let pull_request = json!({"number": 7, "title": "title", "state": "open"});
-        let output = render_context("octo/example", &pull_request, Some(&checks), None);
-        assert!(output.contains("## CI checks"));
-        assert!(output.contains("section truncated"));
-        assert!(output.contains("## Reviews"));
-        assert!(output.contains("unavailable"));
-    }
-}
+mod tests;

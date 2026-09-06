@@ -10,6 +10,8 @@ _mw_extra() {
         '--host[bind address]:addr:' \
         '--port[port]:port:' \
         '--token[require a shared token]:token:' \
+        '--print-token[print or mint the token and exit without binding]' \
+        '--api[enable the read-only /api/v1 JSON API alongside HTTP MCP]' \
         '(-h --help)'{-h,--help}'[show help]'
       ;;
     mw-run)
@@ -25,7 +27,10 @@ _mw_extra() {
         '--exit-code[exit status]:code:' \
         '--stdout[captured stdout]:text:' \
         '--stderr[captured stderr]:text:' \
-        '--notes[attach a note]:note:'
+        '--notes[attach a note]:note:' \
+        '--capture-kind[capture mode]:kind:(full hook)' \
+        '--from-hook[read a client hook event from stdin]:client:(claude rho)' \
+        '(-h --help)'{-h,--help}'[show help]'
       ;;
     mw-view)
       _arguments \

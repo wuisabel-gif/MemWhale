@@ -13,7 +13,7 @@ _mw() {
     'show:print the full transcript of a session'
     'mark:bookmark the current debugging moment'
     'remember:save a lesson or conclusion for later'
-    'memory:retire or replace a saved lesson (stale/supersede)'
+    'memory:retire, replace, or compact memory'
     'rm:delete a saved session or command run'
     'prune:delete empty auto-recorded sessions'
     'audit:inspect capture policy and retained volume'
@@ -37,11 +37,12 @@ _mw() {
     'tui:interactive terminal browser'
     'sync-mempalace:mirror memories into MemPalace'
     'git-fix:diagnose the last failed git command'
+    'github:explicit read-only GitHub context (no automatic save)'
     'doctor:check the install, shell hooks, MCP server, and Claude/Rho integrations'
     'global:auto-record every new terminal (on/off/status)'
-    'status:show global auto-record state'
+    'status:show the effective capture mode for this directory'
     'hooks:install or remove shell auto-record hooks'
-    'integrate:register the MCP server with a host (claude, rho, hermes)'
+    'integrate:configure client memory access, hooks, and skills'
   )
 
   if (( CURRENT == 2 )); then
@@ -60,7 +61,19 @@ _mw() {
       _values 'state' on off status
       ;;
     memory)
-      _values 'action' stale supersede
+      if (( CURRENT == 3 )); then
+        _values 'action' stale supersede compact
+      elif [[ ${words[3]} == compact ]]; then
+        _arguments \
+          '--apply[apply the previewed compaction policy]' \
+          '--min-session-bytes[minimum transcript bytes]:bytes:' \
+          '--stale-days[age threshold]:days:' \
+          '--max-output-bytes[retained command output bound]:bytes:' \
+          '(-h --help)'{-h,--help}'[show help]'
+      fi
+      ;;
+    github)
+      (( CURRENT == 3 )) && _values 'action' context
       ;;
     hooks)
       case ${words[3]} in
@@ -74,10 +87,16 @@ _mw() {
     integrate)
       case ${words[3]:-} in
         --revert) ;;
-        claude|claude-code|rho)
+        claude|claude-code)
           if (( CURRENT == 4 )); then
             _values 'option' --revert
           fi
+          ;;
+        rho)
+          _arguments \
+            '--revert[remove the integration without deleting memory]' \
+            '--http[use mw-serve POST /mcp instead of stdio]::MCP URL:' \
+            '--token[HTTP MCP token; requires --http]:token:'
           ;;
         hermes) ;;
       esac
@@ -110,6 +129,14 @@ _mw() {
         '--last-error[only the most recent failure]' \
         '--limit[max results]:count:'
       ;;
+    search)
+      _arguments \
+        '--explain[show ranking reasons]' \
+        '--project[scope by project]:project:' \
+        '--machine[scope by machine]:machine:' \
+        '--since[relative time window]:duration:' \
+        '*:query or filter:_mw_search_filters'
+      ;;
     ask)
       _arguments \
         '--chat[which chat to open]:target:(chatgpt claude gemini)' \
@@ -117,6 +144,25 @@ _mw() {
         '--no-open[do not open the browser]'
       ;;
   esac
+}
+
+_mw_search_filters() {
+  local -a filters
+  filters=(
+    'agent\:claude:Claude command provenance'
+    'agent\:rho:Rho command provenance'
+    'agent\:terminal:NULL provenance (manual or legacy)'
+    'source\:command:command source'
+    'source\:session:session source'
+    'source\:note:note source'
+    'source\:document:document source'
+    'source\:conversation:conversation source'
+    'tag\::tag filter'
+    'before\::before YYYY-MM-DD'
+    'after\::after YYYY-MM-DD'
+    'limit\::result limit'
+  )
+  _describe -t filters 'search filter' filters
 }
 
 _mw "$@"

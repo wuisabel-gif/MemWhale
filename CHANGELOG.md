@@ -3,6 +3,84 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — Agent-Native Memory — September 6, 2026
+
+Product version `0.10.0` across the CLI, web UI, and desktop app;
+`memorywhale-core` `0.5.0`; SQLite schema `10`.
+
+This release makes shared debugging memory easier to connect to coding agents
+without confusing memory access with automatic capture. See the
+[release notes](docs/releases/0.10.0.md) for installation, migration, and
+integration limitations.
+
+### Added
+
+- **Claude Code and Rho setup** — `mw integrate claude` and `mw integrate rho`
+  install MCP registration, a bundled memory-use skill, and Rust-backed capture
+  hooks; `--revert` removes the integration. No checkout or Python hook is
+  required. Rho also supports `--http [url] --token <secret>`. (#230, #241)
+- **Independent integration diagnostics** — `mw doctor` reports each client's
+  MCP registration, capture hook, and skill separately. Optional clients that
+  are absent are `not detected`, not failed installs. The bounded MCP probe is
+  read-only and does not call memory tools. (#245)
+- **Canonical repositories and distinct worktrees** — schema 9 adds repository
+  IDs/names and worktree roots to commands and sessions, using local Git
+  metadata without contacting remotes. Linked worktrees share a repository ID
+  while keeping their own paths; legacy project tags remain supported. (#234)
+- **Structured agent provenance** — schema 10 adds nullable `command_runs.agent`:
+  `claude` or `rho` for supported hooks, `NULL` for terminal/manual and legacy
+  records. `terminal` is the display/filter label for `NULL`, not a stored agent
+  string. Provenance is separate from source type and is not inferred from
+  notes. CLI, TUI, dashboard, desktop, JSON API, and MCP expose it; search accepts
+  `agent:claude|rho|terminal`. (#256, #257)
+- **HTTP MCP** — `mw-serve` exposes the same six tools as `mw-mcp` at
+  `POST /mcp`, one JSON-RPC object per request, without SSE sessions. Explicit
+  loopback tokens and all non-loopback binds require Bearer authentication;
+  `--lan` can mint a persistent token. (#241)
+- **Opt-in read-only JSON API** — `mw-serve --api` enables bounded `/api/v1`
+  health, search, memory, command, session, and repository endpoints, with an
+  OpenAPI contract and the dashboard's access controls. Disabled by default;
+  no write, arbitrary SQL, or arbitrary file-read endpoints. (#236)
+- **Explicit GitHub context** — `mw github context <pr>` uses the existing
+  `gh` login to print bounded, redacted PR metadata, CI check-runs, classic
+  commit statuses, and reviews.
+  Read-only: no checkout, review submission, automatic save, or background
+  synchronization. (#260, with release-branch status and subprocess hardening)
+
+### Improved
+
+- **MCP compatibility** — supports revision `2026-07-28` with per-request
+  metadata and `server/discover`, retaining legacy `2025-11-25` and
+  `2024-11-05` initialization. (#233)
+- **Integration guides** — standardized setup, verification, capabilities,
+  limitations, and uninstall instructions. The cross-agent handoff demo uses
+  Claude fixtures and a simulated Rho client against real `mw-mcp`; it does
+  not run live agents or verify the fixture's Cargo fix. (#246, #258)
+- **README locale synchronization** — source hashes and checks protect
+  structure, commands, and link targets. Provider-backed translation requires
+  explicit configuration; synchronization is not native-speaker review. (#242)
+- **Release and CI maintenance** — core publication was corrected after
+  v0.9.0, Homebrew PR creation may be skipped when unavailable, and memory-audit
+  storage is scoped to consuming steps. The optional Second-Opinion reviewer
+  skips review when `REVIEW_API_KEY` is missing; its presence is not evidence
+  that a review ran. (#224, #225, #226, #240, #261)
+
+### Compatibility and limits
+
+- **Breaking Rust API:** `memorywhale_core::Memory` now requires
+  `agent: Option<String>` in Rust struct literals. Add `agent: None` for existing
+  un-attributed memories. `#[serde(default)]` keeps older serialized memories
+  without the field readable. Core is independently versioned at `0.5.0`.
+- Existing databases migrate additively to schema 10. Historical rows retain
+  `NULL` agent provenance rather than guessing their producer.
+- Rho hooks preserve failure metadata when command text is unavailable, using
+  a sentinel rather than inventing a command or stdout. Successful calls with
+  no command text are skipped.
+- Task-start recall, automatic failure lookup, and pre-compaction saving are
+  a documented future client-orchestration loop, **not implemented lifecycle
+  automation in this release**. Hooks capture supported events; skills provide
+  guidance; MCP calls remain client-driven. (#262)
+
 ## [0.9.0] — Memory stewardship
 
 Product version `0.9.0`; `memorywhale-core` `0.3.0`.
@@ -52,7 +130,10 @@ and localized README entry points.
 
 ### Notes
 
-- No `memorywhale-core` version bump: the public core API remains compatible.
+- The original tag declared no `memorywhale-core` version bump. Post-tag
+  correction (#224) updated the v0.9.0 publication to depend on core `0.4.0`,
+  which published the already-used public API. The `0.3.0` version above
+  describes the original tag, not the corrected package dependency.
 - Upgrade from v0.8.0 if you want compaction, safer retrieval failures, FTS5
   reuse, or the desktop CSP hardening.
 

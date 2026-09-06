@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Offline Claude -> MemoryWhale -> Rho handoff demonstration.
 #
-# The Claude events are fixtures rather than live agent calls. Rho is exercised
-# through the real mw-mcp stdio protocol, so this demo is deterministic and does
+# The Claude events and Rho-style client are simulated. They exercise the real
+# mw-mcp stdio protocol, so this demo is deterministic and does
 # not require provider credentials, network access, or a user's real database.
 set -euo pipefail
+
+command -v python3 >/dev/null || { echo "python3 is required to validate MCP replies" >&2; exit 1; }
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mw_bin="${MW_BIN:-$root/target/debug/mw}"
@@ -39,7 +41,7 @@ run_remember() {
   MEMORYWHALE_DATA_DIR="$data_dir" "$remember_bin" "$@"
 }
 
-echo "1. Claude's failing Bash command is captured by the verified Claude hook"
+echo "1. A Claude failure fixture is captured through the Claude hook parser"
 run_remember --from-hook claude < "$failure_fixture" >/dev/null
 run_remember --from-hook claude < "$success_fixture" >/dev/null
 
@@ -48,7 +50,7 @@ grep -Fq '[command · claude]' <<<"$claude_results"
 grep -Fq 'linker error' <<<"$claude_results"
 echo "   failure captured and searchable as agent:claude"
 
-echo "2. Claude's verified fix is retained as agent-attributed evidence"
+echo "2. A Claude success fixture retains the example fix with provenance"
 fix_results="$(run_mw search 'cuda' agent:claude)"
 grep -Fq 'fix: rerun without --features cuda' <<<"$fix_results"
 echo "   fix retained with Claude provenance"
@@ -69,10 +71,8 @@ grep -Fq '[command · terminal]' <<<"$terminal_results"
 grep -Fq 'terminal-only-command' <<<"$terminal_results"
 echo "   terminal-only command remains terminal-attributed"
 
-echo "4. Rho performs its real legacy MCP handshake and searches the shared store"
-# Rho's streamable_http client starts with the legacy initialize lifecycle.
-# Keep this sequence explicit so the demo catches regressions in handshake,
-# notifications, tools/list, or tools/call handling.
+echo "4. A simulated Rho-style client initializes and searches via real mw-mcp stdio"
+# This is a protocol fixture, not a live Rho invocation or HTTP transport test.
 rho_results="$(
   {
     printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"Rho","version":"handoff-demo"}}}'
@@ -81,16 +81,25 @@ rho_results="$(
     printf '%s\n' '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_memory","arguments":{"query":"cuda","agent":"claude"}}}'
   } | MEMORYWHALE_DATA_DIR="$data_dir" "$mcp_bin"
 )"
-grep -Fq '"id":1' <<<"$rho_results"
-grep -Fq '"protocolVersion":"2025-11-25"' <<<"$rho_results"
-grep -Fq '"id":2' <<<"$rho_results"
-grep -Fq '"search_memory"' <<<"$rho_results"
-grep -Fq '"id":3' <<<"$rho_results"
-grep -Fq '"type":"text"' <<<"$rho_results"
-grep -Fq 'agent: claude' <<<"$rho_results"
-grep -Fq 'fix: rerun without --features cuda' <<<"$rho_results"
-echo "   Rho completed initialize → initialized → tools/list → search_memory"
-echo "   Rho retrieved Claude's failure and verified fix from the shared store"
+printf '%s\n' "$rho_results" | python3 -c '
+import json, sys
+replies = [json.loads(line) for line in sys.stdin if line.strip()]
+assert len(replies) == 3, "unexpected MCP reply count"
+by_id = {reply.get("id"): reply for reply in replies}
+assert set(by_id) == {1, 2, 3}, "missing MCP response IDs"
+for reply in replies:
+    assert "error" not in reply, "MCP returned an error"
+    assert not reply["result"].get("isError", False), "MCP tool returned an error"
+assert by_id[1]["result"]["protocolVersion"] == "2025-11-25", "unexpected negotiated protocol"
+assert "search_memory" in [tool["name"] for tool in by_id[2]["result"]["tools"]], "search tool missing"
+text = "\n".join(item["text"] for item in by_id[3]["result"]["content"] if item["type"] == "text")
+assert "linker error: cannot find -lcudart" in text, "failure evidence missing"
+assert "fix: rerun without --features cuda" in text, "fix evidence missing"
+assert text.count("agent: claude") == 2, "Claude provenance missing"
+assert "terminal-only-command" not in text, "terminal capture leaked into agent-filtered results"
+'
+echo "   initialize → initialized → tools/list → search_memory succeeded"
+echo "   MCP returned both Claude fixture records with provenance"
 
 echo
-echo "Agent handoff complete: Claude captured the failure and fix; Rho found both without rediscovery."
+echo "Offline handoff verified. Agent events and command outcomes were simulated, not executed."

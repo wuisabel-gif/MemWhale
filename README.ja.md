@@ -1,34 +1,70 @@
-<!-- README-SOURCE-SHA256: f3b5ec3615595ebea8d4ad16149293b4c63d6aa8c8756363a6c569eb4de0272b -->
+<!-- README-SOURCE-SHA256: c177f5ebba1899016da1a16ac5f7382f2cb7c39b0d2b0a8cfa73aa0fccf46aec -->
 
-# MemoryWhale
+<p align="center">
+  <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
+</p>
 
-開発者とコーディングエージェントのための、永続的でローカル優先のデバッグメモリです。
+<h1 align="center">MemoryWhale</h1>
 
-[English README](README.md) · [简体中文 README](README.zh-CN.md) · [한국어 README](README.ko.md)
+<p align="center"><strong>開発者とコーディングエージェントのための、永続的なローカルデバッグメモリ。</strong></p>
 
-MemoryWhale は、デバッグ中に実際に起きたことを記録します。実行したコマンド、出力、エラーや失敗、そして実際に問題を解決した方法まで保存します。
+<p align="center"><a href="README.md">English README</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
-これらの記録はローカルの SQLite に保存されます。ターミナルを閉じた後、SSH 接続が切れた後、あるいは AI エージェントのセッションが終了した後でも、あなたやコーディングエージェントは過去のデバッグ記録を検索して再利用できます。
+<p align="center">
+  <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
+  <a href="https://github.com/wuisabel-gif/MemWhale/releases"><img src="https://img.shields.io/github/v/release/wuisabel-gif/MemWhale?color=2b43dd&label=release" alt="リリース"/></a>
+  <a href="https://crates.io/crates/memorywhale-cli"><img src="https://img.shields.io/crates/v/memorywhale-cli?color=2b43dd&label=crates.io" alt="crates.io"/></a>
+  <img src="https://img.shields.io/badge/license-MIT-2b43dd" alt="MIT ライセンス"/>
+  <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="ローカルファースト、アップロードなし"/>
+</p>
 
-## なぜ MemoryWhale なのか
+MemoryWhale はデバッグ中に実際に起きたことを記録します。コマンド、出力、失敗、そして効果のあった修正です。
+その証拠をローカルの SQLite に保存するため、ターミナルを閉じたり、SSH 接続が切れたり、
+エージェントのセッションが終了したりしても、開発者とコーディングエージェントが再び見つけられます。
 
-- **実際に起きたことを記憶します。** Shell History のコマンド一行だけではなく、コマンド、実行環境、出力、失敗、そしてそこから得られた解決策や知見まで保存します。
-- **複数のコーディングエージェントで同じメモリを共有できます。** stdio MCP に対応したクライアントであれば、`mw-mcp` を通じて同じローカルメモリを読み取り、`remember` で1件のノートを保存できます。
-- **開発履歴をローカルに保ちます。** MemoryWhale はアカウントやホスティングサービスを必要とせず、メモリのためにトークン単位の料金を支払う必要もありません。
+**MemoryWhale 0.10.0 — Agent-Native Memory · 2026 年 9 月 6 日。**
+CLI、Web UI、デスクトップアプリの製品バージョンは共通で 0.10.0、再利用可能な Rust コアは 0.5.0 です。
+アップグレード手順と Rust API の破壊的変更は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)をご覧ください。
 
-MemoryWhale が記録するのは、あらゆる情報ではなく開発・デバッグの経験です。自律型コーディングエージェントでも、汎用的な個人向けメモリシステムでもなく、プロジェクトドキュメントの代替でもありません。
+## MemoryWhale を使う理由
+
+- **実際に起きたことを覚えておく。** シェル履歴の 1 行だけでなく、コマンド、環境、出力、失敗、教訓を残します。
+- **複数のコーディングエージェントで 1 つのメモリを使う。** 互換性のある stdio MCP クライアントは、`mw-mcp` を通じて同じローカルメモリを読み書きできます。
+- **開発履歴をローカルに保つ。** MemoryWhale はアカウント、ホスティングサービス、トークン単位のメモリ料金なしで動作します。
+
+MemoryWhale が記録するのは開発経験であり、あらゆる情報ではありません。デバッグのためのメモリ層であって、
+自律型コーディングエージェントや汎用の個人メモリシステムではなく、プロジェクト文書の代わりでもありません。
+
+## Agent-Native Memory の新機能
+
+- **エージェントを接続して点検する。** `mw integrate` で Claude Code または Rho の MCP アクセス、
+  キャプチャフック、メモリ利用ガイダンスをインストールします。`mw doctor` は MCP、フック、スキルを個別に確認します。
+- **由来を明確に保つ。** スキーマ 10 はコマンドのエージェントを `claude`、`rho`、または `NULL` として保存します。
+  表示・フィルター用ラベルの `terminal` はターミナル、手動、または旧レコードの由来を意味し、人間が実行した証拠ではありません。
+  エージェントの識別情報は `command`、`session`、`note` などのソース種別とは別です。
+- **リポジトリを共有し、ワークツリーを区別する。** 正規化されたリポジトリ ID でリンクされたワークツリーをまとめつつ、各ルートと既存のプロジェクトタグを保持します。
+  検出ではリモートサービスではなくローカルの Git メタデータを読み取ります。
+- **ローカルインターフェースを使う。** `mw-serve` は `POST /mcp` で HTTP MCP を提供します。`mw-serve --api` で読み取り専用 JSON API を明示的に有効にできます。
+  どちらもダッシュボードのリスナーを使い、ループバック以外からのアクセスにはトークンが必要です。
+- **GitHub のコンテキストを明示的に取得する。** `mw github context <pr>` は既存の `gh` ログインを使って PR のメタデータ、チェック、レビューを読み取ります。
+  サイズ制限と機密情報のマスキングを施したコンテキストを出力するだけで、コードのチェックアウトやメモリへの自動保存は行いません。バックグラウンドの GitHub 同期もありません。
 
 ## インストール
 
-Linux x86_64/aarch64 および macOS 向けのビルド済みバイナリを利用できます。
+Linux x86_64/aarch64 と macOS 向けにビルド済みバイナリを提供しています。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/v0.8.0/install.sh | sh
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/7c3864c743cec9a8fa813dcc0b2459cc2859c849/install.sh -o "$installer"
+  printf '%s  %s\n' '3e0cad72b29c1894d5ff5f7c30b099537f96501801c14b6320c12e169a3ac8d6' "$installer" | shasum -a 256 -c -
+  sh "$installer"
+)
 ```
 
-この URL はインストールスクリプト自体を v0.8.0 のタグに固定しています。スクリプトは最新の安定リリースを探し、リリースアセットに SHA256 ファイルがある場合はダウンロード内容を検証します。特定のリリースを固定して使う場合は、[Releases](https://github.com/wuisabel-gif/MemWhale/releases) から対応するアセットを直接選択してください。
-
-Cargo または Homebrew からインストールすることもできます。
+Cargo または Homebrew でもインストールできます。
 
 ```bash
 cargo install memorywhale-cli
@@ -37,99 +73,99 @@ brew tap wuisabel-gif/memorywhale https://github.com/wuisabel-gif/MemWhale
 brew install memorywhale
 ```
 
-Windows ユーザーは [WSL](https://learn.microsoft.com/windows/wsl/) 上で MemoryWhale を実行できます。パッケージのインストール、PATH の設定、プラットフォームごとの注意事項については [Getting Started ガイド](docs/guides/getting-started.md)を参照してください。
-
-## 60秒で試す
+インストールまたはアップグレード後、バージョンとローカル設定を確認してください。
 
 ```bash
-mw global on                         # 以降の対話型 Shell コマンドを記録
-mw-run -- cargo check                # 1つのコマンドとその出力を記録
-mw remember "the linker needed libssl-dev"
-mw search "linker error"             # 過去のエラーと解決策を検索
-mw context --last-error              # エージェントやチャット向けの簡潔なコンテキストを生成
-mw pet                               # メモリストアの現在の状態を確認
-mw pet --watch                       # メモリの状態をアニメーション表示
+mw --version
+mw doctor
 ```
 
-長時間の作業では、`mw --live` を使ってクラッシュに強い Shell セッションを記録できます。
+Windows では [WSL](https://learn.microsoft.com/windows/wsl/) 内で MemoryWhale を実行できます。
+パッケージのインストール、PATH 設定、プラットフォーム別の説明は[入門ガイド](docs/guides/getting-started.md)をご覧ください。
 
-`mw tui` はインタラクティブなターミナルブラウザを開き、`mw-serve` はローカル Web ダッシュボードを起動します。
+## 60 秒の使用例
+
+```bash
+mw global on                         # capture future interactive shell commands
+mw-run -- cargo check                # capture one command and its output
+mw remember "the linker needed libssl-dev"
+mw search "linker error"             # recover the failure and its fix
+mw context --last-error              # compact context for any agent or chat
+mw pet                               # check your memory store's mood
+```
+
+![mw pet の気分デモ](assets/pet-demo.gif)
+
+長めの作業では、`mw --live` で突然の終了に備えたシェルセッションを記録できます。
+`mw tui` は対話型ターミナルブラウザーを開き、`mw-serve` はローカル Web ダッシュボードを起動します。
 
 ## 仕組み
 
 ```text
-CAPTURE                 MEMORY                     RETRIEVAL
-収集                     メモリ                      検索
-shell / mw-run ──────► ローカル SQLite ──────────► search / context
-agent hooks ─────────► 証拠 + 学習した知見 ──────► 類似した過去のエラー
-                                                    │
-                                                INTERFACES
-                                                 インターフェース
-                                       CLI / MCP / TUI / Web / Desktop
+CAPTURE                 MEMORY                 RETRIEVAL
+shell / mw-run ──────► local SQLite ────────► search / context
+agent hooks ─────────► evidence + lessons ──► similar failures
+                                                   │
+                                              INTERFACES
+                                      CLI / MCP / TUI / Web / Desktop
 ```
 
-収集（Capture）と検索（Retrieval）は独立しています。
-
-MCP を使うことでエージェントは既存のメモリへアクセスできますが、通常のターミナル操作が自動的に記録されるわけではありません。全体のモデルについては、[Architecture](docs/architecture.md) および [Capture Concept](docs/concepts/capture.md) のドキュメントを参照してください。
+キャプチャと検索は独立しています。MCP はエージェントに既存メモリへのアクセスを提供しますが、通常のターミナル操作を自動記録しません。
+全体のモデルは[アーキテクチャ](docs/architecture.md)と[キャプチャの概念](docs/concepts/capture.md)をご覧ください。
 
 ## コーディングエージェントと連携する
 
-`mw-mcp` は、MemoryWhale とさまざまな AI コーディングツールを接続する共通の統合インターフェースです。ローカルで動作する stdio MCP サーバーとして、6つのメモリツールを提供します。
-
-- `recent_errors`
-- `search_memory`
-- `get_context`
-- `remember`
-- `similar_failures`
-- `stats`
-
-現在、Claude Code、Claude Desktop、Cursor、VS Code / GitHub Copilot、Windsurf、Zed、Codex CLI、Cline、Continue、Gemini CLI、Goose、OpenClaw、CrowClaw、Hermes Agent、およびその他の互換クライアント向けのガイドがあります。Integration Matrix には24のクライアントとツールの項目があり、それぞれの対応機能を示しています。
-
-たとえば Claude Code では次のように登録します。
+`mw-mcp` は共通の統合インターフェースです。6 つのメモリツールを公開するローカル stdio MCP サーバーで、
+`mw-serve` 経由の HTTP でも利用できます。既存のガイドは Claude Code、Rho、Claude Desktop、
+Cursor、VS Code / GitHub Copilot、Windsurf、Zed、Codex CLI、Cline、Continue、
+Gemini CLI、Goose、OpenClaw、CrowClaw、Hermes Agent、およびその他の互換クライアントを扱っています。
 
 ```bash
-claude mcp add memorywhale -- mw-mcp
+mw integrate claude
+mw integrate rho
+mw doctor
 ```
 
-すべてのクライアントが同じ機能を提供しているわけではありません。MCP はメモリへのアクセスを提供しますが、コマンド実行を自動的に記録するには、クライアント固有の Hook が必要です。
+すべてのクライアントが同じ機能を提供するわけではありません。MCP はメモリアクセスを提供し、実行の自動キャプチャにはクライアント専用のフックが必要です。
+[統合マトリクス](integrations/README.md)ではアクセス、キャプチャ、メモリ利用ガイダンスを区別し、検証済みの設定ガイドにリンクしています。
 
-[Integration Matrix](integrations/README.md) では、次の機能を区別し、各クライアントのセットアップガイドを提供しています。
+現在の Rho フックのペイロードにはコマンド文字列と stdout がありません。失敗はプレースホルダーのコマンドとともにメタデータとして記録でき、
+コマンド文字列のない成功呼び出しはスキップされます。[エージェント間の引き継ぎデモ](docs/guides/cross-agent-handoff.md)は
+フィクスチャと模擬 Rho クライアントを使って実際の MCP に接続しますが、実際のエージェントの実行や Cargo の修正効果の検証は行いません。
 
-- **Memory Access** — メモリへのアクセス
-- **Automatic Capture** — 実行履歴の自動記録
-- **Memory-use Guidance** — エージェントによるメモリ活用のガイド
+同梱スキルはメモリ利用を案内しますが、タスク開始時の自動想起、失敗時の自動検索、圧縮前の自動保存は実装していません。
+こうしたライフサイクルの判断はクライアントが担います。MCP 経由で書かれた教訓は、デフォルトではレビュー待ちになります。
 
-## MemoryWhale は誰のためのツールですか？
+## MemoryWhale は誰のためのもの？
 
-MemoryWhale は、デバッグに必要なコンテキストがターミナルのスクロールバック、Shell History、複数の開発マシン、一時的なエージェントセッションなどに分散してしまう開発者のためのツールです。
+MemoryWhale は、デバッグのコンテキストがターミナルのスクロールバック、シェル履歴、複数のマシン、一時的なエージェントセッションに散らばっている開発者のためのものです。
+特に次のような場合に役立ちます。
 
-特に、次のような場合に役立ちます。
+- ビルド、依存関係、Git、環境、デプロイの問題をデバッグする
+- セッションをまたいでコーディングエージェントを使う、またはツールを切り替える
+- SSH 経由、または複数の開発マシンで作業する
+- 繰り返す失敗とその修正を後から検索できるようにしたい
+- ホスティングされたメモリサービスよりローカル保存を好む
 
-- ビルド、依存関係、Git、開発環境、デプロイを頻繁にデバッグする;
-- 複数のセッションでコーディングエージェントを使ったり、複数のツールを切り替えたりする;
-- SSH や複数の開発マシンを使って作業する;
-- 繰り返し発生するエラーとその解決策を後から検索できるようにしたい;
-- ホスティング型のメモリサービスではなく、ローカルストレージを使いたい。
-
-それぞれのケースについて、実際のコマンドを使ったエンドツーエンドの例は [Use Cases](docs/concepts/use-cases.md) を参照してください。
+[ユースケース](docs/concepts/use-cases.md)では、それぞれの場面を実際のコマンドとともに一連の流れとして紹介しています。
 
 ## ドキュメント
 
-- [Documentation Map](docs/README.md)
-- [Getting Started](docs/guides/getting-started.md)
-- [`mw pet` Reference](docs/reference/pet.md)
-- [Terminal Capture](docs/guides/terminal-capture.md)
-- [Agent Memory](docs/guides/agent-memory.md)
-- [CLI Reference](docs/reference/cli.md)
-- [MCP Reference](docs/reference/mcp.md)
-- [Memory Compaction](docs/reference/compaction.md)
-- [Security and Local Threat Model](docs/SECURITY.md)
-- [Integration Guides and Capability Matrix](integrations/README.md)
+- [ドキュメントマップ](docs/README.md)
+- [入門ガイド](docs/guides/getting-started.md)
+- [`mw pet` リファレンス](docs/reference/pet.md)
+- [ターミナルのキャプチャ](docs/guides/terminal-capture.md)
+- [エージェントメモリ](docs/guides/agent-memory.md)
+- [CLI リファレンス](docs/reference/cli.md)
+- [ローカル JSON API](docs/reference/api.md)
+- [MCP リファレンス](docs/reference/mcp.md)
+- [セキュリティとローカル脅威モデル](docs/SECURITY.md)
+- [エコシステム](ECOSYSTEM.md) — Delphin、ContextGC、MemoryWhale の連携
+- [統合ガイドと機能マトリクス](integrations/README.md)
 
-## コントリビューション
+## コントリビュート
 
-MemoryWhale では、開発経験の収集・保存・検索・共有を改善する変更を歓迎しています。
+MemoryWhale は、開発経験のキャプチャ、保存、検索、共有を改善する変更を受け付けています。
+対象範囲、開発コマンド、プルリクエストのチェックリストは [CONTRIBUTING.md](CONTRIBUTING.md) をお読みください。
 
-コントリビューションの対象範囲、開発用コマンド、Pull Request のチェックリストについては [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
-
-MemoryWhale は [MIT License](LICENSE) のもとで公開されています。
+[MIT ライセンス](LICENSE)で公開しています。

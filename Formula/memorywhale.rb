@@ -18,10 +18,14 @@ class Memorywhale < Formula
 
   def install
     # Build only the dependency-light CLI crate (no Tauri/GTK).
-    system "cargo", "install", "--path", "crates/mw-cli", "--root", prefix
+    system "cargo", "install", "--locked", "--path", "crates/mw-cli", "--root", prefix
   end
 
   test do
+    assert_equal "mw #{version}", shell_output("#{bin}/mw --version").strip
     assert_match "record a whole shell session", shell_output("#{bin}/mw --help")
+    ENV["MEMORYWHALE_DATA_DIR"] = (testpath/"data").to_s
+    system bin/"mw-remember", "--cwd", testpath, "--exit-code", "0", "--", "brew-test"
+    assert_match "brew-test", shell_output("#{bin}/mw search brew-test agent:terminal")
   end
 end
