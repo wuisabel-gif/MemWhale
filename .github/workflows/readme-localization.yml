@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - README.md
+      - README.fr.md
       - README.zh-CN.md
       - README.zh-TW.md
       - README.ko.md
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - README.md
+      - README.fr.md
       - README.zh-CN.md
       - README.zh-TW.md
       - README.ko.md
@@ -93,7 +95,7 @@ jobs:
         id: changes
         shell: bash
         run: |
-          if git diff --quiet -- README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md; then
+          if git diff --quiet -- README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -108,12 +110,13 @@ jobs:
           source_sha="$(sha256sum README.md | cut -d' ' -f1)"
           branch="automation/readme-localizations-${source_sha:0:12}"
           title="docs(i18n): synchronize localized READMEs"
+          # shellcheck disable=SC2016 # Markdown backticks are literal, not shell substitutions.
           printf -v body 'Automated translations for README.md source hash `%s`.\n\nGenerated through the configured translation provider and validated for headings, HTML, code, commands, links, and images. Human language review is required before merge.' "$source_sha"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch"
-          git add README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md
+          git add README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md
           git commit -m "$title"
 
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then

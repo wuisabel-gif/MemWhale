@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 export const SOURCE_MARKER = "README-SOURCE-SHA256";
 export const LOCALES = [
+  { file: "README.fr.md", language: "French (fr)" },
   { file: "README.zh-CN.md", language: "Simplified Chinese (zh-CN)" },
   { file: "README.zh-TW.md", language: "Traditional Chinese (zh-TW)" },
   { file: "README.ko.md", language: "Korean (ko)" },
