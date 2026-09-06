@@ -19,7 +19,7 @@ class ReleaseVersions(unittest.TestCase):
         for name in (
             "scripts/check-release-version.sh", "crates/mw-cli/Cargo.toml",
             "crates/memorywhale-core/Cargo.toml", "src-tauri/Cargo.toml",
-            "src-tauri/tauri.conf.json", "package.json", "package-lock.json",
+            "src-tauri/tauri.conf.json", "package.json", "package-lock.json", "SECURITY.md",
         ):
             destination = self.root / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -29,7 +29,7 @@ class ReleaseVersions(unittest.TestCase):
     def run_gate(self, *args):
         return subprocess.run(
             ["bash", str(self.root / "scripts/check-release-version.sh"), *args],
-            capture_output=True, text=True, timeout=20,
+            cwd=self.root, capture_output=True, text=True, timeout=20,
         )
 
     def test_current_metadata_and_matching_tag(self):
@@ -69,6 +69,13 @@ class ReleaseVersions(unittest.TestCase):
         result = self.run_gate()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("core dependency mismatch", result.stderr)
+
+    def test_security_support_policy_cannot_lag(self):
+        path = self.root / "SECURITY.md"
+        path.write_text("| 0.0.x | supported |\n")
+        result = self.run_gate()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("security support matrix", result.stderr)
 
 
 if __name__ == "__main__":

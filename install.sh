@@ -25,7 +25,8 @@ esac
 
 echo "==> Finding latest MemoryWhale release…"
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+install_stage=""
+trap 'rm -rf "$tmp"; if [ -n "$install_stage" ]; then rm -rf "$install_stage"; fi' EXIT
 release_json="$tmp/latest-release.json"
 
 # --- release-tag library (extracted verbatim by tests/install/run-tests.sh) ---
@@ -122,16 +123,23 @@ fi
 tar xzf "$tmp/$asset" -C "$tmp"
 
 mkdir -p "$BIN_DIR"
-cp "$tmp/memorywhale-${ver}-${target}/bin/"* "$BIN_DIR/"
-chmod +x "$BIN_DIR/"mw*
+install_stage="$(mktemp -d "$BIN_DIR/.memorywhale-install.XXXXXX")"
+for binary in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+  cp "$tmp/memorywhale-${ver}-${target}/bin/$binary" "$install_stage/$binary"
+  chmod +x "$install_stage/$binary"
+done
 
-# Re-sign copied macOS executables; an overwritten Mach-O file can retain a
-# stale code-signature cache and be killed by the OS even after a valid download.
+# Sign the entire staged set before changing any installed executable. A signing
+# failure leaves the existing installation untouched. Renames are per-file
+# atomic on the destination filesystem (not a transaction across all binaries).
 if [ "$os" = Darwin ]; then
   for binary in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
-    codesign --force --sign - "$BIN_DIR/$binary"
+    codesign --force --sign - "$install_stage/$binary"
   done
 fi
+for binary in mw mw-remember mw-serve mw-view mw-recover mw-run mw-screenshot mw-mcp; do
+  mv -f "$install_stage/$binary" "$BIN_DIR/$binary"
+done
 
 echo "==> Installed to $BIN_DIR"
 case ":$PATH:" in

@@ -104,6 +104,12 @@ skill are reported independently. Missing optional pieces tell you to run
 not a failed MemoryWhale install. `CLAUDE_CONFIG_DIR` and `RHO_HOME` are
 honored. Doctor does not run client CLIs or print tokens.
 
+`mw github context <pr>` explicitly fetches PR metadata, check runs, classic
+commit statuses, and reviews using your existing `gh` authentication. It prints
+bounded, redacted context without saving it. Linux, macOS, and WSL are supported;
+native Windows is rejected before spawning `gh` because this release does not
+provide deadline-safe native Windows subprocess capture.
+
 `mw git-fix` recognizes a handful of common git failure shapes — push rejected
 (non-fast-forward), merge conflicts, a dirty working tree blocking an
 operation, diverged branches, unrelated histories, and SSH auth failures — from

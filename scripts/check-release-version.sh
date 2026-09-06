@@ -39,6 +39,11 @@ if [[ "$core_dependency" != "$core_version" ]]; then
   failed=1
 fi
 
+if ! grep -Fq "| ${cli_version%.*}.x |" SECURITY.md || ! grep -Fq "| < $cli_version |" SECURITY.md; then
+  echo "security support matrix does not match product $cli_version" >&2
+  failed=1
+fi
+
 if [[ $# -gt 0 ]]; then
   expected="${1#v}"
   if [[ "$expected" != "$cli_version" ]]; then

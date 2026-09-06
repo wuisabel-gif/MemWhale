@@ -23,6 +23,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify product and tag versions
         id: version
@@ -85,6 +87,8 @@ jobs:
             deb: false
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -155,6 +159,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: memorywhale-${{ matrix.target }}
+          overwrite: true
           path: |
             ${{ steps.package.outputs.asset }}
             ${{ steps.package.outputs.asset }}.sha256
@@ -183,6 +188,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Publish release after all artifacts and crates pass
         env:
           GH_TOKEN: ${{ github.token }}
@@ -258,6 +265,8 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo publish
         env:
@@ -291,5 +300,10 @@ jobs:
             sleep 20
           done
           version="$(node -p "require('./package.json').version")"
-          cargo install --locked memorywhale-cli --version "=$version" --root "$RUNNER_TEMP/registry-install"
+          for attempt in 1 2 3 4 5; do
+            if cargo install --locked memorywhale-cli --version "=$version" --root "$RUNNER_TEMP/registry-install"; then break; fi
+            if [ "$attempt" = 5 ]; then exit 1; fi
+            echo "retrying registry install in 20s (index propagation)…"
+            sleep 20
+          done
           python3 scripts/smoke-release.py "$RUNNER_TEMP/registry-install/bin" "$version"

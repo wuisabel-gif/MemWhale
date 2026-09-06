@@ -12,6 +12,14 @@ pub(super) fn run(
     stdout_limit: usize,
     runtime: Duration,
 ) -> Result<String, String> {
+    // Release support is Linux, macOS, and WSL. Reject before spawning on
+    // native Windows: synchronous std pipes cannot promise this deadline.
+    if !cfg!(unix) {
+        return Err(
+            "GitHub context requires Linux, macOS, or WSL; native Windows is not supported"
+                .to_string(),
+        );
+    }
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -164,57 +172,7 @@ impl<R: Read + std::os::fd::AsRawFd> Pipe for R {
     }
 }
 
-#[cfg(windows)]
-impl<R: Read + std::os::windows::io::AsRawHandle> Pipe for R {
-    fn prepare(&self) -> io::Result<()> {
-        Ok(())
-    }
-
-    fn read_ready(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        use std::ffi::c_void;
-        use std::ptr::null_mut;
-        #[link(name = "kernel32")]
-        extern "system" {
-            fn PeekNamedPipe(
-                pipe: *mut c_void,
-                buffer: *mut c_void,
-                size: u32,
-                read: *mut u32,
-                available: *mut u32,
-                remaining: *mut u32,
-            ) -> i32;
-        }
-        let mut available = 0;
-        // SAFETY: this is a live, exclusively owned read pipe; available points
-        // to a writable DWORD. No competing reader can consume the peeked bytes
-        // or block a synchronous operation on this handle.
-        let result = unsafe {
-            PeekNamedPipe(
-                self.as_raw_handle(),
-                null_mut(),
-                0,
-                null_mut(),
-                &mut available,
-                null_mut(),
-            )
-        };
-        if result == 0 {
-            let error = io::Error::last_os_error();
-            return if error.raw_os_error() == Some(109) {
-                Ok(0) // ERROR_BROKEN_PIPE: all writers closed.
-            } else {
-                Err(error)
-            };
-        }
-        if available == 0 {
-            return Err(io::ErrorKind::WouldBlock.into());
-        }
-        let count = buffer.len().min(available as usize);
-        self.read(&mut buffer[..count])
-    }
-}
-
-#[cfg(not(any(unix, windows)))]
+#[cfg(not(unix))]
 impl<R: Read> Pipe for R {
     fn prepare(&self) -> io::Result<()> {
         Err(io::Error::new(
@@ -228,7 +186,7 @@ impl<R: Read> Pipe for R {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

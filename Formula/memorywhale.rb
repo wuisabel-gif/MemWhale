@@ -24,7 +24,7 @@ class Memorywhale < Formula
   test do
     assert_equal "mw #{version}", shell_output("#{bin}/mw --version").strip
     assert_match "record a whole shell session", shell_output("#{bin}/mw --help")
-    ENV["MEMORYWHALE_DATA_DIR"] = testpath/"data"
+    ENV["MEMORYWHALE_DATA_DIR"] = (testpath/"data").to_s
     system bin/"mw-remember", "--cwd", testpath, "--exit-code", "0", "--", "brew-test"
     assert_match "brew-test", shell_output("#{bin}/mw search brew-test agent:terminal")
   end

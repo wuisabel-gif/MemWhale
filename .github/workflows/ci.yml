@@ -27,8 +27,12 @@ jobs:
   release-packages:
     name: Release package dry-run and smoke
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify crate archives together in dependency order
         run: cargo publish --dry-run --locked -p memorywhale-core -p memorywhale-cli
@@ -139,7 +143,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Run fixture-based installer tests
-        run: sh tests/install/run-tests.sh
+        run: |
+          sh tests/install/run-tests.sh
+          python3 tests/install/test_staging.py
 
   dependency-audit:
     name: Rust dependency audit
