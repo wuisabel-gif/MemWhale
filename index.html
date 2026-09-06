@@ -33,6 +33,7 @@
         "name": "MemoryWhale",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Linux, macOS",
+        "inLanguage": "en",
         "description": "Persistent local debugging memory for developers and coding agents. Captures terminal evidence into local SQLite and serves it over MCP.",
         "url": "https://wuisabel-gif.github.io/MemWhale/",
         "softwareVersion": "0.10.0",
@@ -41,6 +42,7 @@
         "license": "https://github.com/wuisabel-gif/MemWhale/blob/main/LICENSE"
       }
     </script>
+    <script defer src="site-i18n.js"></script>
     <style>
       :root {
         --paper: #f3f7fb;
@@ -190,6 +192,52 @@
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .language-picker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        border: 1px solid var(--line-2);
+        border-radius: var(--r);
+        padding: 4px 9px;
+        background: rgba(255, 255, 255, 0.74);
+        color: var(--ink-2);
+      }
+
+      .language-picker label {
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+      }
+
+      .language-picker select {
+        min-height: 29px;
+        border: 0;
+        border-radius: 5px;
+        padding: 2px 22px 2px 4px;
+        background: transparent;
+        color: var(--ink-2);
+        font: inherit;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .language-picker select:hover {
+        color: var(--azure);
       }
 
       .nav-links a,
@@ -833,6 +881,11 @@
           margin-bottom: 34px;
         }
 
+        .nav-actions {
+          width: 100%;
+          justify-content: space-between;
+        }
+
         .hero-visual {
           min-height: 500px;
         }
@@ -850,6 +903,21 @@
 
         .nav-links a {
           padding-inline: 11px;
+        }
+
+        .nav-actions {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .language-picker {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .language-picker select {
+          flex: 1;
+          max-width: 180px;
         }
 
         h1 {
@@ -887,38 +955,51 @@
   </head>
   <body>
     <div class="page">
-      <nav class="nav" aria-label="Page navigation">
-        <a class="brand" href="#top" aria-label="MemoryWhale home">
+      <nav class="nav" aria-label="Page navigation" data-i18n-aria-label="nav.label">
+        <a class="brand" href="#top" aria-label="MemoryWhale home" data-i18n-aria-label="brand.home">
           <span class="brand-mark" aria-hidden="true">
             <img src="assets/memorywhale-logo.png" alt="" />
           </span>
           <span>MemoryWhale</span>
         </a>
-        <div class="nav-links">
-          <a href="#terminal-memory">Terminal Memory</a>
-          <a href="#how-it-works">How It Works</a>
-          <a href="#ai-agents">AI Agents</a>
-          <a href="#who">Who It's For</a>
-          <a href="#run">Install</a>
-          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md">Docs</a>
-          <a href="https://github.com/wuisabel-gif/MemWhale/releases/latest">Releases</a>
-          <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub ↗</a>
-          <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener">Delphin ↗</a>
-          <a href="https://github.com/wuisabel-gif/ContextGC" target="_blank" rel="noopener">ContextGC ↗</a>
+        <div class="nav-actions">
+          <div class="nav-links">
+            <a href="#terminal-memory" data-i18n="nav.terminal">Terminal Memory</a>
+            <a href="#how-it-works" data-i18n="nav.how">How It Works</a>
+            <a href="#ai-agents" data-i18n="nav.agents">AI Agents</a>
+            <a href="#who" data-i18n="nav.who">Who It's For</a>
+            <a href="#run" data-i18n="nav.install">Install</a>
+            <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md" data-i18n="nav.docs">Docs</a>
+            <a href="https://github.com/wuisabel-gif/MemWhale/releases/latest" data-i18n="nav.releases">Releases</a>
+            <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener" data-i18n="nav.github">GitHub ↗</a>
+            <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener" data-i18n="nav.delphin">Delphin ↗</a>
+            <a href="https://github.com/wuisabel-gif/ContextGC" target="_blank" rel="noopener" data-i18n="nav.contextgc">ContextGC ↗</a>
+          </div>
+          <div class="language-picker">
+            <label for="language-select" data-i18n="language.label">Language</label>
+            <select id="language-select" name="language" aria-label="Language" data-i18n-aria-label="language.label">
+              <option value="en" data-i18n="language.en">English</option>
+              <option value="fr" data-i18n="language.fr">Français</option>
+              <option value="zh-CN" data-i18n="language.zh-CN">简体中文</option>
+              <option value="zh-TW" data-i18n="language.zh-TW">繁體中文</option>
+              <option value="ko" data-i18n="language.ko">한국어</option>
+              <option value="ja" data-i18n="language.ja">日本語</option>
+            </select>
+          </div>
         </div>
       </nav>
 
       <a class="release-banner" href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/releases/0.10.0.md"
          style="display:block;text-align:center;padding:11px 16px;background:linear-gradient(105deg,#2b43dd 0%,#10b6c6 100%);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
-        🐋 v0.10.0 — Agent-Native Memory · September 6, 2026 · release notes and upgrade guide →
+        <span data-i18n="release.banner">🐋 v0.10.0 — Agent-Native Memory · September 6, 2026 · release notes and upgrade guide →</span>
       </a>
 
       <main id="top">
         <section class="hero">
           <div>
-            <p class="eyebrow">Local-first terminal memory</p>
-            <h1>MemoryWhale remembers what your terminal forgets.</h1>
-            <p class="lead">
+            <p class="eyebrow" data-i18n="hero.eyebrow">Local-first terminal memory</p>
+            <h1 data-i18n="hero.title">MemoryWhale remembers what your terminal forgets.</h1>
+            <p class="lead" data-i18n="hero.lead">
               Capture terminal evidence, preserve it in local SQLite, and retrieve
               the failures and lessons that matter. MemoryWhale is local-first:
               it does not silently upload or synchronize your data.
@@ -932,14 +1013,14 @@
               <pre><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh</pre>
             </div>
             <div class="cta-row">
-              <a class="button primary" href="#demo">See the 60-second demo</a>
-              <a class="button" href="#run">Install MemoryWhale</a>
-              <a class="button" href="#security">Read the security model</a>
+              <a class="button primary" href="#demo" data-i18n="hero.demoCta">See the 60-second demo</a>
+              <a class="button" href="#run" data-i18n="hero.installCta">Install MemoryWhale</a>
+              <a class="button" href="#security" data-i18n="hero.securityCta">Read the security model</a>
             </div>
           </div>
 
           <div class="hero-visual" aria-hidden="true">
-            <div class="memory-chip mono">Terminal memory live</div>
+            <div class="memory-chip mono" data-i18n="hero.memoryChip">Terminal memory live</div>
             <div class="orbit"></div>
             <div class="orbit two"></div>
             <span class="graph-dot"></span>
@@ -950,7 +1031,7 @@
             <span class="connection b"></span>
             <span class="connection c"></span>
             <div class="whale-wrap">
-              <svg class="whale-svg" viewBox="0 0 520 280" role="img" aria-label="Luminous whale swimming through knowledge graph nodes">
+              <svg class="whale-svg" viewBox="0 0 520 280" role="img" aria-label="Luminous whale swimming through knowledge graph nodes" data-i18n-aria-label="hero.whaleAlt">
                 <defs>
                   <linearGradient id="whaleBody" x1="70" x2="430" y1="70" y2="210" gradientUnits="userSpaceOnUse">
                     <stop offset="0" stop-color="#92fff2" />
@@ -1002,9 +1083,9 @@
         </section>
 
         <section id="release" class="section">
-          <p class="eyebrow">New in 0.10.0</p>
-          <h2>Shared memory. Explicit provenance.</h2>
-          <p class="section-copy">
+          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.10.0</p>
+          <h2 data-i18n="release.title">Shared memory. Explicit provenance.</h2>
+          <p class="section-copy" data-i18n="release.copy">
             Product 0.10.0 spans the CLI, web UI, and desktop app. The reusable
             Rust core is 0.5.0: Rust <code>Memory</code> literals now require
             <code>agent: Option&lt;String&gt;</code>; older JSON remains readable
@@ -1012,22 +1093,22 @@
           </p>
           <div class="grid">
             <article class="card">
-              <strong>Connect Claude Code and Rho</strong>
-              <p><code>mw integrate claude</code> and <code>mw integrate rho</code>
+              <strong data-i18n="release.connectTitle">Connect Claude Code and Rho</strong>
+              <p data-i18n="release.connectBody"><code>mw integrate claude</code> and <code>mw integrate rho</code>
                 install MCP access, capture hooks, and a skill.
                 <code>mw doctor</code> checks those components independently.</p>
             </article>
             <article class="card">
-              <strong>Know where evidence came from</strong>
-              <p>Schema 10 stores command agents as <code>claude</code>,
+              <strong data-i18n="release.provenanceTitle">Know where evidence came from</strong>
+              <p data-i18n="release.provenanceBody">Schema 10 stores command agents as <code>claude</code>,
                 <code>rho</code>, or <code>NULL</code>, displayed as
                 <code>terminal</code>. Agent is separate from source type.
                 Canonical repository IDs group linked worktrees without losing
                 each worktree's path.</p>
             </article>
             <article class="card">
-              <strong>Choose your local interface</strong>
-              <p><code>mw-serve</code> adds HTTP MCP at <code>POST /mcp</code>.
+              <strong data-i18n="release.interfaceTitle">Choose your local interface</strong>
+              <p data-i18n="release.interfaceBody"><code>mw-serve</code> adds HTTP MCP at <code>POST /mcp</code>.
                 <code>--api</code> opts into a read-only JSON API.
                 <code>mw github context &lt;pr&gt;</code> explicitly reads PR
                 metadata, checks, commit statuses, and reviews via your <code>gh</code> login:
@@ -1037,9 +1118,9 @@
         </section>
 
         <section id="who" class="section">
-          <p class="eyebrow">Who it's for</p>
-          <h2>Built for three ways of working.</h2>
-          <p class="section-copy">
+          <p class="eyebrow" data-i18n="who.eyebrow">Who it's for</p>
+          <h2 data-i18n="who.title">Built for three ways of working.</h2>
+          <p class="section-copy" data-i18n="who.copy">
             MemoryWhale serves developers whose debugging context is scattered
             across terminal scrollback, shell history, machines, and temporary
             agent sessions. See the full
@@ -1048,8 +1129,8 @@
           </p>
           <div class="grid">
             <article class="card">
-              <strong>🔍 The shell-centric debugger</strong>
-              <p>
+              <strong data-i18n="who.shellTitle">🔍 The shell-centric debugger</strong>
+              <p data-i18n="who.shellBody">
                 You hit the same build, linker, or dependency error twice.
                 Shell history remembers the command — not the output, the error
                 tail, or the fix. <code>mw search</code> returns the old failing
@@ -1057,8 +1138,8 @@
               </p>
             </article>
             <article class="card">
-              <strong>🛰️ The multi-machine worker</strong>
-              <p>
+              <strong data-i18n="who.multiTitle">🛰️ The multi-machine worker</strong>
+              <p data-i18n="who.multiBody">
                 Jetson, lab server, laptop — sessions drop and each machine
                 keeps a private, incomplete history. <code>mw --live</code>
                 autosaves through disconnects; <code>mw push</code> /
@@ -1066,8 +1147,8 @@
               </p>
             </article>
             <article class="card">
-              <strong>🤖 The coding-agent user</strong>
-              <p>
+              <strong data-i18n="who.agentTitle">🤖 The coding-agent user</strong>
+              <p data-i18n="who.agentBody">
                 Claude Code, Codex, Cursor — every session starts with
                 re-explaining your environment. With <code>mw-mcp</code>, the
                 agent can query prior evidence and explicitly save a lesson
@@ -1078,9 +1159,9 @@
         </section>
 
         <section id="terminal-memory" class="section">
-          <p class="eyebrow">Terminal memory</p>
-          <h2>A memory palace for command-line work.</h2>
-          <p class="section-copy">
+          <p class="eyebrow" data-i18n="terminal.eyebrow">Terminal memory</p>
+          <h2 data-i18n="terminal.title">A memory palace for command-line work.</h2>
+          <p class="section-copy" data-i18n="terminal.copy">
             MemoryWhale stores terminal sessions as structured local memory.
             Instead of keeping one giant text dump, it saves the command, every
             argument, the working directory, the exit code, stdout, stderr, and
@@ -1088,30 +1169,30 @@
           </p>
           <div class="grid">
             <article class="card">
-              <strong>Arguments Become Searchable</strong>
-              <p>
+              <strong data-i18n="terminal.argsTitle">Arguments Become Searchable</strong>
+              <p data-i18n="terminal.argsBody">
                 Flags like <code>--manifest-path</code>, paths, subcommands,
                 package names, and model options are split into their own rows.
               </p>
             </article>
             <article class="card">
-              <strong>Error Logs Stay Attached</strong>
-              <p>
+              <strong data-i18n="terminal.errorsTitle">Error Logs Stay Attached</strong>
+              <p data-i18n="terminal.errorsBody">
                 stderr is preserved beside the command that produced it, so the
                 cause and context remain together.
               </p>
             </article>
             <article class="card">
-              <strong>Live Autosave for Sessions</strong>
-              <p>
+              <strong data-i18n="terminal.liveTitle">Live Autosave for Sessions</strong>
+              <p data-i18n="terminal.liveBody">
                 <code>mw --live</code> writes the active shell transcript into
                 SQLite every few seconds, so a disconnect can still leave a
                 usable memory trail.
               </p>
             </article>
             <article class="card">
-              <strong>Graph Nodes for Failures</strong>
-              <p>
+              <strong data-i18n="terminal.graphTitle">Graph Nodes for Failures</strong>
+              <p data-i18n="terminal.graphBody">
                 Failed commands appear in the knowledge galaxy and connect to
                 extracted concepts like cargo, Tauri, SQLite, ports, and builds.
               </p>
@@ -1120,37 +1201,37 @@
         </section>
 
         <section id="how-it-works" class="section">
-          <p class="eyebrow">How it works</p>
-          <h2>Capture, store, extract, explore.</h2>
+          <p class="eyebrow" data-i18n="how.eyebrow">How it works</p>
+          <h2 data-i18n="how.title">Capture, store, extract, explore.</h2>
           <div class="flow">
             <article class="step">
               <span>1</span>
-              <h3>Capture</h3>
-              <p>Paste a terminal run, call the Rust helper, or start a live-autosaved shell.</p>
+              <h3 data-i18n="how.captureTitle">Capture</h3>
+              <p data-i18n="how.captureBody">Paste a terminal run, call the Rust helper, or start a live-autosaved shell.</p>
             </article>
             <article class="step">
               <span>2</span>
-              <h3>Store</h3>
-              <p>SQLite saves command runs and arguments locally on your machine.</p>
+              <h3 data-i18n="how.storeTitle">Store</h3>
+              <p data-i18n="how.storeBody">SQLite saves command runs and arguments locally on your machine.</p>
             </article>
             <article class="step">
               <span>3</span>
-              <h3>Extract</h3>
-              <p>Rust extracts keywords from commands, notes, and error text.</p>
+              <h3 data-i18n="how.extractTitle">Extract</h3>
+              <p data-i18n="how.extractBody">Rust extracts keywords from commands, notes, and error text.</p>
             </article>
             <article class="step">
               <span>4</span>
-              <h3>Explore</h3>
-              <p>Search or click command nodes in the glowing graph interface.</p>
+              <h3 data-i18n="how.exploreTitle">Explore</h3>
+              <p data-i18n="how.exploreBody">Search or click command nodes in the glowing graph interface.</p>
             </article>
           </div>
         </section>
 
         <section id="ai-agents" class="section split">
           <div>
-            <p class="eyebrow">AI agents</p>
-            <h2>Give your agent memory of what already failed.</h2>
-            <p class="section-copy">
+            <p class="eyebrow" data-i18n="agents.eyebrow">AI agents</p>
+            <h2 data-i18n="agents.title">Give your agent memory of what already failed.</h2>
+            <p class="section-copy" data-i18n="agents.copy">
               Coding-agent sessions can lose context and repeat debugging you
               already did. <code>mw-mcp</code> is a Model Context Protocol
               server over your local memory — register it once and Claude Code,
@@ -1158,7 +1239,7 @@
               client with the evidence it retrieves, including any model
               provider to which that client sends context.
             </p>
-            <div class="client-strip" aria-label="Clients with integration guides">
+            <div class="client-strip" aria-label="Clients with integration guides" data-i18n-aria-label="agents.clientsLabel">
               <span class="client-chip">Claude Code</span>
               <span class="client-chip">Rho</span>
               <span class="client-chip">Claude Desktop</span>
@@ -1172,9 +1253,9 @@
               <span class="client-chip">Windsurf</span>
               <span class="client-chip">Goose</span>
               <span class="client-chip">OpenCode</span>
-              <span class="client-chip">More in the matrix</span>
+              <span class="client-chip" data-i18n="agents.matrix">More in the matrix</span>
             </div>
-            <p class="section-copy">
+            <p class="section-copy" data-i18n="agents.guides">
               <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" style="color:var(--azure);text-decoration:underline;">Setup guides for clients and tools</a>
               — the capability matrix documents MCP support, auto-capture, and
               verification status per client, including model gateways like
@@ -1182,16 +1263,16 @@
             </p>
             <div class="stat-list">
               <div class="stat">
-                <span>Setup</span>
-                <strong>One command</strong>
+                <span data-i18n="agents.setupLabel">Setup</span>
+                <strong data-i18n="agents.setupValue">One command</strong>
               </div>
               <div class="stat">
-                <span>Tools</span>
-                <strong>6 local MCP tools: recent_errors · search_memory · get_context · remember · similar_failures · stats</strong>
+                <span data-i18n="agents.toolsLabel">Tools</span>
+                <strong data-i18n="agents.toolsValue">6 local MCP tools: recent_errors · search_memory · get_context · remember · similar_failures · stats</strong>
               </div>
               <div class="stat">
-                <span>No agent?</span>
-                <strong>mw context prints a paste-ready digest</strong>
+                <span data-i18n="agents.noAgentLabel">No agent?</span>
+                <strong data-i18n="agents.noAgentValue">mw context prints a paste-ready digest</strong>
               </div>
             </div>
           </div>
@@ -1215,15 +1296,15 @@
 
         <section id="demo" class="section split">
           <div>
-            <p class="eyebrow">Capture → memory → retrieval</p>
-            <h2>See the core loop with synthetic data.</h2>
-            <p class="section-copy">
+            <p class="eyebrow" data-i18n="demo.eyebrow">Capture → memory → retrieval</p>
+            <h2 data-i18n="demo.title">See the core loop with synthetic data.</h2>
+            <p class="section-copy" data-i18n="demo.copy">
               Capture one command, save the explanation that fixed it, then
               search the local store when the same failure returns. MCP provides
               retrieval and explicit writing; it does not capture ordinary
               terminal activity automatically.
             </p>
-            <p class="section-copy">
+            <p class="section-copy" data-i18n="demo.handoff">
               The <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/guides/cross-agent-handoff.md" style="color:var(--azure);text-decoration:underline;">offline Claude-to-Rho handoff demo</a>
               imports fixtures and simulates a Rho client against real MCP. It
               does not run live agents or execute and verify the fixture's Cargo
@@ -1243,15 +1324,15 @@
             </div>
           </div>
           <div>
-            <img src="assets/demo.gif" alt="Synthetic MemoryWhale terminal and dashboard demo" width="1240" height="640" loading="lazy" style="display:block;max-width:100%;height:auto;border-radius:16px;box-shadow:var(--shadow);" />
+            <img src="assets/demo.gif" alt="Synthetic MemoryWhale terminal and dashboard demo" data-i18n-alt="demo.imageAlt" width="1240" height="640" loading="lazy" style="display:block;max-width:100%;height:auto;border-radius:16px;box-shadow:var(--shadow);" />
           </div>
         </section>
 
         <section id="data" class="section split">
           <div>
-            <p class="eyebrow">Your data</p>
-            <h2>Local-first means visible choices.</h2>
-            <p class="section-copy">
+            <p class="eyebrow" data-i18n="data.eyebrow">Your data</p>
+            <h2 data-i18n="data.title">Local-first means visible choices.</h2>
+            <p class="section-copy" data-i18n="data.copy">
               The database lives on your machine: typically
               <code>~/.local/share/MemoryWhale/</code> on Linux or
               <code>~/Library/Application Support/MemoryWhale/</code> on macOS.
@@ -1259,19 +1340,19 @@
             </p>
           </div>
           <div class="stat-list">
-            <div class="stat"><span>Capture controls</span><strong><code>.mwignore</code>, path policy, commands-only</strong></div>
-            <div class="stat"><span>Redaction</span><strong>Helps with common secrets; it is not a security boundary</strong></div>
-            <div class="stat"><span>Size limit</span><strong>Captured text fields default to 1 MiB with truncation</strong></div>
-            <div class="stat"><span>Inspect / delete</span><strong><code>mw audit</code> · <code>mw rm</code> · <code>mw prune</code></strong></div>
-            <div class="stat"><span>Transfer</span><strong><code>mw export</code> / <code>mw import</code> or explicit SSH transfer</strong></div>
-            <div class="stat"><span>Stewardship</span><strong><code>mw memory compact</code> — dry-run first, rows preserved</strong></div>
+            <div class="stat"><span data-i18n="data.captureLabel">Capture controls</span><strong data-i18n="data.captureValue"><code>.mwignore</code>, path policy, commands-only</strong></div>
+            <div class="stat"><span data-i18n="data.redactionLabel">Redaction</span><strong data-i18n="data.redactionValue">Helps with common secrets; it is not a security boundary</strong></div>
+            <div class="stat"><span data-i18n="data.sizeLabel">Size limit</span><strong data-i18n="data.sizeValue">Captured text fields default to 1 MiB with truncation</strong></div>
+            <div class="stat"><span data-i18n="data.inspectLabel">Inspect / delete</span><strong data-i18n="data.inspectValue"><code>mw audit</code> · <code>mw rm</code> · <code>mw prune</code></strong></div>
+            <div class="stat"><span data-i18n="data.transferLabel">Transfer</span><strong data-i18n="data.transferValue"><code>mw export</code> / <code>mw import</code> or explicit SSH transfer</strong></div>
+            <div class="stat"><span data-i18n="data.stewardshipLabel">Stewardship</span><strong data-i18n="data.stewardshipValue"><code>mw memory compact</code> — dry-run first, rows preserved</strong></div>
           </div>
         </section>
 
         <section id="security" class="section">
-          <p class="eyebrow">Security model</p>
-          <h2>Local by default, explicit when shared.</h2>
-          <p class="section-copy">
+          <p class="eyebrow" data-i18n="security.eyebrow">Security model</p>
+          <h2 data-i18n="security.title">Local by default, explicit when shared.</h2>
+          <p class="section-copy" data-i18n="security.copy">
             The CLI, TUI, MCP server, web dashboard, and desktop shell use the
             local store. <code>mw-mcp</code> is a trusted local stdio process;
             the dashboard binds to loopback by default. A non-loopback dashboard
@@ -1285,9 +1366,9 @@
 
         <section id="run" class="section split">
           <div>
-            <p class="eyebrow">Install</p>
-            <h2>One line. No Rust needed.</h2>
-            <p class="section-copy">
+            <p class="eyebrow" data-i18n="run.eyebrow">Install</p>
+            <h2 data-i18n="run.title">One line. No Rust needed.</h2>
+            <p class="section-copy" data-i18n="run.copy">
               Prebuilt binaries are available for Linux x86_64/aarch64 and macOS.
               The installer verifies published SHA256 files when a release
               provides them; older releases may not have a checksum. Start with
@@ -1296,18 +1377,18 @@
               use the Linux build.
             </p>
             <div class="stat-list">
-              <div class="stat"><span>Try first</span><strong><code>mw demo</code> — writes sample data to the selected store</strong></div>
-              <div class="stat"><span>Prebuilt install</span><strong><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
+              <div class="stat"><span data-i18n="run.tryLabel">Try first</span><strong data-i18n="run.tryValue"><code>mw demo</code> — writes sample data to the selected store</strong></div>
+              <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
               <div class="stat">
-                <span>Cargo</span>
-                <strong><code>cargo install memorywhale-cli --version 0.10.0 --locked</code></strong>
+                <span data-i18n="run.cargoLabel">Cargo</span>
+                <strong data-i18n="run.cargoValue"><code>cargo install memorywhale-cli --version 0.10.0 --locked</code></strong>
               </div>
               <div class="stat">
-                <span>Debian / Jetson</span>
-                <strong>.deb on the releases page</strong>
+                <span data-i18n="run.debianLabel">Debian / Jetson</span>
+                <strong data-i18n="run.debianValue">.deb on the releases page</strong>
               </div>
-              <div class="stat"><span>Security</span><strong><a href="#security">Read the model</a></strong></div>
-              <div class="stat"><span>Verify</span><strong><code>mw --version</code> · <code>mw doctor</code></strong></div>
+              <div class="stat"><span data-i18n="run.securityLabel">Security</span><strong data-i18n="run.securityValue"><a href="#security">Read the model</a></strong></div>
+              <div class="stat"><span data-i18n="run.verifyLabel">Verify</span><strong data-i18n="run.verifyValue"><code>mw --version</code> · <code>mw doctor</code></strong></div>
             </div>
           </div>
 
@@ -1329,13 +1410,13 @@
       </main>
 
       <footer>
-        <span>Copyright (c) 2026 wuisabel-gif. MemoryWhale - Rust/Tauri terminal memory and knowledge graph.</span>
+        <span data-i18n="footer.copyright">Copyright (c) 2026 wuisabel-gif. MemoryWhale - Rust/Tauri terminal memory and knowledge graph.</span>
         <span>
-          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md">Documentation</a> ·
-          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md">Use cases</a> ·
-          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/reference/cli.md">CLI reference</a> ·
-          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md">Security policy</a> ·
-          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md">Integrations</a>
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md" data-i18n="footer.docs">Documentation</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md" data-i18n="footer.useCases">Use cases</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/reference/cli.md" data-i18n="footer.cli">CLI reference</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md" data-i18n="footer.security">Security policy</a> ·
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" data-i18n="footer.integrations">Integrations</a>
         </span>
         <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub: wuisabel-gif/MemWhale</a>
       </footer>
