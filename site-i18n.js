@@ -3,12 +3,6 @@ const EN = {
     title: "MemoryWhale — terminal memory for you and your AI agent",
     description:
       "MemoryWhale captures development evidence into local SQLite so people and trusted tools can retrieve past failures and lessons. Local-first, with explicit export and transfer.",
-    ogTitle: "MemoryWhale — terminal memory for you and your AI agent",
-    ogDescription:
-      "Captures development evidence into local SQLite so people and trusted tools can retrieve past failures and lessons. Local-first, with explicit export and transfer.",
-    twitterTitle: "MemoryWhale — terminal memory for you and your AI agent",
-    twitterDescription:
-      "Captures development evidence into local SQLite so people and trusted tools can retrieve past failures and lessons.",
     jsonLdDescription:
       "Persistent local debugging memory for developers and coding agents. Captures terminal evidence into local SQLite and serves it over MCP."
   },
@@ -164,12 +158,6 @@ const FR = {
     title: "MemoryWhale — une mémoire de terminal pour vous et votre agent IA",
     description:
       "MemoryWhale capture les preuves de développement dans SQLite local afin que les personnes et les outils de confiance puissent retrouver les échecs et les leçons utiles. Local par défaut, avec export et transfert explicites.",
-    ogTitle: "MemoryWhale — une mémoire de terminal pour vous et votre agent IA",
-    ogDescription:
-      "Capture les preuves de développement dans SQLite local afin de retrouver les échecs et les leçons utiles. Local par défaut, avec export et transfert explicites.",
-    twitterTitle: "MemoryWhale — une mémoire de terminal pour vous et votre agent IA",
-    twitterDescription:
-      "Capture les preuves de développement dans SQLite local pour retrouver les échecs et les leçons utiles.",
     jsonLdDescription:
       "Mémoire locale et persistante du débogage pour les développeurs et les agents de code. Capture les preuves du terminal dans SQLite local et les sert via MCP."
   },
@@ -325,11 +313,6 @@ const ZH_CN = {
     title: "MemoryWhale — 为你和 AI 智能体提供的终端记忆",
     description:
       "MemoryWhale 将开发证据采集到本地 SQLite，让人和受信任的工具找回过去的失败与经验。本地优先，明确导出和传输。",
-    ogTitle: "MemoryWhale — 为你和 AI 智能体提供的终端记忆",
-    ogDescription:
-      "将开发证据采集到本地 SQLite，找回过去的失败与经验。本地优先，明确导出和传输。",
-    twitterTitle: "MemoryWhale — 为你和 AI 智能体提供的终端记忆",
-    twitterDescription: "将开发证据采集到本地 SQLite，找回过去的失败与经验。",
     jsonLdDescription:
       "面向开发者和编程智能体的持久化本地调试记忆。将终端证据采集到本地 SQLite，并通过 MCP 提供服务。"
   },
@@ -484,11 +467,6 @@ const ZH_TW = {
     title: "MemoryWhale — 為你與 AI 代理提供的終端機記憶",
     description:
       "MemoryWhale 將開發證據擷取到本機 SQLite，讓人與受信任的工具找回過去的失敗與經驗。本機優先，明確匯出與傳輸。",
-    ogTitle: "MemoryWhale — 為你與 AI 代理提供的終端機記憶",
-    ogDescription:
-      "將開發證據擷取到本機 SQLite，找回過去的失敗與經驗。本機優先，明確匯出與傳輸。",
-    twitterTitle: "MemoryWhale — 為你與 AI 代理提供的終端機記憶",
-    twitterDescription: "將開發證據擷取到本機 SQLite，找回過去的失敗與經驗。",
     jsonLdDescription:
       "為開發者與程式設計代理提供的持久本機除錯記憶。將終端機證據擷取到本機 SQLite，並透過 MCP 提供服務。"
   },
@@ -643,11 +621,6 @@ const KO = {
     title: "MemoryWhale — 나와 AI 에이전트를 위한 터미널 메모리",
     description:
       "MemoryWhale은 개발 증거를 로컬 SQLite에 저장해 사람과 신뢰할 수 있는 도구가 과거의 실패와 교훈을 다시 찾도록 합니다. 로컬 우선이며 내보내기와 전송은 명시적으로 수행합니다.",
-    ogTitle: "MemoryWhale — 나와 AI 에이전트를 위한 터미널 메모리",
-    ogDescription:
-      "개발 증거를 로컬 SQLite에 저장해 과거의 실패와 교훈을 다시 찾습니다. 로컬 우선이며 내보내기와 전송은 명시적입니다.",
-    twitterTitle: "MemoryWhale — 나와 AI 에이전트를 위한 터미널 메모리",
-    twitterDescription: "개발 증거를 로컬 SQLite에 저장해 과거의 실패와 교훈을 다시 찾습니다.",
     jsonLdDescription:
       "개발자와 코딩 에이전트를 위한 지속적인 로컬 디버깅 메모리입니다. 터미널 증거를 로컬 SQLite에 저장하고 MCP로 제공합니다."
   },
@@ -802,11 +775,6 @@ const JA = {
     title: "MemoryWhale — あなたと AI エージェントのためのターミナルメモリ",
     description:
       "MemoryWhale は開発の証拠をローカル SQLite に保存し、人と信頼できるツールが過去の失敗や教訓を見つけられるようにします。ローカル優先で、エクスポートと転送は明示的に行います。",
-    ogTitle: "MemoryWhale — あなたと AI エージェントのためのターミナルメモリ",
-    ogDescription:
-      "開発の証拠をローカル SQLite に保存し、過去の失敗や教訓を見つけます。ローカル優先で、エクスポートと転送は明示的です。",
-    twitterTitle: "MemoryWhale — あなたと AI エージェントのためのターミナルメモリ",
-    twitterDescription: "開発の証拠をローカル SQLite に保存し、過去の失敗や教訓を見つけます。",
     jsonLdDescription:
       "開発者とコーディングエージェントのための永続的なローカルデバッグメモリです。ターミナルの証拠をローカル SQLite に保存し、MCP 経由で提供します。"
   },
@@ -978,6 +946,8 @@ globalThis.MEMORYWHALE_I18N = Object.freeze({ supportedLanguages, translations }
   const normalizeLanguage = (value) => {
     if (typeof value !== "string") return null;
     const normalized = value.trim().replace(/_/g, "-").toLowerCase();
+    if (normalized === "zh-hans" || normalized.startsWith("zh-hans-")) return "zh-CN";
+    if (normalized === "zh-hant" || normalized.startsWith("zh-hant-")) return "zh-TW";
     if (normalized === "zh-tw" || normalized === "zh-hk" || normalized === "zh-mo") return "zh-TW";
     if (normalized === "zh-cn" || normalized === "zh-sg" || normalized === "zh") return "zh-CN";
     const primary = normalized.split("-")[0];
@@ -1012,11 +982,6 @@ globalThis.MEMORYWHALE_I18N = Object.freeze({ supportedLanguages, translations }
     }
   };
 
-  const setMetaContent = (selector, content) => {
-    const element = document.querySelector(selector);
-    if (element && content) element.setAttribute("content", content);
-  };
-
   const applyJsonLd = (dictionary, language) => {
     const element = document.querySelector('script[type="application/ld+json"]');
     if (!element) return;
@@ -1045,11 +1010,8 @@ globalThis.MEMORYWHALE_I18N = Object.freeze({ supportedLanguages, translations }
     const dictionary = translations[selectedLanguage] || translations.en;
     document.documentElement.lang = selectedLanguage;
     document.title = dictionary.meta.title;
-    setMetaContent('meta[name="description"]', dictionary.meta.description);
-    setMetaContent('meta[property="og:title"]', dictionary.meta.ogTitle);
-    setMetaContent('meta[property="og:description"]', dictionary.meta.ogDescription);
-    setMetaContent('meta[name="twitter:title"]', dictionary.meta.twitterTitle);
-    setMetaContent('meta[name="twitter:description"]', dictionary.meta.twitterDescription);
+    const description = document.querySelector('meta[name="description"]');
+    if (description) description.setAttribute("content", dictionary.meta.description);
     applyJsonLd(dictionary, selectedLanguage);
 
     document.querySelectorAll("[data-i18n]").forEach((element) => {

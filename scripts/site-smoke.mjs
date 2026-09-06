@@ -48,6 +48,12 @@ const languageUrl = (language) => {
   url.hash = "demo";
   return url.toString();
 };
+const browserLanguageUrl = () => {
+  const url = new URL(baseUrl);
+  url.searchParams.delete("lang");
+  url.hash = "demo";
+  return url.toString();
+};
 
 const browser = await chromium.launch({ headless: true });
 const failures = [];
@@ -132,6 +138,52 @@ try {
         }
       }
       await page.close();
+    }
+  }
+
+  for (const [locale, language] of [["zh-Hans", "zh-CN"], ["zh-Hant", "zh-TW"]]) {
+    const context = await browser.newContext({
+      locale,
+      viewport: { width: 1440, height: 900 }
+    });
+    try {
+      const page = await context.newPage();
+      const consoleErrors = [];
+      const pageErrors = [];
+      page.on("console", (message) => {
+        if (message.type() === "error") consoleErrors.push(message.text());
+      });
+      page.on("pageerror", (error) => pageErrors.push(error.message));
+
+      const response = await page.goto(browserLanguageUrl(), { waitUntil: "networkidle" });
+      if (!response || !response.ok()) {
+        failures.push(`${locale}: page did not load successfully (${response?.status() ?? "no response"})`);
+      }
+      const heading = await page.locator("h1").innerText();
+      const pageTitle = await page.title();
+      const documentLanguage = await page.locator("html").getAttribute("lang");
+      const currentUrl = new URL(page.url());
+      const storedLanguage = await page.evaluate(() => window.localStorage.getItem("memorywhale.language"));
+      if (currentUrl.searchParams.has("lang")) {
+        failures.push(`${locale}: browser-language detection unexpectedly added a lang query (${page.url()})`);
+      }
+      if (storedLanguage !== null) {
+        failures.push(`${locale}: browser-language detection unexpectedly used localStorage (${storedLanguage})`);
+      }
+      if (pageTitle !== expected[language].title) {
+        failures.push(`${locale}: unexpected browser-detected document title: ${pageTitle}`);
+      }
+      if (heading !== expected[language].heading) {
+        failures.push(`${locale}: unexpected browser-detected hero heading: ${heading}`);
+      }
+      if (documentLanguage !== language) {
+        failures.push(`${locale}: browser-detected html lang is ${documentLanguage}, expected ${language}`);
+      }
+      if (consoleErrors.length) failures.push(`${locale}: console errors: ${consoleErrors.join(" | ")}`);
+      if (pageErrors.length) failures.push(`${locale}: page errors: ${pageErrors.join(" | ")}`);
+      await page.close();
+    } finally {
+      await context.close();
     }
   }
 
