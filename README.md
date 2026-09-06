@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Persistent local debugging memory for developers and coding agents.</strong></p>
 
-<p align="center"><a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
+<p align="center"><a href="README.md">English README</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -23,7 +23,7 @@ agent session is gone.
 
 **MemoryWhale 0.10.0 — Agent-Native Memory · September 6, 2026.**
 The CLI, web UI, and desktop app share product version 0.10.0; the reusable
-Rust core is version 0.5.0. See the [release notes](docs/releases/0.10.0.md)
+Rust core is version 0.5.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)
 for the upgrade guide and breaking Rust API change.
 
 ## Why MemoryWhale
@@ -64,7 +64,14 @@ system, or a replacement for project documentation.
 Prebuilt binaries are available for Linux x86_64/aarch64 and macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/7c3864c743cec9a8fa813dcc0b2459cc2859c849/install.sh -o "$installer"
+  printf '%s  %s\n' '3e0cad72b29c1894d5ff5f7c30b099537f96501801c14b6320c12e169a3ac8d6' "$installer" | shasum -a 256 -c -
+  sh "$installer"
+)
 ```
 
 Or install with Cargo or Homebrew:

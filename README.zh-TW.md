@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 2f6582d6f7bc44c7565242f9d5f5baba95e2e7ccdea75c18230bad6b144369a5 -->
+<!-- README-SOURCE-SHA256: c177f5ebba1899016da1a16ac5f7382f2cb7c39b0d2b0a8cfa73aa0fccf46aec -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -8,7 +8,7 @@
 
 <p align="center"><strong>為開發者與程式設計代理提供持久的本機除錯記憶。</strong></p>
 
-<p align="center"><a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
+<p align="center"><a href="README.md">English README</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -24,7 +24,7 @@ MemoryWhale 記錄除錯時真正發生過的事：指令、輸出、失敗，�
 
 **MemoryWhale 0.10.0 — Agent-Native Memory · 2026 年 9 月 6 日。**
 CLI、Web 介面與桌面應用程式統一採用產品版本 0.10.0；可重用的 Rust 核心版本為 0.5.0。
-升級指南與 Rust API 的不相容變更請參閱[發行說明](docs/releases/0.10.0.md)。
+升級指南與 Rust API 的不相容變更請參閱[發行說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)。
 
 ## 為什麼選擇 MemoryWhale
 
@@ -54,7 +54,14 @@ MemoryWhale 記錄開發經驗，而非所有資訊。它是除錯記憶層，�
 Linux x86_64/aarch64 和 macOS 提供預先編譯的二進位檔：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/7c3864c743cec9a8fa813dcc0b2459cc2859c849/install.sh -o "$installer"
+  printf '%s  %s\n' '3e0cad72b29c1894d5ff5f7c30b099537f96501801c14b6320c12e169a3ac8d6' "$installer" | shasum -a 256 -c -
+  sh "$installer"
+)
 ```
 
 也可以透過 Cargo 或 Homebrew 安裝：

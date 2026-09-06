@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 2f6582d6f7bc44c7565242f9d5f5baba95e2e7ccdea75c18230bad6b144369a5 -->
+<!-- README-SOURCE-SHA256: c177f5ebba1899016da1a16ac5f7382f2cb7c39b0d2b0a8cfa73aa0fccf46aec -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -8,7 +8,7 @@
 
 <p align="center"><strong>개발자와 코딩 에이전트를 위한 지속적인 로컬 디버깅 메모리.</strong></p>
 
-<p align="center"><a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
+<p align="center"><a href="README.md">English README</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -24,7 +24,7 @@ MemoryWhale은 디버깅 중 실제로 일어난 일을 기록합니다. 명령,
 
 **MemoryWhale 0.10.0 — Agent-Native Memory · 2026년 9월 6일.**
 CLI, 웹 UI, 데스크톱 앱의 제품 버전은 모두 0.10.0이며, 재사용 가능한 Rust 코어의 버전은 0.5.0입니다.
-업그레이드 안내와 호환되지 않는 Rust API 변경은 [릴리스 노트](docs/releases/0.10.0.md)를 참고하세요.
+업그레이드 안내와 호환되지 않는 Rust API 변경은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)를 참고하세요.
 
 ## 왜 MemoryWhale인가요?
 
@@ -54,7 +54,14 @@ MemoryWhale은 모든 정보가 아니라 개발 경험을 기록합니다. 디�
 Linux x86_64/aarch64와 macOS용 사전 빌드 바이너리를 제공합니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/7c3864c743cec9a8fa813dcc0b2459cc2859c849/install.sh -o "$installer"
+  printf '%s  %s\n' '3e0cad72b29c1894d5ff5f7c30b099537f96501801c14b6320c12e169a3ac8d6' "$installer" | shasum -a 256 -c -
+  sh "$installer"
+)
 ```
 
 Cargo 또는 Homebrew로 설치할 수도 있습니다.

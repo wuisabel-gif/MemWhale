@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 2f6582d6f7bc44c7565242f9d5f5baba95e2e7ccdea75c18230bad6b144369a5 -->
+<!-- README-SOURCE-SHA256: c177f5ebba1899016da1a16ac5f7382f2cb7c39b0d2b0a8cfa73aa0fccf46aec -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -8,7 +8,7 @@
 
 <p align="center"><strong>開発者とコーディングエージェントのための、永続的なローカルデバッグメモリ。</strong></p>
 
-<p align="center"><a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
+<p align="center"><a href="README.md">English README</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -24,7 +24,7 @@ MemoryWhale はデバッグ中に実際に起きたことを記録します。�
 
 **MemoryWhale 0.10.0 — Agent-Native Memory · 2026 年 9 月 6 日。**
 CLI、Web UI、デスクトップアプリの製品バージョンは共通で 0.10.0、再利用可能な Rust コアは 0.5.0 です。
-アップグレード手順と Rust API の破壊的変更は[リリースノート](docs/releases/0.10.0.md)をご覧ください。
+アップグレード手順と Rust API の破壊的変更は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)をご覧ください。
 
 ## MemoryWhale を使う理由
 
@@ -54,7 +54,14 @@ MemoryWhale が記録するのは開発経験であり、あらゆる情報で�
 Linux x86_64/aarch64 と macOS 向けにビルド済みバイナリを提供しています。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh
+(
+  set -eu
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' EXIT
+  curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/7c3864c743cec9a8fa813dcc0b2459cc2859c849/install.sh -o "$installer"
+  printf '%s  %s\n' '3e0cad72b29c1894d5ff5f7c30b099537f96501801c14b6320c12e169a3ac8d6' "$installer" | shasum -a 256 -c -
+  sh "$installer"
+)
 ```
 
 Cargo または Homebrew でもインストールできます。
