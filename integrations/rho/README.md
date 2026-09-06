@@ -5,6 +5,11 @@ independent ways: `mw-mcp` provides native memory tools, an `after_tool_use`
 hook records bash and powershell calls when the payload includes them, and a
 skill teaches Rho when to search or save debugging memory.
 
+Rho is a separate open-source coding-agent project that MemoryWhale's maintainer
+actively uses and contributes to. That hands-on experience led to
+MemoryWhale's dedicated Rho integration, which supports MCP memory access,
+optional command-capture hooks, and memory-use guidance through a Rho skill.
+
 ## Status
 
 Verified against Rho's [hooks](https://matthewyjiang.github.io/rho/hooks),
