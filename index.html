@@ -43,6 +43,7 @@
       }
     </script>
     <script defer src="site-i18n.js"></script>
+    <script defer src="site-search.js"></script>
     <style>
       :root {
         --paper: #f3f7fb;
@@ -67,12 +68,24 @@
         --green-soft: #e6f6ef;
         --r: 8px;
         --r-lg: 16px;
-        --max: 1160px;
+        --max: 1240px;
         --shadow: 0 1px 2px rgba(15, 23, 34, 0.05), 0 18px 44px -26px rgba(15, 23, 34, 0.32);
       }
 
       * {
         box-sizing: border-box;
+      }
+
+      [hidden] { display: none !important; }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
 
       html {
@@ -85,8 +98,7 @@
         min-height: 100vh;
         overflow-x: hidden;
         background:
-          radial-gradient(circle at 16% 14%, rgba(16, 182, 198, 0.18), transparent 30%),
-          radial-gradient(circle at 84% 2%, rgba(43, 67, 221, 0.16), transparent 28%),
+          radial-gradient(circle at 80% 8%, rgba(16, 182, 198, 0.08), transparent 28%),
           linear-gradient(135deg, #f8fbff 0%, var(--paper) 48%, #edf5f8 100%);
         color: var(--ink);
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -101,10 +113,10 @@
         inset: 0;
         pointer-events: none;
         background-image:
-          linear-gradient(rgba(15, 23, 34, 0.035) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(15, 23, 34, 0.035) 1px, transparent 1px);
-        background-size: 42px 42px;
-        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 64%);
+          linear-gradient(rgba(36, 78, 112, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(36, 78, 112, 0.025) 1px, transparent 1px);
+        background-size: 56px 56px;
+        mask-image: linear-gradient(to bottom, #000, transparent 52%);
       }
 
       a {
@@ -120,10 +132,6 @@
       code,
       pre,
       .mono,
-      .eyebrow,
-      .button,
-      .nav-links a,
-      .chip,
       .stat span,
       footer {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -133,10 +141,6 @@
         direction: ltr;
         unicode-bidi: isolate;
         overflow-wrap: anywhere;
-      }
-
-      html[dir="rtl"] {
-        --hero-veil-angle: 270deg;
       }
 
       html[dir="rtl"] :is(h1, h2, h3, .eyebrow, .stat span, .language-picker label) {
@@ -159,14 +163,15 @@
         position: sticky;
         top: 0;
         z-index: 20;
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        direction: ltr;
         align-items: center;
-        gap: 18px;
-        margin: 0 -30px 46px;
-        padding: 13px 30px;
-        border-bottom: 1px solid var(--line);
-        background: rgba(243, 247, 251, 0.78);
+        gap: 24px;
+        margin: 0 -30px;
+        padding: 14px 30px;
+        border-bottom: 1px solid rgba(213, 222, 233, 0.65);
+        background: rgba(243, 247, 251, 0.92);
         backdrop-filter: blur(14px);
       }
 
@@ -183,10 +188,7 @@
         width: 42px;
         height: 42px;
         overflow: hidden;
-        border: 1px solid rgba(213, 222, 233, 0.86);
         border-radius: 12px;
-        background: #ffffff;
-        box-shadow: var(--shadow);
       }
 
       .brand-mark img {
@@ -205,7 +207,16 @@
       .nav-links {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        justify-content: center;
+        gap: 12px 22px;
+      }
+
+      .nav-links a {
+        padding-block: 8px;
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-weight: 550;
+        line-height: 1.4;
       }
 
       .nav-actions {
@@ -213,42 +224,40 @@
         flex-wrap: wrap;
         align-items: center;
         justify-content: flex-end;
-        gap: 10px;
+        gap: 12px;
         min-width: 0;
       }
 
       .language-picker {
+        position: relative;
         display: inline-flex;
         flex-shrink: 0;
         align-items: center;
-        gap: 8px;
         min-height: 38px;
-        border: 1px solid var(--line-2);
-        border-radius: var(--r);
-        padding: 4px 9px;
-        background: rgba(255, 255, 255, 0.74);
         color: var(--ink-2);
       }
 
-      .language-picker label {
-        color: var(--muted);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        white-space: nowrap;
+      .select-chevron {
+        position: absolute;
+        right: 8px;
+        width: 12px;
+        height: 12px;
+        pointer-events: none;
       }
 
       .language-picker select {
-        min-height: 29px;
+        appearance: none;
+        min-height: 40px;
+        min-width: 94px;
+        max-width: 142px;
         border: 0;
-        border-radius: 5px;
-        padding: 2px 22px 2px 4px;
+        border-radius: 8px;
+        padding: 8px 26px 8px 8px;
         background: transparent;
         color: var(--ink-2);
         font: inherit;
-        font-size: 0.78rem;
-        font-weight: 700;
+        font-size: 0.8rem;
+        font-weight: 550;
         cursor: pointer;
       }
 
@@ -256,69 +265,107 @@
         color: var(--azure);
       }
 
-      .nav-links a,
       .button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
-        min-height: 38px;
-        border: 1px solid var(--line-2);
-        border-radius: var(--r);
-        padding: 9px 14px;
-        background: rgba(255, 255, 255, 0.74);
-        color: var(--ink-2);
-        font-size: 0.78rem;
-        font-weight: 600;
+        min-height: 48px;
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 20px;
+        background: #233b4b;
+        color: #ffffff;
+        font-size: 0.9rem;
+        font-weight: 650;
         transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease;
       }
 
-      .nav-links a:hover,
-      .button:hover {
-        border-color: rgba(43, 67, 221, 0.34);
+      .nav-links a:hover {
         color: var(--azure);
+      }
+
+      .button:hover {
         transform: translateY(-1px);
+        filter: brightness(1.08);
       }
 
       .button.primary {
-        border-color: transparent;
-        background: var(--grad);
+        background: var(--azure);
         color: #ffffff;
-        box-shadow: 0 10px 22px -14px rgba(27, 47, 176, 0.8);
+        padding-inline: 24px;
+        box-shadow: 0 7px 18px rgba(43, 67, 221, 0.17);
+      }
+
+      .github-button {
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+        padding: 8px 14px;
+        border-radius: 9px;
+        background: #142633;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .icon-button {
+        display: inline-grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .icon-button:hover { background: var(--cyan-soft); }
+      .icon-button svg { width: 19px; height: 19px; }
+
+      .release-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 18px;
+        color: var(--azure);
+        font-size: 0.78rem;
+        font-weight: 650;
+      }
+
+      .release-badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--teal);
       }
 
       .hero {
-        position: relative;
-        display: block;
-        isolation: isolate;
-        overflow-x: clip;
-        min-height: min(76vh, 720px);
-        padding: 18px 0 48px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+        gap: clamp(28px, 4vw, 56px);
+        align-items: center;
+        padding: 44px 0 38px;
       }
 
-      .hero > div:first-child {
-        position: relative;
-        z-index: 3;
-        width: min(58%, 690px);
+      .hero-copy,
+      .hero-visual {
         min-width: 0;
       }
 
-      .hero::after {
-        position: absolute;
-        inset-block: 0;
-        inset-inline-start: -30px;
-        inset-inline-end: auto;
-        z-index: 1;
-        width: min(68%, 820px);
-        pointer-events: none;
-        background: linear-gradient(
-          var(--hero-veil-angle, 90deg),
-          rgba(243, 247, 251, 0.98) 0%,
-          rgba(243, 247, 251, 0.9) 62%,
-          rgba(243, 247, 251, 0) 100%
-        );
-        content: "";
+      .hero-headline {
+        margin-top: 18px;
+        font-size: clamp(1.55rem, 2.4vw, 2.1rem);
+        font-weight: 650;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
       }
+
+      .hero-accent { color: #087e87; }
 
       .eyebrow {
         display: inline-flex;
@@ -330,14 +377,6 @@
         font-weight: 600;
         letter-spacing: 0.16em;
         text-transform: uppercase;
-      }
-
-      .eyebrow::before {
-        content: "";
-        width: 26px;
-        height: 2px;
-        border-radius: 99px;
-        background: var(--grad);
       }
 
       h1,
@@ -352,15 +391,15 @@
         /* Fit the content column rather than a font-dependent character count.
            The wrapping fallback also protects unusually wide system fonts. */
         max-width: 100%;
-        font-size: clamp(2.75rem, 5.2vw, 4.5rem);
+        font-size: clamp(2.5rem, 5.2vw, 4.5rem);
         font-weight: 800;
-        line-height: 0.92;
+        line-height: 1.08;
         overflow-wrap: anywhere;
       }
 
       h2 {
-        font-size: clamp(2.25rem, 5vw, 4.4rem);
-        line-height: 0.98;
+        font-size: clamp(1.85rem, 3.4vw, 2.7rem);
+        line-height: 1.18;
       }
 
       h3 {
@@ -373,12 +412,67 @@
       }
 
       .lead {
-        max-width: 660px;
-        margin-top: 24px;
-        color: var(--ink-2);
-        font-size: clamp(1.05rem, 2vw, 1.28rem);
-        line-height: 1.52;
+        max-width: 52ch;
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.7;
       }
+
+      .hero-benefits {
+        display: grid;
+        gap: 10px;
+        margin: 22px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .hero-benefits li { display: flex; gap: 10px; align-items: flex-start; }
+      .benefit-icon { width: 19px; height: 19px; margin-top: 2px; flex-shrink: 0; color: var(--teal); }
+      .benefit-copy { display: flex; flex-wrap: wrap; gap: 0 8px; font-size: 0.78rem; line-height: 1.6; }
+      .benefit-copy strong { font-weight: 650; }
+      .benefit-copy span { color: var(--muted); }
+
+      .hero-terminal { margin: 0; }
+      .hero-terminal .terminal-bar { justify-content: space-between; gap: 16px; height: auto; min-height: 44px; padding: 10px 18px; color: #bfd4df; font-size: 0.72rem; }
+      .terminal-lights { display: flex; gap: 6px; flex-shrink: 0; }
+      .terminal-note { padding: 0 18px 16px; color: #a8c0c9; font-size: 0.72rem; line-height: 1.6; }
+      .hero-terminal pre { font-size: 0.75rem; overflow-wrap: anywhere; }
+
+      .integration-strip {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px 22px;
+        padding: 18px 0;
+        border-block: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .integration-tools { display: flex; flex-wrap: wrap; gap: 12px 26px; padding: 0; margin: 0; list-style: none; direction: ltr; }
+      .integration-tools a { font-weight: 650; color: var(--ink-2); }
+      .integration-more { color: var(--azure); }
+
+      .feature-overview { padding: 28px 0 52px; }
+      .feature-card { padding: 24px; border-radius: 14px; background: rgba(255, 255, 255, 0.82); box-shadow: 0 6px 24px rgba(32, 62, 83, 0.04); }
+      .feature-icon { width: 25px; height: 25px; margin-bottom: 14px; color: #087e87; }
+      .feature-card h2 { margin-bottom: 8px; font-size: 1.1rem; line-height: 1.4; letter-spacing: -0.015em; }
+      .feature-card p { color: var(--muted); font-size: 0.9rem; }
+
+      section[id] { scroll-margin-top: 110px; }
+
+      .search-dialog { width: min(580px, calc(100% - 32px)); max-height: 80vh; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); color: var(--ink); box-shadow: 0 24px 100px rgba(15, 23, 34, 0.2); }
+      .search-dialog::backdrop { background: rgba(15, 23, 34, 0.3); backdrop-filter: blur(4px); }
+      .search-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+      .search-heading h2 { font-size: 1.3rem; }
+      .search-dialog label { display: block; margin-bottom: 6px; font-size: 0.85rem; }
+      .search-dialog input { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 8px; background: white; color: var(--ink); font: inherit; }
+      .search-status { margin-top: 12px; font-size: 0.8rem; color: var(--muted); }
+      .search-results { list-style: none; padding: 0; margin: 14px 0 0; }
+      .search-results a { display: block; padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; }
+      .search-results a:hover { background: var(--cyan-soft); }
 
       .cta-row {
         display: flex;
@@ -388,165 +482,32 @@
       }
 
       .hero-visual {
-        position: absolute;
-        top: 78px;
-        inset-inline-end: 0;
-        z-index: 0;
-        width: min(900px, 58vw);
-        min-height: 540px;
-        overflow: hidden;
-        border: 1px solid rgba(169, 237, 226, 0.16);
-        border-radius: var(--r-lg);
-        background:
-          radial-gradient(circle at 20% 18%, rgba(47, 227, 204, 0.18), transparent 28%),
-          radial-gradient(circle at 82% 6%, rgba(43, 67, 221, 0.24), transparent 32%),
-          linear-gradient(135deg, var(--deep), var(--deep-2) 48%, #11131d);
-        box-shadow: var(--shadow);
-      }
-
-      .hero-visual::before,
-      .hero-visual::after {
-        position: absolute;
-        inset: 0;
-        content: "";
-        pointer-events: none;
-      }
-
-      .hero-visual::before {
-        background-image:
-          radial-gradient(circle, rgba(238, 252, 250, 0.78) 0 1px, transparent 1.5px),
-          radial-gradient(circle, rgba(47, 227, 204, 0.52) 0 1px, transparent 1.5px);
-        background-position:
-          0 0,
-          38px 56px;
-        background-size:
-          94px 94px,
-          132px 132px;
-        opacity: 0.28;
-        animation: star-drift 18s linear infinite;
-      }
-
-      .hero-visual::after {
-        background:
-          linear-gradient(105deg, transparent 0 20%, rgba(47, 227, 204, 0.12) 48%, transparent 72%),
-          radial-gradient(circle at 50% 110%, rgba(47, 227, 204, 0.16), transparent 44%);
-        mix-blend-mode: screen;
-      }
-
-      .orbit {
-        position: absolute;
-        inset: 46px;
-        border: 1px solid rgba(47, 227, 204, 0.18);
-        border-radius: 50%;
-        transform: rotate(-18deg);
-      }
-
-      .orbit.two {
-        inset: 92px 64px 78px 76px;
-        border-color: rgba(233, 102, 58, 0.2);
-        transform: rotate(24deg);
-      }
-
-      .graph-dot {
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        border-radius: 99px;
-        background: var(--cyan);
-        box-shadow: 0 0 24px rgba(16, 182, 198, 0.8);
-        animation: pulse 2.8s ease-in-out infinite;
-      }
-
-      .graph-dot:nth-of-type(3) {
-        top: 88px;
-        left: 88px;
-      }
-
-      .graph-dot:nth-of-type(4) {
-        top: 145px;
-        right: 92px;
-        background: var(--warm);
-        box-shadow: 0 0 24px rgba(233, 102, 58, 0.7);
-        animation-delay: 0.4s;
-      }
-
-      .graph-dot:nth-of-type(5) {
-        bottom: 118px;
-        left: 126px;
-        animation-delay: 0.8s;
-      }
-
-      .graph-dot:nth-of-type(6) {
-        right: 136px;
-        bottom: 92px;
-        background: var(--green);
-        box-shadow: 0 0 24px rgba(22, 138, 105, 0.7);
-        animation-delay: 1.1s;
-      }
-
-      .connection {
-        position: absolute;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(183, 245, 236, 0.45), transparent);
-        opacity: 0.72;
-        transform-origin: left center;
-      }
-
-      .connection.a {
-        top: 138px;
-        left: 94px;
-        width: 330px;
-        transform: rotate(10deg);
-      }
-
-      .connection.b {
-        right: 112px;
-        bottom: 126px;
-        width: 270px;
-        transform: rotate(-22deg);
-      }
-
-      .connection.c {
-        bottom: 160px;
-        left: 142px;
-        width: 248px;
-        transform: rotate(34deg);
-      }
-
-      .memory-chip {
-        position: absolute;
-        top: 18px;
-        left: 18px;
-        z-index: 2;
-        display: flex;
-        align-items: center;
+        display: grid;
         gap: 8px;
-        border: 1px solid rgba(47, 227, 204, 0.24);
-        border-radius: 999px;
-        padding: 8px 11px;
-        background: rgba(47, 227, 204, 0.1);
-        color: #dcfffa;
-        font-size: 0.84rem;
-        font-weight: 800;
       }
 
-      .memory-chip::before {
-        width: 8px;
-        height: 8px;
-        border-radius: 99px;
-        background: var(--green);
-        box-shadow: 0 0 16px rgba(22, 138, 105, 0.8);
+      .whale-scene {
+        position: relative;
+        display: grid;
+        place-items: center;
+        height: 190px;
+        overflow: hidden;
+        isolation: isolate;
+      }
+
+      .whale-scene::before {
         content: "";
+        position: absolute;
+        inset: 5% 10%;
+        z-index: -1;
+        border-radius: 50%;
+        background: radial-gradient(ellipse, rgba(16, 182, 198, 0.12), transparent 68%);
       }
 
       .whale-wrap {
-        position: absolute;
-        top: 122px;
-        left: 50%;
-        z-index: 1;
-        width: min(430px, 82%);
-        filter: drop-shadow(0 28px 46px rgba(0, 0, 0, 0.35)) drop-shadow(0 0 34px rgba(47, 227, 204, 0.28));
-        animation: whale-swim 6.8s ease-in-out infinite;
+        width: min(330px, 85%);
+        filter: drop-shadow(0 12px 14px rgba(31, 110, 131, 0.13));
+        animation: whale-float 7s ease-in-out infinite;
       }
 
       .whale-svg {
@@ -555,55 +516,10 @@
         height: auto;
       }
 
-      .whale-glow {
-        animation: glow-breathe 3.8s ease-in-out infinite;
-      }
-
-      .bubble {
-        position: absolute;
-        bottom: -26px;
-        width: 7px;
-        height: 7px;
-        border: 1px solid rgba(183, 245, 236, 0.55);
-        border-radius: 99px;
-        opacity: 0;
-        animation: bubble-rise 6s ease-in infinite;
-      }
-
-      .bubble.one {
-        left: 34%;
-      }
-
-      .bubble.two {
-        left: 52%;
-        width: 10px;
-        height: 10px;
-        animation-delay: 1.6s;
-      }
-
-      .bubble.three {
-        left: 67%;
-        animation-delay: 3.1s;
-      }
-
-      .floating-terminal,
       .terminal {
         overflow: hidden;
         border: 1px solid rgba(183, 245, 236, 0.18);
-        border-radius: var(--r);
-        background: rgba(0, 0, 0, 0.34);
-      }
-
-      .floating-terminal {
-        position: absolute;
-        right: clamp(18px, 3vw, 34px);
-        bottom: 18px;
-        z-index: 2;
-        width: min(340px, calc(100% - 52px));
-        backdrop-filter: blur(14px);
-      }
-
-      .terminal {
+        border-radius: 14px;
         background: #0b1720;
         box-shadow: var(--shadow);
       }
@@ -644,11 +560,6 @@
         font-size: 0.86rem;
         line-height: 1.55;
         white-space: pre-wrap;
-      }
-
-      .floating-terminal pre {
-        padding: 13px;
-        font-size: 0.75rem;
       }
 
       .prompt {
@@ -762,6 +673,8 @@
         align-items: start;
       }
 
+      .split > * { min-width: 0; }
+
       .stat-list {
         display: grid;
         padding: 6px 20px;
@@ -788,6 +701,8 @@
 
       .stat strong {
         color: var(--ink);
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
 
       footer {
@@ -801,161 +716,75 @@
         font-size: 0.76rem;
       }
 
-      @keyframes whale-swim {
+      @keyframes whale-float {
         0%,
         100% {
-          transform: translateX(-50%) translateY(0) rotate(-1deg);
+          transform: translateY(3px) rotate(-1deg);
         }
         50% {
-          transform: translateX(-50%) translateY(-18px) rotate(1.2deg);
+          transform: translateY(-5px) rotate(1deg);
         }
       }
 
-      @keyframes glow-breathe {
-        0%,
-        100% {
-          opacity: 0.58;
-        }
-        50% {
-          opacity: 1;
-        }
-      }
-
-      @keyframes bubble-rise {
-        0% {
-          transform: translateY(0) scale(0.65);
-          opacity: 0;
-        }
-        18% {
-          opacity: 0.75;
-        }
-        100% {
-          transform: translateY(-470px) scale(1.3);
-          opacity: 0;
-        }
-      }
-
-      @keyframes pulse {
-        0%,
-        100% {
-          transform: scale(0.88);
-          opacity: 0.72;
-        }
-        50% {
-          transform: scale(1.28);
-          opacity: 1;
-        }
-      }
-
-      @keyframes star-drift {
-        from {
-          background-position:
-            0 0,
-            38px 56px;
-        }
-        to {
-          background-position:
-            94px 94px,
-            170px 188px;
-        }
-      }
-
-      @media (max-width: 1180px) {
+      @media (max-width: 960px) {
         .hero {
-          display: grid;
           grid-template-columns: 1fr;
+          gap: 22px;
+          padding-top: 30px;
         }
 
-        .hero::after {
-          display: none;
-        }
-
-        .hero > div:first-child {
-          width: auto;
-        }
-
+        .hero-copy,
         .hero-visual {
-          position: relative;
-          top: auto;
-          inset-inline-end: auto;
           width: 100%;
-          min-height: 520px;
+          max-width: 660px;
+          margin-inline: auto;
         }
+
+        .nav {
+          grid-template-columns: auto minmax(0, 1fr);
+          gap: 8px 18px;
+        }
+
+        .nav-actions { grid-column: 2; grid-row: 1; }
+        .nav-links { grid-column: 1 / -1; grid-row: 2; }
       }
 
       @media (max-width: 930px) {
-        .hero,
         .grid,
         .flow,
         .split {
           grid-template-columns: 1fr;
         }
 
-        .hero {
-          min-height: auto;
-          padding-top: 0;
-        }
-
-        .nav {
-          align-items: flex-start;
-          flex-direction: column;
-          margin-bottom: 34px;
-        }
-
-        .nav-actions {
-          width: 100%;
-          justify-content: space-between;
-        }
-
-        .hero-visual {
-          min-height: 500px;
-        }
+        .feature-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       }
 
-      @media (max-width: 620px) {
+      @media (max-width: 680px) {
         .page {
-          padding: 20px;
+          padding: 12px 18px 30px;
         }
 
         .nav {
-          margin-inline: -20px;
-          padding-inline: 20px;
+          margin-inline: -18px;
+          padding-inline: 18px;
+          gap: 8px 12px;
         }
 
-        .nav-links a {
-          padding-inline: 11px;
-        }
-
-        .nav-actions {
-          align-items: flex-start;
-          flex-direction: column;
-        }
-
-        .language-picker {
-          width: 100%;
-          justify-content: space-between;
-        }
-
-        .language-picker select {
-          flex: 1;
-          max-width: 180px;
-        }
-
-        h1 {
-          max-width: 100%;
-          font-size: clamp(2.75rem, 14.5vw, 3.8rem);
-          overflow-wrap: break-word;
-        }
-
-        .hero-visual {
-          min-height: 460px;
-        }
-
-        .floating-terminal {
-          left: 18px;
-          right: 18px;
-          width: auto;
-        }
+        .brand span:last-child { display: none; }
+        .nav-actions { gap: 4px; }
+        .language-picker select { width: 96px; min-width: 0; }
+        .github-button { padding-inline: 8px; }
+        .hero { padding-top: 24px; }
+        .hero-headline { font-size: 1.55rem; }
+        .cta-row { gap: 10px; }
+        .button { padding-inline: 16px; }
+        .whale-scene { height: 155px; }
+        .whale-wrap { width: min(285px, 85%); }
+        .integration-strip { justify-content: center; text-align: center; }
+        .integration-tools { justify-content: center; gap: 10px 20px; }
+        .feature-overview { grid-template-columns: 1fr; }
+        .section { padding-block: 44px; }
+        .stat { flex-direction: column; align-items: flex-start; gap: 5px; }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -983,78 +812,81 @@
           </span>
           <span>MemoryWhale</span>
         </a>
+        <div class="nav-links">
+          <a href="#terminal-memory" data-i18n="nav.terminal">Features</a>
+          <a href="#how-it-works" data-i18n="nav.how">How It Works</a>
+          <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md" data-i18n="nav.docs">Docs</a>
+        </div>
         <div class="nav-actions">
-          <div class="nav-links">
-            <a href="#terminal-memory" data-i18n="nav.terminal">Terminal Memory</a>
-            <a href="#how-it-works" data-i18n="nav.how">How It Works</a>
-            <a href="#ai-agents" data-i18n="nav.agents">AI Agents</a>
-            <a href="#who" data-i18n="nav.who">Who It's For</a>
-            <a href="#run" data-i18n="nav.install">Install</a>
-            <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/README.md" data-i18n="nav.docs">Docs</a>
-            <a href="https://github.com/wuisabel-gif/MemWhale/releases/latest" data-i18n="nav.releases">Releases</a>
-            <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener" data-i18n="nav.github">GitHub ↗</a>
-            <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener" data-i18n="nav.delphin">Delphin ↗</a>
-            <a href="https://github.com/wuisabel-gif/ContextGC" target="_blank" rel="noopener" data-i18n="nav.contextgc">ContextGC ↗</a>
-          </div>
+          <button id="site-search-button" class="icon-button" type="button" aria-haspopup="dialog" aria-controls="site-search" aria-label="Search this page" data-i18n-aria-label="search.openLabel" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+          </button>
           <div class="language-picker">
-            <label for="language-select" data-i18n="language.label">Language</label>
+            <label class="sr-only" for="language-select" data-i18n="language.label">Language</label>
             <select id="language-select" name="language" aria-label="Language" data-i18n-aria-label="language.label">
-              <option value="en" data-i18n="language.en">English</option>
+              <option value="en" lang="en" data-i18n="language.en">English</option>
               <option value="ar" lang="ar" dir="rtl" data-i18n="language.ar">العربية</option>
               <option value="de" lang="de" data-i18n="language.de">Deutsch</option>
-              <option value="fr" data-i18n="language.fr">Français</option>
-              <option value="zh-CN" data-i18n="language.zh-CN">简体中文</option>
-              <option value="zh-TW" data-i18n="language.zh-TW">繁體中文</option>
-              <option value="ko" data-i18n="language.ko">한국어</option>
-              <option value="ja" data-i18n="language.ja">日本語</option>
+              <option value="fr" lang="fr" data-i18n="language.fr">Français</option>
+              <option value="zh-CN" lang="zh-CN" data-i18n="language.zh-CN">简体中文</option>
+              <option value="zh-TW" lang="zh-TW" data-i18n="language.zh-TW">繁體中文</option>
+              <option value="ko" lang="ko" data-i18n="language.ko">한국어</option>
+              <option value="ja" lang="ja" data-i18n="language.ja">日本語</option>
             </select>
+            <svg class="select-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
           </div>
+          <a class="github-button" href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener" data-i18n="nav.github">GitHub ↗</a>
         </div>
       </nav>
 
-      <a class="release-banner" href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/releases/0.10.0.md"
-         style="display:block;text-align:center;padding:11px 16px;background:linear-gradient(105deg,#2b43dd 0%,#10b6c6 100%);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
-        <span data-i18n="release.banner">🐋 v0.10.0 — Agent-Native Memory · September 6, 2026 · release notes and upgrade guide →</span>
-      </a>
+      <dialog id="site-search" class="search-dialog" aria-labelledby="search-title">
+        <form id="site-search-form" role="search">
+          <div class="search-heading">
+            <h2 id="search-title" data-i18n="search.title">Find on this page</h2>
+            <button id="site-search-close" class="icon-button" type="button" aria-label="Close search" data-i18n-aria-label="search.close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+          </div>
+          <label for="site-search-input" data-i18n="search.label">Search homepage</label>
+          <input id="site-search-input" type="search" maxlength="120" autocomplete="off" spellcheck="false" placeholder="Try MCP, install, privacy…" data-i18n-placeholder="search.placeholder" />
+          <p id="site-search-status" class="search-status" role="status" data-i18n="search.hint">Search headings and content on this page.</p>
+          <ul id="site-search-results" class="search-results"></ul>
+        </form>
+      </dialog>
 
       <main id="top">
-        <section class="hero">
-          <div>
-            <p class="eyebrow" data-i18n="hero.eyebrow">Local-first terminal memory</p>
-            <h1 data-i18n="hero.title">MemoryWhale remembers what your terminal forgets.</h1>
+        <section id="overview" class="hero" aria-labelledby="hero-brand">
+          <div class="hero-copy">
+            <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md" data-i18n="hero.releaseBadge">v0.10.0 is here</a>
+            <h1 id="hero-brand">MemoryWhale</h1>
+            <p class="hero-headline" data-i18n="hero.title">Make your terminal <span class="hero-accent">remember</span>.</p>
             <p class="lead" data-i18n="hero.lead">
-              Capture terminal evidence, preserve it in local SQLite, and retrieve
-              the failures and lessons that matter. MemoryWhale is local-first:
-              it does not silently upload or synchronize your data.
+              Keep useful terminal context locally. Let coding agents recover debugging knowledge from previous sessions.
             </p>
-            <div class="terminal" style="margin: 18px 0 20px;">
-              <div class="terminal-bar">
-                <span class="light"></span>
-                <span class="light"></span>
-                <span class="light"></span>
-              </div>
-              <pre><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh | sh</pre>
-            </div>
+            <ul class="hero-benefits">
+              <li>
+                <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>
+                <div class="benefit-copy"><strong data-i18n="hero.localTitle">Local-first</strong><span data-i18n="hero.localBody">Memory stays on your machine</span></div>
+              </li>
+              <li>
+                <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg>
+                <div class="benefit-copy"><strong data-i18n="hero.privateTitle">Private</strong><span data-i18n="hero.privateBody">No cloud required</span></div>
+              </li>
+              <li>
+                <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12v3M16 12v3M9 17h6"/></svg>
+                <div class="benefit-copy"><strong data-i18n="hero.agentTitle">Built for coding agents</strong><span data-i18n="hero.agentBody">Debugging knowledge survives sessions</span></div>
+              </li>
+            </ul>
             <div class="cta-row">
-              <a class="button primary" href="#demo" data-i18n="hero.demoCta">See the 60-second demo</a>
-              <a class="button" href="#run" data-i18n="hero.installCta">Install MemoryWhale</a>
-              <a class="button" href="#security" data-i18n="hero.securityCta">Read the security model</a>
+              <a class="button primary" href="#run" data-i18n="hero.installCta">Quick Start</a>
+              <a class="button secondary" href="#demo" data-i18n="hero.demoCta">View Demo</a>
             </div>
           </div>
 
-          <div class="hero-visual" aria-hidden="true">
-            <div class="memory-chip mono" data-i18n="hero.memoryChip">Terminal memory live</div>
-            <div class="orbit"></div>
-            <div class="orbit two"></div>
-            <span class="graph-dot"></span>
-            <span class="graph-dot"></span>
-            <span class="graph-dot"></span>
-            <span class="graph-dot"></span>
-            <span class="connection a"></span>
-            <span class="connection b"></span>
-            <span class="connection c"></span>
+          <div class="hero-visual">
+            <div class="whale-scene" aria-hidden="true">
             <div class="whale-wrap">
-              <svg class="whale-svg" viewBox="0 0 520 280" role="img" aria-label="Luminous whale swimming through knowledge graph nodes" data-i18n-aria-label="hero.whaleAlt">
+              <svg class="whale-svg" viewBox="0 0 550 280" role="img" aria-label="MemoryWhale whale mascot" data-i18n-aria-label="hero.whaleAlt">
                 <defs>
                   <linearGradient id="whaleBody" x1="70" x2="430" y1="70" y2="210" gradientUnits="userSpaceOnUse">
                     <stop offset="0" stop-color="#92fff2" />
@@ -1089,20 +921,50 @@
                 <path d="M118 187c51 20 124 30 219 24" fill="none" stroke="#031114" stroke-linecap="round" stroke-width="3" opacity="0.2" />
               </svg>
             </div>
-            <span class="bubble one"></span>
-            <span class="bubble two"></span>
-            <span class="bubble three"></span>
-            <div class="floating-terminal">
-              <div class="terminal-bar">
-                <span class="light"></span>
-                <span class="light"></span>
-                <span class="light"></span>
-              </div>
-              <pre><span class="prompt">$</span> mw --live --notes "project:demo"
-<span class="ok">autosaving session every 2s</span>
-<span class="error">safe if SSH drops before exit</span></pre>
             </div>
+            <figure class="terminal hero-terminal">
+              <figcaption class="terminal-bar">
+                <span class="terminal-lights" aria-hidden="true"><span class="light"></span><span class="light"></span><span class="light"></span></span>
+                <span data-i18n="hero.terminalTitle">Connect your coding agent</span>
+              </figcaption>
+              <pre><span class="prompt">$</span> cargo install memorywhale-cli --version 0.10.0 --locked
+
+<span class="prompt">$</span> mw integrate claude
+<span class="ok">MemoryWhale installed for Claude Code.</span>
+  mcp:      memorywhale registered (user scope)
+Restart Claude Code to pick up hook and skill changes.</pre>
+              <p class="terminal-note" data-i18n="hero.terminalNote">Setup example with Cargo and Claude Code; output shortened.</p>
+            </figure>
           </div>
+        </section>
+
+        <aside class="integration-strip">
+          <span data-i18n="integrations.label">Works with</span>
+          <ul class="integration-tools">
+            <li><a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/claude-code/README.md">Claude Code</a></li>
+            <li><a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/rho/README.md">Rho</a></li>
+            <li><a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/codex/README.md">Codex CLI</a></li>
+            <li><a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/cursor/README.md">Cursor</a></li>
+          </ul>
+          <span><span data-i18n="integrations.via">via MCP</span> · <a class="integration-more" href="#ai-agents" data-i18n="integrations.more">All integrations</a></span>
+        </aside>
+
+        <section id="terminal-memory" class="feature-overview grid" aria-label="A memory layer for terminal work" data-i18n-aria-label="features.label">
+          <article class="feature-card">
+            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3"/><path d="m6 9 3 3-3 3M12 16h6"/></svg>
+            <h2 data-i18n="features.terminalTitle">Terminal Memory</h2>
+            <p data-i18n="features.terminalBody">Capture useful debugging context while you work.</p>
+          </article>
+          <article class="feature-card">
+            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6M7 10h6M10 7v6"/></svg>
+            <h2 data-i18n="features.retrievalTitle">Intelligent Retrieval</h2>
+            <p data-i18n="features.retrievalBody">Recover previous commands, failures, and fixes when they matter.</p>
+          </article>
+          <article class="feature-card">
+            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4m-4-11 8 0"/></svg>
+            <h2 data-i18n="features.localTitle">Completely Local</h2>
+            <p data-i18n="features.localBody">Keep MemoryWhale data on your own machine.</p>
+          </article>
         </section>
 
         <section id="release" class="section">
@@ -1176,48 +1038,6 @@
                 re-explaining your environment. With <code>mw-mcp</code>, the
                 agent can query prior evidence and explicitly save a lesson
                 with <code>remember</code>. You still need to verify that a fix works.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        <section id="terminal-memory" class="section">
-          <p class="eyebrow" data-i18n="terminal.eyebrow">Terminal memory</p>
-          <h2 data-i18n="terminal.title">A memory palace for command-line work.</h2>
-          <p class="section-copy" data-i18n="terminal.copy">
-            MemoryWhale stores terminal sessions as structured local memory.
-            Instead of keeping one giant text dump, it saves the command, every
-            argument, the working directory, the exit code, stdout, stderr, and
-            your own notes.
-          </p>
-          <div class="grid">
-            <article class="card">
-              <strong data-i18n="terminal.argsTitle">Arguments Become Searchable</strong>
-              <p data-i18n="terminal.argsBody">
-                Flags like <code>--manifest-path</code>, paths, subcommands,
-                package names, and model options are split into their own rows.
-              </p>
-            </article>
-            <article class="card">
-              <strong data-i18n="terminal.errorsTitle">Error Logs Stay Attached</strong>
-              <p data-i18n="terminal.errorsBody">
-                stderr is preserved beside the command that produced it, so the
-                cause and context remain together.
-              </p>
-            </article>
-            <article class="card">
-              <strong data-i18n="terminal.liveTitle">Live Autosave for Sessions</strong>
-              <p data-i18n="terminal.liveBody">
-                <code>mw --live</code> writes the active shell transcript into
-                SQLite every few seconds, so a disconnect can still leave a
-                usable memory trail.
-              </p>
-            </article>
-            <article class="card">
-              <strong data-i18n="terminal.graphTitle">Graph Nodes for Failures</strong>
-              <p data-i18n="terminal.graphBody">
-                Failed commands appear in the knowledge galaxy and connect to
-                extracted concepts like cargo, Tauri, SQLite, ports, and builds.
               </p>
             </article>
           </div>
@@ -1441,7 +1261,11 @@
           <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md" data-i18n="footer.security">Security policy</a> ·
           <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" data-i18n="footer.integrations">Integrations</a>
         </span>
-        <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub: wuisabel-gif/MemWhale</a>
+        <span>
+          <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub: wuisabel-gif/MemWhale</a> ·
+          <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener" data-i18n="nav.delphin">Delphin ↗</a> ·
+          <a href="https://github.com/wuisabel-gif/ContextGC" target="_blank" rel="noopener" data-i18n="nav.contextgc">ContextGC ↗</a>
+        </span>
       </footer>
     </div>
   </body>
