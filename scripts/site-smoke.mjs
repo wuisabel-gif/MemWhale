@@ -98,7 +98,9 @@ async function checkLanguage(page, language, label) {
     };
   });
   expect(layout.separated && layout.columns, `${label}: hero columns, headline, whale, or terminal overlap`);
-  expect(layout.header && layout.hierarchy && layout.sectionOrder, `${label}: page hierarchy changed`);
+  expect(layout.header, `${label}: compact header controls exceed their available space`);
+  expect(layout.hierarchy, `${label}: headline competes with the product name`);
+  expect(layout.sectionOrder, `${label}: integrations and feature cards are out of order`);
   expect(layout.terminalWidth >= 260, `${label}: terminal demo is too small`);
   expect(await page.locator(".hero .cta-row a").count() === 2, `${label}: hero must have exactly two CTAs`);
   expect(await page.locator(".hero .cta-row .primary[href='#run']").count() === 1, `${label}: Quick Start is not the sole primary CTA`);
@@ -153,6 +155,14 @@ try {
         expect(response?.ok(), `${label}: page load failed`);
         await checkLanguage(page, language, label);
         await checkSearch(page, language, label);
+        if (size === "small-mobile") {
+          const spacingOverride = await page.addStyleTag({ content: ".github-button { letter-spacing: 2px !important; }" });
+          try {
+            await checkLanguage(page, language, `${label}/wide-controls`);
+          } finally {
+            await spacingOverride.evaluate(element => element.remove());
+          }
+        }
         expect(new URL(page.url()).searchParams.get("lang") === language, `${label}: query language changed`);
         await page.screenshot({ path: `${artifactDir}/${language}-${size}.png`, fullPage: true });
         if (["en", "ar", "de", "zh-CN"].includes(language)) {
