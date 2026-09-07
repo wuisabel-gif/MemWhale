@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - README.md
+      - README.ar.md
+      - README.de.md
       - README.fr.md
       - README.zh-CN.md
       - README.zh-TW.md
@@ -16,6 +18,8 @@ on:
   pull_request:
     paths:
       - README.md
+      - README.ar.md
+      - README.de.md
       - README.fr.md
       - README.zh-CN.md
       - README.zh-TW.md
@@ -95,7 +99,7 @@ jobs:
         id: changes
         shell: bash
         run: |
-          if git diff --quiet -- README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md; then
+          if git diff --quiet -- README.ar.md README.de.md README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -116,7 +120,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch"
-          git add README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md
+          git add README.ar.md README.de.md README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md
           git commit -m "$title"
 
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then

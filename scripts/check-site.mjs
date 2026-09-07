@@ -1,6 +1,7 @@
 import { readFile, access } from "node:fs/promises";
 import { resolve } from "node:path";
 import vm from "node:vm";
+import { LOCALES } from "./sync-readme-locales.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const html = await readFile(resolve(root, "index.html"), "utf8");
@@ -33,7 +34,7 @@ expect(html.includes('<script defer src="site-i18n.js"></script>'), "local defer
 expect(!/<script\b[^>]*\bsrc=["'](?:https?:)?\/\//i.test(html), "landing page loads a remote script");
 expect(!/(?:fonts\.(?:googleapis|gstatic)\.com|unpkg\.com|jsdelivr\.net)/i.test(`${html}\n${i18nSource}`), "landing page loads a third-party resource");
 
-const supportedLanguages = ["en", "fr", "zh-CN", "zh-TW", "ko", "ja"];
+const supportedLanguages = ["en", ...LOCALES.map(({ file }) => file.slice("README.".length, -".md".length))];
 const selector = html.match(/<select\b[^>]*id="language-select"[\s\S]*?<\/select>/i)?.[0] ?? "";
 expect(selector.includes('name="language"'), "language selector is missing a name");
 expect(selector.includes('aria-label="Language"'), "language selector is missing an accessible label");
@@ -66,11 +67,26 @@ if (dictionaryApi) {
   for (const language of supportedLanguages) {
     expect(dictionaryApi.translations[language], `site dictionary is missing language: ${language}`);
     if (!dictionaryApi.translations[language]) continue;
+    const dictionary = dictionaryApi.translations[language];
+    for (const key of ["title", "description", "jsonLdDescription"]) {
+      expect(typeof dictionary.meta?.[key] === "string" && dictionary.meta[key].trim().length > 0,
+        `${language} dictionary is missing metadata: ${key}`);
+    }
     for (const key of translationKeys) {
       expect(
-        typeof dictionaryApi.translations[language][key] === "string",
+        typeof dictionary[key] === "string" && dictionary[key].trim().length > 0,
         `${language} dictionary is missing key: ${key}`
       );
+      const english = dictionaryApi.translations.en[key];
+      if (typeof english !== "string" || typeof dictionary[key] !== "string") continue;
+      for (const [name, pattern] of [
+        ["code", /<code\b[^>]*>([\s\S]*?)<\/code>/g],
+        ["links", /\bhref="([^"]+)"/g],
+      ]) {
+        const values = (text) => [...text.matchAll(pattern)].map((match) => match[1]).sort();
+        expect(JSON.stringify(values(english)) === JSON.stringify(values(dictionary[key])),
+          `${language} changed protected ${name} in ${key}`);
+      }
     }
   }
 }

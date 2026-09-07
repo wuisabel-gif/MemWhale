@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0c0dee340943c6650cc58749d96cb86c7728e6fc31cef1f4daba0be190a01965 -->
+<!-- README-SOURCE-SHA256: 0a6b911696113a6221346fd4145b26a73f5a62493d8a8d34048d26a832c0c100 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -8,7 +8,7 @@
 
 <p align="center"><strong>개발자와 코딩 에이전트를 위한 지속적인 로컬 디버깅 메모리.</strong></p>
 
-<p align="center"><a href="README.md">English README</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
+<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
