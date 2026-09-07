@@ -1,212 +1,189 @@
 import { chromium } from "playwright";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
+import vm from "node:vm";
 
 const baseUrl = process.env.SITE_URL ?? "http://127.0.0.1:4173/index.html";
-const artifactDir = "artifacts/site-smoke";
-const languages = ["en", "fr", "zh-CN", "zh-TW", "ko", "ja"];
-const expected = {
-  en: {
-    title: "MemoryWhale — terminal memory for you and your AI agent",
-    heading: "MemoryWhale remembers what your terminal forgets.",
-    nav: "Terminal Memory"
-  },
-  fr: {
-    title: "MemoryWhale — une mémoire de terminal pour vous et votre agent IA",
-    heading: "MemoryWhale se souvient de ce que votre terminal oublie.",
-    nav: "Mémoire du terminal"
-  },
-  "zh-CN": {
-    title: "MemoryWhale — 为你和 AI 智能体提供的终端记忆",
-    heading: "MemoryWhale 记住终端忘记的事。",
-    nav: "终端记忆"
-  },
-  "zh-TW": {
-    title: "MemoryWhale — 為你與 AI 代理提供的終端機記憶",
-    heading: "MemoryWhale 記住終端機忘記的事。",
-    nav: "終端機記憶"
-  },
-  ko: {
-    title: "MemoryWhale — 나와 AI 에이전트를 위한 터미널 메모리",
-    heading: "MemoryWhale은 터미널이 잊는 것을 기억합니다.",
-    nav: "터미널 메모리"
-  },
-  ja: {
-    title: "MemoryWhale — あなたと AI エージェントのためのターミナルメモリ",
-    heading: "MemoryWhale はターミナルが忘れることを覚えています。",
-    nav: "ターミナルメモリ"
-  }
-};
-const viewports = [
-  ["mobile", 390, 844],
-  ["desktop", 1440, 900]
+const artifactDir = process.env.SITE_ARTIFACT_DIR ?? "artifacts/site-smoke";
+const sandbox = {};
+vm.runInNewContext(await readFile(new URL("../site-i18n.js", import.meta.url), "utf8"), sandbox);
+const { supportedLanguages: languages, translations } = sandbox.MEMORYWHALE_I18N;
+const viewports = [["mobile", 390, 844], ["desktop", 1440, 900]];
+const sampledKeys = [
+  "hero.title", "nav.terminal", "release.title", "who.title", "terminal.title",
+  "how.title", "agents.title", "demo.title", "data.title", "security.copy", "run.title",
 ];
 await mkdir(artifactDir, { recursive: true });
-
+const failures = [];
+const expect = (condition, message) => { if (!condition) failures.push(message); };
 const languageUrl = (language) => {
   const url = new URL(baseUrl);
-  url.searchParams.set("lang", language);
+  if (language) url.searchParams.set("lang", language);
+  else url.searchParams.delete("lang");
+  url.searchParams.set("smoke", "preserve-me");
   url.hash = "demo";
   return url.toString();
 };
-const browserLanguageUrl = () => {
-  const url = new URL(baseUrl);
-  url.searchParams.delete("lang");
-  url.hash = "demo";
-  return url.toString();
-};
+
+function trackErrors(page, label) {
+  page.on("console", (message) => {
+    if (message.type() === "error") failures.push(`${label}: console: ${message.text()}`);
+  });
+  page.on("pageerror", (error) => failures.push(`${label}: page: ${error.message}`));
+}
+
+async function checkLanguage(page, language, label) {
+  const dictionary = translations[language];
+  expect(await page.locator("html").getAttribute("lang") === language, `${label}: wrong html lang`);
+  expect(await page.locator("html").getAttribute("dir") === (language === "ar" ? "rtl" : "ltr"), `${label}: wrong reading direction`);
+  expect(await page.locator("#language-select").inputValue() === language, `${label}: wrong selector value`);
+  expect(await page.title() === dictionary.meta.title, `${label}: wrong document title`);
+  expect(await page.locator("h1").evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const box = element.getBoundingClientRect();
+    return [...range.getClientRects()].every(rect => rect.left >= box.left - 1 && rect.right <= box.right + 1);
+  }), `${label}: heading text overflows its box`);
+  expect(await page.locator('meta[name="description"]').getAttribute("content") === dictionary.meta.description, `${label}: wrong description`);
+  const jsonLd = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent());
+  expect(jsonLd.inLanguage === language && jsonLd.description === dictionary.meta.jsonLdDescription, `${label}: wrong JSON-LD`);
+  // Social preview metadata is deliberately static English, not localized SEO.
+  expect(await page.locator('meta[property="og:title"]').getAttribute("content") === translations.en.meta.title, `${label}: static social metadata changed`);
+
+  for (const key of sampledKeys) {
+    const actual = await page.locator(`[data-i18n="${key}"]`).innerText();
+    const wanted = await page.evaluate((html) => {
+      const fragment = document.createElement("template");
+      fragment.innerHTML = html;
+      return fragment.content.textContent;
+    }, dictionary[key]);
+    expect(actual.replace(/\s+/g, " ").trim() === wanted.replace(/\s+/g, " ").trim(), `${label}: untranslated content in ${key}`);
+  }
+  expect(await page.locator(".client-strip").getAttribute("aria-label") === dictionary["agents.clientsLabel"], `${label}: wrong client-group label`);
+  expect(await page.locator("#demo img").getAttribute("alt") === dictionary["demo.imageAlt"], `${label}: wrong image alternative`);
+
+  const picker = page.getByRole("combobox", { name: dictionary["language.label"], exact: true });
+  await picker.scrollIntoViewIfNeeded();
+  const box = await picker.boundingBox();
+  expect(await picker.isVisible() && box && box.width >= 80 && box.height >= 24, `${label}: language selector is not usable`);
+  expect(await picker.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return top === element || element.contains(top);
+  }), `${label}: selector is covered`);
+  expect(await page.locator("#language-select option").count() === languages.length, `${label}: missing language options`);
+
+  const direction = await page.locator("pre").first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { direction: style.direction, align: style.textAlign };
+  });
+  expect(direction.direction === "ltr" && direction.align === "left", `${label}: command blocks are not LTR`);
+  expect(await page.locator("code").evaluateAll((elements) => elements.every((element) => getComputedStyle(element).direction === "ltr")), `${label}: inline code is not LTR`);
+  for (const selector of ["#demo", "#data", "#security", "#run"]) {
+    expect(await page.locator(selector).count() === 1, `${label}: missing section ${selector}`);
+  }
+  expect(await page.locator("a[href^='http']").count() >= 3, `${label}: external links missing`);
+  const url = new URL(page.url());
+  expect(url.hash === "#demo" && url.searchParams.get("smoke") === "preserve-me", `${label}: URL anchor or unrelated query lost`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), `${label}: horizontal overflow`);
+}
 
 const browser = await chromium.launch({ headless: true });
-const failures = [];
 try {
   for (const language of languages) {
-    for (const [name, width, height] of viewports) {
+    for (const [size, width, height] of viewports) {
+      const label = `${language}/${size}`;
       const page = await browser.newPage({ viewport: { width, height } });
-      const consoleErrors = [];
-      const pageErrors = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") consoleErrors.push(message.text());
-      });
-      page.on("pageerror", (error) => pageErrors.push(error.message));
-
-      const url = languageUrl(language);
-      const response = await page.goto(url, { waitUntil: "networkidle" });
-      if (!response || !response.ok()) {
-        failures.push(`${language}/${name}: page did not load successfully (${response?.status() ?? "no response"})`);
-      }
-      await page.screenshot({ path: `${artifactDir}/${language}-${name}.png`, fullPage: true });
-
-      const heading = await page.locator("h1").innerText();
-      const navText = await page.locator(".nav-links a[href='#terminal-memory']").innerText();
-      const pageTitle = await page.title();
-      const requiredSections = ["#demo", "#data", "#security", "#run"];
-      for (const selector of requiredSections) {
-        if ((await page.locator(selector).count()) !== 1) {
-          failures.push(`${language}/${name}: missing required section ${selector}`);
-        }
-      }
-      if ((await page.locator("a[href^='http']").count()) < 3) {
-        failures.push(`${language}/${name}: expected external release/security links`);
-      }
-      if ((await page.locator("#language-select option").count()) !== languages.length) {
-        failures.push(`${language}/${name}: language selector does not expose all six options`);
-      }
-      const selectedLanguage = await page.locator("#language-select").inputValue();
-      if (selectedLanguage !== language) {
-        failures.push(`${language}/${name}: selector selected ${selectedLanguage}, expected ${language}`);
-      }
-      const documentLanguage = await page.locator("html").getAttribute("lang");
-      if (documentLanguage !== language) {
-        failures.push(`${language}/${name}: html lang is ${documentLanguage}, expected ${language}`);
-      }
-      if (pageTitle !== expected[language].title) {
-        failures.push(`${language}/${name}: unexpected document title: ${pageTitle}`);
-      }
-      const jsonLd = await page.locator('script[type="application/ld+json"]').textContent();
+      trackErrors(page, label);
       try {
-        if (JSON.parse(jsonLd ?? "{}").inLanguage !== language) {
-          failures.push(`${language}/${name}: JSON-LD language metadata was not updated`);
+        const response = await page.goto(languageUrl(language), { waitUntil: "networkidle" });
+        expect(response?.ok(), `${label}: page load failed`);
+        await checkLanguage(page, language, label);
+        expect(new URL(page.url()).searchParams.get("lang") === language, `${label}: query language changed`);
+        await page.screenshot({ path: `${artifactDir}/${language}-${size}.png`, fullPage: true });
+        if (language === "ar" || language === "de") {
+          await page.locator(".hero").screenshot({ path: `${artifactDir}/${language}-${size}-hero.png` });
+          if (size === "desktop") {
+            // Exercise the containment fallback independently of the host's
+            // installed fonts (CI's Linux fonts differ from macOS).
+            const fontOverride = await page.addStyleTag({ content: "h1 { font-family: monospace !important; font-size: 120px !important; }" });
+            try {
+              await checkLanguage(page, language, `${label}/wide-font`);
+            } finally {
+              await fontOverride.evaluate(element => element.remove());
+            }
+          }
         }
-      } catch {
-        failures.push(`${language}/${name}: JSON-LD metadata is not valid JSON`);
-      }
-      const currentUrl = new URL(page.url());
-      if (currentUrl.searchParams.get("lang") !== language || currentUrl.hash !== "#demo") {
-        failures.push(`${language}/${name}: language query or anchor was not preserved (${page.url()})`);
-      }
-      const horizontalOverflow = await page.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
-      );
-      if (horizontalOverflow) failures.push(`${language}/${name}: horizontal overflow detected`);
-      if (heading !== expected[language].heading) {
-        failures.push(`${language}/${name}: unexpected hero heading: ${heading}`);
-      }
-      if (navText !== expected[language].nav) {
-        failures.push(`${language}/${name}: unexpected visible nav label: ${navText}`);
-      }
-      if (consoleErrors.length) failures.push(`${language}/${name}: console errors: ${consoleErrors.join(" | ")}`);
-      if (pageErrors.length) failures.push(`${language}/${name}: page errors: ${pageErrors.join(" | ")}`);
-
-      if (language === "en" && name === "desktop") {
-        const beforePath = new URL(page.url()).pathname;
-        await page.locator("#language-select").selectOption("fr");
-        const afterUrl = new URL(page.url());
-        if (afterUrl.pathname !== beforePath || afterUrl.hash !== "#demo" || afterUrl.searchParams.get("lang") !== "fr") {
-          failures.push(`selector change navigated away or lost the anchor (${page.url()})`);
+        // Exercise RTL -> LTR -> original selection on mobile as well as desktop.
+        if (language === "ar") {
+          const examples = await page.locator("pre").allTextContents();
+          for (const next of ["de", "en", "ar"]) {
+            await page.locator("#language-select").selectOption(next);
+            await checkLanguage(page, next, `${label}/switch-${next}`);
+            expect(new URL(page.url()).searchParams.get("lang") === next, `${label}: selected locale missing from URL`);
+            expect(JSON.stringify(await page.locator("pre").allTextContents()) === JSON.stringify(examples), `${label}: translated executable examples`);
+          }
+          expect(await page.evaluate(() => localStorage.getItem("memorywhale.language")) === "ar", `${label}: selection not saved`);
+          await page.goto(languageUrl(null), { waitUntil: "networkidle" });
+          await checkLanguage(page, "ar", `${label}/stored-reload`);
+          expect(!new URL(page.url()).searchParams.has("lang"), `${label}: stored preference rewrote URL`);
         }
-        if ((await page.locator("h1").innerText()) !== expected.fr.heading) {
-          failures.push("selector change did not render the French hero heading");
-        }
+      } finally {
+        await page.close();
       }
-      await page.close();
     }
   }
 
-  for (const [locale, language] of [["zh-Hans", "zh-CN"], ["zh-Hant", "zh-TW"]]) {
-    const context = await browser.newContext({
-      locale,
-      viewport: { width: 1440, height: 900 }
-    });
+  const preferenceCases = [
+    { locale: "ar-EG", expected: "ar" },
+    { locale: "de-AT", expected: "de" },
+    { locale: "zh-Hans", expected: "zh-CN" },
+    { locale: "zh-Hant-TW", expected: "zh-TW" },
+    { locale: "en-US", stored: "ar", expected: "ar" },
+    { locale: "ar-SA", stored: "de", query: "unsupported", expected: "de" },
+    { locale: "ar-SA", stored: "ar", query: "de-DE", expected: "de" },
+    { locale: "de-DE", blockedStorage: true, expected: "de" },
+    { locale: "de-DE", languages: ["unsupported"], expected: "de" },
+    { locale: "es-ES", expected: "en" },
+  ];
+  for (const [index, settings] of preferenceCases.entries()) {
+    const label = `preference-${index}/${settings.locale}`;
+    const context = await browser.newContext({ locale: settings.locale, viewport: { width: 390, height: 844 } });
+    await context.addInitScript(({ stored, blockedStorage, languages }) => {
+      if (stored) localStorage.setItem("memorywhale.language", stored);
+      if (blockedStorage) {
+        Storage.prototype.getItem = () => { throw new DOMException("Blocked", "SecurityError"); };
+        Storage.prototype.setItem = () => { throw new DOMException("Blocked", "SecurityError"); };
+      }
+      if (languages) Object.defineProperty(navigator, "languages", { get: () => languages });
+    }, settings);
     try {
       const page = await context.newPage();
-      const consoleErrors = [];
-      const pageErrors = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") consoleErrors.push(message.text());
-      });
-      page.on("pageerror", (error) => pageErrors.push(error.message));
-
-      const response = await page.goto(browserLanguageUrl(), { waitUntil: "networkidle" });
-      if (!response || !response.ok()) {
-        failures.push(`${locale}: page did not load successfully (${response?.status() ?? "no response"})`);
+      trackErrors(page, label);
+      const response = await page.goto(languageUrl(settings.query), { waitUntil: "networkidle" });
+      expect(response?.ok(), `${label}: page load failed`);
+      await checkLanguage(page, settings.expected, label);
+      expect(new URL(page.url()).searchParams.get("lang") === (settings.query ?? null), `${label}: initial URL was rewritten`);
+      if (settings.blockedStorage) {
+        await page.locator("#language-select").selectOption("ar");
+        await checkLanguage(page, "ar", `${label}/blocked-storage-switch`);
+      } else if (!settings.stored) {
+        expect(await page.evaluate(() => localStorage.getItem("memorywhale.language")) === null, `${label}: initial detection unexpectedly persisted`);
       }
-      const heading = await page.locator("h1").innerText();
-      const pageTitle = await page.title();
-      const documentLanguage = await page.locator("html").getAttribute("lang");
-      const currentUrl = new URL(page.url());
-      const storedLanguage = await page.evaluate(() => window.localStorage.getItem("memorywhale.language"));
-      if (currentUrl.searchParams.has("lang")) {
-        failures.push(`${locale}: browser-language detection unexpectedly added a lang query (${page.url()})`);
-      }
-      if (storedLanguage !== null) {
-        failures.push(`${locale}: browser-language detection unexpectedly used localStorage (${storedLanguage})`);
-      }
-      if (pageTitle !== expected[language].title) {
-        failures.push(`${locale}: unexpected browser-detected document title: ${pageTitle}`);
-      }
-      if (heading !== expected[language].heading) {
-        failures.push(`${locale}: unexpected browser-detected hero heading: ${heading}`);
-      }
-      if (documentLanguage !== language) {
-        failures.push(`${locale}: browser-detected html lang is ${documentLanguage}, expected ${language}`);
-      }
-      if (consoleErrors.length) failures.push(`${locale}: console errors: ${consoleErrors.join(" | ")}`);
-      if (pageErrors.length) failures.push(`${locale}: page errors: ${pageErrors.join(" | ")}`);
-      await page.close();
     } finally {
       await context.close();
     }
   }
 
-  const noScriptContext = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    javaScriptEnabled: false
-  });
+  const noScriptContext = await browser.newContext({ javaScriptEnabled: false });
   try {
     const page = await noScriptContext.newPage();
-    const response = await page.goto(languageUrl("en"), { waitUntil: "networkidle" });
-    if (!response || !response.ok()) {
-      failures.push(`no-js/en: page did not load successfully (${response?.status() ?? "no response"})`);
-    }
-    if ((await page.locator("h1").innerText()) !== expected.en.heading) {
-      failures.push("no-js/en: English hero heading is not present without JavaScript");
-    }
-    if ((await page.locator(".nav-links a[href='#terminal-memory']").innerText()) !== expected.en.nav) {
-      failures.push("no-js/en: English navigation is not present without JavaScript");
-    }
-    if (!(await page.locator("pre").first().innerText()).includes("https://raw.githubusercontent.com/wuisabel-gif/MemWhale/main/install.sh")) {
-      failures.push("no-js/en: install command example is not present without JavaScript");
-    }
-    await page.close();
+    const response = await page.goto(languageUrl("ar"), { waitUntil: "networkidle" });
+    expect(response?.ok(), "no-js: page load failed");
+    expect(await page.locator("html").getAttribute("lang") === "en", "no-js: fallback is not English");
+    expect(await page.locator("html").getAttribute("dir") === "ltr", "no-js: fallback direction is not LTR");
+    expect(await page.locator("h1").innerText() === translations.en["hero.title"], "no-js: English heading missing");
+    expect(await page.locator(".nav-links a[href='#terminal-memory']").innerText() === translations.en["nav.terminal"], "no-js: English navigation missing");
+    expect((await page.locator("pre").first().innerText()).includes("install.sh"), "no-js: command example missing");
   } finally {
     await noScriptContext.close();
   }
@@ -218,4 +195,4 @@ if (failures.length) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log("landing-page browser smoke passed for all six languages at mobile and desktop widths");
+console.log(`landing-page smoke passed: ${languages.length} languages, mobile/desktop, RTL, preferences, and no-JS fallback`);

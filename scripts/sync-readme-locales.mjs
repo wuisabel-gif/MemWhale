@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 export const SOURCE_MARKER = "README-SOURCE-SHA256";
 export const LOCALES = [
+  { file: "README.ar.md", language: "Arabic (ar)", direction: "rtl" },
+  { file: "README.de.md", language: "German (de)" },
   { file: "README.fr.md", language: "French (fr)" },
   { file: "README.zh-CN.md", language: "Simplified Chinese (zh-CN)" },
   { file: "README.zh-TW.md", language: "Traditional Chinese (zh-TW)" },
@@ -195,11 +197,60 @@ function validateReadmeShape(markdown, file) {
   }
 }
 
-export function validateTranslation(source, translated) {
+// Direction wrappers are generated here, not supplied by the translation
+// provider. Keep Arabic prose RTL and the unchanged fenced examples LTR.
+export function formatLocalizedBody(markdown, { direction = "ltr" } = {}) {
+  if (direction !== "rtl") return markdown;
+  const body = markdown.trim();
+  const parts = [];
+  let cursor = 0;
+  for (const block of parseFencedCode(body).blocks) {
+    const start = body.indexOf(block, cursor);
+    parts.push(body.slice(cursor, start), `<div dir="ltr">\n\n${block}\n\n</div>`);
+    cursor = start + block.length;
+  }
+  parts.push(body.slice(cursor));
+  return `<div dir="rtl">\n\n${parts.join("")}\n\n</div>`;
+}
+
+function unwrapDirectionalBody(translated, options) {
+  if (options.direction !== "rtl") return translated;
+  const wrapped = translated.trim();
+  const prefix = '<div dir="rtl">\n\n';
+  const suffix = '\n\n</div>';
+  if (!wrapped.startsWith(prefix) || !wrapped.endsWith(suffix)) {
+    throw new Error("RTL translation must have its generated direction wrapper");
+  }
+  const inner = wrapped.slice(prefix.length, -suffix.length);
+  const codePrefix = '<div dir="ltr">\n\n';
+  const parts = [];
+  let cursor = 0;
+  for (const block of parseFencedCode(inner).blocks) {
+    const start = inner.indexOf(block, cursor);
+    const end = start + block.length;
+    if (inner.slice(start - codePrefix.length, start) !== codePrefix
+      || inner.slice(end, end + suffix.length) !== suffix) {
+      throw new Error("RTL translation changed generated direction wrappers");
+    }
+    parts.push(inner.slice(cursor, start - codePrefix.length), block);
+    cursor = end + suffix.length;
+  }
+  parts.push(inner.slice(cursor));
+  const body = parts.join("");
+  // Only the exact generated layout is exempt from the HTML structure check.
+  // Extra attributes, missing LTR code wrappers, and arbitrary wrappers fail.
+  if (formatLocalizedBody(body, options) !== wrapped) {
+    throw new Error("RTL translation changed generated direction wrappers");
+  }
+  return body;
+}
+
+export function validateTranslation(source, translated, options = {}) {
   if (!translated.trim()) throw new Error("translation is empty");
   if (translated.includes(`<!-- ${SOURCE_MARKER}:`)) {
     throw new Error("translation must not include the source hash marker");
   }
+  translated = unwrapDirectionalBody(translated, options);
   validateReadmeShape(source, "README.md");
   validateReadmeShape(translated, "translated README");
 
@@ -299,7 +350,7 @@ export async function inspectLocales(directory = root, { requireCurrent = false 
     const parsed = parseLocalizedReadme(content, locale.file);
     validateReadmeShape(parsed.body, locale.file);
     const current = parsed.sourceHash === currentHash;
-    if (current) validateTranslation(source, parsed.body);
+    if (current) validateTranslation(source, parsed.body, locale);
     results.push({ ...locale, current, sourceHash: parsed.sourceHash });
   }
 
@@ -331,7 +382,7 @@ export async function translateStaleLocales(directory = root, options = {}) {
       fetchImpl: options.fetchImpl,
     });
     validateTranslation(source, translated);
-    const content = `<!-- ${SOURCE_MARKER}: ${currentHash} -->\n\n${translated}\n`;
+    const content = `<!-- ${SOURCE_MARKER}: ${currentHash} -->\n\n${formatLocalizedBody(translated, locale)}\n`;
     await writeFile(resolve(directory, locale.file), content);
   }
 

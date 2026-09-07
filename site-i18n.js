@@ -20,6 +20,8 @@ const EN = {
   "nav.contextgc": "ContextGC ↗",
   "language.label": "Language",
   "language.en": "English",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
   "language.fr": "Français",
   "language.zh-CN": "简体中文",
   "language.zh-TW": "繁體中文",
@@ -153,6 +155,320 @@ const EN = {
   "footer.integrations": "Integrations"
 };
 
+const AR = {
+  meta: {
+    title: "MemoryWhale — ذاكرة الطرفية لك ولوكيل الذكاء الاصطناعي الخاص بك",
+    description:
+      "يلتقط MemoryWhale شواهد العمل التطويري في قاعدة SQLite محلية، لتمكين الأشخاص والأدوات الموثوقة من استرجاع الإخفاقات السابقة والدروس المستفادة. يعطي الأولوية للتخزين المحلي، مع تصدير ونقل بطلب صريح.",
+    jsonLdDescription:
+      "ذاكرة محلية دائمة لتصحيح الأخطاء، للمطورين ووكلاء البرمجة. تلتقط شواهد الطرفية في قاعدة SQLite محلية وتتيحها عبر MCP."
+  },
+  "nav.label": "التنقل في الصفحة",
+  "brand.home": "الصفحة الرئيسية لـ MemoryWhale",
+  "nav.terminal": "ذاكرة الطرفية",
+  "nav.how": "كيف يعمل",
+  "nav.agents": "وكلاء الذكاء الاصطناعي",
+  "nav.who": "لمن صُمّم",
+  "nav.install": "التثبيت",
+  "nav.docs": "التوثيق",
+  "nav.releases": "الإصدارات",
+  "nav.github": "GitHub ↗",
+  "nav.delphin": "Delphin ↗",
+  "nav.contextgc": "ContextGC ↗",
+  "language.label": "اللغة",
+  "language.en": "الإنجليزية",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
+  "language.fr": "الفرنسية",
+  "language.zh-CN": "الصينية المبسطة",
+  "language.zh-TW": "الصينية التقليدية",
+  "language.ko": "الكورية",
+  "language.ja": "اليابانية",
+  "release.banner": "🐋 v0.10.0 — ذاكرة مصممة للوكلاء · 6 سبتمبر 2026 · ملاحظات الإصدار ودليل الترقية →",
+  "hero.eyebrow": "ذاكرة طرفية بأولوية للتخزين المحلي",
+  "hero.title": "يتذكّر MemoryWhale ما تنساه طرفيتك.",
+  "hero.lead":
+    "التقط شواهد الطرفية، واحفظها في قاعدة SQLite محلية، واسترجع الإخفاقات والدروس المهمة. يعطي MemoryWhale الأولوية للتخزين المحلي: فلا يرفع بياناتك أو يزامنها بصمت.",
+  "hero.demoCta": "شاهد العرض التجريبي في 60 ثانية",
+  "hero.installCta": "ثبّت MemoryWhale",
+  "hero.securityCta": "اقرأ نموذج الأمان",
+  "hero.memoryChip": "ذاكرة الطرفية نشطة",
+  "hero.whaleAlt": "حوت مضيء يسبح بين عُقد رسم بياني معرفي",
+  "release.eyebrow": "الجديد في 0.10.0",
+  "release.title": "ذاكرة مشتركة. مصادر واضحة.",
+  "release.copy":
+    "يشمل إصدار المنتج 0.10.0 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب. أما النواة القابلة لإعادة الاستخدام بلغة Rust فإصدارها 0.5.0: تتطلب القيم الحرفية لـ <code>Memory</code> في Rust الآن <code>agent: Option&lt;String&gt;</code>؛ وتظل بيانات JSON القديمة قابلة للقراءة بفضل القيمة الافتراضية في serde.",
+  "release.connectTitle": "اربط Claude Code وRho",
+  "release.connectBody":
+    "يثبّت كلٌّ من <code>mw integrate claude</code> و<code>mw integrate rho</code> إمكانية الوصول عبر MCP، وخطافات الالتقاط، ومهارة. يفحص <code>mw doctor</code> هذه المكوّنات كلًّا على حدة.",
+  "release.provenanceTitle": "اعرف مصدر الشواهد",
+  "release.provenanceBody":
+    "يخزّن المخطط 10 هوية الوكيل لكل أمر بالقيم <code>claude</code> أو <code>rho</code> أو <code>NULL</code>؛ وتُعرض القيمة الأخيرة باسم <code>terminal</code>. هوية الوكيل مستقلة عن نوع المصدر. وتجمع معرّفات المستودعات الموحّدة أشجار العمل المرتبطة (worktrees) دون فقدان مسار أيٍّ منها.",
+  "release.interfaceTitle": "اختر واجهتك المحلية",
+  "release.interfaceBody":
+    "يضيف <code>mw-serve</code> دعم HTTP MCP على <code>POST /mcp</code>. يفعّل <code>--api</code> واجهة JSON API للقراءة فقط باختيار صريح. يقرأ <code>mw github context &lt;pr&gt;</code> صراحةً البيانات الوصفية لطلبات السحب (PR)، والفحوص، وحالات الإيداعات، والمراجعات باستخدام تسجيل دخولك إلى <code>gh</code>: دون إجراء checkout أو حفظ تلقائي أو مزامنة في الخلفية.",
+  "who.eyebrow": "لمن صُمّم",
+  "who.title": "مصمّم لثلاث طرق للعمل.",
+  "who.copy":
+    "يخدم MemoryWhale المطورين الذين يتوزّع سياق تصحيح الأخطاء لديهم بين سجل مخرجات الطرفية، وسجل الصدفة، والأجهزة، وجلسات الوكلاء المؤقتة. اطّلع على <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md\" style=\"color:var(--azure);text-decoration:underline;\">الشروحات التفصيلية لحالات الاستخدام</a> مع سجلات أوامر حقيقية.",
+  "who.shellTitle": "🔍 من يصحّح الأخطاء عبر سطر الأوامر",
+  "who.shellBody":
+    "واجهت خطأ البناء أو الربط أو الاعتماديات نفسه مرتين. يحتفظ سجل الصدفة بالأمر — لا بالمخرجات، أو نهاية رسالة الخطأ، أو الحل. يعيد <code>mw search</code> التنفيذ السابق الذي أخفق <em>والدرس</em> المرتبط به.",
+  "who.multiTitle": "🛰️ من يعمل على أجهزة متعددة",
+  "who.multiBody":
+    "Jetson، وخادم المختبر، والحاسوب المحمول — تنقطع الجلسات ويحتفظ كل جهاز بسجل خاص وغير مكتمل. يحفظ <code>mw --live</code> تلقائيًا رغم انقطاع الاتصال؛ وينقل <code>mw push</code> / <code>mw pull</code> الذاكرة بين الأجهزة بطلب صريح.",
+  "who.agentTitle": "🤖 مستخدم وكلاء البرمجة",
+  "who.agentBody":
+    "<bdi dir=\"ltr\">Claude Code, Codex, Cursor</bdi> — تبدأ كل جلسة بشرح بيئتك من جديد. مع <code>mw-mcp</code>، يستطيع الوكيل الاستعلام عن الشواهد السابقة وحفظ درس صراحةً باستخدام <code>remember</code>. لا يزال عليك التحقق من نجاح أي إصلاح.",
+  "terminal.eyebrow": "ذاكرة الطرفية",
+  "terminal.title": "قصرٌ للذاكرة في سطر الأوامر.",
+  "terminal.copy":
+    "يخزّن MemoryWhale جلسات الطرفية في ذاكرة محلية منظّمة. وبدلًا من الاحتفاظ بكتلة نصية ضخمة واحدة، يحفظ الأمر، وكل وسيطة، ودليل العمل، ورمز الخروج، والمخرجات القياسية stdout، ومخرجات الأخطاء stderr، وملاحظاتك الخاصة.",
+  "terminal.argsTitle": "وسيطات قابلة للبحث",
+  "terminal.argsBody":
+    "تُفصل الخيارات مثل <code>--manifest-path</code> والمسارات والأوامر الفرعية وأسماء الحزم وخيارات النماذج في صفوف مستقلة.",
+  "terminal.errorsTitle": "سجلات الأخطاء تبقى مرتبطة بأوامرها",
+  "terminal.errorsBody":
+    "يُحفظ stderr إلى جانب الأمر الذي أنتجه، ليبقى السبب والسياق معًا.",
+  "terminal.liveTitle": "حفظ تلقائي مستمر للجلسات",
+  "terminal.liveBody":
+    "يسجّل <code>mw --live</code> نص جلسة الصدفة النشطة في SQLite كل بضع ثوانٍ، بحيث يمكن أن يبقى سجل ذاكرة صالح للاستخدام حتى عند انقطاع الاتصال.",
+  "terminal.graphTitle": "عُقد بيانية للإخفاقات",
+  "terminal.graphBody":
+    "تظهر الأوامر المخفقة في مجرّة المعرفة وترتبط بمفاهيم مستخرجة مثل <bdi dir=\"ltr\">cargo, Tauri, SQLite</bdi> والمنافذ وعمليات البناء.",
+  "how.eyebrow": "كيف يعمل",
+  "how.title": "التقط، خزّن، استخرج، استكشف.",
+  "how.captureTitle": "التقاط",
+  "how.captureBody": "ألصق سجل تنفيذ من الطرفية، أو استدعِ أداة Rust المساعدة، أو ابدأ جلسة صدفة تُحفظ تلقائيًا باستمرار.",
+  "how.storeTitle": "تخزين",
+  "how.storeBody": "يحفظ SQLite عمليات تنفيذ الأوامر ووسيطاتها محليًا على جهازك.",
+  "how.extractTitle": "استخراج",
+  "how.extractBody": "يستخرج Rust الكلمات المفتاحية من الأوامر والملاحظات ونصوص الأخطاء.",
+  "how.exploreTitle": "استكشاف",
+  "how.exploreBody": "ابحث أو انقر عُقد الأوامر في واجهة الرسم البياني المضيئة.",
+  "agents.eyebrow": "وكلاء الذكاء الاصطناعي",
+  "agents.title": "امنح وكيلك ذاكرة لما أخفق من قبل.",
+  "agents.copy":
+    "قد تفقد جلسات وكلاء البرمجة السياق وتكرّر تصحيح أخطاء سبق أن عالجتها. <code>mw-mcp</code> خادم Model Context Protocol يتيح الوصول إلى ذاكرتك المحلية — سجّله مرة واحدة ليتمكن <bdi dir=\"ltr\">Claude Code, Rho, Codex, Cursor</bdi> من الاستعلام مباشرةً عن الإخفاقات السابقة. يجب أن تثق بالعميل الذي يطّلع على الشواهد المسترجعة، وكذلك بأي مزوّد نموذج يرسل إليه ذلك العميل السياق.",
+  "agents.clientsLabel": "عملاء تتوفر لهم أدلة تكامل",
+  "agents.matrix": "المزيد في جدول الإمكانات",
+  "agents.guides":
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">أدلة إعداد العملاء والأدوات</a> — يوضّح جدول الإمكانات دعم MCP والالتقاط التلقائي وحالة التحقق لكل عميل، بما في ذلك بوابات النماذج مثل OpenRouter وCLIProxyAPI.",
+  "agents.setupLabel": "الإعداد",
+  "agents.setupValue": "أمر واحد",
+  "agents.toolsLabel": "الأدوات",
+  "agents.toolsValue": "6 أدوات MCP محلية: <bdi dir=\"ltr\">recent_errors · search_memory · get_context · remember · similar_failures · stats</bdi>",
+  "agents.noAgentLabel": "لا تستخدم وكيلًا؟",
+  "agents.noAgentValue": "يطبع <bdi dir=\"ltr\">mw context</bdi> ملخصًا جاهزًا للصق",
+  "demo.eyebrow": "التقاط ← ذاكرة ← استرجاع",
+  "demo.title": "شاهد دورة العمل الأساسية ببيانات اصطناعية.",
+  "demo.copy":
+    "التقط أمرًا واحدًا، واحفظ الشرح الذي أدى إلى إصلاحه، ثم ابحث في المخزن المحلي عندما يتكرر الإخفاق نفسه. يوفّر MCP الاسترجاع والكتابة الصريحة؛ ولا يلتقط نشاط الطرفية العادي تلقائيًا.",
+  "demo.handoff":
+    "يستورد <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/guides/cross-agent-handoff.md\" style=\"color:var(--azure);text-decoration:underline;\">العرض التجريبي دون اتصال لتسليم السياق من Claude إلى Rho</a> بيانات اختبار جاهزة ويحاكي عميل Rho باستخدام MCP حقيقي. لا يشغّل وكلاء فعليين، ولا ينفّذ إصلاح Cargo الوارد في بيانات الاختبار أو يتحقق منه. تحتفظ خطافات Rho حاليًا بالبيانات الوصفية للإخفاق عند غياب نص الأمر؛ وتتجاوز الاستدعاءات الناجحة التي لا تحتوي على نص الأمر. ولا يزال الاسترجاع التلقائي عند بدء المهمة، والبحث عن الإخفاقات، والحفظ قبل ضغط السياق مهامًا على مستوى تنسيق العميل، وليست أتمتة متاحة ضمن المنتج.",
+  "demo.imageAlt": "عرض تجريبي لطرفية MemoryWhale ولوحة التحكم ببيانات اصطناعية",
+  "data.eyebrow": "بياناتك",
+  "data.title": "الأولوية للتخزين المحلي تعني خيارات واضحة.",
+  "data.copy":
+    "توجد قاعدة البيانات على جهازك: عادةً في <code>~/.local/share/MemoryWhale/</code> على Linux أو <code>~/Library/Application Support/MemoryWhale/</code> على macOS. اضبط <code>MEMORYWHALE_DATA_DIR</code> لاختيار موقع آخر.",
+  "data.captureLabel": "ضوابط الالتقاط",
+  "data.captureValue": "<code>.mwignore</code>، سياسة المسارات، التقاط الأوامر فقط",
+  "data.redactionLabel": "حجب البيانات الحساسة",
+  "data.redactionValue": "يساعد على حجب الأسرار الشائعة؛ لكنه ليس حدًا أمنيًا",
+  "data.sizeLabel": "حد الحجم",
+  "data.sizeValue": "الحد الافتراضي للحقول النصية الملتقطة هو 1 MiB، مع اقتطاع ما يتجاوزه",
+  "data.inspectLabel": "فحص / حذف",
+  "data.inspectValue": "<code>mw audit</code> · <code>mw rm</code> · <code>mw prune</code>",
+  "data.transferLabel": "النقل",
+  "data.transferValue": "<code>mw export</code> / <code>mw import</code> أو نقل صريح عبر SSH",
+  "data.stewardshipLabel": "إدارة الذاكرة",
+  "data.stewardshipValue": "<code>mw memory compact</code> — معاينة دون تنفيذ أولًا، مع الحفاظ على الصفوف",
+  "security.eyebrow": "نموذج الأمان",
+  "security.title": "محلي افتراضيًا، وبقرار صريح عند المشاركة.",
+  "security.copy":
+    "تستخدم واجهة سطر الأوامر (CLI)، والواجهة النصية (TUI)، وخادم MCP، ولوحة الويب، وواجهة سطح المكتب المخزن المحلي. يعمل <code>mw-mcp</code> كعملية محلية موثوقة عبر stdio؛ وترتبط لوحة الويب افتراضيًا بعنوان loopback. تتطلب إتاحة اللوحة على عنوان غير loopback رمز وصول، وينبغي قصر إتاحتها على شبكة موثوقة. يتطلب HTTP MCP المحمي مصادقة Bearer؛ وتشترك واجهة JSON API، التي تُفعّل باختيار صريح، في ضوابط الوصول الخاصة بلوحة الويب. لا يشفّر HTTP الاتصال. ولا تحوّل أيٌّ من الواجهتين وصول العميل إلى التقاط تلقائي. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md\" style=\"color:var(--azure);text-decoration:underline;\">نموذج تهديدات البيانات المحلية</a>.",
+  "run.eyebrow": "التثبيت",
+  "run.title": "سطر واحد. لا حاجة إلى Rust.",
+  "run.copy":
+    "تتوفر ملفات تنفيذية جاهزة لأنظمة Linux x86_64/aarch64 وmacOS. يتحقق برنامج التثبيت من ملفات SHA256 المنشورة عندما يوفّرها الإصدار؛ وقد لا تتوفر قيمة تحقق للإصدارات الأقدم. ابدأ بالتقاط واحد بطلب صريح، وافحصه، ثم فكّر في <code>mw global on</code>. لا يُعد Windows هدفًا مدعومًا بصورة أصلية؛ ويمكن لـ WSL استخدام نسخة Linux.",
+  "run.tryLabel": "جرّب أولًا",
+  "run.tryValue": "<code>mw demo</code> — يكتب بيانات نموذجية في المخزن المحدد",
+  "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
+  "run.prebuiltValue":
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
+  "run.cargoLabel": "Cargo",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.10.0 --locked</code>",
+  "run.debianLabel": "Debian / Jetson",
+  "run.debianValue": ".deb على صفحة الإصدارات",
+  "run.securityLabel": "الأمان",
+  "run.securityValue": "<a href=\"#security\">اقرأ النموذج</a>",
+  "run.verifyLabel": "التحقق",
+  "run.verifyValue": "<code>mw --version</code> · <code>mw doctor</code>",
+  "footer.copyright": "حقوق النشر (c) 2026 wuisabel-gif. MemoryWhale - ذاكرة طرفية ورسم بياني معرفي باستخدام Rust/Tauri.",
+  "footer.docs": "التوثيق",
+  "footer.useCases": "حالات الاستخدام",
+  "footer.cli": "مرجع CLI",
+  "footer.security": "سياسة الأمان",
+  "footer.integrations": "التكاملات"
+};
+
+const DE = {
+  meta: {
+    title: "MemoryWhale — Terminal-Gedächtnis für dich und deinen KI-Agenten",
+    description:
+      "MemoryWhale erfasst Belege aus der Entwicklungsarbeit in einer lokalen SQLite-Datenbank, damit Menschen und vertrauenswürdige Werkzeuge frühere Fehler und Erkenntnisse abrufen können. Lokale Speicherung hat Vorrang; Export und Übertragung erfolgen auf ausdrücklichen Wunsch.",
+    jsonLdDescription:
+      "Dauerhaftes lokales Debugging-Gedächtnis für Entwickler und Programmieragenten. Erfasst Belege aus dem Terminal in einer lokalen SQLite-Datenbank und stellt sie über MCP bereit."
+  },
+  "nav.label": "Seitennavigation",
+  "brand.home": "MemoryWhale-Startseite",
+  "nav.terminal": "Terminal-Gedächtnis",
+  "nav.how": "Funktionsweise",
+  "nav.agents": "KI-Agenten",
+  "nav.who": "Für wen?",
+  "nav.install": "Installieren",
+  "nav.docs": "Dokumentation",
+  "nav.releases": "Versionen",
+  "nav.github": "GitHub ↗",
+  "nav.delphin": "Delphin ↗",
+  "nav.contextgc": "ContextGC ↗",
+  "language.label": "Sprache",
+  "language.en": "Englisch",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
+  "language.fr": "Französisch",
+  "language.zh-CN": "Chinesisch (vereinfacht)",
+  "language.zh-TW": "Chinesisch (traditionell)",
+  "language.ko": "Koreanisch",
+  "language.ja": "Japanisch",
+  "release.banner": "🐋 v0.10.0 — Gedächtnis für KI-Agenten · 6. September 2026 · Versionshinweise und Upgrade-Anleitung →",
+  "hero.eyebrow": "Terminal-Gedächtnis mit lokalem Schwerpunkt",
+  "hero.title": "MemoryWhale merkt sich, was dein Terminal vergisst.",
+  "hero.lead":
+    "Erfasse Belege aus dem Terminal, bewahre sie in einer lokalen SQLite-Datenbank auf und rufe wichtige Fehler und Erkenntnisse wieder ab. MemoryWhale setzt auf lokale Speicherung: Deine Daten werden nicht unbemerkt hochgeladen oder synchronisiert.",
+  "hero.demoCta": "Die 60-Sekunden-Demo ansehen",
+  "hero.installCta": "MemoryWhale installieren",
+  "hero.securityCta": "Sicherheitsmodell lesen",
+  "hero.memoryChip": "Terminal-Gedächtnis aktiv",
+  "hero.whaleAlt": "Leuchtender Wal, der durch die Knoten eines Wissensgraphen schwimmt",
+  "release.eyebrow": "Neu in 0.10.0",
+  "release.title": "Geteiltes Gedächtnis. Klare Herkunft.",
+  "release.copy":
+    "Der Produktstand 0.10.0 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern hat die Version 0.5.0: Rust-<code>Memory</code>-Literale erfordern jetzt <code>agent: Option&lt;String&gt;</code>; älteres JSON bleibt dank des serde-Standardwerts lesbar.",
+  "release.connectTitle": "Claude Code und Rho anbinden",
+  "release.connectBody":
+    "<code>mw integrate claude</code> und <code>mw integrate rho</code> installieren MCP-Zugriff, Erfassungs-Hooks und einen Skill. <code>mw doctor</code> prüft diese Komponenten unabhängig voneinander.",
+  "release.provenanceTitle": "Wissen, woher die Belege stammen",
+  "release.provenanceBody":
+    "Schema 10 speichert die Agenten von Befehlen als <code>claude</code>, <code>rho</code> oder <code>NULL</code>; Letzteres wird als <code>terminal</code> angezeigt. Der Agent ist vom Quelltyp getrennt. Kanonische Repository-IDs fassen verknüpfte Worktrees zusammen, ohne den Pfad des einzelnen Worktrees zu verlieren.",
+  "release.interfaceTitle": "Wähle deine lokale Oberfläche",
+  "release.interfaceBody":
+    "<code>mw-serve</code> ergänzt HTTP MCP unter <code>POST /mcp</code>. <code>--api</code> aktiviert ausdrücklich eine schreibgeschützte JSON-API. <code>mw github context &lt;pr&gt;</code> liest über deine <code>gh</code>-Anmeldung gezielt PR-Metadaten, Prüfungen, Commit-Status und Reviews: kein Checkout, kein automatisches Speichern und keine Hintergrundsynchronisierung.",
+  "who.eyebrow": "Für wen?",
+  "who.title": "Für drei Arbeitsweisen entwickelt.",
+  "who.copy":
+    "MemoryWhale ist für Entwickler gedacht, deren Debugging-Kontext über den Terminal-Rücklauf, den Shell-Verlauf, verschiedene Rechner und kurzlebige Agentensitzungen verstreut ist. Die ausführlichen <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md\" style=\"color:var(--azure);text-decoration:underline;\">Anwendungsbeispiele</a> zeigen echte Befehlsprotokolle.",
+  "who.shellTitle": "🔍 Fehlersuche vor allem in der Shell",
+  "who.shellBody":
+    "Derselbe Build-, Linker- oder Abhängigkeitsfehler tritt zum zweiten Mal auf. Der Shell-Verlauf merkt sich den Befehl — nicht seine Ausgabe, das Ende der Fehlermeldung oder die Lösung. <code>mw search</code> liefert den früheren fehlgeschlagenen Lauf <em>und</em> die zugehörige Erkenntnis.",
+  "who.multiTitle": "🛰️ Arbeit auf mehreren Rechnern",
+  "who.multiBody":
+    "Jetson, Laborserver, Laptop — Sitzungen brechen ab, und jeder Rechner behält seinen eigenen, unvollständigen Verlauf. <code>mw --live</code> speichert auch bei Verbindungsabbrüchen automatisch; <code>mw push</code> / <code>mw pull</code> übertragen das Gedächtnis gezielt zwischen Rechnern.",
+  "who.agentTitle": "🤖 Entwicklung mit Programmieragenten",
+  "who.agentBody":
+    "Claude Code, Codex, Cursor — jede Sitzung beginnt damit, deine Umgebung erneut zu erklären. Mit <code>mw-mcp</code> kann der Agent frühere Belege abfragen und mit <code>remember</code> ausdrücklich eine Erkenntnis speichern. Ob eine Fehlerbehebung funktioniert, musst du weiterhin selbst überprüfen.",
+  "terminal.eyebrow": "Terminal-Gedächtnis",
+  "terminal.title": "Ein Gedächtnispalast für die Arbeit auf der Kommandozeile.",
+  "terminal.copy":
+    "MemoryWhale speichert Terminalsitzungen als strukturiertes lokales Gedächtnis. Statt eines riesigen Textblocks hält es den Befehl, jedes Argument, das Arbeitsverzeichnis, den Exit-Code, stdout, stderr und deine eigenen Notizen fest.",
+  "terminal.argsTitle": "Argumente werden durchsuchbar",
+  "terminal.argsBody":
+    "Optionen wie <code>--manifest-path</code>, Pfade, Unterbefehle, Paketnamen und Modelloptionen werden in eigenen Zeilen gespeichert.",
+  "terminal.errorsTitle": "Fehlerprotokolle bleiben zugeordnet",
+  "terminal.errorsBody":
+    "stderr bleibt beim auslösenden Befehl gespeichert, damit Ursache und Kontext zusammenbleiben.",
+  "terminal.liveTitle": "Automatisches Speichern laufender Sitzungen",
+  "terminal.liveBody":
+    "<code>mw --live</code> schreibt das Protokoll der aktiven Shell alle paar Sekunden in SQLite. So kann auch nach einem Verbindungsabbruch eine nutzbare Aufzeichnung erhalten bleiben.",
+  "terminal.graphTitle": "Fehler als Graphknoten",
+  "terminal.graphBody":
+    "Fehlgeschlagene Befehle erscheinen in der Wissensgalaxie und werden mit extrahierten Begriffen wie cargo, Tauri, SQLite, Ports und Builds verknüpft.",
+  "how.eyebrow": "Funktionsweise",
+  "how.title": "Erfassen, speichern, extrahieren, erkunden.",
+  "how.captureTitle": "Erfassen",
+  "how.captureBody": "Füge ein Terminalprotokoll ein, rufe das Rust-Hilfsprogramm auf oder starte eine Shell mit laufender automatischer Speicherung.",
+  "how.storeTitle": "Speichern",
+  "how.storeBody": "SQLite speichert Befehlsausführungen und Argumente lokal auf deinem Rechner.",
+  "how.extractTitle": "Extrahieren",
+  "how.extractBody": "Rust extrahiert Schlüsselwörter aus Befehlen, Notizen und Fehlertexten.",
+  "how.exploreTitle": "Erkunden",
+  "how.exploreBody": "Suche oder klicke auf Befehlsknoten in der leuchtenden Graphoberfläche.",
+  "agents.eyebrow": "KI-Agenten",
+  "agents.title": "Gib deinem Agenten ein Gedächtnis für frühere Fehler.",
+  "agents.copy":
+    "Sitzungen mit Programmieragenten können Kontext verlieren und bereits erledigte Fehlersuche wiederholen. <code>mw-mcp</code> ist ein Model Context Protocol-Server für dein lokales Gedächtnis — registriere ihn einmal, damit Claude Code, Rho, Codex oder Cursor frühere Fehler direkt abfragen können. Du musst dem Client die abgerufenen Belege anvertrauen können — ebenso jedem Modellanbieter, an den er Kontext sendet.",
+  "agents.clientsLabel": "Clients mit Integrationsanleitungen",
+  "agents.matrix": "Mehr in der Übersicht",
+  "agents.guides":
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">Einrichtungsanleitungen für Clients und Werkzeuge</a> — die Funktionsmatrix dokumentiert MCP-Unterstützung, automatische Erfassung und Prüfstatus pro Client, einschließlich Modell-Gateways wie OpenRouter und CLIProxyAPI.",
+  "agents.setupLabel": "Einrichtung",
+  "agents.setupValue": "Ein Befehl",
+  "agents.toolsLabel": "Werkzeuge",
+  "agents.toolsValue": "6 lokale MCP-Werkzeuge: recent_errors · search_memory · get_context · remember · similar_failures · stats",
+  "agents.noAgentLabel": "Kein Agent?",
+  "agents.noAgentValue": "mw context gibt eine Übersicht zum direkten Einfügen aus",
+  "demo.eyebrow": "Erfassung → Gedächtnis → Abruf",
+  "demo.title": "Der Kernablauf mit synthetischen Daten.",
+  "demo.copy":
+    "Erfasse einen Befehl, speichere die Erklärung zur funktionierenden Lösung und durchsuche den lokalen Speicher, wenn derselbe Fehler wieder auftritt. MCP ermöglicht das Abrufen und ausdrücklich angestoßene Schreiben von Daten; normale Terminalaktivität erfasst es nicht automatisch.",
+  "demo.handoff":
+    "Die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/guides/cross-agent-handoff.md\" style=\"color:var(--azure);text-decoration:underline;\">Offline-Demo zur Übergabe von Claude an Rho</a> importiert Testdaten und simuliert einen Rho-Client mit echtem MCP. Sie startet keine echten Agenten und führt die in den Testdaten enthaltene Cargo-Fehlerbehebung weder aus noch überprüft sie diese. Rho-Hooks bewahren derzeit Fehlermetadaten auf, wenn der Befehlstext fehlt; erfolgreiche Aufrufe ohne Befehlstext werden übersprungen. Automatisches Abrufen zu Aufgabenbeginn, Nachschlagen von Fehlern und Speichern vor der Kontextverdichtung bleiben Aufgaben der Client-Orchestrierung und sind keine mitgelieferte Automatisierung.",
+  "demo.imageAlt": "MemoryWhale-Demo von Terminal und Dashboard mit synthetischen Daten",
+  "data.eyebrow": "Deine Daten",
+  "data.title": "Lokale Speicherung hat Vorrang — mit transparenten Optionen.",
+  "data.copy":
+    "Die Datenbank liegt auf deinem Rechner: unter Linux meist in <code>~/.local/share/MemoryWhale/</code>, unter macOS in <code>~/Library/Application Support/MemoryWhale/</code>. Mit <code>MEMORYWHALE_DATA_DIR</code> wählst du einen anderen Speicherort.",
+  "data.captureLabel": "Erfassung steuern",
+  "data.captureValue": "<code>.mwignore</code>, Pfadrichtlinie, nur Befehle",
+  "data.redactionLabel": "Schwärzung",
+  "data.redactionValue": "Hilft beim Schwärzen üblicher Geheimnisse; ist keine Sicherheitsgrenze",
+  "data.sizeLabel": "Größenlimit",
+  "data.sizeValue": "Erfasste Textfelder sind standardmäßig auf 1 MiB begrenzt; Überlängen werden abgeschnitten",
+  "data.inspectLabel": "Prüfen / löschen",
+  "data.inspectValue": "<code>mw audit</code> · <code>mw rm</code> · <code>mw prune</code>",
+  "data.transferLabel": "Übertragung",
+  "data.transferValue": "<code>mw export</code> / <code>mw import</code> oder gezielte SSH-Übertragung",
+  "data.stewardshipLabel": "Gedächtnispflege",
+  "data.stewardshipValue": "<code>mw memory compact</code> — zuerst ein Probelauf, Zeilen bleiben erhalten",
+  "security.eyebrow": "Sicherheitsmodell",
+  "security.title": "Standardmäßig lokal, bewusst geteilt.",
+  "security.copy":
+    "CLI, TUI, MCP-Server, Web-Dashboard und Desktop-Hülle nutzen den lokalen Speicher. <code>mw-mcp</code> ist ein vertrauenswürdiger lokaler stdio-Prozess; das Dashboard bindet sich standardmäßig an Loopback. Ein Dashboard außerhalb von Loopback benötigt ein Token und sollte nur in einem vertrauenswürdigen Netzwerk erreichbar sein. Geschütztes HTTP MCP erfordert Bearer-Authentifizierung; die ausdrücklich aktivierte JSON-API nutzt dieselben Zugriffskontrollen wie das Dashboard. HTTP verschlüsselt die Verbindung nicht. Keine der beiden Schnittstellen macht den Clientzugriff zu einer automatischen Erfassung. Siehe das <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/SECURITY.md\" style=\"color:var(--azure);text-decoration:underline;\">Bedrohungsmodell für lokale Daten</a>.",
+  "run.eyebrow": "Installieren",
+  "run.title": "Eine Zeile. Kein Rust nötig.",
+  "run.copy":
+    "Vorkompilierte Programme sind für Linux x86_64/aarch64 und macOS verfügbar. Das Installationsprogramm prüft die veröffentlichten SHA256-Dateien, sofern die jeweilige Version sie bereitstellt; bei älteren Versionen kann eine Prüfsumme fehlen. Beginne mit einer gezielten Erfassung, prüfe sie und ziehe erst danach <code>mw global on</code> in Betracht. Windows wird nicht nativ unterstützt; WSL kann den Linux-Build verwenden.",
+  "run.tryLabel": "Zuerst ausprobieren",
+  "run.tryValue": "<code>mw demo</code> — schreibt Beispieldaten in den ausgewählten Speicher",
+  "run.prebuiltLabel": "Vorkompiliert installieren",
+  "run.prebuiltValue":
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md#install-or-upgrade\">Anleitung zum versionsgebundenen Installer mit Prüfsummenprüfung</a>",
+  "run.cargoLabel": "Cargo",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.10.0 --locked</code>",
+  "run.debianLabel": "Debian / Jetson",
+  "run.debianValue": ".deb auf der Versionsseite",
+  "run.securityLabel": "Sicherheit",
+  "run.securityValue": "<a href=\"#security\">Modell lesen</a>",
+  "run.verifyLabel": "Überprüfen",
+  "run.verifyValue": "<code>mw --version</code> · <code>mw doctor</code>",
+  "footer.copyright": "Urheberrecht (c) 2026 wuisabel-gif. MemoryWhale - Terminal-Gedächtnis und Wissensgraph mit Rust/Tauri.",
+  "footer.docs": "Dokumentation",
+  "footer.useCases": "Anwendungsfälle",
+  "footer.cli": "CLI-Referenz",
+  "footer.security": "Sicherheitsrichtlinie",
+  "footer.integrations": "Integrationen"
+};
+
 const FR = {
   meta: {
     title: "MemoryWhale — une mémoire de terminal pour vous et votre agent IA",
@@ -175,6 +491,8 @@ const FR = {
   "nav.contextgc": "ContextGC ↗",
   "language.label": "Langue",
   "language.en": "Anglais",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
   "language.fr": "Français",
   "language.zh-CN": "Chinois simplifié",
   "language.zh-TW": "Chinois traditionnel",
@@ -330,6 +648,8 @@ const ZH_CN = {
   "nav.contextgc": "ContextGC ↗",
   "language.label": "语言",
   "language.en": "英语",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
   "language.fr": "法语",
   "language.zh-CN": "简体中文",
   "language.zh-TW": "繁体中文",
@@ -484,6 +804,8 @@ const ZH_TW = {
   "nav.contextgc": "ContextGC ↗",
   "language.label": "語言",
   "language.en": "英文",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
   "language.fr": "法文",
   "language.zh-CN": "簡體中文",
   "language.zh-TW": "繁體中文",
@@ -638,6 +960,8 @@ const KO = {
   "nav.contextgc": "ContextGC ↗",
   "language.label": "언어",
   "language.en": "영어",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
   "language.fr": "프랑스어",
   "language.zh-CN": "중국어 간체",
   "language.zh-TW": "중국어 번체",
@@ -792,6 +1116,8 @@ const JA = {
   "nav.contextgc": "ContextGC ↗",
   "language.label": "言語",
   "language.en": "英語",
+  "language.ar": "العربية",
+  "language.de": "Deutsch",
   "language.fr": "フランス語",
   "language.zh-CN": "簡体字中国語",
   "language.zh-TW": "繁体字中国語",
@@ -926,13 +1252,15 @@ const JA = {
 
 const translations = {
   en: EN,
+  ar: AR,
+  de: DE,
   fr: FR,
   "zh-CN": ZH_CN,
   "zh-TW": ZH_TW,
   ko: KO,
   ja: JA
 };
-const supportedLanguages = Object.freeze(["en", "fr", "zh-CN", "zh-TW", "ko", "ja"]);
+const supportedLanguages = Object.freeze(["en", "ar", "de", "fr", "zh-CN", "zh-TW", "ko", "ja"]);
 
 globalThis.MEMORYWHALE_I18N = Object.freeze({ supportedLanguages, translations });
 
@@ -951,7 +1279,7 @@ globalThis.MEMORYWHALE_I18N = Object.freeze({ supportedLanguages, translations }
     if (normalized === "zh-tw" || normalized === "zh-hk" || normalized === "zh-mo") return "zh-TW";
     if (normalized === "zh-cn" || normalized === "zh-sg" || normalized === "zh") return "zh-CN";
     const primary = normalized.split("-")[0];
-    return ["en", "fr", "ko", "ja"].includes(primary) ? primary : null;
+    return ["en", "ar", "de", "fr", "ko", "ja"].includes(primary) ? primary : null;
   };
 
   const readStoredLanguage = () => {
@@ -963,9 +1291,10 @@ globalThis.MEMORYWHALE_I18N = Object.freeze({ supportedLanguages, translations }
   };
 
   const browserLanguage = () => {
-    const candidates = Array.isArray(navigator.languages) && navigator.languages.length
-      ? navigator.languages
-      : [navigator.language];
+    const candidates = [
+      ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+      navigator.language
+    ];
     for (const candidate of candidates) {
       const language = normalizeLanguage(candidate);
       if (language && languageSet.has(language)) return language;
@@ -1009,6 +1338,7 @@ globalThis.MEMORYWHALE_I18N = Object.freeze({ supportedLanguages, translations }
     const selectedLanguage = languageSet.has(language) ? language : "en";
     const dictionary = translations[selectedLanguage] || translations.en;
     document.documentElement.lang = selectedLanguage;
+    document.documentElement.dir = selectedLanguage === "ar" ? "rtl" : "ltr";
     document.title = dictionary.meta.title;
     const description = document.querySelector('meta[name="description"]');
     if (description) description.setAttribute("content", dictionary.meta.description);

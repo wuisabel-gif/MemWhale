@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   LOCALES,
+  formatLocalizedBody,
   hashContent,
   parseLocalizedReadme,
   translateMarkdown,
@@ -62,6 +63,43 @@ test("translated image alt text is allowed", () => {
 test("the English README passes the complete protection contract", async () => {
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   assert.doesNotThrow(() => validateTranslation(readme, readme));
+});
+
+test("RTL layout preserves Markdown and wraps fenced examples in LTR", () => {
+  const rtl = { direction: "rtl" };
+  const body = formatLocalizedBody(source, rtl);
+  assert.match(body, /^<div dir="rtl">\n\n/);
+  assert.equal((body.match(/<div dir="ltr">/g) ?? []).length, 2);
+  assert.match(body, /<div dir="ltr">\n\n```bash\nmw search "linker error"\n```\n\n<\/div>/);
+  assert.doesNotThrow(() => validateTranslation(source, body, rtl));
+  assert.equal(formatLocalizedBody(source), source);
+  assert.throws(() => validateTranslation(source, body), /protected HTML/);
+});
+
+test("RTL layout cannot bypass command, link, or HTML protections", () => {
+  const rtl = { direction: "rtl" };
+  const body = formatLocalizedBody(source, rtl);
+  for (const tampered of [
+    body.replace("mw search", "mw delete"),
+    body.replace("docs/guide.md", "https://untrusted.example/"),
+    body.replace('<img src=', '<img onclick="alert(1)" src='),
+  ]) {
+    assert.throws(() => validateTranslation(source, tampered, rtl), /protected/);
+  }
+  for (const tampered of [
+    source,
+    body.replace('dir="rtl"', 'dir="rtl" onclick="alert(1)"'),
+    body.replace('<div dir="ltr">', '<div dir="rtl">'),
+    body.replace('<div dir="ltr">\n\n', '').replace('```\n\n</div>', '```'),
+  ]) {
+    assert.throws(() => validateTranslation(source, tampered, rtl), /RTL translation/);
+  }
+});
+
+test("RTL wrappers do not consume literal direction markup inside code", () => {
+  const htmlExample = source + '\n```html\n<div dir="ltr">\n\nexample\n\n</div>\n```\n';
+  const rtl = { direction: "rtl" };
+  assert.doesNotThrow(() => validateTranslation(htmlExample, formatLocalizedBody(htmlExample, rtl), rtl));
 });
 
 test("validation rejects changes to protected README content", async (t) => {
@@ -229,5 +267,10 @@ test("stale locale files are translated and stamped with the current hash", asyn
   for (const locale of LOCALES) {
     const localized = parseLocalizedReadme(await readFile(join(directory, locale.file), "utf8"));
     assert.equal(localized.sourceHash, hashContent(source));
+    assert.doesNotThrow(() => validateTranslation(source, localized.body, locale));
+    if (locale.direction === "rtl") {
+      assert.ok(localized.body.startsWith('<div dir="rtl">'));
+      assert.ok(localized.body.includes('<div dir="ltr">'));
+    }
   }
 });

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -130,7 +130,21 @@
       }
 
       code {
+        direction: ltr;
+        unicode-bidi: isolate;
         overflow-wrap: anywhere;
+      }
+
+      html[dir="rtl"] {
+        --hero-veil-angle: 270deg;
+      }
+
+      html[dir="rtl"] :is(h1, h2, h3, .eyebrow, .stat span, .language-picker label) {
+        letter-spacing: normal;
+      }
+
+      html[dir="rtl"] :is(h1, h2, h3) {
+        line-height: 1.25;
       }
 
 
@@ -196,6 +210,7 @@
 
       .nav-actions {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         justify-content: flex-end;
         gap: 10px;
@@ -204,6 +219,7 @@
 
       .language-picker {
         display: inline-flex;
+        flex-shrink: 0;
         align-items: center;
         gap: 8px;
         min-height: 38px;
@@ -289,12 +305,14 @@
 
       .hero::after {
         position: absolute;
-        inset: 0 auto 0 -30px;
+        inset-block: 0;
+        inset-inline-start: -30px;
+        inset-inline-end: auto;
         z-index: 1;
         width: min(68%, 820px);
         pointer-events: none;
         background: linear-gradient(
-          90deg,
+          var(--hero-veil-angle, 90deg),
           rgba(243, 247, 251, 0.98) 0%,
           rgba(243, 247, 251, 0.9) 62%,
           rgba(243, 247, 251, 0) 100%
@@ -331,11 +349,13 @@
       }
 
       h1 {
-        max-width: 11ch;
-        font-size: clamp(3.45rem, 6.8vw, 6.25rem);
+        /* Fit the content column rather than a font-dependent character count.
+           The wrapping fallback also protects unusually wide system fonts. */
+        max-width: 100%;
+        font-size: clamp(2.75rem, 5.2vw, 4.5rem);
         font-weight: 800;
         line-height: 0.92;
-        overflow-wrap: normal;
+        overflow-wrap: anywhere;
       }
 
       h2 {
@@ -370,7 +390,7 @@
       .hero-visual {
         position: absolute;
         top: 78px;
-        right: 0;
+        inset-inline-end: 0;
         z-index: 0;
         width: min(900px, 58vw);
         min-height: 540px;
@@ -614,6 +634,9 @@
       }
 
       pre {
+        direction: ltr;
+        text-align: left;
+        unicode-bidi: isolate;
         margin: 0;
         padding: 18px;
         overflow: auto;
@@ -679,6 +702,8 @@
       }
 
       .client-chip {
+        direction: ltr;
+        unicode-bidi: isolate;
         border: 1px solid var(--line-2);
         border-radius: 99px;
         padding: 5px 12px;
@@ -755,7 +780,7 @@
       }
 
       .stat span {
-        color: var(--faint);
+        color: var(--muted);
         font-size: 0.76rem;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -849,14 +874,10 @@
           width: auto;
         }
 
-        h1 {
-          max-width: 12ch;
-        }
-
         .hero-visual {
           position: relative;
           top: auto;
-          right: auto;
+          inset-inline-end: auto;
           width: 100%;
           min-height: 520px;
         }
@@ -979,6 +1000,8 @@
             <label for="language-select" data-i18n="language.label">Language</label>
             <select id="language-select" name="language" aria-label="Language" data-i18n-aria-label="language.label">
               <option value="en" data-i18n="language.en">English</option>
+              <option value="ar" lang="ar" dir="rtl" data-i18n="language.ar">العربية</option>
+              <option value="de" lang="de" data-i18n="language.de">Deutsch</option>
               <option value="fr" data-i18n="language.fr">Français</option>
               <option value="zh-CN" data-i18n="language.zh-CN">简体中文</option>
               <option value="zh-TW" data-i18n="language.zh-TW">繁體中文</option>
@@ -1239,7 +1262,7 @@
               client with the evidence it retrieves, including any model
               provider to which that client sends context.
             </p>
-            <div class="client-strip" aria-label="Clients with integration guides" data-i18n-aria-label="agents.clientsLabel">
+            <div class="client-strip" role="group" aria-label="Clients with integration guides" data-i18n-aria-label="agents.clientsLabel">
               <span class="client-chip">Claude Code</span>
               <span class="client-chip">Rho</span>
               <span class="client-chip">Claude Desktop</span>
