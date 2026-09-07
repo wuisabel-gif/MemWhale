@@ -6,6 +6,7 @@ import { LOCALES } from "./sync-readme-locales.mjs";
 const root = resolve(new URL("..", import.meta.url).pathname);
 const html = await readFile(resolve(root, "index.html"), "utf8");
 const i18nSource = await readFile(resolve(root, "site-i18n.js"), "utf8");
+const searchSource = await readFile(resolve(root, "site-search.js"), "utf8");
 const failures = [];
 const expect = (condition, message) => {
   if (!condition) failures.push(message);
@@ -31,6 +32,7 @@ for (const term of [
   expect(html.includes(term), `required stable site term is missing: ${term}`);
 }
 expect(html.includes('<script defer src="site-i18n.js"></script>'), "local deferred site dictionary is missing");
+expect(html.includes('<script defer src="site-search.js"></script>'), "local homepage search script is missing");
 expect(!/<script\b[^>]*\bsrc=["'](?:https?:)?\/\//i.test(html), "landing page loads a remote script");
 expect(!/(?:fonts\.(?:googleapis|gstatic)\.com|unpkg\.com|jsdelivr\.net)/i.test(`${html}\n${i18nSource}`), "landing page loads a third-party resource");
 
@@ -48,6 +50,7 @@ for (const language of supportedLanguages) {
 const dictionarySandbox = { console };
 try {
   vm.runInNewContext(i18nSource, dictionarySandbox, { filename: "site-i18n.js" });
+  vm.runInNewContext(searchSource, {}, { filename: "site-search.js" });
 } catch (error) {
   failures.push(`site dictionary is not executable: ${error.message}`);
 }
@@ -61,13 +64,16 @@ if (dictionaryApi) {
   const translationKeys = [
     ...new Set([
       ...[...html.matchAll(/data-i18n="([^"]+)"/g)].map(([, key]) => key),
-      ...[...html.matchAll(/data-i18n-(?:aria-label|alt)="([^"]+)"/g)].map(([, key]) => key)
+      ...[...html.matchAll(/data-i18n-(?:aria-label|alt|placeholder)="([^"]+)"/g)].map(([, key]) => key),
+      "search.empty", "search.results"
     ])
   ];
   for (const language of supportedLanguages) {
     expect(dictionaryApi.translations[language], `site dictionary is missing language: ${language}`);
     if (!dictionaryApi.translations[language]) continue;
     const dictionary = dictionaryApi.translations[language];
+    expect((dictionary["hero.title"]?.match(/class="hero-accent"/g) ?? []).length === 1,
+      `${language} hero needs exactly one selectively highlighted phrase`);
     for (const key of ["title", "description", "jsonLdDescription"]) {
       expect(typeof dictionary.meta?.[key] === "string" && dictionary.meta[key].trim().length > 0,
         `${language} dictionary is missing metadata: ${key}`);
@@ -97,6 +103,21 @@ expect(i18nSource.includes("window.location.href"), "language query selection is
 
 for (const tool of ["recent_errors", "search_memory", "get_context", "remember", "similar_failures", "stats"]) {
   expect(html.includes(tool), `MCP tool missing from landing page: ${tool}`);
+}
+
+// The setup excerpt must match actual CLI messages, not invented success output.
+const claudeIntegration = await readFile(resolve(root, "crates/mw-cli/src/integrate/claude/mod.rs"), "utf8");
+for (const message of [
+  "MemoryWhale installed for Claude Code.",
+  "mcp:      memorywhale registered (user scope)",
+  "Restart Claude Code to pick up hook and skill changes."
+]) {
+  expect(html.includes(message) && claudeIntegration.includes(message), `unverified setup output: ${message}`);
+}
+for (const client of ["claude-code", "rho", "codex", "cursor"]) {
+  const guide = `integrations/${client}/README.md`;
+  await access(resolve(root, guide));
+  expect(html.includes(`blob/main/${guide}`), `missing verified integration guide: ${client}`);
 }
 
 const localRefs = [...html.matchAll(/(?:href|src)=["']([^"']+)["']/g)]
