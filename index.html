@@ -147,12 +147,6 @@
         line-height: 1.25;
       }
 
-      html[dir="rtl"] h1 {
-        /* Arabic keeps normal letter spacing, so the Latin brand needs more room. */
-        max-width: 100%;
-        font-size: clamp(2.75rem, 6vw, 5.5rem);
-      }
-
 
       .page {
         position: relative;
@@ -355,11 +349,13 @@
       }
 
       h1 {
-        max-width: 11ch;
-        font-size: clamp(3.45rem, 6.8vw, 6.25rem);
+        /* Fit the content column rather than a font-dependent character count.
+           The wrapping fallback also protects unusually wide system fonts. */
+        max-width: 100%;
+        font-size: clamp(2.75rem, 5.2vw, 4.5rem);
         font-weight: 800;
         line-height: 0.92;
-        overflow-wrap: normal;
+        overflow-wrap: anywhere;
       }
 
       h2 {
@@ -876,10 +872,6 @@
 
         .hero > div:first-child {
           width: auto;
-        }
-
-        h1 {
-          max-width: 12ch;
         }
 
         .hero-visual {

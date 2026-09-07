@@ -102,6 +102,16 @@ try {
         await page.screenshot({ path: `${artifactDir}/${language}-${size}.png`, fullPage: true });
         if (language === "ar" || language === "de") {
           await page.locator(".hero").screenshot({ path: `${artifactDir}/${language}-${size}-hero.png` });
+          if (size === "desktop") {
+            // Exercise the containment fallback independently of the host's
+            // installed fonts (CI's Linux fonts differ from macOS).
+            const fontOverride = await page.addStyleTag({ content: "h1 { font-family: monospace !important; font-size: 120px !important; }" });
+            try {
+              await checkLanguage(page, language, `${label}/wide-font`);
+            } finally {
+              await fontOverride.evaluate(element => element.remove());
+            }
+          }
         }
         // Exercise RTL -> LTR -> original selection on mobile as well as desktop.
         if (language === "ar") {
