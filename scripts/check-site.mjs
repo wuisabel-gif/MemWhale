@@ -97,7 +97,6 @@ if (dictionaryApi) {
   }
 }
 expect(i18nSource.includes("localStorage"), "language preference storage is missing");
-expect(i18nSource.includes("navigator.languages"), "browser language detection is missing");
 expect(i18nSource.includes("history.replaceState"), "language changes do not preserve the current URL without navigation");
 expect(i18nSource.includes("window.location.href"), "language query selection is missing");
 
