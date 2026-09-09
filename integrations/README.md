@@ -6,6 +6,11 @@ remain client-neutral.
 
 ## Capability definitions
 
+For a focused example of combining memory access with optional presentation
+guidance, see [response-style skills](../docs/guides/response-style-skills.md).
+The guide separates verified local fixture checks from pending live Claude
+Code verification; it does not install skills into MemoryWhale itself.
+
 - **Context export:** a person can paste output from `mw context` into any tool.
 - **MCP memory access:** the client can read and explicitly write local memory
   through the `mw-mcp` stdio server.

@@ -16,6 +16,7 @@ The repository documentation is organized by the question a reader is asking.
 - [Capture terminal work](guides/terminal-capture.md)
 - [Debug with previous evidence](guides/debugging.md)
 - [Connect a coding agent](guides/agent-memory.md)
+- [Use memory with a response-style skill](guides/response-style-skills.md) — isolated Claude Code walkthrough; live agent verification pending
 - [Hand off memory between agents](guides/cross-agent-handoff.md)
 - [Move memory between machines](guides/multi-machine.md)
 
