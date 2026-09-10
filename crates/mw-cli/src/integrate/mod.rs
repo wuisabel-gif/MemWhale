@@ -2,6 +2,7 @@
 
 mod files;
 mod report;
+mod skill_files;
 
 pub mod claude;
 pub mod hermes;

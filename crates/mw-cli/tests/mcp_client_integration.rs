@@ -76,6 +76,91 @@ fn failure(o: Output) {
 fn owner(p: &Path) -> PathBuf {
     PathBuf::from(format!("{}.memorywhale-mcp-owner.json", p.display()))
 }
+
+// Model an earlier owned installation without moving/chmodding shared test binaries.
+fn set_owned_command(config: &Path, client: &str, command: &Path) {
+    let text = fs::read_to_string(config).unwrap();
+    let snapshot = if client == "codex" {
+        let mut doc = text.parse::<toml_edit::DocumentMut>().unwrap();
+        doc["mcp_servers"]["memorywhale"]["command"] = toml_edit::value(command.to_str().unwrap());
+        fs::write(config, doc.to_string()).unwrap();
+        let doc = fs::read_to_string(config)
+            .unwrap()
+            .parse::<toml_edit::DocumentMut>()
+            .unwrap();
+        serde_json::Value::String(doc["mcp_servers"]["memorywhale"].to_string())
+    } else {
+        let mut doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+        doc["mcpServers"]["memorywhale"]["command"] = serde_json::json!(command);
+        fs::write(config, serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
+        doc["mcpServers"]["memorywhale"].clone()
+    };
+    let mut journal: serde_json::Value =
+        serde_json::from_slice(&fs::read(owner(config)).unwrap()).unwrap();
+    journal["entry"] = snapshot;
+    fs::write(owner(config), serde_json::to_vec(&journal).unwrap()).unwrap();
+}
+
+#[test]
+fn moved_or_missing_owned_executable_is_diagnosed_without_mutation() {
+    for client in ["codex", "cursor"] {
+        let s = Sandbox::new();
+        success(s.run(client, &[]));
+        let old = s.0.join("old-mw-mcp");
+        fs::write(&old, "old executable fixture; must never run").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&old, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let config = s.config(client);
+        set_owned_command(&config, client, &old);
+        success(s.run(client, &["--check"]));
+        let before = fs::read(&config).unwrap();
+        let journal = fs::read(owner(&config)).unwrap();
+        for mode in [vec![], vec!["--dry-run"]] {
+            let result = s.run(client, &mode);
+            assert!(String::from_utf8_lossy(&result.stderr).contains("--revert"));
+            failure(result);
+            assert_eq!(before, fs::read(&config).unwrap());
+            assert_eq!(journal, fs::read(owner(&config)).unwrap());
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&old, fs::Permissions::from_mode(0o600)).unwrap();
+            failure(s.run(client, &["--check"]));
+        }
+        fs::remove_file(&old).unwrap();
+        failure(s.run(client, &["--check"]));
+        assert_eq!(before, fs::read(&config).unwrap());
+        success(s.run(client, &["--revert"]));
+        success(s.run(client, &[]));
+        success(s.run(client, &["--check"]));
+    }
+}
+
+#[test]
+fn changed_data_override_requires_explicit_reinstall() {
+    for client in ["codex", "cursor"] {
+        let s = Sandbox::new();
+        success(s.run(client, &[]));
+        let before = fs::read(s.config(client)).unwrap();
+        let journal = fs::read(owner(&s.config(client))).unwrap();
+        let next = s.0.join("different-data");
+        for mode in [vec![], vec!["--dry-run"]] {
+            let result = s.run_with_data_dir(client, &mode, &next);
+            assert!(String::from_utf8_lossy(&result.stderr).contains("--revert"));
+            failure(result);
+            assert_eq!(before, fs::read(s.config(client)).unwrap());
+            assert_eq!(journal, fs::read(owner(&s.config(client))).unwrap());
+        }
+        success(s.run_with_data_dir(client, &["--revert"], &next));
+        success(s.run_with_data_dir(client, &[], &next));
+        success(s.run_with_data_dir(client, &["--check"], &next));
+    }
+}
+
 #[test]
 fn relative_data_override_is_persisted_against_installer_cwd() {
     for client in ["codex", "cursor"] {

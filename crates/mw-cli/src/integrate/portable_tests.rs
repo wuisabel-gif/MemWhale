@@ -20,6 +20,28 @@ impl Drop for TestRoot {
 }
 
 #[test]
+fn description_limits_count_unicode_characters_not_utf8_bytes() {
+    for (description, valid) in [("界".repeat(1024), true), ("界".repeat(1025), false)] {
+        let text =
+            format!("---\nname: multilingual\ndescription: '{description}'\n---\nInstructions\n");
+        assert_eq!(validate(&text, "rho").is_ok(), valid);
+    }
+}
+
+#[test]
+fn compatibility_is_nonempty_and_character_bounded_when_present() {
+    for (compatibility, valid) in [
+        (String::new(), false),
+        ("  ".into(), false),
+        ("界".repeat(500), true),
+        ("界".repeat(501), false),
+    ] {
+        let text = format!("---\nname: multilingual\ndescription: Valid description\ncompatibility: '{compatibility}'\n---\nInstructions\n");
+        assert_eq!(validate(&text, "rho").is_ok(), valid);
+    }
+}
+
+#[test]
 fn cooperating_operations_cannot_remove_or_reinstall_under_an_active_lock() {
     let root = TestRoot::new();
     let path = root.0.join(".example.memorywhale-skill.lock");
@@ -49,7 +71,7 @@ fn removal_rechecks_user_edits_after_initial_validation() {
     validate_owned(&target, &marker, original).unwrap();
     // Simulate an editor save between CLI preflight and the removal boundary.
     fs::write(&target, "new user instructions").unwrap();
-    assert!(remove_owned(&target, &marker, original).is_err());
+    assert!(super::super::skill_files::remove(&root.0, original).is_err());
     assert_eq!(
         fs::read_to_string(&target).unwrap(),
         "new user instructions"
@@ -71,7 +93,7 @@ fn removal_rechecks_changed_ownership_and_leaves_both_files() {
         serde_json::to_string("different owner snapshot").unwrap(),
     )
     .unwrap();
-    assert!(remove_owned(&target, &marker, original).is_err());
+    assert!(super::super::skill_files::remove(&root.0, original).is_err());
     assert_eq!(fs::read_to_string(&target).unwrap(), original);
     assert!(marker.exists());
 }

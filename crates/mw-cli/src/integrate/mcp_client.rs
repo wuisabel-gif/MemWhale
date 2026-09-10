@@ -309,7 +309,42 @@ impl Config {
             Self::Cursor(v) => serde_json::to_vec_pretty(v).map_err(|_| err()),
         }
     }
+
+    fn command(&self) -> Option<&str> {
+        match self {
+            Self::Cursor(doc) => doc
+                .get("mcpServers")?
+                .get("memorywhale")?
+                .get("command")?
+                .as_str(),
+            Self::Codex(doc) => doc
+                .get("mcp_servers")?
+                .get("memorywhale")?
+                .get("command")?
+                .as_str(),
+        }
+    }
 }
+
+fn usable_executable(path: &Path) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !path.is_absolute() || !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if metadata.permissions().mode() & 0o111 == 0 {
+            return false;
+        }
+    }
+    true
+}
+
+const REINSTALL: &str = "Owned MCP setup is stale or differs from the current executable/data-directory settings. Run mw integrate <client> --revert with the same --config selection, then reinstall with the intended MEMORYWHALE_DATA_DIR and reload the client; no files changed";
+
 fn executable() -> Result<PathBuf, String> {
     let name = if cfg!(windows) {
         "mw-mcp.exe"
@@ -331,12 +366,32 @@ fn executable() -> Result<PathBuf, String> {
     }
     for candidate in candidates {
         if let Ok(path) = fs::canonicalize(candidate) {
-            if path.is_file() {
+            if usable_executable(&path) {
                 return Ok(path);
             }
         }
     }
     Err("Cannot locate mw-mcp beside mw or on PATH; build/install the MCP binary first".into())
+}
+
+fn desired_entry(client: &str) -> Result<Value, String> {
+    let exe = executable()?;
+    let mut entry =
+        json!({"command":exe.to_str().ok_or("MCP binary path is not UTF-8")?, "args":[]});
+    if client == "cursor" {
+        entry["type"] = json!("stdio");
+    }
+    if let Some(dir) = std::env::var_os("MEMORYWHALE_DATA_DIR") {
+        // Anchor relative paths without changing parent/symlink filesystem semantics.
+        let dir = PathBuf::from(dir);
+        let dir = if dir.is_absolute() {
+            dir
+        } else {
+            std::env::current_dir().map_err(|_| err())?.join(dir)
+        };
+        entry["env"] = json!({"MEMORYWHALE_DATA_DIR":dir.to_str().ok_or("Memory data directory is not UTF-8")?});
+    }
+    Ok(entry)
 }
 pub fn cli(args: &[String]) -> Result<(), String> {
     let client = args
@@ -415,6 +470,12 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         if owner.is_none() {
             return Err("MemoryWhale MCP configuration is not installed (configuration only; connectivity not tested)".into());
         }
+        if !doc
+            .command()
+            .is_some_and(|command| usable_executable(Path::new(command)))
+        {
+            return Err(REINSTALL.into());
+        }
         println!("MemoryWhale MCP configuration is installed (configuration only; connectivity not tested). No automatic capture or skills configured.");
         return Ok(());
     }
@@ -422,30 +483,16 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         println!("No owned MemoryWhale MCP configuration to remove.");
         return Ok(());
     }
-    if mode != "--revert" && owner.is_some() {
-        println!("Owned MemoryWhale MCP configuration is unchanged; no changes.");
-        return Ok(());
-    }
     if mode == "--revert" {
         doc.update(None)?;
     } else {
-        let exe = executable()?;
-        let mut entry =
-            json!({"command":exe.to_str().ok_or("MCP binary path is not UTF-8")?, "args":[]});
-        if client == "cursor" {
-            entry["type"] = json!("stdio");
-        }
-        if let Some(dir) = std::env::var_os("MEMORYWHALE_DATA_DIR") {
-            // Unlike config paths, data overrides may contain parent components.
-            // Joining preserves their filesystem semantics while pinning the cwd.
-            let dir = PathBuf::from(dir);
-            let dir = if dir.is_absolute() {
-                dir
+        let entry = desired_entry(client).map_err(|error| {
+            if owner.is_some() {
+                REINSTALL.to_string()
             } else {
-                std::env::current_dir().map_err(|_| err())?.join(dir)
-            };
-            entry["env"] = json!({"MEMORYWHALE_DATA_DIR":dir.to_str().ok_or("Memory data directory is not UTF-8")?});
-        }
+                error
+            }
+        })?;
         doc.update(Some(&entry))?;
     }
     let output = doc.bytes()?;
@@ -460,6 +507,13 @@ pub fn cli(args: &[String]) -> Result<(), String> {
             .entry()?
             .ok_or_else(err)?
     };
+    if mode != "--revert" && owner.is_some() {
+        if current.as_ref() != Some(&entry) {
+            return Err(REINSTALL.into());
+        }
+        println!("Owned MemoryWhale MCP configuration matches the current executable and data-directory settings; no changes. Connectivity not tested.");
+        return Ok(());
+    }
     if mode == "--dry-run" {
         println!("Would install MemoryWhale MCP configuration only; no files written, no connectivity test, no automatic capture or skills.");
         return Ok(());

@@ -59,9 +59,27 @@ For an explicit project configuration or a test fixture:
 
 `--config` chooses the file MemoryWhale edits; it does not make an arbitrary file
 discoverable by a client. Use a documented client configuration location.
-`--check` verifies local configuration and ownership, **not a live connection**.
+`--check` verifies local configuration, ownership, and that the configured
+executable is still a regular executable file, **not a live connection**.
 Reload the client, inspect its MCP tools, and perform a retrieval to test that.
 MCP access is not automatic command capture.
+
+Repeated installation and `--dry-run` also compare the owned entry with the
+currently resolved `mw-mcp` and `MEMORYWHALE_DATA_DIR`. They fail without changes
+if these differ, rather than silently keep a stale path or switch stores.
+After an upgrade or an intentional store change, remove the unchanged owned
+entry and reinstall using the desired environment:
+
+```sh
+"$MW" integrate codex --revert
+"$MW" integrate codex
+"$MW" integrate codex --check
+```
+
+Use `cursor` for Cursor. Repeat the original `--config <file>` option on every
+command if you used a custom file. Revert remains available when the old
+executable is missing; build/install the replacement binary before reinstalling.
+An edited entry still requires manual inspection, not forced replacement.
 
 ## 2. Add optional response guidance
 
@@ -127,6 +145,8 @@ endorsed by MemoryWhale, and selecting it is not evidence of a diagnosis.
 The installer preserves accepted metadata verbatim:
 
 - Required string `name` and `description`; nonempty Markdown body.
+- Description is 1–1024 Unicode characters, not UTF-8 bytes. Optional
+  compatibility must be nonblank and at most 500 characters.
 - Optional string `license`, `compatibility`, and string-to-string `metadata`.
 - Boolean `disable-model-invocation` for Rho and Cursor. The Codex adapter rejects
   this extension rather than silently discard an invocation restriction.
@@ -139,23 +159,45 @@ for self-contained instruction files, not arbitrary skill packages.
 
 ## 3. Remove only what MemoryWhale owns
 
-Keep the original reviewed skill source. Remove it with the same target root:
+### Remove an optional skill
+
+Keep the original reviewed skill source. Pass `--skill` for every client and
+repeat the original `--skills-dir` when a custom/project root was used:
 
 ```sh
 "$MW" integrate rho --skill ./style/SKILL.md --skills-dir .agents/skills --revert
+"$MW" integrate codex --skill ./style/SKILL.md --revert
+"$MW" integrate cursor --skill ./style/SKILL.md --revert
+```
+
+These remove only the optional skill, not memory or MCP configuration.
+
+### Remove MCP configuration
+
+```sh
 "$MW" integrate codex --revert
 "$MW" integrate cursor --revert
 ```
 
-The first command removes only the optional skill. The other two remove only
-the MCP entry installed by the respective adapter. They do not delete memory.
+These remove only the MCP entry installed by the respective adapter, not an
+optional skill. They do not delete memory.
 Existing plain `mw integrate rho --revert` remains separate from optional skills.
 
-Skill installation uses exclusive creation and a private exact-content ownership
-snapshot. Reinstallation is a no-op only when source, installed file, and snapshot
-match. Unowned or edited files are never silently adopted or overwritten.
-Cooperating skill mutations hold a per-skill lock outside the removable skill
-directory; removal rechecks ownership and content at its mutation boundary.
+Skill installation prepares the skill and private exact-content ownership
+snapshot in a private staging directory, syncs both, then publishes the directory
+with an atomic no-replace rename. Prepublication write/sync failures clean only
+their staging artifacts, so a retry does not inherit a half-installed skill.
+Reinstallation is a no-op only when source, installed file, and snapshot match.
+Unowned or edited files are never silently adopted or overwritten.
+Cooperating mutations hold a per-skill lock outside the removable directory.
+Removal moves the two owned entries into private staging before validating them.
+If validation fails, restoration never replaces a newer destination file;
+unrestored data is retained at the recovery path reported in the error.
+If a newer skill appears during successful removal, it is preserved and reported
+rather than falsely claiming the skill is absent. Unrelated files are preserved.
+Atomic skill publication/removal is supported on Linux and macOS (including
+Linux in WSL); unsupported platforms/filesystems fail closed without an unsafe
+rename fallback.
 These guards do not synchronize an uncooperative editor writing through an
 already-open file descriptor; stop editing an installation while reverting it.
 

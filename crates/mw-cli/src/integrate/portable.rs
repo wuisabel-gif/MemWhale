@@ -69,7 +69,7 @@ fn validate(text: &str, client: &str) -> Result<Metadata, String> {
         || meta
             .compatibility
             .as_ref()
-            .is_some_and(|value| value.chars().count() > 500)
+            .is_some_and(|value| value.trim().is_empty() || value.chars().count() > 500)
         || meta.metadata.len() > 64
     {
         return Err("invalid or oversized optional skill metadata".into());
@@ -90,11 +90,11 @@ fn validate(text: &str, client: &str) -> Result<Metadata, String> {
         );
     }
     if meta.description.trim().is_empty()
-        || meta.description.len() > 1024
+        || meta.description.chars().count() > 1024
         || body.trim().is_empty()
         || text.contains('\0')
     {
-        return Err("skill requires a nonempty description (at most 1024 bytes) and body, without NUL bytes".into());
+        return Err("skill requires a nonempty description (at most 1024 characters) and body, without NUL bytes".into());
     }
     Ok(meta)
 }
@@ -197,15 +197,6 @@ fn validate_owned(target: &Path, marker: &Path, source: &str) -> Result<(), Stri
     Ok(())
 }
 
-fn remove_owned(target: &Path, marker: &Path, source: &str) -> Result<(), String> {
-    // Recheck at the mutation boundary, not only during preflight. The outer
-    // per-skill lock prevents another MemoryWhale operation from replacing it.
-    validate_owned(target, marker, source)?;
-    fs::remove_file(target).map_err(|_| "cannot remove owned skill")?;
-    fs::remove_file(marker).map_err(|_| "cannot remove ownership record")?;
-    Ok(())
-}
-
 pub fn cli(args: &[String]) -> Result<(), String> {
     let client = args.first().map(String::as_str).ok_or(USAGE)?;
     if !matches!(client, "rho" | "codex" | "cursor") {
@@ -282,20 +273,10 @@ pub fn cli(args: &[String]) -> Result<(), String> {
     match mode {
         "--check" if !exists => return Err("skill is not installed".into()),
         "--revert" if exists => {
-            // Leave unrelated files and the directory itself intact.
-            remove_owned(&target, &marker, &text)?;
-            let _ = fs::remove_dir(&dir); // succeeds only if empty
+            super::skill_files::remove(&dir, &text)?;
         }
         "install" if !exists => {
-            fs::create_dir_all(&root).map_err(|_| "cannot create skills root")?;
-            fs::create_dir(&dir).map_err(|_| "cannot reserve skill directory")?;
-            // Exclusive creation never replaces an existing skill. A failed write
-            // leaves a visible conflict for manual recovery rather than adopting it.
-            create(
-                &marker,
-                &serde_json::to_string(&text).map_err(|_| "cannot encode ownership record")?,
-            )?;
-            create(&target, &text)?;
+            super::skill_files::install(&dir, &text)?;
         }
         _ => (),
     }
