@@ -200,15 +200,20 @@ try {
   }
 
   const preferenceCases = [
-    { locale: "ar-EG", expected: "ar" },
-    { locale: "de-AT", expected: "de" },
-    { locale: "zh-Hans", expected: "zh-CN" },
-    { locale: "zh-Hant-TW", expected: "zh-TW" },
+    { locale: "ar-EG", expected: "en" },
+    { locale: "de-AT", expected: "en" },
+    { locale: "zh-Hans", expected: "en" },
+    { locale: "zh-Hant-TW", expected: "en" },
+    { locale: "ja-JP", expected: "en" },
+    { locale: "ko-KR", expected: "en" },
+    { locale: "en-US", query: "zh-Hans", expected: "zh-CN" },
+    { locale: "en-US", query: "zh-Hant-TW", expected: "zh-TW" },
     { locale: "en-US", stored: "ar", expected: "ar" },
     { locale: "ar-SA", stored: "de", query: "unsupported", expected: "de" },
     { locale: "ar-SA", stored: "ar", query: "de-DE", expected: "de" },
-    { locale: "de-DE", blockedStorage: true, expected: "de" },
-    { locale: "de-DE", languages: ["unsupported"], expected: "de" },
+    { locale: "de-DE", blockedStorage: true, expected: "en" },
+    { locale: "zh-CN", query: "unsupported", expected: "en" },
+    { locale: "de-DE", languages: ["zh-CN", "ar"], expected: "en" },
     { locale: "es-ES", expected: "en" },
   ];
   for (const [index, settings] of preferenceCases.entries()) {
