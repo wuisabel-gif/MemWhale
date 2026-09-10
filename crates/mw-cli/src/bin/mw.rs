@@ -319,6 +319,8 @@ fn print_help() {
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          mw integrate claude [--revert]  install or remove Claude Code hook, skill, and MCP\n\
          mw integrate rho [--revert] [--http [url]] [--token secret]  Rho hook, skill, and MCP (stdio by default; --http for mw-serve /mcp)\n\
+         mw integrate codex|cursor [--config <file>] [--dry-run|--check|--revert]  configure local MCP memory access\n\
+         mw integrate <rho|codex|cursor> --skill <SKILL.md> [--skills-dir <dir>] [--revert|--check|--dry-run]  optional local skill only\n\
          mw integrate hermes       register mw-mcp in Hermes Agent's config\n         mw github context <pr>  fetch bounded, redacted GitHub PR context through your `gh` login\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
@@ -328,7 +330,11 @@ fn print_help() {
 }
 
 fn integrate_cmd(args: &[String]) -> Result<(), String> {
+    if args.iter().any(|arg| arg == "--skill") {
+        return memorywhale_cli::integrate::portable::cli(args);
+    }
     match args.first().map(String::as_str) {
+        Some("codex" | "cursor") => memorywhale_cli::integrate::mcp_client::cli(args),
         Some("claude" | "claude-code") => memorywhale_cli::integrate::claude::cli(&args[1..]),
         Some("rho") => memorywhale_cli::integrate::rho::cli(&args[1..]),
         Some("hermes") if args.len() == 1 => {
@@ -340,10 +346,10 @@ fn integrate_cmd(args: &[String]) -> Result<(), String> {
             Ok(())
         }
         Some(other) => Err(format!(
-            "unsupported integration {other:?}; usage: mw integrate claude [--revert]|rho [--revert] [--http [url]] [--token secret]|hermes"
+            "unsupported integration {other:?}; usage: mw integrate claude|rho|codex|cursor|hermes (see mw --help)"
         )),
         None => Err(
-            "usage: mw integrate claude [--revert]|rho [--revert] [--http [url]] [--token secret]|hermes".to_string(),
+            "usage: mw integrate claude|rho|codex|cursor|hermes (see mw --help)".to_string(),
         ),
     }
 }

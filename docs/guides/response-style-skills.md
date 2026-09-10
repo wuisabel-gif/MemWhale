@@ -1,5 +1,12 @@
 # Use memory with an optional response-style skill
 
+**You do not need Claude Code.** The development branch now has
+[portable integration commands and a live Rho verification](../reference/portable-integrations.md).
+That test loaded both memory and response-style skills, retrieved a synthetic
+failure, distinguished an untested proposal from recorded verification, and
+checked skill removal in a fresh session. The older Claude walkthrough below
+remains separately unverified; the Rho test does not certify Claude behavior.
+
 Finding yesterday's fix is useful. Getting a clear next step is useful too.
 This guide combines MemoryWhale's evidence with a response-style skill in
 **Claude Code**, without turning the memory store into a skill manager.
