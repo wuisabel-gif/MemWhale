@@ -29,7 +29,7 @@ _mw_extra() {
         '--stderr[captured stderr]:text:' \
         '--notes[attach a note]:note:' \
         '--capture-kind[capture mode]:kind:(full hook)' \
-        '--from-hook[read a client hook event from stdin]:client:(claude rho)' \
+        '--from-hook[read a client hook event from stdin]:client:(claude rho cursor)' \
         '(-h --help)'{-h,--help}'[show help]'
       ;;
     mw-view)

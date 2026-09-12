@@ -18,7 +18,7 @@ mw-remember \- record a single command run into local MemoryWhale storage
 .RI [ args... ]
 .br
 .B mw-remember --from-hook
-.B claude|rho
+.B claude|rho|cursor
 .SH DESCRIPTION
 .B mw-remember
 stores one command run \(em its command and arguments, working directory,
@@ -27,9 +27,10 @@ MemoryWhale SQLite database. It is the low-level building block used by the
 per-command shell hook and can also be called directly from scripts. Nothing
 is uploaded.
 .PP
-Supported hooks store structured command provenance as claude or rho. Manual
-recording stores NULL, displayed and filtered as terminal. This producing-agent
-metadata is separate from source type; both are still command records.
+Supported hooks store structured command provenance as claude, rho, or cursor.
+Manual recording stores NULL, displayed and filtered as terminal. This
+producing-agent metadata is separate from source type; both are still command
+records.
 .SH OPTIONS
 .TP
 .BI "--cwd " path
@@ -50,7 +51,7 @@ Free-form note attached to the run.
 .BI "--capture-kind " "full|hook"
 Capture mode, normally full; hook denotes lightweight shell-hook capture.
 .TP
-.BI "--from-hook " "claude|rho"
+.BI "--from-hook " "claude|rho|cursor"
 Read that client's hook JSON object from standard input and record a
 supported tool event. Cannot be mixed with manual-recording options or
 a command.
@@ -61,6 +62,11 @@ invalid CLI arguments can still fail.
 Rho events without command text preserve failed/unavailable status and failure
 metadata with a sentinel command, not invented command output. Successful
 events without command text are skipped. No Python runtime is required.
+.PP
+Cursor hook mode records supported local Shell events with cursor provenance.
+Enable it explicitly with
+.BR "mw integrate cursor --capture" ;
+MCP access and optional skill installation are separate integration modes.
 .TP
 .B --
 Everything after this is the command and its arguments.

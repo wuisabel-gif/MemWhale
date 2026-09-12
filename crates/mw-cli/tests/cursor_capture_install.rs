@@ -300,6 +300,57 @@ fn quoted_binary_paths_are_not_executed_and_stale_binary_is_detected() {
 }
 
 #[test]
+fn installed_shell_command_records_into_the_quoted_store_without_executing_payload() {
+    use std::io::Write;
+    use std::process::Stdio;
+    let s = Sandbox::new();
+    let data = "store ' $(touch CONFIG_SHOULD_NOT_RUN)";
+    ok(s.command()
+        .env("MEMORYWHALE_DATA_DIR", data)
+        .output()
+        .unwrap());
+    let command = s.doc()["hooks"]["postToolUse"][0]["command"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    // Execute the installed hook command, never the command described by its input.
+    let mut child = Command::new("/bin/sh")
+        .args(["-c", &command])
+        .env_clear()
+        .env("HOME", &s.0)
+        .env("PATH", "")
+        .current_dir(&s.0)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let event = json!({"hook_event_name":"postToolUse","tool_name":"Shell", "cwd":s.0,
+        "tool_input":{"command":"touch RECORDED_COMMAND_SHOULD_NOT_RUN"},
+        "tool_output":json!({"exitCode":0,"stdout":"synthetic installed-hook fixture"}).to_string()});
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(event.to_string().as_bytes())
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert!(result.stdout.is_empty());
+    ok(result);
+    assert!(!s.0.join("CONFIG_SHOULD_NOT_RUN").exists());
+    assert!(!s.0.join("RECORDED_COMMAND_SHOULD_NOT_RUN").exists());
+    let conn = rusqlite::Connection::open(s.0.join(data).join("memorywhale.sqlite3")).unwrap();
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM command_runs WHERE agent = 'cursor' AND exit_code = 0",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 1);
+}
+
+#[test]
 fn duplicate_owned_entries_and_pending_or_ambiguous_journals_fail_closed() {
     let s = Sandbox::new();
     ok(s.run(&[]));

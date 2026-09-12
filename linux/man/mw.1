@@ -27,6 +27,22 @@ mw \- record whole terminal sessions into local MemoryWhale storage
 .br
 .B mw integrate hermes
 .br
+.B mw integrate codex|cursor
+.RB [ --config
+.IR file ]
+.RB [ --dry-run | --check | --revert ]
+.br
+.B mw integrate cursor --capture
+.RB [ --hooks-file
+.IR file ]
+.RB [ --dry-run | --check | --revert ]
+.br
+.B mw integrate rho|codex|cursor --skill
+.I SKILL.md
+.RB [ --skills-dir
+.IR directory ]
+.RB [ --dry-run | --check | --revert ]
+.br
 .B mw integrate rho
 .RB [ --http
 .RI [ url ]]
@@ -129,7 +145,7 @@ Use
 for ranking reasons. Inline filters include
 .BR tag:X ,
 .BR source:command|session|note|document|conversation ,
-.BR agent:claude|rho|terminal ,
+.BR agent:claude|rho|cursor|terminal ,
 .BR before:YYYY-MM-DD ,
 .BR after:YYYY-MM-DD ,
 and
@@ -188,6 +204,36 @@ task-start recall, failure lookup, or pre-compaction saving.
 .TP
 .B mw integrate hermes
 Register the MCP server in Hermes Agent's config.
+.TP
+.B mw integrate codex|cursor [--config file] [--dry-run|--check|--revert]
+Configure local MCP memory access only. This does not enable capture or install
+a skill. Use
+.B --config
+to select a configuration file,
+.B --dry-run
+to preview without writing,
+.B --check
+to check the installed registration, or
+.B --revert
+to remove the owned registration without deleting memory.
+.TP
+.B mw integrate cursor --capture [--hooks-file file] [--dry-run|--check|--revert]
+Opt in to local Cursor Shell capture only, independently of MCP and skills.
+Use
+.B --hooks-file
+to select the hooks JSON file. Dry-run previews without writing; check inspects
+the installed hook; revert removes the owned hook without deleting memory.
+The hook invokes
+.BR "mw-remember --from-hook cursor" .
+Capture cannot be combined with
+.BR --skill .
+.TP
+.B mw integrate rho|codex|cursor --skill SKILL.md [--skills-dir directory] [--dry-run|--check|--revert]
+Install an explicitly supplied local skill only; MCP and capture configuration
+are unchanged. Optionally select the skill destination with
+.BR --skills-dir .
+Dry-run previews without writing, check inspects the installed skill, and revert
+removes the owned skill. A skill guides memory use; it does not enable capture.
 .TP
 .BI "mw mark " text
 Bookmark the current debugging moment with a note.

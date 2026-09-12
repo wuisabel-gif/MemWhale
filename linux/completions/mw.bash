@@ -46,8 +46,29 @@ pet tui sync-mempalace git-fix github doctor global status hooks integrate \
       ;;
     integrate)
       if [ "$COMP_CWORD" -eq 2 ]; then
-        COMPREPLY=( $(compgen -W "claude claude-code hermes rho" -- "$cur") )
+        COMPREPLY=( $(compgen -W "claude claude-code hermes rho codex cursor" -- "$cur") )
       else
+        # Path arguments and skill-only mode are shared by portable clients.
+        case "${COMP_WORDS[2]}" in
+          rho|codex|cursor)
+            case "$prev" in
+              --config|--hooks-file|--skill) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+              --skills-dir) COMPREPLY=( $(compgen -d -- "$cur") ); return ;;
+            esac
+            local word skill_mode=0 capture_mode=0
+            for word in "${COMP_WORDS[@]:3:COMP_CWORD-3}"; do
+              [ "$word" = --skill ] && skill_mode=1
+              [ "$word" = --capture ] && capture_mode=1
+            done
+            if [ "$capture_mode" -eq 1 ] && [ "${COMP_WORDS[2]}" = cursor ]; then
+              COMPREPLY=( $(compgen -W "--hooks-file --dry-run --check --revert" -- "$cur") )
+              return
+            elif [ "$skill_mode" -eq 1 ]; then
+              COMPREPLY=( $(compgen -W "--skills-dir --dry-run --check --revert" -- "$cur") )
+              return
+            fi
+            ;;
+        esac
         case "${COMP_WORDS[2]}" in
           claude|claude-code)
             [ "$COMP_CWORD" -eq 3 ] && COMPREPLY=( $(compgen -W "--revert" -- "$cur") )
@@ -57,8 +78,13 @@ pet tui sync-mempalace git-fix github doctor global status hooks integrate \
             if [ "$prev" = --http ]; then
               COMPREPLY=( $(compgen -W "http://127.0.0.1:7071/mcp --token --revert" -- "$cur") )
             else
-              COMPREPLY=( $(compgen -W "--revert --http --token" -- "$cur") )
+              COMPREPLY=( $(compgen -W "--revert --http --token --skill" -- "$cur") )
             fi
+            ;;
+          codex|cursor)
+            local options="--config --dry-run --check --revert --skill"
+            [ "${COMP_WORDS[2]}" = cursor ] && options="$options --capture"
+            COMPREPLY=( $(compgen -W "$options" -- "$cur") )
             ;;
         esac
       fi
@@ -104,16 +130,16 @@ pet tui sync-mempalace git-fix github doctor global status hooks integrate \
     search)
       case "$prev" in
         --project|--machine|--since) return ;;
-        agent:) COMPREPLY=( $(compgen -W "claude rho terminal" -- "$cur") ); return ;;
+        agent:) COMPREPLY=( $(compgen -W "claude rho cursor terminal" -- "$cur") ); return ;;
         source:) COMPREPLY=( $(compgen -W "command session note document conversation" -- "$cur") ); return ;;
         :)
           case "${COMP_WORDS[COMP_CWORD-2]}" in
-            agent) COMPREPLY=( $(compgen -W "claude rho terminal" -- "$cur") ); return ;;
+            agent) COMPREPLY=( $(compgen -W "claude rho cursor terminal" -- "$cur") ); return ;;
             source) COMPREPLY=( $(compgen -W "command session note document conversation" -- "$cur") ); return ;;
           esac
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--explain --project --machine --since tag: source:command source:session source:note source:document source:conversation agent:claude agent:rho agent:terminal before: after: limit:" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--explain --project --machine --since tag: source:command source:session source:note source:document source:conversation agent:claude agent:rho agent:cursor agent:terminal before: after: limit:" -- "$cur") )
       # Readline treats ':' as a word break by default; do not insert it twice.
       if [[ "$cur" == *:* && "$COMP_WORDBREAKS" == *:* ]]; then
         COMPREPLY=( "${COMPREPLY[@]#${cur%:*}:}" )
