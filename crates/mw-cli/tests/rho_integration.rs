@@ -24,12 +24,15 @@ fn user_can_install_memorywhale_into_a_fresh_rho_home() {
     let output = mw_cmd()
         .args(["integrate", "rho"])
         .env("RHO_HOME", &rho_dir)
+        .env("MEMORYWHALE_DATA_DIR", rho_dir.join("data"))
         .output()
         .expect("run Rho integration command");
 
     assert!(output.status.success(), "command failed: {output:?}");
     assert!(!rho_dir.join("hooks/mw-record.py").exists());
     assert!(rho_dir.join("skills/memorywhale/SKILL.md").is_file());
+    assert!(String::from_utf8_lossy(&output.stdout)
+        .contains("custom RHO_HOME skill files are not discovered"));
 
     let hooks = std::fs::read_to_string(rho_dir.join("hooks.toml")).unwrap();
     assert!(hooks.contains("id = \"memorywhale-record\""));
@@ -48,6 +51,22 @@ fn user_can_install_memorywhale_into_a_fresh_rho_home() {
         String::from_utf8_lossy(&output.stdout).contains("Rho"),
         "missing success message: {output:?}"
     );
+}
+
+#[test]
+fn normal_home_install_does_not_warn_about_custom_skill_discovery() {
+    let root = sandbox("normal-home");
+    let output = mw_cmd()
+        .args(["integrate", "rho"])
+        .env("HOME", &root)
+        .env("USERPROFILE", &root)
+        .env("RHO_HOME", root.join(".rho"))
+        .env("MEMORYWHALE_DATA_DIR", root.join("data"))
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("custom RHO_HOME skill files"));
+    assert!(root.join(".rho/skills/memorywhale/SKILL.md").is_file());
 }
 
 #[test]

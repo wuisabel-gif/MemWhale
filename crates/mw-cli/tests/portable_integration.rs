@@ -82,6 +82,7 @@ fn custom_rho_home_requires_an_explicit_discoverable_skill_root() {
         .unwrap();
     assert!(!result.status.success());
     assert!(String::from_utf8_lossy(&result.stderr).contains("--skills-dir"));
+    assert!(String::from_utf8_lossy(&result.stderr).contains("Rho 2.10.0"));
     assert!(!s.0.join(".rho").exists());
     assert!(!s.0.join("profile").exists());
     assert!(s.run("rho", &[]).status.success());

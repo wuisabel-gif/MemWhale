@@ -483,6 +483,9 @@ fn report_install(result: InstallResult) {
     println!("  settings: {}", result.config_path.display());
     println!("  skill:    {}", result.skill_path.display());
     println!("  mcp:      {}", result.mcp_summary);
+    if !dirs::home_dir().is_some_and(|home| result.config_dir == home.join(".rho")) {
+        println!("  warning: custom RHO_HOME skill files are not discovered by Rho 2.10.0; use the documented project .agents/skills path and verify skill loading. No automatic redirection to HOME or .agents/skills was performed.");
+    }
     if let Some(path) = result.mcp_auth_export {
         println!(
             "  auth:     export MEMORYWHALE_AUTHORIZATION=\"$(tr -d '\\n' < {})\"",
