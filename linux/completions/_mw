@@ -85,6 +85,15 @@ _mw() {
       _arguments '--watch[animate the whale whose mood reflects your memory store]'
       ;;
     integrate)
+      if [[ ${words[3]} == (rho|codex|cursor) ]] && (( ${words[(Ie)--skill]} )); then
+        _arguments \
+          '--skill[install a local skill only]:SKILL.md:_files' \
+          '--skills-dir[skill destination directory]:directory:_files -/' \
+          '(--check --revert)--dry-run[preview without writing]' \
+          '(--dry-run --revert)--check[check the installed skill]' \
+          '(--dry-run --check)--revert[remove the owned skill]'
+        return
+      fi
       case ${words[3]:-} in
         --revert) ;;
         claude|claude-code)
@@ -94,14 +103,35 @@ _mw() {
           ;;
         rho)
           _arguments \
+            '--skill[install a local skill only]:SKILL.md:_files' \
             '--revert[remove the integration without deleting memory]' \
             '--http[use mw-serve POST /mcp instead of stdio]::MCP URL:' \
             '--token[HTTP MCP token; requires --http]:token:'
           ;;
+        codex|cursor)
+          if [[ ${words[3]} == cursor ]] && (( ${words[(Ie)--capture]} )); then
+            _arguments \
+              '--capture[opt in to local Shell capture only]' \
+              '--hooks-file[Cursor hooks JSON file]:file:_files' \
+              '(--check --revert)--dry-run[preview without writing]' \
+              '(--dry-run --revert)--check[check the installed capture hook]' \
+              '(--dry-run --check)--revert[remove the owned capture hook]'
+          else
+            local -a client_options
+            client_options=()
+            [[ ${words[3]} == cursor ]] && client_options+=('--capture[opt in to local Shell capture only]')
+            _arguments "${client_options[@]}" \
+              '--config[MCP configuration file]:file:_files' \
+              '--skill[install a local skill only]:SKILL.md:_files' \
+              '(--check --revert)--dry-run[preview without writing]' \
+              '(--dry-run --revert)--check[check the installed MCP registration]' \
+              '(--dry-run --check)--revert[remove the owned MCP registration]'
+          fi
+          ;;
         hermes) ;;
       esac
       if (( CURRENT == 3 )); then
-        _values 'target' claude claude-code hermes rho
+        _values 'target' claude claude-code hermes rho codex cursor
       fi
       ;;
     sync-mempalace)
@@ -151,6 +181,7 @@ _mw_search_filters() {
   filters=(
     'agent\:claude:Claude command provenance'
     'agent\:rho:Rho command provenance'
+    'agent\:cursor:Cursor command provenance'
     'agent\:terminal:NULL provenance (manual or legacy)'
     'source\:command:command source'
     'source\:session:session source'

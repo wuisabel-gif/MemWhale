@@ -45,7 +45,7 @@ features.
 | Codex CLI | Yes | No | Yes | [Guide](codex/README.md) |
 | Continue | Yes | No | Yes | [Guide](continue/README.md) |
 | CrowClaw | Yes | No | Yes | [Guide](crowclaw/README.md) |
-| Cursor | Yes | No | Yes | [Guide](cursor/README.md) |
+| Cursor | Yes | Opt-in development adapter; fixture-tested, live verification pending | Yes | [Guide](cursor/README.md) |
 | Gemini CLI | Yes | No | Yes | [Guide](gemini-cli/README.md) |
 | Goose | Yes | No | Yes | [Guide](goose/README.md) |
 | Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |

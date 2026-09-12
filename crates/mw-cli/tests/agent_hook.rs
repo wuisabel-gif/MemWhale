@@ -202,7 +202,7 @@ fn from_hook_requires_a_named_client() {
         .expect("run mw-remember --from-hook");
     assert!(!output.status.success(), "{output:?}");
     assert!(
-        String::from_utf8_lossy(&output.stderr).contains("requires claude or rho"),
+        String::from_utf8_lossy(&output.stderr).contains("requires claude, rho, or cursor"),
         "{output:?}"
     );
 }

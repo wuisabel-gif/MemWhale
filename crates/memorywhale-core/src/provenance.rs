@@ -3,13 +3,17 @@
 
 pub const AGENT_CLAUDE: &str = "claude";
 pub const AGENT_RHO: &str = "rho";
+pub const AGENT_CURSOR: &str = "cursor";
 pub const AGENT_TERMINAL: &str = "terminal";
-pub const SUPPORTED_AGENTS: [&str; 3] = [AGENT_CLAUDE, AGENT_RHO, AGENT_TERMINAL];
+pub const SUPPORTED_AGENTS: [&str; 4] = [AGENT_CLAUDE, AGENT_RHO, AGENT_CURSOR, AGENT_TERMINAL];
 
 /// Whether a stored optional value is one of the canonical agent identifiers.
 /// NULL is valid and means terminal/manual or legacy provenance.
 pub fn is_valid(agent: Option<&str>) -> bool {
-    matches!(agent, None | Some(AGENT_CLAUDE) | Some(AGENT_RHO))
+    matches!(
+        agent,
+        None | Some(AGENT_CLAUDE) | Some(AGENT_RHO) | Some(AGENT_CURSOR)
+    )
 }
 
 /// Render structured storage metadata without inspecting notes or payloads.
@@ -19,6 +23,7 @@ pub fn label(agent: Option<&str>) -> &'static str {
         None => AGENT_TERMINAL,
         Some(AGENT_CLAUDE) => AGENT_CLAUDE,
         Some(AGENT_RHO) => AGENT_RHO,
+        Some(AGENT_CURSOR) => AGENT_CURSOR,
         Some(_) => "unknown",
     }
 }
@@ -31,6 +36,8 @@ mod tests {
     fn labels_only_structured_values_and_null() {
         assert_eq!(label(Some(AGENT_CLAUDE)), AGENT_CLAUDE);
         assert_eq!(label(Some(AGENT_RHO)), AGENT_RHO);
+        assert_eq!(label(Some(AGENT_CURSOR)), AGENT_CURSOR);
+        assert!(is_valid(Some(AGENT_CURSOR)));
         assert_eq!(label(None), AGENT_TERMINAL);
         assert_eq!(label(Some("agent:claude")), "unknown");
     }

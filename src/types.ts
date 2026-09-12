@@ -50,7 +50,7 @@ export type CommandRun = {
   repository_name?: string | null;
   worktree_root?: string | null;
   /** Nullable storage metadata; null is rendered as the terminal/manual agent. */
-  agent?: "claude" | "rho" | null;
+  agent?: "claude" | "rho" | "cursor" | null;
   exit_code?: number | null;
   stdout: string;
   stderr: string;
@@ -106,6 +106,6 @@ export type RecallHit = {
   mentions: number;
   importance: number;
   tags: string[];
-  agent: "claude" | "rho" | null;
-  agent_label: "claude" | "rho" | "terminal" | "unknown";
+  agent: "claude" | "rho" | "cursor" | null;
+  agent_label: "claude" | "rho" | "cursor" | "terminal" | "unknown";
 };
