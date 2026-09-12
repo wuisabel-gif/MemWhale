@@ -356,10 +356,7 @@ fn command_runs(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
     })?;
     for (row, (_, _, _, _, _, _, _, agent)) in rows.iter().enumerate() {
         if let Some(agent) = agent.as_deref() {
-            if !matches!(
-                agent,
-                crate::provenance::AGENT_CLAUDE | crate::provenance::AGENT_RHO
-            ) {
+            if !crate::provenance::is_valid(Some(agent)) {
                 return Err(LoadError::unsupported_schema(
                     "command_runs",
                     format!("unsupported agent value {agent:?} in row {}", row + 1),

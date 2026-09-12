@@ -1639,10 +1639,23 @@ fn search_results(conn: &Connection, query: &str) -> String {
         "SELECT id, command, argv_json, exit_code, created_at, notes, stdout, stderr, agent
          FROM command_runs
          WHERE (command LIKE ?1 OR argv_json LIKE ?1 OR IFNULL(cwd, '') LIKE ?1
-            OR stdout LIKE ?1 OR stderr LIKE ?1 OR notes LIKE ?1)
-           AND (agent IS NULL OR agent IN ('claude', 'rho'))",
+            OR stdout LIKE ?1 OR stderr LIKE ?1 OR notes LIKE ?1)",
     );
     let mut command_params = vec![needle.clone()];
+    // Apply the shared vocabulary before LIMIT, so invalid rows cannot crowd
+    // out supported producers and a new producer is not silently omitted here.
+    let supported: Vec<String> = memorywhale_core::provenance::SUPPORTED_AGENTS
+        .iter()
+        .filter(|agent| **agent != memorywhale_core::provenance::AGENT_TERMINAL)
+        .map(|agent| {
+            command_params.push((*agent).to_string());
+            format!("?{}", command_params.len())
+        })
+        .collect();
+    command_sql.push_str(&format!(
+        " AND (agent IS NULL OR agent IN ({}))",
+        supported.join(", ")
+    ));
     if !agents.is_empty() {
         let clauses: Vec<String> = agents
             .iter()
@@ -3442,6 +3455,50 @@ mod tests {
         // Set-Cookie extras are still appended for normal routes.
         let r2 = response("200 OK", "x", "Set-Cookie: mw_tz=utc\r\n");
         assert!(r2.contains("Set-Cookie: mw_tz=utc"));
+    }
+
+    #[test]
+    fn dashboard_search_includes_cursor_and_filters_provenance_before_limit() {
+        let conn = Connection::open_in_memory().unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
+        for (label, agent) in [
+            ("cursor", Some("cursor")),
+            ("claude", Some("claude")),
+            ("rho", Some("rho")),
+            ("terminal", None),
+        ] {
+            let command = format!("capture-fixture-{label}");
+            conn.execute(
+                "INSERT INTO command_runs(command, argv_json, created_at, agent) VALUES (?1, ?2, ?3, ?4)",
+                params![command, json!([command]).to_string(), "2026-09-12T00:00:00Z", agent],
+            ).unwrap();
+        }
+        // Unsupported producers must not consume the forty-row query budget.
+        for _ in 0..45 {
+            conn.execute(
+                "INSERT INTO command_runs(command, argv_json, created_at, agent) VALUES ('capture-fixture-invalid', '[]', '', 'unsupported')", [],
+            ).unwrap();
+        }
+        let all = search_results(&conn, "capture-fixture");
+        for label in ["cursor", "claude", "rho", "terminal"] {
+            assert!(all.contains(&format!("capture-fixture-{label}")), "{all}");
+        }
+        assert!(!all.contains("capture-fixture-invalid"));
+        let cursor = search_results(&conn, "capture-fixture agent:cursor");
+        assert!(cursor.contains("capture-fixture-cursor"));
+        for label in ["claude", "rho", "terminal", "invalid"] {
+            assert!(
+                !cursor.contains(&format!("capture-fixture-{label}")),
+                "{cursor}"
+            );
+        }
+        assert!(
+            !cursor.contains("exit 0"),
+            "unknown exit must remain unknown"
+        );
+        let terminal = search_results(&conn, "capture-fixture agent:terminal");
+        assert!(terminal.contains("capture-fixture-terminal"));
+        assert!(!terminal.contains("capture-fixture-cursor"));
     }
 
     #[test]

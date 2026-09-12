@@ -28,7 +28,7 @@ _mw_remember_complete() {
   local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD-1]}"
   case "$prev" in
     --cwd) COMPREPLY=( $(compgen -d -- "$cur") ); return ;;
-    --from-hook) COMPREPLY=( $(compgen -W "claude rho" -- "$cur") ); return ;;
+    --from-hook) COMPREPLY=( $(compgen -W "claude rho cursor" -- "$cur") ); return ;;
     --capture-kind) COMPREPLY=( $(compgen -W "full hook" -- "$cur") ); return ;;
   esac
   COMPREPLY=( $(compgen -W "--cwd --exit-code --stdout --stderr --notes --capture-kind --from-hook --help --" -- "$cur") )
