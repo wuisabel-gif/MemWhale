@@ -112,6 +112,11 @@ without inventing a shell command or exit code.
 
 ## Adding or updating an integration
 
+For an example of evaluating a client before adding a support claim, see the
+[Antigravity CLI compatibility assessment](../docs/research/antigravity-cli.md).
+It records documentation discrepancies and pending live validation; it is not
+an installed or verified Antigravity adapter.
+
 Every guide under this directory follows the same eight headings, in this
 order:
 
