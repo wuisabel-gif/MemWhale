@@ -235,7 +235,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
                         .filter(|path| !path.is_empty())
                         .is_some_and(|path| Path::new(&path) != default_home.as_path())
                     {
-                        return Err("Rho 2.9.1 discovers loose skills from HOME/project roots, not a custom RHO_HOME; specify --skills-dir explicitly (for example .agents/skills in your project)".into());
+                        return Err("Rho 2.10.0 discovers loose skills from HOME/project roots, not a custom RHO_HOME; specify --skills-dir explicitly (for example .agents/skills in your project)".into());
                     }
                     default_home.join("skills")
                 }
