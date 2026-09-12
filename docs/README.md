@@ -35,6 +35,7 @@ The repository documentation is organized by the question a reader is asking.
 ## Design and policy
 
 - [Architecture](architecture.md)
+- [Rho 2.10.0 compatibility verification](research/rho-2.10-compatibility.md) — live results, privacy boundary, and capture limits
 - [Security and local threat model](SECURITY.md)
 - [Limitations](limitations.md)
 - [Integration matrix and client guides](../integrations/README.md)

@@ -17,6 +17,12 @@ Verified against Rho's [hooks](https://matthewyjiang.github.io/rho/hooks),
 [MCP](https://matthewyjiang.github.io/rho/integrations/mcp) documentation.
 The hook and skill are optional repository-provided components.
 
+Native **Rho 2.10.0** was checked on **September 12, 2026** with fresh/resumed
+retrieval, skill loading, execution/denial capture, and an unsaved interactive
+session. See the [versioned verification report](../../docs/research/rho-2.10-compatibility.md)
+and live-derived regression fixtures. The run-timeout case exposed a delivery
+gap; this is not a claim of complete cancellation capture.
+
 - `rho mcp list` lists configured MCP servers
 - `rho mcp show memorywhale` shows the MemoryWhale entry
 - `/hooks` in the TUI reloads hooks and prints the spawn contract
@@ -68,6 +74,10 @@ export MEMORYWHALE_AUTHORIZATION="$(tr -d '\n' < "$MEMORYWHALE_DATA_DIR/mcp-auth
 The skill lives in `crates/mw-cli/integrate/` so it ships inside the published
 package. Capture uses the `mw-remember` binary, not a copied script.
 
+With Rho 2.10.0, do not assume a custom `RHO_HOME` relocates loose user skills.
+Project `.agents/skills/memorywhale/SKILL.md` was verified separately. Check
+actual skill discovery after installing into a custom profile.
+
 ### Manual setup
 
 If you prefer to install by hand from a repository checkout, run the file-copy
@@ -118,12 +128,18 @@ on = "after_tool_use"
 tools = ["bash", "powershell"]
 command = ["/home/you/.cargo/bin/mw-remember", "--from-hook", "rho"]
 timeout = "15s"
+env = ["MEMORYWHALE_DATA_DIR"]
 ```
 
 Rho runs hook programs as argv, not as a shell string. If `hooks.toml` already
 has other `[[hook]]` entries, append this one. Do not use `before_tool_use`
 for capture: that event is fail-closed, so a broken hook would deny the tool
 call.
+
+For a custom store, start Rho with `MEMORYWHALE_DATA_DIR` set and explicitly
+allow it through the hook environment as above; separately set the MCP server's
+`env` to the same location. A variable in an unrelated terminal or in only the
+MCP configuration does not configure the capture subprocess.
 
 #### Install the skill
 
@@ -171,19 +187,24 @@ MCP server is not connected, so each component can be installed separately.
 
 `mw-remember --from-hook rho` receives Rho's hook JSON on standard input. It
 matches `after_tool_use` for `bash` and `powershell`, then records command
-text when the payload includes it, along with working directory and exit
-status when available.
+text and working directory when the payload includes them. Tool-status notes
+are not numeric process exit status.
 
-Rho's current `after_tool_use` payload reports tool name, status, failure
-kind and message, and duration. It does not include the shell command, process
-exit code, or stdout. The hook records failed or unavailable calls even without
+The observed Rho 2.10.0 schema-2 payload includes
+`payload.capability.shell_command` and `working_directory`, plus tool status,
+failure information, and duration. It does not provide a numeric process exit
+code or a stdout field. The hook records failed or unavailable calls even without
 command text, using a sentinel command (`[rho:after_tool_use]`) plus status and
 failure metadata in notes and stderr so the event is kept without inventing a
-shell command. It reads `capability.shell_command` if a later schema adds it.
+shell command. The existing parser already reads the capability-based fields.
 Successful calls with no command text are skipped so the store is not filled
 with bare tool-name rows. Upstream truncation reported in `bounds` omits
 affected fields and adds a marker instead of presenting shortened text as
 complete evidence.
+
+Use `mw search ... agent:rho` to inspect these records. Numeric-exit-based
+`recent_errors` and error counts are not a complete inventory of failed Rho
+tool calls when the stored exit code is unknown.
 
 Commands run in an ordinary terminal are captured only through MemoryWhale's
 normal terminal capture paths. MCP access alone is not automatic capture.
@@ -200,10 +221,20 @@ evidence to outlive the current session.
 
 ### Limitations
 
+`rho --no-save` only disables Rho conversation/prompt-history persistence.
+The live test confirmed that an explicitly enabled MemoryWhale capture hook
+still records commands. It is not a privacy or capture-off mode. To keep MCP
+access without capture, remove only the MemoryWhale `after_tool_use` hook from
+the selected hooks file and reload `/hooks` to verify removal. Existing memory
+is not deleted. Full `mw integrate rho --revert` removes the broader integration.
+
 - The bundled hook captures only bash and powershell.
 - `before_tool_use` is not used, because a crash or timeout there denies the
   tool call.
-- Current Rho `after_tool_use` events do not include command text or stdout.
+- Rho 2.10.0 command text is available, but stdout and numeric exit-code fields
+  are not. Do not infer an exit code from a human-readable failure message.
+- A tested run timeout delivered `session_failed` without `after_tool_use` for
+  the interrupted command. Do not assume all cancellation paths produce a row.
 - User-level hooks and skills are local to the machine where they are installed.
 - Guidance helps Rho choose when to use memory, but does not force a tool call
   on every failure.
@@ -230,8 +261,9 @@ evidence to outlive the current session.
   to see Rho MCP, hook, and skill status separately from MemoryWhale's own
   health. If `MEMORYWHALE_DATA_DIR` is set, put it in the server's `env` block,
   not only in an unrelated terminal. `RHO_HOME` is honored.
-- `RHO_HOME` moves the whole Rho directory, including `hooks.toml`,
-  `config.toml`, and `skills/`.
+- `RHO_HOME` selects configuration/state locations, but Rho 2.10.0 loose-skill
+  discovery remains HOME/project-based. Inspect `/skills` rather than infer
+  discovery from files existing under a custom home.
 
 ## Uninstall
 
