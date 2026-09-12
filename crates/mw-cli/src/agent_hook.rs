@@ -1,7 +1,7 @@
-//! Parse Claude Code and Rho hook JSON into a [`CommandRecord`].
+//! Parse explicitly selected client hook JSON into a [`CommandRecord`].
 //!
 //! The installer names the client on the argv (`--from-hook claude` /
-//! `--from-hook rho`). This module does not guess the client from JSON.
+//! `--from-hook rho` / `--from-hook cursor`). This module does not guess the client from JSON.
 
 use std::sync::OnceLock;
 
@@ -9,6 +9,18 @@ use regex::Regex;
 use serde_json::Value;
 
 use crate::remember::CommandRecord;
+
+mod cursor;
+pub const MAX_CURSOR_HOOK_BYTES: u64 = 4 * 1024 * 1024;
+
+pub fn cursor_record_from_slice(bytes: &[u8]) -> Result<Option<CommandRecord>, &'static str> {
+    if bytes.len() as u64 > MAX_CURSOR_HOOK_BYTES {
+        return Err("Cursor hook payload exceeds 4 MiB; event skipped");
+    }
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|_| "invalid Cursor hook JSON; event skipped")?;
+    cursor::parse(&value)
+}
 
 const MAX_OUTPUT: usize = 20_000;
 const RHO_NO_COMMAND: &str = "[rho:after_tool_use]";
@@ -18,6 +30,7 @@ const RHO_TRUNCATION_NOTE: &str = "[rho: upstream truncation; affected fields om
 pub enum Agent {
     Claude,
     Rho,
+    Cursor,
 }
 
 impl Agent {
@@ -25,6 +38,7 @@ impl Agent {
         match name {
             "claude" | "claude-code" => Some(Self::Claude),
             "rho" => Some(Self::Rho),
+            "cursor" => Some(Self::Cursor),
             _ => None,
         }
     }
@@ -33,11 +47,15 @@ impl Agent {
         match self {
             Self::Claude => memorywhale_core::provenance::AGENT_CLAUDE,
             Self::Rho => memorywhale_core::provenance::AGENT_RHO,
+            Self::Cursor => memorywhale_core::provenance::AGENT_CURSOR,
         }
     }
 }
 
 pub fn record_from_slice(bytes: &[u8], agent: Agent) -> Option<CommandRecord> {
+    if agent == Agent::Cursor {
+        return cursor_record_from_slice(bytes).ok().flatten();
+    }
     let value: Value = serde_json::from_slice(bytes).ok()?;
     record_from_value(&value, agent)
 }
@@ -46,6 +64,7 @@ pub fn record_from_value(payload: &Value, agent: Agent) -> Option<CommandRecord>
     match agent {
         Agent::Claude => payload.as_object().and_then(claude),
         Agent::Rho => rho(payload),
+        Agent::Cursor => cursor::parse(payload).ok().flatten(),
     }
 }
 

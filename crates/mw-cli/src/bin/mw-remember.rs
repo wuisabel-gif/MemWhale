@@ -31,13 +31,12 @@ fn run() -> Result<(), String> {
                 return Ok(());
             }
             "--from-hook" => {
-                let name = args
-                    .next()
-                    .ok_or_else(|| "mw-remember --from-hook requires claude or rho".to_string())?;
-                from_hook =
-                    Some(Agent::parse(&name).ok_or_else(|| {
-                        format!("unknown hook client {name:?}; use claude or rho")
-                    })?);
+                let name = args.next().ok_or_else(|| {
+                    "mw-remember --from-hook requires claude, rho, or cursor".to_string()
+                })?;
+                from_hook = Some(Agent::parse(&name).ok_or_else(|| {
+                    format!("unknown hook client {name:?}; use claude, rho, or cursor")
+                })?);
             }
             "--cwd" => {
                 record_flags = true;
@@ -102,6 +101,10 @@ fn run() -> Result<(), String> {
 /// Agent hooks must never fail the tool call. Parse stdin JSON and record
 /// what we can; ignore empty, unknown, or broken payloads.
 fn run_from_hook(agent: Agent) {
+    if agent == Agent::Cursor {
+        run_cursor_hook();
+        return;
+    }
     let mut buf = Vec::new();
     if io::stdin().read_to_end(&mut buf).is_err() {
         return;
@@ -112,9 +115,39 @@ fn run_from_hook(agent: Agent) {
     let _ = memorywhale_cli::remember::remember_command(record);
 }
 
+fn run_cursor_hook() {
+    use memorywhale_cli::agent_hook::{cursor_record_from_slice, MAX_CURSOR_HOOK_BYTES};
+    let mut bytes = Vec::new();
+    if io::stdin()
+        .take(MAX_CURSOR_HOOK_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .is_err()
+    {
+        eprintln!("mw-remember: could not read Cursor hook input; event skipped");
+        return;
+    }
+    match cursor_record_from_slice(&bytes) {
+        Ok(Some(record)) => {
+            if !record
+                .cwd
+                .as_deref()
+                .is_some_and(|cwd| std::path::Path::new(cwd).is_dir())
+            {
+                eprintln!("mw-remember: Cursor cwd is unavailable locally; event skipped to preserve capture policy");
+                return;
+            }
+            if memorywhale_cli::remember::remember_command(record).is_err() {
+                eprintln!("mw-remember: Cursor event could not be recorded");
+            }
+        }
+        Ok(None) => (),
+        Err(message) => eprintln!("mw-remember: {message}"),
+    }
+}
+
 fn print_help() {
     println!(
         "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]\n\
-         mw-remember --from-hook claude|rho   read that client's hook JSON from stdin"
+         mw-remember --from-hook claude|rho|cursor   read that client's hook JSON from stdin"
     );
 }

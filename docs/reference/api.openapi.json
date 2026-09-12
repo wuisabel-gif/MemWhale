@@ -295,7 +295,7 @@
         "description": "Producing agent filter. terminal matches NULL/manual records.",
         "schema": {
           "type": "string",
-          "enum": ["claude", "rho", "terminal"]
+          "enum": ["claude", "rho", "cursor", "terminal"]
         }
       },
       "MemoryId": {
@@ -632,7 +632,7 @@
               "string",
               "null"
             ],
-            "enum": ["claude", "rho", null],
+            "enum": ["claude", "rho", "cursor", null],
             "description": "Structured producing agent; null means terminal/manual or legacy capture."
           }
         }
@@ -699,12 +699,12 @@
           },
           "agent": {
             "type": ["string", "null"],
-            "enum": ["claude", "rho", null],
+            "enum": ["claude", "rho", "cursor", null],
             "description": "Structured producing agent; null means terminal/manual or legacy capture."
           },
           "agent_label": {
             "type": "string",
-            "enum": ["claude", "rho", "terminal"]
+            "enum": ["claude", "rho", "cursor", "terminal"]
           },
           "score": {
             "type": "number"
@@ -789,12 +789,12 @@
           },
           "agent": {
             "type": ["string", "null"],
-            "enum": ["claude", "rho", null],
+            "enum": ["claude", "rho", "cursor", null],
             "description": "Structured producing agent; null means terminal/manual or legacy capture."
           },
           "agent_label": {
             "type": "string",
-            "enum": ["claude", "rho", "terminal"]
+            "enum": ["claude", "rho", "cursor", "terminal"]
           }
         }
       },

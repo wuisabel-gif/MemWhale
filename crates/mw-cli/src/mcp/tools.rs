@@ -40,7 +40,7 @@ pub(super) fn tool_defs() -> Value {
                 "query": {"type": "string", "description": "text to search for"},
                 "project": {"type": "string", "description": "optional: only memory recorded for this project, e.g. demo"},
                 "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
-                "agent": {"type": "string", "enum": ["claude", "rho", "terminal"], "description": "optional producing agent; terminal matches NULL/manual records"}
+                "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"}
             }, "required": ["query"]}
         },
         {
@@ -49,7 +49,7 @@ pub(super) fn tool_defs() -> Value {
             "inputSchema": {"type": "object", "properties": {
                 "project": {"type": "string", "description": "project tag, e.g. project:demo"},
                 "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
-                "agent": {"type": "string", "enum": ["claude", "rho", "terminal"], "description": "optional producing agent; terminal matches NULL/manual records"}
+                "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"}
             }}
         },
         {
