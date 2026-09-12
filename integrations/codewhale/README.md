@@ -1,4 +1,4 @@
-# CodeWhale + MemoryWhale
+# Codewhale + MemoryWhale
 
 [CodeWhale](https://github.com/Hmbown/CodeWhale) is an open-source terminal
 coding agent written in Rust: TUI, headless `codewhale exec`, and a local web
@@ -12,6 +12,14 @@ Verified against CodeWhale's official MCP documentation
 (`docs/MCP.md` in the CodeWhale repository, `main` branch). CodeWhale is under
 active development; check that file if a field or command changes.
 
+The development branch also contains a native **declarative plugin bundle**
+in [`plugin/`](plugin/). It uses Codewhale's existing Skills, Commands, and MCP
+engines—not a native-code extension or a replacement for its preference memory.
+The inspected host checkout is **0.9.12 at `d5beab040`**. Bundle/runtime
+verification is recorded separately from model-backed usefulness; see
+[`plugin/README.md`](plugin/README.md). No capture or automatic recall hook is
+enabled by this base bundle.
+
 ## Requirements
 
 - MemoryWhale installed with `mw-mcp` on `PATH`.
@@ -21,6 +29,53 @@ active development; check that file if a field or command changes.
   local servers; tool calling is a model capability).
 
 ## Setup
+
+### Native plugin (development bundle, macOS/Linux)
+
+Use trusted, matching MemoryWhale helpers on PATH and explicitly choose the
+store in the environment **before starting Codewhale**:
+
+```bash
+export MEMORYWHALE_DATA_DIR=/absolute/path/to/your/chosen/store
+```
+
+For the first check, choose a new temporary directory and seed only synthetic
+notes. Do not connect the normal store or other private data sources to a test
+agent. The bundle maps the named environment source; it does not read values
+from a workspace `.env` or choose the default database if the variable is missing.
+
+Place a reviewed copy of `integrations/codewhale/plugin/` in an unused
+`$CODEWHALE_HOME/plugins/memorywhale/` directory (normally
+`~/.codewhale/plugins/memorywhale/`), or the corresponding workspace
+`.codewhale/plugins/memorywhale/` directory. Do not overwrite an existing bundle
+or use a symlink. Inspect any user-scope bundle with the same name, which takes
+precedence over a workspace copy.
+New user plugin-state directories must be private (0700 on Unix); Codewhale
+rejects group/world-accessible trust-state directories. Use the host's install
+flow or create new private directories rather than changing existing paths blindly.
+
+In the Codewhale TUI:
+
+```text
+/plugin list
+/plugin validate memorywhale
+/plugin show memorywhale
+/plugin enable memorywhale
+```
+
+The first enable requests review. Inspect the bundle, local process authority,
+data-directory source, and full content/capability hashes. Only then use the
+exact `/plugin trust memorywhale <content-hash>.<capability-hash>` confirmation
+shown by Codewhale, followed by `/plugin enable memorywhale`. Trust alone does
+not enable it. Do not copy an invented or old receipt from documentation.
+
+The server identity is `plugin-11-memorywhale-memory` on the inspected host;
+verify the actual discovered name before using it. The plugin supplies the
+`memorywhale:memorywhale-evidence` skill and explicit `/memorywhale-check` and
+`/memorywhale-recall` guidance commands. These are model-facing instructions,
+not permission enforcement or autonomous shell execution.
+
+### Manual MCP configuration
 
 CodeWhale reads MCP servers from `~/.codewhale/mcp.json` (the path can be
 overridden with the `mcp_config_path` setting or the `DEEPSEEK_MCP_CONFIG`
@@ -67,7 +122,7 @@ key alongside them.
 Alternatively, register it with the CLI instead of editing the file:
 
 ```bash
-codewhale-tui mcp add memorywhale --command "mw-mcp"
+codewhale mcp add memorywhale --command "mw-mcp"
 ```
 
 CodeWhale also offers an in-TUI manager: `/mcp` lists configured servers with
@@ -81,8 +136,8 @@ Confirm the server binary, then check CodeWhale discovered it:
 ```bash
 command -v mw-mcp
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' | mw-mcp
-codewhale-tui mcp list
-codewhale-tui mcp tools memorywhale
+codewhale mcp list
+codewhale mcp tools memorywhale
 ```
 
 `mcp list` should show `memorywhale`; `mcp tools memorywhale` should discover
@@ -115,7 +170,7 @@ An empty store is valid. The tools return empty results, not errors.
 | --- | --- |
 | MCP memory access | Yes |
 | Automatic execution capture | No |
-| Memory-use guidance | Via roles / constitution standing instructions |
+| Memory-use guidance | Native plugin skill/commands, or roles / constitution instructions |
 
 ### How to use
 
@@ -163,7 +218,7 @@ OS user that spawns `mw-mcp` remains the file-level trust boundary.
 
 - Run `command -v mw-mcp` from the environment CodeWhale launches from; use
   an absolute path in `command` if they differ.
-- Run `codewhale-tui mcp list` and `codewhale-tui mcp validate` to check the
+- Run `codewhale mcp list` and `codewhale mcp validate` to check the
   entry parses and the server connects.
 - Run `/mcp reload` in the TUI after any edit; restart headless processes.
 - Confirm the file is valid JSON at `~/.codewhale/mcp.json` (or your
@@ -172,8 +227,17 @@ OS user that spawns `mw-mcp` remains the file-level trust boundary.
 
 ## Uninstall
 
+For the native bundle, use `/plugin disable memorywhale` to stop contributions,
+or `/plugin revoke memorywhale` to remove trust. Use the host's reviewed uninstall
+flow for the exact source you installed; do not delete unrelated plugin files
+or native-memory data. Disabling/removing this plugin does not erase MemoryWhale
+records. Capture/automatic-recall components, when installed separately, must
+be disabled separately.
+
+For manual MCP setup:
+
 Remove the `"memorywhale"` entry from `~/.codewhale/mcp.json` (or run
-`codewhale-tui mcp remove memorywhale`, or `/mcp remove memorywhale` in the
+`codewhale mcp remove memorywhale`, or `/mcp remove memorywhale` in the
 TUI), then run `/mcp reload` in each TUI session. Running headless
 `codewhale exec` processes do not hot-reload MCP configuration. Restart them
 after removing the entry. This does not delete the MemoryWhale database; use

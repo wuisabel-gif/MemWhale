@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "memorywhale",
+  "version": "0.1.0",
+  "description": "Explicit access to local MemoryWhale debugging evidence. Capture and automatic recall are separate opt-ins.",
+  "license": "MIT",
+  "extensions": {
+    "net.codewhale": {
+      "commands": { "path": "commands" },
+      "when": { "os": ["macos", "linux"], "binaries": ["sh", "mw-mcp"] }
+    }
+  }
+}

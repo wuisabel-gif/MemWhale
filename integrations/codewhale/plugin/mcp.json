@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/mcp.json",
+  "mcpServers": {
+    "memory": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["scripts/mcp.sh"],
+      "env": { "MEMORYWHALE_DATA_DIR": "${MEMORYWHALE_DATA_DIR}" }
+    }
+  }
+}
