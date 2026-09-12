@@ -70,6 +70,13 @@ MCP access and optional skill installation are separate integration modes.
 .TP
 .B --
 Everything after this is the command and its arguments.
+.SH ENVIRONMENT
+.TP
+.B MEMORYWHALE_HOOK_DIAGNOSTICS
+Set to exactly 1 to enable fixed, nonfatal stderr diagnostics for Cursor hook
+input and storage failures. Default Cursor hook processing is silent on both
+output streams. Diagnostics do not include captured payloads or raw storage
+errors and never write to stdout. Other hook clients are unchanged.
 .SH EXAMPLES
 .nf
 mw-remember --cwd "$PWD" --exit-code 0 \\

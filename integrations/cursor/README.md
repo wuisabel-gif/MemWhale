@@ -159,7 +159,7 @@ the capture hooks, commands are recorded only through normal terminal capture,
   notes. Their numeric exit remains NULL; permission denial is explicitly
   marked not executed, and other failures do not confirm execution.
 - The actual absolute `cwd` must exist locally so directory capture policy can
-  be applied. Missing, invalid, or unavailable cwd causes a diagnostic and skips
+  be applied. Missing, invalid, or unavailable cwd skips
   the event; neither workspace roots nor the hook process cwd are substituted.
 - Available conversation/generation/tool IDs, duration, and client-version
   metadata are retained with bounds. User email, arbitrary input notes, and
@@ -193,7 +193,12 @@ your clipboard for any chat.
 - Run `mw doctor` to check the MemoryWhale install.
 - For capture, check the selected hooks file, executable permissions, and the
   same data-directory setting with `mw integrate cursor --capture --check`.
-  A nonfatal stderr diagnostic can explain a skipped oversized or invalid event.
+  Hook failures are silent by default. For a controlled diagnostic invocation,
+  set `MEMORYWHALE_HOOK_DIAGNOSTICS=1` in the environment of `mw-remember
+  --from-hook cursor`; fixed, nonfatal stderr messages can explain skipped
+  payloads or storage failures. Test with synthetic input and a disposable
+  `MEMORYWHALE_DATA_DIR` to avoid recording an event twice in the normal store.
+  The diagnostic messages never include the payload or underlying storage error.
 
 ## Uninstall
 

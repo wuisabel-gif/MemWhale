@@ -18,7 +18,13 @@ fn documented_outcome_pair_preserves_known_and_unknown_statuses() {
         (None, "cancelled"),
         (None, "completed_exit_unknown"),
     ];
-    for (fixture, (exit, status)) in fixtures().iter().zip(expected) {
+    let cases = fixtures();
+    assert_eq!(
+        cases.len(),
+        expected.len(),
+        "every fixture needs an expected outcome"
+    );
+    for (fixture, (exit, status)) in cases.iter().zip(expected) {
         let record = parse(&fixture["event"]).unwrap().unwrap();
         assert_eq!(record.exit_code, exit, "{}", fixture["case"]);
         assert_eq!(record.agent.as_deref(), Some("cursor"));

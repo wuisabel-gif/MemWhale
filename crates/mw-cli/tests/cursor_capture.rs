@@ -74,6 +74,10 @@ impl Sandbox {
             output.stdout.is_empty(),
             "hook stdout must be empty: {output:?}"
         );
+        assert!(
+            output.stderr.is_empty(),
+            "hook stderr must be quiet by default: {output:?}"
+        );
     }
     fn hook(&self, event: &Value) {
         self.hook_bytes(&serde_json::to_vec(event).unwrap());
@@ -101,6 +105,47 @@ impl Sandbox {
 impl Drop for Sandbox {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+#[test]
+fn diagnostics_are_explicit_bounded_and_nonfatal_for_payload_and_storage_failures() {
+    let s = Sandbox::new();
+    let valid = serde_json::to_vec(&s.events()[0]["event"]).unwrap();
+    std::fs::create_dir(s.data.join("memorywhale.sqlite3")).unwrap();
+    for (input, message) in [
+        (
+            b"{invalid PRIVATE-PAYLOAD".as_slice(),
+            "invalid Cursor hook JSON",
+        ),
+        (valid.as_slice(), "Cursor event could not be recorded"),
+    ] {
+        for flag in [None, Some("0"), Some("1")] {
+            let mut command = s.command(env!("CARGO_BIN_EXE_mw-remember"));
+            if let Some(flag) = flag {
+                command.env("MEMORYWHALE_HOOK_DIAGNOSTICS", flag);
+            }
+            let mut child = command
+                .args(["--from-hook", "cursor"])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            child.stdin.take().unwrap().write_all(input).unwrap();
+            let result = child.wait_with_output().unwrap();
+            assert!(result.status.success(), "{result:?}");
+            assert!(result.stdout.is_empty());
+            if flag == Some("1") {
+                let stderr = String::from_utf8(result.stderr).unwrap();
+                assert!(stderr.contains(message), "{stderr}");
+                assert!(!stderr.contains("PRIVATE-PAYLOAD"));
+                assert!(!stderr.contains(s.root.to_str().unwrap()));
+                assert!(stderr.len() < 256);
+            } else {
+                assert!(result.stderr.is_empty());
+            }
+        }
     }
 }
 

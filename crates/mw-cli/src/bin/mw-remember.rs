@@ -123,7 +123,7 @@ fn run_cursor_hook() {
         .read_to_end(&mut bytes)
         .is_err()
     {
-        eprintln!("mw-remember: could not read Cursor hook input; event skipped");
+        cursor_diagnostic("could not read Cursor hook input; event skipped");
         return;
     }
     match cursor_record_from_slice(&bytes) {
@@ -133,15 +133,25 @@ fn run_cursor_hook() {
                 .as_deref()
                 .is_some_and(|cwd| std::path::Path::new(cwd).is_dir())
             {
-                eprintln!("mw-remember: Cursor cwd is unavailable locally; event skipped to preserve capture policy");
+                cursor_diagnostic(
+                    "Cursor cwd is unavailable locally; event skipped to preserve capture policy",
+                );
                 return;
             }
             if memorywhale_cli::remember::remember_command(record).is_err() {
-                eprintln!("mw-remember: Cursor event could not be recorded");
+                cursor_diagnostic("Cursor event could not be recorded");
             }
         }
         Ok(None) => (),
-        Err(message) => eprintln!("mw-remember: {message}"),
+        Err(message) => cursor_diagnostic(message),
+    }
+}
+
+// Normal observation stays silent. Debug output is explicit and contains only
+// fixed diagnostics, never the captured command, output, path, or storage error.
+fn cursor_diagnostic(message: &'static str) {
+    if env::var_os("MEMORYWHALE_HOOK_DIAGNOSTICS").as_deref() == Some(std::ffi::OsStr::new("1")) {
+        eprintln!("mw-remember: {message}");
     }
 }
 
