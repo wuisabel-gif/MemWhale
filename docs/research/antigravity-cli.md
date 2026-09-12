@@ -25,7 +25,7 @@ clients.
 | MCP | Local stdio and remote SSE/Streamable HTTP. CLI text also mentions WebSocket without elaborating it in the property table. Entries use `command`, `args`, `env`, `cwd`, or `serverUrl`/`headers`; legacy `url`/`httpUrl` are unsupported. Global configuration is `~/.gemini/config/mcp_config.json`; project configuration is `.agents/mcp_config.json`. OAuth/ADC are documented [4]. | A local stdio smoke test is a plausible first step. Do not copy another client's configuration format or promise every transport. |
 | Trust | Unconfigured MCP tools default to Ask; policy patterns include `mcp(server/tool)` and `mcp(server/*)` [4]. Release notes mention workspace-hook reloads after folder trust [9]. | Confirm workspace trust, precedence, and approval behavior in the selected release; do not bypass them. |
 | Execution location | The repository documents SSH use and a shared agent engine. Remote Control exposes the running host through a browser while preserving its development environment [7][10]. The announcement describes a server-side harness [2]. | Distinguish where tools/store files live from where model inference runs. A local tool does not imply offline inference. |
-| Skills/plugins | CLI documentation describes `.agents/skills/` or `~/.gemini/antigravity-cli/skills/`; bundles have a required root `plugin.json` and optional MCP/hooks/skills/agents/rules. Installed plugins use `~/.gemini/antigravity-cli/plugins/` [6]. Shared documentation instead describes `~/.gemini/config/plugins/` and different manifest requirements [8]. | This is a documentation discrepancy, not evidence of interchangeable layouts. Verify discovery and manifest validation before writing an installer. |
+| Skills/plugins | CLI documentation describes `.agents/skills/` or `~/.gemini/antigravity-cli/skills/`; bundles have a required root `plugin.json` and optional MCP/hooks/skills/agents/rules. That CLI page also lists the private `~/.gemini/antigravity-cli/plugins/` path [6], but the **tagged 1.2.2 changelog records a 1.0.2 fix moving `plugin` installs to shared `~/.gemini/config/`** [9]. Shared documentation lists `~/.gemini/config/plugins/` and different manifest requirements [8]. | Weight the tagged release history above the conflicting, likely stale private-path page. Shared configuration is the better-supported starting point, but verify the exact discovery path and manifest contract in the pinned runtime before writing an installer. |
 | Execution hooks | Shared hooks receive JSON with camelCase `conversationId`, `workspacePaths`, `transcriptPath`; tool events add `toolCall` and `stepIdx`. `run_command` arguments include `CommandLine` and `Cwd`. Post-tool input has optional `error`, but no documented stdout/stderr or numeric process exit field [5]. | Full execution capture is not established. Never manufacture output, exit codes, or snake_case identifiers. Conversation/step correlation still needs an async-execution test. |
 | Lifecycle | Documented events include `PreToolUse`, `PostToolUse`, `PreInvocation`, `PostInvocation`, and `Stop`. Stop supplies `executionNum`, `terminationReason`, and `fullyIdle`. Pre-tool hooks can affect approval, invocation hooks inject steps, and Stop can continue execution; the post-tool response is `{}` [5]. | Do not treat all callbacks as passive session boundaries. Any memory adapter should avoid changing permissions or restarting a cancelled/completed task. |
 | Privacy/sync | The README describes interaction collection with a settings opt-out and bidirectional preference/permission syncing [10]. Retention periods, deletion guarantees, full sync inventory, and plan-specific treatment were not established. | Never automatically upload the MemoryWhale database. Selected MCP results or injected context can still disclose retrieved data to the agent/provider. |
@@ -63,8 +63,8 @@ setup commands.
 [6]: https://antigravity.google/docs/cli/plugins/
 [7]: https://antigravity.google/docs/remote-control/
 [8]: https://antigravity.google/docs/plugins
-[9]: https://raw.githubusercontent.com/google-antigravity/antigravity-cli/main/CHANGELOG.md
-[10]: https://raw.githubusercontent.com/google-antigravity/antigravity-cli/main/README.md
+[9]: https://raw.githubusercontent.com/google-antigravity/antigravity-cli/1.2.2/CHANGELOG.md
+[10]: https://raw.githubusercontent.com/google-antigravity/antigravity-cli/1.2.2/README.md
 
 1. [Release 1.2.2 metadata][1]
 2. [Google's transition announcement][2]
@@ -74,5 +74,5 @@ setup commands.
 6. [CLI plugins documentation][6]
 7. [Remote Control documentation][7]
 8. [Shared plugins documentation][8]
-9. [Official changelog][9]
-10. [Official repository README][10]
+9. [Official changelog at tag 1.2.2 (including the 1.0.2 plugin-path fix)][9]
+10. [Official repository README at tag 1.2.2][10]
