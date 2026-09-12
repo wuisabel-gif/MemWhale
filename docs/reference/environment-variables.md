@@ -1,5 +1,13 @@
 # Environment variables
 
+## `MEMORYWHALE_HOOK_DIAGNOSTICS`
+
+Set to exactly `1` to enable fixed, nonfatal stderr diagnostics for Cursor hook
+processing (`mw-remember --from-hook cursor`). By default, expected invalid
+payload and storage failures stay silent. Diagnostics never write to stdout
+or include captured payload contents. This development-branch option does not
+enable capture, change client permissions, or alter other hook clients.
+
 ## `MEMORYWHALE_DATA_DIR`
 
 Overrides the platform-default data directory for the CLI and helper binaries,

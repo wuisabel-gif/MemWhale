@@ -2,6 +2,12 @@
 
 ## Portable client setup and optional skills
 
+Cursor capture is a separate opt-in mode:
+`mw integrate cursor --capture [--hooks-file <file>] [--dry-run|--check|--revert]`.
+The helper accepts `mw-remember --from-hook cursor`. See the
+[Cursor guide](../../integrations/cursor/README.md) for documented payload
+coverage, unknown exit handling, and the pending live-client verification.
+
 The development branch adds `mw integrate codex|cursor` with `--dry-run`,
 `--check`, `--revert`, and optional `--config <file>` for owned MCP setup.
 These are configuration checks, not proof of a running client connection.
@@ -28,7 +34,7 @@ mw --version                           # print the installed MemoryWhale version
 mw list                               # list recorded sessions
 mw show 1                             # print the full transcript of a session
 mw search "linker error"              # search commands, output, notes, transcripts
-mw search docker after:2026-01-01 tag:infra   # filter results: tag:X, source:command|session|note|document|conversation, agent:claude|rho|terminal, before:/after:YYYY-MM-DD, limit:N
+mw search docker after:2026-01-01 tag:infra   # filter results: tag:X, source:command|session|note|document|conversation, agent:claude|rho|cursor|terminal, before:/after:YYYY-MM-DD, limit:N
 mw explain 1000000001                 # why this memory ranks: per-signal breakdown (ids come from `mw search`)
 mw link 1000000001 3000000001 rel:fixed-by   # link two memories (typed edge; ids from `mw search`)
 mw links 1000000001                   # show a memory's linked neighbors (both directions); mw unlink <a> <b> removes

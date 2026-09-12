@@ -5,6 +5,7 @@ mod report;
 mod skill_files;
 
 pub mod claude;
+pub mod cursor_capture;
 pub mod hermes;
 pub mod mcp_client;
 pub mod portable;

@@ -302,7 +302,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
@@ -320,6 +320,7 @@ fn print_help() {
          mw integrate claude [--revert]  install or remove Claude Code hook, skill, and MCP\n\
          mw integrate rho [--revert] [--http [url]] [--token secret]  Rho hook, skill, and MCP (stdio by default; --http for mw-serve /mcp)\n\
          mw integrate codex|cursor [--config <file>] [--dry-run|--check|--revert]  configure local MCP memory access\n\
+         mw integrate cursor --capture [--hooks-file <file>] [--dry-run|--check|--revert]  opt-in local Shell capture only\n\
          mw integrate <rho|codex|cursor> --skill <SKILL.md> [--skills-dir <dir>] [--revert|--check|--dry-run]  optional local skill only\n\
          mw integrate hermes       register mw-mcp in Hermes Agent's config\n         mw github context <pr>  fetch bounded, redacted GitHub PR context through your `gh` login\n\
          \n\
@@ -330,6 +331,23 @@ fn print_help() {
 }
 
 fn integrate_cmd(args: &[String]) -> Result<(), String> {
+    if args.first().is_some_and(|client| client == "cursor")
+        && args.iter().any(|arg| arg == "--capture")
+    {
+        if args.iter().filter(|arg| *arg == "--capture").count() != 1
+            || args.iter().any(|arg| arg == "--skill")
+        {
+            return Err(
+                "--capture must be supplied once and cannot be combined with --skill".into(),
+            );
+        }
+        let options = args[1..]
+            .iter()
+            .filter(|arg| *arg != "--capture")
+            .cloned()
+            .collect::<Vec<_>>();
+        return memorywhale_cli::integrate::cursor_capture::cli(&options);
+    }
     if args.iter().any(|arg| arg == "--skill") {
         return memorywhale_cli::integrate::portable::cli(args);
     }
@@ -2732,7 +2750,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         || filters.after.is_some();
     if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }

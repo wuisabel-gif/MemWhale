@@ -23,6 +23,8 @@ jobs:
         run: cargo test -p memorywhale-core -p memorywhale-cli
       - name: Check documentation references
         run: bash scripts/check-doc-references.sh
+      - name: Check packaged Cursor CLI completions
+        run: bash scripts/test-cursor-completions.sh
 
   release-packages:
     name: Release package dry-run and smoke

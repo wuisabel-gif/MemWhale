@@ -9,13 +9,13 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-const LIMIT: u64 = 1024 * 1024;
+pub(super) const LIMIT: u64 = 1024 * 1024;
 const RECOVERY: &str =
     "MCP setup was interrupted; manual recovery of config and ownership journal is required";
 fn err() -> String {
     "Cannot safely access MCP configuration (no configuration contents shown)".into()
 }
-fn absolute(path: PathBuf) -> Result<PathBuf, String> {
+pub(super) fn absolute(path: PathBuf) -> Result<PathBuf, String> {
     let path = if path.is_absolute() {
         path
     } else {
@@ -26,7 +26,7 @@ fn absolute(path: PathBuf) -> Result<PathBuf, String> {
     }
     Ok(path)
 }
-fn safe(path: &Path) -> Result<(), String> {
+pub(super) fn safe(path: &Path) -> Result<(), String> {
     for part in path.ancestors() {
         match fs::symlink_metadata(part) {
             Ok(m) if m.file_type().is_symlink() || (part != path && !m.is_dir()) => {
@@ -40,7 +40,7 @@ fn safe(path: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-fn read(path: &Path) -> Result<Option<Vec<u8>>, String> {
+pub(super) fn read(path: &Path) -> Result<Option<Vec<u8>>, String> {
     safe(path)?;
     match fs::symlink_metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -58,7 +58,7 @@ fn read(path: &Path) -> Result<Option<Vec<u8>>, String> {
     }
     Ok(Some(bytes))
 }
-fn sidecar(path: &Path, suffix: &str) -> PathBuf {
+pub(super) fn sidecar(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
     name.push(suffix);
     PathBuf::from(name)
@@ -76,10 +76,10 @@ fn exclusive(path: &Path) -> Result<fs::File, String> {
         "MCP setup cannot obtain a private file; if interrupted, manual recovery is required".into()
     })
 }
-fn atomic(path: &Path, expected: &Option<Vec<u8>>, bytes: &[u8]) -> Result<(), String> {
+pub(super) fn atomic(path: &Path, expected: &Option<Vec<u8>>, bytes: &[u8]) -> Result<(), String> {
     atomic_tracked(path, expected, bytes, &mut false)
 }
-fn atomic_tracked(
+pub(super) fn atomic_tracked(
     path: &Path,
     expected: &Option<Vec<u8>>,
     bytes: &[u8],
@@ -122,7 +122,7 @@ fn atomic_tracked(
     let _ = fs::remove_file(&temp);
     result
 }
-fn with_lock(
+pub(super) fn with_lock(
     lock: &Path,
     operation: impl FnOnce(&mut bool) -> Result<(), String>,
 ) -> Result<(), String> {
@@ -138,7 +138,7 @@ fn with_lock(
     }
     result
 }
-fn guard_sources(
+pub(super) fn guard_sources(
     path: &Path,
     original: &Option<Vec<u8>>,
     journal: &Path,
@@ -164,7 +164,7 @@ enum Config {
 }
 
 // Reject ambiguous duplicate keys rather than silently discard unrelated settings.
-struct UniqueJson(Value);
+pub(super) struct UniqueJson(pub(super) Value);
 impl<'de> Deserialize<'de> for UniqueJson {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct Visitor;
@@ -326,7 +326,7 @@ impl Config {
     }
 }
 
-fn usable_executable(path: &Path) -> bool {
+pub(super) fn usable_executable(path: &Path) -> bool {
     let Ok(metadata) = fs::metadata(path) else {
         return false;
     };

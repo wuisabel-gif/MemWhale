@@ -45,7 +45,7 @@ features.
 | Codex CLI | Yes | No | Yes | [Guide](codex/README.md) |
 | Continue | Yes | No | Yes | [Guide](continue/README.md) |
 | CrowClaw | Yes | No | Yes | [Guide](crowclaw/README.md) |
-| Cursor | Yes | No | Yes | [Guide](cursor/README.md) |
+| Cursor | Yes | Opt-in development adapter; fixture-tested, live verification pending | Yes | [Guide](cursor/README.md) |
 | Gemini CLI | Yes | No | Yes | [Guide](gemini-cli/README.md) |
 | Goose | Yes | No | Yes | [Guide](goose/README.md) |
 | Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |
@@ -111,6 +111,11 @@ still recorded with status and failure metadata under a sentinel command,
 without inventing a shell command or exit code.
 
 ## Adding or updating an integration
+
+For an example of evaluating a client before adding a support claim, see the
+[Antigravity CLI compatibility assessment](../docs/research/antigravity-cli.md).
+It records documentation discrepancies and pending live validation; it is not
+an installed or verified Antigravity adapter.
 
 Every guide under this directory follows the same eight headings, in this
 order:
