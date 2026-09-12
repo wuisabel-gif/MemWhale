@@ -9,6 +9,9 @@ Issue #276; checked **September 12, 2026**, on **macOS arm64**.
 
 This is a version-specific verification, not a promise about every Rho release
 or configuration. No production capture/parser changes were needed.
+The installer now warns about custom-profile skill discovery rather than
+silently implying that its copied file will load; it does not redirect writes
+into another scope. The manual guide uses the verified project-local path.
 
 ## Observed results
 

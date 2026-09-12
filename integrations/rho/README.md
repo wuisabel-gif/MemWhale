@@ -36,16 +36,22 @@ gap; this is not a claim of complete cancellation capture.
 
 ## Setup
 
-From any machine with MemoryWhale installed:
+For the normal user profile (`~/.rho`), with MemoryWhale installed:
 
 ```bash
 mw integrate rho
 ```
 
-That installs the skill into `~/.rho/` (or `$RHO_HOME`), points the
+That installs the skill into `~/.rho/`, points the
 MemoryWhale hook in `hooks.toml` at `mw-remember --from-hook rho`, and registers
 `mw-mcp` in `config.toml`. Restart Rho afterward. To undo:
 `mw integrate rho --revert`.
+
+For a custom `RHO_HOME` on Rho 2.10.0, use the manual setup below and its
+project-local skill path. The legacy installer writes a skill inside its selected
+profile directory, which Rho may not discover; its custom-profile warning is not
+a claim of successful runtime skill loading. It does not silently redirect
+that write into your global HOME or a project.
 
 Stdio is the default. To point Rho at `mw-serve`'s `POST /mcp` endpoint
 instead (Rho 2.2.0+ `streamable_http` transport; one JSON-RPC object per
@@ -144,13 +150,18 @@ MCP configuration does not configure the capture subprocess.
 #### Install the skill
 
 ```bash
-mkdir -p "$RHO_DIR/skills/memorywhale"
-cp crates/mw-cli/integrate/SKILL.md "$RHO_DIR/skills/memorywhale/SKILL.md"
+mkdir -p .agents/skills/memorywhale
+cp -n crates/mw-cli/integrate/SKILL.md .agents/skills/memorywhale/SKILL.md
 ```
 
-Rho loads personal skills from `$RHO_DIR/skills/<name>/SKILL.md`. The directory
-name must match the skill `name`. To share the skill with other agents that
-use the same layout, copy it to `~/.agents/skills/memorywhale/` instead.
+This project-local path was verified with a custom Rho profile. If a skill file
+already exists, `cp -n` leaves it unchanged: inspect it rather than assuming it
+was updated. The directory name must match the skill `name`.
+
+Personal alternatives are `~/.rho/skills/memorywhale/` and the shared
+`~/.agents/skills/memorywhale/`; these are HOME-based and affect more than one
+profile/project. Existing personal or built-in skills may take precedence over
+a project copy. Verify the selected source with the client.
 
 ## Verify
 
@@ -259,8 +270,10 @@ is not deleted. Full `mw integrate rho --revert` removes the broader integration
 - Run `/skills` to check skill discovery.
 - Run `mw doctor` to verify the MemoryWhale database and data directory, and
   to see Rho MCP, hook, and skill status separately from MemoryWhale's own
-  health. If `MEMORYWHALE_DATA_DIR` is set, put it in the server's `env` block,
-  not only in an unrelated terminal. `RHO_HOME` is honored.
+  health. For a custom store, set `MEMORYWHALE_DATA_DIR` in the MCP server's
+  `env` block **and** the capture hook's `env` allowlist, and export its matching
+  value in the environment that starts Rho. Otherwise MCP and capture can use
+  different stores. An unrelated terminal's environment is not sufficient.
 - `RHO_HOME` selects configuration/state locations, but Rho 2.10.0 loose-skill
   discovery remains HOME/project-based. Inspect `/skills` rather than infer
   discovery from files existing under a custom home.
@@ -279,12 +292,12 @@ Manual removal (if you installed by hand):
 
 Delete `[mcp.servers.memorywhale]` from `$RHO_DIR/config.toml`. Delete the
 `[[hook]]` block whose `id` is `memorywhale-record` from `$RHO_DIR/hooks.toml`,
-preserving any other hooks. Then remove the skill (and any leftover Python hook from an older install):
+preserving any other hooks. Remove only the skill copy you installed. For the
+project-local example above, after reviewing that file:
 
 ```bash
-RHO_DIR="${RHO_HOME:-$HOME/.rho}"
-rm -rf "$RHO_DIR/skills/memorywhale"
-rm -f "$RHO_DIR/hooks/mw-record.py"
+rm -- .agents/skills/memorywhale/SKILL.md
+rmdir -- .agents/skills/memorywhale
 ```
 
 Restart Rho. Removing the integration does not delete MemoryWhale's database
