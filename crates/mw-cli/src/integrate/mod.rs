@@ -2,9 +2,12 @@
 
 mod files;
 mod report;
+mod skill_files;
 
 pub mod claude;
 pub mod hermes;
+pub mod mcp_client;
+pub mod portable;
 pub mod rho;
 
 pub(crate) const SKILL: &str = include_str!("../../integrate/SKILL.md");

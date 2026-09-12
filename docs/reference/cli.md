@@ -1,6 +1,20 @@
 # CLI reference
 
-All commands ship as prebuilt binaries (see the README's Install section). If
+## Portable client setup and optional skills
+
+The development branch adds `mw integrate codex|cursor` with `--dry-run`,
+`--check`, `--revert`, and optional `--config <file>` for owned MCP setup.
+These are configuration checks, not proof of a running client connection.
+
+`mw integrate rho|codex|cursor --skill <local SKILL.md>` installs only an
+explicitly supplied local instruction skill. Supports `--dry-run`, `--check`,
+`--revert`, and `--skills-dir <directory>`. See
+[portable integrations](portable-integrations.md) for the separate Rho memory
+setup, safe removal rules, discovery paths, and live Rho verification.
+Build from current source to use these additions; they are not in the
+published 0.10.0 binaries.
+
+Released commands ship as prebuilt binaries (see the README's Install section). If
 you're working from a source checkout instead, prefix any command with
 `cargo run -p memorywhale-cli --bin <name> --` from the repo root, e.g.
 `cargo run -p memorywhale-cli --bin mw -- --notes "…"`.
