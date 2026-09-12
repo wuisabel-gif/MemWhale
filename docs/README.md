@@ -38,6 +38,7 @@ The repository documentation is organized by the question a reader is asking.
 - [Security and local threat model](SECURITY.md)
 - [Limitations](limitations.md)
 - [Integration matrix and client guides](../integrations/README.md)
+- [Antigravity CLI compatibility research](research/antigravity-cli.md) — documentation assessment, not a verified integration
 
 The root README is the product landing page. `docs/` explains how MemoryWhale
 works, `integrations/` explains how external tools connect, `crates/` contains
