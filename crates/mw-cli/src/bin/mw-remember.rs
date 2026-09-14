@@ -32,10 +32,10 @@ fn run() -> Result<(), String> {
             }
             "--from-hook" => {
                 let name = args.next().ok_or_else(|| {
-                    "mw-remember --from-hook requires claude, rho, or cursor".to_string()
+                    "mw-remember --from-hook requires claude, rho, cursor, or codewhale".to_string()
                 })?;
                 from_hook = Some(Agent::parse(&name).ok_or_else(|| {
-                    format!("unknown hook client {name:?}; use claude, rho, or cursor")
+                    format!("unknown hook client {name:?}; use claude, rho, cursor, or codewhale")
                 })?);
             }
             "--cwd" => {
@@ -101,6 +101,10 @@ fn run() -> Result<(), String> {
 /// Agent hooks must never fail the tool call. Parse stdin JSON and record
 /// what we can; ignore empty, unknown, or broken payloads.
 fn run_from_hook(agent: Agent) {
+    if agent == Agent::Codewhale {
+        run_codewhale_hook();
+        return;
+    }
     if agent == Agent::Cursor {
         run_cursor_hook();
         return;
@@ -113,6 +117,44 @@ fn run_from_hook(agent: Agent) {
         return;
     };
     let _ = memorywhale_cli::remember::remember_command(record);
+}
+
+fn run_codewhale_hook() {
+    use memorywhale_cli::agent_hook::codewhale::{record_from_slice, MAX_HOOK_BYTES};
+    let mut bytes = Vec::new();
+    if io::stdin()
+        .take(MAX_HOOK_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .is_err()
+    {
+        cursor_diagnostic("could not read Codewhale receipt; event skipped");
+        return;
+    }
+    if !env::var_os("MEMORYWHALE_DATA_DIR")
+        .is_some_and(|path| std::path::Path::new(&path).is_absolute())
+    {
+        cursor_diagnostic(
+            "Codewhale capture requires an explicit absolute MEMORYWHALE_DATA_DIR; event skipped",
+        );
+        return;
+    }
+    match record_from_slice(&bytes) {
+        Ok(Some(record)) => {
+            if !record
+                .cwd
+                .as_deref()
+                .is_some_and(|cwd| std::path::Path::new(cwd).is_dir())
+            {
+                cursor_diagnostic("Codewhale execution cwd unavailable locally; event skipped to preserve capture policy");
+                return;
+            }
+            if memorywhale_cli::remember::remember_command(record).is_err() {
+                cursor_diagnostic("Codewhale execution could not be recorded");
+            }
+        }
+        Ok(None) => (),
+        Err(message) => cursor_diagnostic(message),
+    }
 }
 
 fn run_cursor_hook() {
@@ -158,6 +200,6 @@ fn cursor_diagnostic(message: &'static str) {
 fn print_help() {
     println!(
         "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]\n\
-         mw-remember --from-hook claude|rho|cursor   read that client's hook JSON from stdin"
+         mw-remember --from-hook claude|rho|cursor|codewhale   read that client's hook JSON from stdin"
     );
 }

@@ -1,7 +1,8 @@
 //! Parse explicitly selected client hook JSON into a [`CommandRecord`].
 //!
 //! The installer names the client on the argv (`--from-hook claude` /
-//! `--from-hook rho` / `--from-hook cursor`). This module does not guess the client from JSON.
+//! `--from-hook rho` / `--from-hook cursor` / `--from-hook codewhale`).
+//! This module does not guess the client from JSON.
 
 use std::sync::OnceLock;
 
@@ -10,6 +11,7 @@ use serde_json::Value;
 
 use crate::remember::CommandRecord;
 
+pub mod codewhale;
 mod cursor;
 pub const MAX_CURSOR_HOOK_BYTES: u64 = 4 * 1024 * 1024;
 
@@ -31,6 +33,7 @@ pub enum Agent {
     Claude,
     Rho,
     Cursor,
+    Codewhale,
 }
 
 impl Agent {
@@ -39,6 +42,7 @@ impl Agent {
             "claude" | "claude-code" => Some(Self::Claude),
             "rho" => Some(Self::Rho),
             "cursor" => Some(Self::Cursor),
+            "codewhale" => Some(Self::Codewhale),
             _ => None,
         }
     }
@@ -48,11 +52,15 @@ impl Agent {
             Self::Claude => memorywhale_core::provenance::AGENT_CLAUDE,
             Self::Rho => memorywhale_core::provenance::AGENT_RHO,
             Self::Cursor => memorywhale_core::provenance::AGENT_CURSOR,
+            Self::Codewhale => memorywhale_core::provenance::AGENT_CODEWHALE,
         }
     }
 }
 
 pub fn record_from_slice(bytes: &[u8], agent: Agent) -> Option<CommandRecord> {
+    if agent == Agent::Codewhale {
+        return codewhale::record_from_slice(bytes).ok().flatten();
+    }
     if agent == Agent::Cursor {
         return cursor_record_from_slice(bytes).ok().flatten();
     }
@@ -65,6 +73,7 @@ pub fn record_from_value(payload: &Value, agent: Agent) -> Option<CommandRecord>
         Agent::Claude => payload.as_object().and_then(claude),
         Agent::Rho => rho(payload),
         Agent::Cursor => cursor::parse(payload).ok().flatten(),
+        Agent::Codewhale => codewhale::record_from_value(payload),
     }
 }
 

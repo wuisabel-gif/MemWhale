@@ -18,7 +18,7 @@ mw-remember \- record a single command run into local MemoryWhale storage
 .RI [ args... ]
 .br
 .B mw-remember --from-hook
-.B claude|rho|cursor
+.B claude|rho|cursor|codewhale
 .SH DESCRIPTION
 .B mw-remember
 stores one command run \(em its command and arguments, working directory,
@@ -27,7 +27,7 @@ MemoryWhale SQLite database. It is the low-level building block used by the
 per-command shell hook and can also be called directly from scripts. Nothing
 is uploaded.
 .PP
-Supported hooks store structured command provenance as claude, rho, or cursor.
+Supported hooks store structured command provenance as claude, rho, cursor, or codewhale.
 Manual recording stores NULL, displayed and filtered as terminal. This
 producing-agent metadata is separate from source type; both are still command
 records.
@@ -51,7 +51,7 @@ Free-form note attached to the run.
 .BI "--capture-kind " "full|hook"
 Capture mode, normally full; hook denotes lightweight shell-hook capture.
 .TP
-.BI "--from-hook " "claude|rho|cursor"
+.BI "--from-hook " "claude|rho|cursor|codewhale"
 Read that client's hook JSON object from standard input and record a
 supported tool event. Cannot be mixed with manual-recording options or
 a command.
@@ -67,14 +67,20 @@ Cursor hook mode records supported local Shell events with cursor provenance.
 Enable it explicitly with
 .BR "mw integrate cursor --capture" ;
 MCP access and optional skill installation are separate integration modes.
+.PP
+Codewhale hook mode accepts receipts from a separate, optional native Codewhale
+capture plugin and a Codewhale host build supporting execution receipts.
+The base Codewhale MCP plugin remains hook-free; MCP access
+alone does not enable capture. No mw integrate codewhale capture installer
+command is provided.
 .TP
 .B --
 Everything after this is the command and its arguments.
 .SH ENVIRONMENT
 .TP
 .B MEMORYWHALE_HOOK_DIAGNOSTICS
-Set to exactly 1 to enable fixed, nonfatal stderr diagnostics for Cursor hook
-input and storage failures. Default Cursor hook processing is silent on both
+Set to exactly 1 to enable fixed, nonfatal stderr diagnostics for Cursor or
+Codewhale hook input and storage failures. Default processing is silent on both
 output streams. Diagnostics do not include captured payloads or raw storage
 errors and never write to stdout. Other hook clients are unchanged.
 .SH EXAMPLES

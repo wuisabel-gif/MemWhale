@@ -1305,7 +1305,7 @@ pub struct SearchFilters {
 pub const SEARCH_SOURCES: [&str; 5] = ["command", "session", "note", "document", "conversation"];
 /// The agent names accepted by `agent:`. Keep this sourced from core so every
 /// interface uses the same vocabulary.
-pub const SEARCH_AGENTS: [&str; 4] = memorywhale_core::provenance::SUPPORTED_AGENTS;
+pub const SEARCH_AGENTS: [&str; 5] = memorywhale_core::provenance::SUPPORTED_AGENTS;
 
 fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
     let d = chrono::NaiveDate::parse_from_str(val, "%Y-%m-%d")
@@ -1874,6 +1874,15 @@ mod tests {
         let (f2, q2) = parse_search_filters(&["ratio:1", "hello"]).unwrap();
         assert!(f2.tags.is_empty());
         assert_eq!(q2, "ratio:1 hello");
+    }
+
+    #[test]
+    fn parse_search_filters_accepts_codewhale_and_advertises_it_on_errors() {
+        let (filters, query) = parse_search_filters(&["receipt", "agent:codewhale"]).unwrap();
+        assert_eq!(query, "receipt");
+        assert_eq!(filters.agents, vec!["codewhale"]);
+        let error = parse_search_filters(&["agent:unsupported"]).unwrap_err();
+        assert!(error.contains("claude|rho|cursor|codewhale|terminal"));
     }
 
     #[test]

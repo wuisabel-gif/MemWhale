@@ -4,15 +4,22 @@
 pub const AGENT_CLAUDE: &str = "claude";
 pub const AGENT_RHO: &str = "rho";
 pub const AGENT_CURSOR: &str = "cursor";
+pub const AGENT_CODEWHALE: &str = "codewhale";
 pub const AGENT_TERMINAL: &str = "terminal";
-pub const SUPPORTED_AGENTS: [&str; 4] = [AGENT_CLAUDE, AGENT_RHO, AGENT_CURSOR, AGENT_TERMINAL];
+pub const SUPPORTED_AGENTS: [&str; 5] = [
+    AGENT_CLAUDE,
+    AGENT_RHO,
+    AGENT_CURSOR,
+    AGENT_CODEWHALE,
+    AGENT_TERMINAL,
+];
 
 /// Whether a stored optional value is one of the canonical agent identifiers.
 /// NULL is valid and means terminal/manual or legacy provenance.
 pub fn is_valid(agent: Option<&str>) -> bool {
     matches!(
         agent,
-        None | Some(AGENT_CLAUDE) | Some(AGENT_RHO) | Some(AGENT_CURSOR)
+        None | Some(AGENT_CLAUDE) | Some(AGENT_RHO) | Some(AGENT_CURSOR) | Some(AGENT_CODEWHALE)
     )
 }
 
@@ -24,6 +31,7 @@ pub fn label(agent: Option<&str>) -> &'static str {
         Some(AGENT_CLAUDE) => AGENT_CLAUDE,
         Some(AGENT_RHO) => AGENT_RHO,
         Some(AGENT_CURSOR) => AGENT_CURSOR,
+        Some(AGENT_CODEWHALE) => AGENT_CODEWHALE,
         Some(_) => "unknown",
     }
 }
@@ -38,6 +46,11 @@ mod tests {
         assert_eq!(label(Some(AGENT_RHO)), AGENT_RHO);
         assert_eq!(label(Some(AGENT_CURSOR)), AGENT_CURSOR);
         assert!(is_valid(Some(AGENT_CURSOR)));
+        assert_eq!(label(Some(AGENT_CODEWHALE)), AGENT_CODEWHALE);
+        assert!(is_valid(Some(AGENT_CODEWHALE)));
+        assert!(SUPPORTED_AGENTS.contains(&AGENT_CODEWHALE));
+        assert!(!is_valid(Some("Codewhale")));
+        assert!(!is_valid(Some(AGENT_TERMINAL)));
         assert_eq!(label(None), AGENT_TERMINAL);
         assert_eq!(label(Some("agent:claude")), "unknown");
     }

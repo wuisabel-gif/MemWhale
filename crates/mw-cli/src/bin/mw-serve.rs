@@ -3458,11 +3458,12 @@ mod tests {
     }
 
     #[test]
-    fn dashboard_search_includes_cursor_and_filters_provenance_before_limit() {
+    fn dashboard_search_includes_supported_agents_and_filters_provenance_before_limit() {
         let conn = Connection::open_in_memory().unwrap();
         memorywhale_cli::storage::initialize(&conn).unwrap();
         for (label, agent) in [
             ("cursor", Some("cursor")),
+            ("codewhale", Some("codewhale")),
             ("claude", Some("claude")),
             ("rho", Some("rho")),
             ("terminal", None),
@@ -3480,13 +3481,13 @@ mod tests {
             ).unwrap();
         }
         let all = search_results(&conn, "capture-fixture");
-        for label in ["cursor", "claude", "rho", "terminal"] {
+        for label in ["cursor", "codewhale", "claude", "rho", "terminal"] {
             assert!(all.contains(&format!("capture-fixture-{label}")), "{all}");
         }
         assert!(!all.contains("capture-fixture-invalid"));
         let cursor = search_results(&conn, "capture-fixture agent:cursor");
         assert!(cursor.contains("capture-fixture-cursor"));
-        for label in ["claude", "rho", "terminal", "invalid"] {
+        for label in ["codewhale", "claude", "rho", "terminal", "invalid"] {
             assert!(
                 !cursor.contains(&format!("capture-fixture-{label}")),
                 "{cursor}"
@@ -3499,6 +3500,29 @@ mod tests {
         let terminal = search_results(&conn, "capture-fixture agent:terminal");
         assert!(terminal.contains("capture-fixture-terminal"));
         assert!(!terminal.contains("capture-fixture-cursor"));
+        assert!(!terminal.contains("capture-fixture-codewhale"));
+        let codewhale = search_results(&conn, "capture-fixture agent:codewhale");
+        assert!(codewhale.contains("capture-fixture-codewhale"));
+        for label in ["cursor", "claude", "rho", "terminal", "invalid"] {
+            assert!(!codewhale.contains(&format!("capture-fixture-{label}")));
+        }
+    }
+
+    #[test]
+    fn api_agent_filters_accept_codewhale() {
+        assert_eq!(
+            api_agent_filters("/api/v1/search?q=receipt&agent=codewhale").unwrap(),
+            vec!["codewhale"]
+        );
+        assert_eq!(
+            inline_agent_filters("receipt agent:codewhale").unwrap(),
+            ("receipt".to_string(), vec!["codewhale".to_string()])
+        );
+        let (status, body) =
+            api_agent_filters("/api/v1/search?q=receipt&agent=unsupported").unwrap_err();
+        assert_eq!(status, "400 Bad Request");
+        assert!(body.contains("invalid_agent"));
+        assert!(body.contains("claude|rho|cursor|codewhale|terminal"));
     }
 
     #[test]

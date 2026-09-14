@@ -130,16 +130,16 @@ pet tui sync-mempalace git-fix github doctor global status hooks integrate \
     search)
       case "$prev" in
         --project|--machine|--since) return ;;
-        agent:) COMPREPLY=( $(compgen -W "claude rho cursor terminal" -- "$cur") ); return ;;
+        agent:) COMPREPLY=( $(compgen -W "claude rho cursor codewhale terminal" -- "$cur") ); return ;;
         source:) COMPREPLY=( $(compgen -W "command session note document conversation" -- "$cur") ); return ;;
         :)
           case "${COMP_WORDS[COMP_CWORD-2]}" in
-            agent) COMPREPLY=( $(compgen -W "claude rho cursor terminal" -- "$cur") ); return ;;
+            agent) COMPREPLY=( $(compgen -W "claude rho cursor codewhale terminal" -- "$cur") ); return ;;
             source) COMPREPLY=( $(compgen -W "command session note document conversation" -- "$cur") ); return ;;
           esac
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--explain --project --machine --since tag: source:command source:session source:note source:document source:conversation agent:claude agent:rho agent:cursor agent:terminal before: after: limit:" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--explain --project --machine --since tag: source:command source:session source:note source:document source:conversation agent:claude agent:rho agent:cursor agent:codewhale agent:terminal before: after: limit:" -- "$cur") )
       # Readline treats ':' as a word break by default; do not insert it twice.
       if [[ "$cur" == *:* && "$COMP_WORDBREAKS" == *:* ]]; then
         COMPREPLY=( "${COMPREPLY[@]#${cur%:*}:}" )

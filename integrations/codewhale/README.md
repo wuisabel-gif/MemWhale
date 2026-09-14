@@ -169,7 +169,7 @@ An empty store is valid. The tools return empty results, not errors.
 | Capability | Available |
 | --- | --- |
 | MCP memory access | Yes |
-| Automatic execution capture | No |
+| Automatic execution capture | Separate opt-in [capture bundle](capture-plugin/README.md); requires the Codewhale execution-receipt prerequisite, not stock legacy hooks |
 | Memory-use guidance | Native plugin skill/commands, or roles / constitution instructions |
 
 ### How to use
@@ -183,12 +183,24 @@ verified fixes. See CodeWhale's `docs/FLEET.md` and `docs/CONFIGURATION.md`.
 
 ### Automatic capture
 
-MCP access is not automatic execution capture. Commands CodeWhale runs are
-recorded by MemoryWhale only through the normal capture paths: `mw-run --`,
-`mw-remember`, `mw --notes "project:…"` session recording, or an installed
-shell hook. CodeWhale has its own lifecycle hooks (`docs/HOOKS.md`), but none
-is verified to write into MemoryWhale; do not assume capture without one of
-the paths above.
+MCP access is not automatic execution capture. The base `memorywhale` plugin
+still contains no capture hook. A separate optional
+[`memorywhale-capture` bundle](capture-plugin/README.md) consumes versioned
+post-admission execution receipts from a receipt-capable Codewhale build.
+Legacy hook environment fields are not sufficient: a before-hook command can
+be rewritten before execution, and the workspace is not necessarily the actual
+cwd. The adapter does not join those fields and call them executed evidence.
+
+Only final native shell receipts with complete execution identity are stored.
+Unknown exits stay unknown, combined output is labeled, and capture exclusions
+are applied to the actual locally available cwd. Missing/unsupported receipts,
+including some denial/cancellation/backend paths, are skipped. This is not a
+headless/ACP capture claim. See the capture bundle's prerequisites, privacy
+boundary, explicit global-hook-gate requirements, and separate disablement.
+
+Without that opt-in, use the normal capture paths: `mw-run --`, explicit
+`mw-remember`, terminal session recording, or a shell hook. Do not assume that
+installing MCP or a guidance skill records new executions.
 
 ### Limitations
 

@@ -182,6 +182,7 @@ _mw_search_filters() {
     'agent\:claude:Claude command provenance'
     'agent\:rho:Rho command provenance'
     'agent\:cursor:Cursor command provenance'
+    'agent\:codewhale:Codewhale command provenance'
     'agent\:terminal:NULL provenance (manual or legacy)'
     'source\:command:command source'
     'source\:session:session source'
