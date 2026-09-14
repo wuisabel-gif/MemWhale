@@ -51,6 +51,7 @@ fn optional_bundle_contains_only_a_nonsteering_completion_observer() {
     );
     assert_eq!(hook["timeout_secs"].as_integer(), Some(5));
     assert_eq!(hook["continue_on_error"].as_bool(), Some(true));
+    assert_eq!(hook["background"].as_bool(), Some(true));
     let conditions = hook["condition"]["conditions"].as_array().unwrap();
     let names: Vec<_> = conditions
         .iter()
@@ -337,6 +338,7 @@ fn repeated_executions_are_preserved_without_double_recording_after_error_surfac
     v["event"] = json!("on_error");
     s.hook(&v);
     v["event"] = json!("tool_call_after");
+    s.hook(&v);
     v["tool_call_id"] = json!("second-execution");
     s.hook(&v);
     assert_eq!(s.rows().len(), 2);

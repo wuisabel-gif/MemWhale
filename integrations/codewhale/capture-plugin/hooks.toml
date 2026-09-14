@@ -6,6 +6,6 @@ name = "memorywhale-execution-receipt"
 event = "tool_call_after"
 command = "mw-remember --from-hook codewhale"
 timeout_secs = 5
-background = false
+background = true
 continue_on_error = true
 condition = { type = "any", conditions = [{ type = "tool_name", name = "exec_shell" }, { type = "tool_name", name = "Bash" }, { type = "tool_name", name = "bash" }] }

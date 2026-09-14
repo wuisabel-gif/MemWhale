@@ -35,12 +35,7 @@ struct Receipt {
     stderr: String,
     stdout_truncated: bool,
     stderr_truncated: bool,
-    #[serde(default = "default_output_mode")]
     output_mode: String,
-}
-
-fn default_output_mode() -> String {
-    "separate".to_string()
 }
 
 pub fn record_from_slice(bytes: &[u8]) -> Result<Option<CommandRecord>, &'static str> {
@@ -158,7 +153,7 @@ fn parse(envelope: Envelope) -> Result<Option<CommandRecord>, &'static str> {
         stdout,
         stderr,
         notes: format!(
-            "agent:codewhale codewhale_completion:{} codewhale_metadata:{metadata}",
+            "agent:codewhale codewhale_session_id:{session_id} codewhale_tool_call_id:{tool_call_id} codewhale_completion:{} codewhale_metadata:{metadata}",
             receipt.completion
         ),
         capture_kind: "full".into(),

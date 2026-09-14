@@ -51,6 +51,34 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
 
     let conn = open_ready(&db_path)?;
     crate::restrict_path_permissions(&db_path, false)?;
+    if record.agent.as_deref() == Some(memorywhale_core::provenance::AGENT_CODEWHALE)
+        && record.notes.contains("codewhale_session_id:")
+        && record.notes.contains("codewhale_tool_call_id:")
+    {
+        let session = record
+            .notes
+            .split("codewhale_session_id:")
+            .nth(1)
+            .and_then(|value| value.split_whitespace().next())
+            .unwrap_or_default();
+        let call = record
+            .notes
+            .split("codewhale_tool_call_id:")
+            .nth(1)
+            .and_then(|value| value.split_whitespace().next())
+            .unwrap_or_default();
+        let pattern = format!("%codewhale_session_id:{session} codewhale_tool_call_id:{call}%");
+        let duplicate: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM command_runs WHERE agent = ?1 AND notes LIKE ?2)",
+                params![memorywhale_core::provenance::AGENT_CODEWHALE, pattern],
+                |row| row.get(0),
+            )
+            .map_err(|err| format!("failed to check Codewhale receipt identity: {err}"))?;
+        if duplicate {
+            return Ok(None);
+        }
+    }
     conn.execute(
         "
         INSERT INTO command_runs

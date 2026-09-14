@@ -55,9 +55,10 @@ Do not change an unrelated hook or approval policy to make a smoke test pass.
 The component's own `enabled = true` only permits its entry to load; it does not
 overwrite the host's global configuration.
 
-Only `tool_call_after` is subscribed. There is no before-hook approval verdict,
-`on_error` duplicate subscription, prompt rewriting, automatic recall, or
-restart/continue action. The observer has a five-second configured timeout;
+Only `tool_call_after` is subscribed. It is a background observer and cannot
+steer the tool call. There is no before-hook approval verdict, `on_error`
+duplicate subscription, prompt rewriting, automatic recall, or restart/continue
+action. The observer has a five-second configured timeout;
 Codewhale's global timeout override can replace it. Check the effective host
 configuration rather than assuming the file alone defines runtime behavior.
 
