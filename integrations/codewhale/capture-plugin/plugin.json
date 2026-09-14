@@ -1,0 +1,13 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/plugin.json",
+  "name": "memorywhale-capture",
+  "version": "0.1.0",
+  "description": "Opt-in terminal evidence capture from Codewhale post-admission execution receipts. Requires the receipt-capable host; separate from memory access.",
+  "license": "MIT",
+  "extensions": {
+    "net.codewhale": {
+      "hooks": { "path": "hooks.toml" },
+      "when": { "os": ["macos", "linux"], "binaries": ["mw-remember"] }
+    }
+  }
+}

@@ -68,8 +68,10 @@ has cursor
 COMP_WORDBREAKS=' '
 complete_words _mw_complete mw search agent:cu
 has agent:cursor
+complete_words _mw_complete mw search agent:co
+has agent:codewhale
 complete_words _mw_remember_complete mw-remember --from-hook ''
-for client in claude rho cursor; do has "$client"; done
+for client in claude rho cursor codewhale; do has "$client"; done
 complete_words _mw_remember_complete mw-remember ''
 for flag in --cwd --exit-code --stdout --stderr --notes --capture-kind --from-hook --help --; do has "$flag"; done
 printf 'Cursor completion regression checks passed.\n'

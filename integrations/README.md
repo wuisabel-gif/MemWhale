@@ -41,7 +41,7 @@ features.
 | CLIProxyAPI | No; model-provider proxy | No | No; configure in the agent | [Guide](cliproxyapi/README.md) |
 | Claude Desktop | Yes | No | No | [Guide](claude-desktop/README.md) |
 | Cline | Yes | No | Yes | [Guide](cline/README.md) |
-| CodeWhale | Yes | No | Yes, via roles/constitution | [Guide](codewhale/README.md) |
+| Codewhale | Yes | Separate opt-in development bundle; requires host execution receipts | Yes, via plugin guidance / roles | [Guide](codewhale/README.md) |
 | Codex CLI | Yes | No | Yes | [Guide](codex/README.md) |
 | Continue | Yes | No | Yes | [Guide](continue/README.md) |
 | CrowClaw | Yes | No | Yes | [Guide](crowclaw/README.md) |

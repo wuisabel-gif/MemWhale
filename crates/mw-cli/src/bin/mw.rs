@@ -302,7 +302,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
@@ -2750,7 +2750,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         || filters.after.is_some();
     if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }

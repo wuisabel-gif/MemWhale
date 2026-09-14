@@ -2,11 +2,15 @@
 
 ## `MEMORYWHALE_HOOK_DIAGNOSTICS`
 
-Set to exactly `1` to enable fixed, nonfatal stderr diagnostics for Cursor hook
-processing (`mw-remember --from-hook cursor`). By default, expected invalid
-payload and storage failures stay silent. Diagnostics never write to stdout
+Set to exactly `1` to enable fixed, nonfatal stderr diagnostics for Cursor or
+Codewhale hook processing (`mw-remember --from-hook cursor` or
+`mw-remember --from-hook codewhale`). By default, expected invalid payload and
+storage failures stay silent. Diagnostics never write to stdout
 or include captured payload contents. This development-branch option does not
 enable capture, change client permissions, or alter other hook clients.
+Codewhale capture requires its separate optional native capture plugin and a
+Codewhale host build supporting execution receipts; the base MCP plugin stays
+hook-free.
 
 ## `MEMORYWHALE_DATA_DIR`
 
