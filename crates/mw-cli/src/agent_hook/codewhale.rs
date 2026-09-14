@@ -59,6 +59,14 @@ fn identifier(value: Option<String>) -> Result<String, &'static str> {
         .ok_or("Codewhale correlation identifier unavailable; event skipped")
 }
 
+fn hex_identifier(value: &str) -> String {
+    value
+        .as_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 fn output(mut text: String, upstream_truncated: bool, stream: &str) -> String {
     let local_truncated = text.len() > 20_000;
     if local_truncated {
@@ -153,7 +161,9 @@ fn parse(envelope: Envelope) -> Result<Option<CommandRecord>, &'static str> {
         stdout,
         stderr,
         notes: format!(
-            "agent:codewhale codewhale_session_id:{session_id} codewhale_tool_call_id:{tool_call_id} codewhale_completion:{} codewhale_metadata:{metadata}",
+            "agent:codewhale codewhale_session_hex:{} codewhale_tool_call_hex:{} codewhale_completion:{} codewhale_metadata:{metadata}",
+            hex_identifier(&session_id),
+            hex_identifier(&tool_call_id),
             receipt.completion
         ),
         capture_kind: "full".into(),

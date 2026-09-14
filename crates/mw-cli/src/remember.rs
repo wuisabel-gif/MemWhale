@@ -51,23 +51,26 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
 
     let conn = open_ready(&db_path)?;
     crate::restrict_path_permissions(&db_path, false)?;
-    if record.agent.as_deref() == Some(memorywhale_core::provenance::AGENT_CODEWHALE)
-        && record.notes.contains("codewhale_session_id:")
-        && record.notes.contains("codewhale_tool_call_id:")
-    {
+    let codewhale_receipt = record.agent.as_deref()
+        == Some(memorywhale_core::provenance::AGENT_CODEWHALE)
+        && record.notes.contains("codewhale_session_hex:")
+        && record.notes.contains("codewhale_tool_call_hex:");
+    if codewhale_receipt {
         let session = record
             .notes
-            .split("codewhale_session_id:")
+            .split("codewhale_session_hex:")
             .nth(1)
             .and_then(|value| value.split_whitespace().next())
             .unwrap_or_default();
         let call = record
             .notes
-            .split("codewhale_tool_call_id:")
+            .split("codewhale_tool_call_hex:")
             .nth(1)
             .and_then(|value| value.split_whitespace().next())
             .unwrap_or_default();
-        let pattern = format!("%codewhale_session_id:{session} codewhale_tool_call_id:{call}%");
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|err| format!("failed to lock Codewhale receipt identity: {err}"))?;
+        let pattern = format!("%codewhale_session_hex:{session} codewhale_tool_call_hex:{call}%");
         let duplicate: bool = conn
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM command_runs WHERE agent = ?1 AND notes LIKE ?2)",
@@ -76,6 +79,7 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
             )
             .map_err(|err| format!("failed to check Codewhale receipt identity: {err}"))?;
         if duplicate {
+            let _ = conn.execute_batch("ROLLBACK");
             return Ok(None);
         }
     }
@@ -116,6 +120,10 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
         .map_err(|err| format!("failed to insert argument: {err}"))?;
     }
 
+    if codewhale_receipt {
+        conn.execute_batch("COMMIT")
+            .map_err(|err| format!("failed to commit Codewhale receipt: {err}"))?;
+    }
     Ok(Some(run_id))
 }
 
