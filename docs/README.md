@@ -35,6 +35,7 @@ The repository documentation is organized by the question a reader is asking.
 ## Design and policy
 
 - [Architecture](architecture.md)
+- [Information-flow security constitution](information-flow-policy.md) — design policy; enforcement is not implemented
 - [Rho 2.10.0 compatibility verification](research/rho-2.10-compatibility.md) — live results, privacy boundary, and capture limits
 - [Security and local threat model](SECURITY.md)
 - [Limitations](limitations.md)

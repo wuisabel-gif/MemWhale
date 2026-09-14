@@ -91,3 +91,10 @@ model.
 
 Cross-cutting storage, privacy, or remote-service proposals require explicit
 architectural discussion before implementation.
+
+## Information-flow policy
+
+Future confidentiality controls must follow the
+[information-flow security constitution](information-flow-policy.md). That
+document defines the Bell–LaPadula-inspired design rules and prerequisites; it
+does **not** claim that classification enforcement is implemented today.
