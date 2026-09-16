@@ -1,3 +1,12 @@
+# Privacy retention report
+
+`mw retention report` is a read-only inventory of the local MemoryWhale store.
+It reports session and command counts, retained byte totals, oldest/newest
+timestamps, largest command outputs, pending agent notes, and project/agent
+breakdowns. It also names the evidence a future purge could target. The
+command is always a dry run and does not delete database rows or transcript
+files; any future purge must use narrow selectors and explicit confirmation.
+
 # CLI reference
 
 ## Portable client setup and optional skills

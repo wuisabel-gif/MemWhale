@@ -17,6 +17,30 @@ pub mod hermes {
     pub use crate::integrate::hermes::install;
 }
 
+#[cfg(test)]
+mod retention_report_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn inventories_without_mutating_data() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::storage::initialize(&conn).unwrap();
+        conn.execute("INSERT INTO command_runs (command, argv_json, stdout, stderr, notes, created_at, agent) VALUES ('build','[]','abc','de','','2025-01-01T00:00:00Z','rho')", []).unwrap();
+        conn.execute("INSERT INTO bookmarks (label, created_at, author_kind, approved) VALUES ('review me','2025-01-02T00:00:00Z','agent',0)", []).unwrap();
+        let report = retention_report(&conn).unwrap();
+        assert_eq!(report.output_bytes, 5);
+        assert_eq!(report.pending_notes, 1);
+        assert_eq!(report.agents[0], ("rho".to_string(), 1));
+        assert_eq!(
+            conn.query_row("SELECT count(*) FROM command_runs", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+}
+
 pub mod storage;
 pub mod tui;
 
@@ -1451,6 +1475,60 @@ pub struct PendingNote {
     pub author_kind: String,
     pub author_name: Option<String>,
     pub source_session_id: Option<i64>,
+}
+
+/// Read-only inventory used by the privacy/retention report.
+pub struct RetentionReport {
+    pub sessions: i64,
+    pub session_bytes: i64,
+    pub oldest_session: Option<String>,
+    pub newest_session: Option<String>,
+    pub runs: i64,
+    pub output_bytes: i64,
+    pub oldest_run: Option<String>,
+    pub newest_run: Option<String>,
+    pub screenshots: i64,
+    pub bookmarks: i64,
+    pub pending_notes: i64,
+    pub largest_outputs: Vec<(i64, i64, String)>,
+    pub projects: Vec<(String, i64)>,
+    pub agents: Vec<(String, i64)>,
+}
+
+/// Inventory all retained evidence without selecting or deleting anything.
+pub fn retention_report(conn: &Connection) -> Result<RetentionReport, String> {
+    let one = |sql: &str| {
+        conn.query_row(sql, [], |r| r.get::<_, i64>(0))
+            .map_err(|e| e.to_string())
+    };
+    let text = |sql: &str| {
+        conn.query_row(sql, [], |r| r.get::<_, Option<String>>(0))
+            .map_err(|e| e.to_string())
+    };
+    let mut largest = Vec::new();
+    let mut stmt = conn.prepare("SELECT id, length(stdout)+length(stderr), command FROM command_runs ORDER BY 2 DESC LIMIT 5").map_err(|e| e.to_string())?;
+    for row in stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .map_err(|e| e.to_string())?
+    {
+        largest.push(row.map_err(|e| e.to_string())?);
+    }
+    let grouped = |sql: &str| -> Result<Vec<(String, i64)>, String> {
+        let mut s = conn.prepare(sql).map_err(|e| e.to_string())?;
+        let rows = s
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, Option<String>>(0)?
+                        .unwrap_or_else(|| "(none)".into()),
+                    r.get(1)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+            .collect();
+        Ok(rows)
+    };
+    Ok(RetentionReport { sessions: one("SELECT count(*) FROM sessions")?, session_bytes: one("SELECT coalesce(sum(byte_count),0) FROM sessions")?, oldest_session: text("SELECT min(started_at) FROM sessions" )?, newest_session: text("SELECT max(started_at) FROM sessions" )?, runs: one("SELECT count(*) FROM command_runs")?, output_bytes: one("SELECT coalesce(sum(length(stdout)+length(stderr)),0) FROM command_runs")?, oldest_run: text("SELECT min(created_at) FROM command_runs")?, newest_run: text("SELECT max(created_at) FROM command_runs")?, screenshots: one("SELECT count(*) FROM screenshots")?, bookmarks: one("SELECT count(*) FROM bookmarks")?, pending_notes: one("SELECT count(*) FROM bookmarks WHERE approved=0 AND author_kind='agent'")?, largest_outputs: largest, projects: grouped("SELECT coalesce(project, repository_name), count(*) FROM sessions GROUP BY 1 ORDER BY 2 DESC")?, agents: grouped("SELECT agent, count(*) FROM command_runs GROUP BY 1 ORDER BY 2 DESC")? })
 }
 
 impl PendingNote {
