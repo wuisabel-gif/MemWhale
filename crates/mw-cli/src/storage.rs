@@ -131,6 +131,18 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS command_recipes (
+            id INTEGER PRIMARY KEY, description TEXT NOT NULL, cwd TEXT,
+            args_json TEXT NOT NULL, expected_criteria TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS command_recipe_sources (
+            recipe_id INTEGER NOT NULL, command_run_id INTEGER NOT NULL,
+            PRIMARY KEY (recipe_id, command_run_id),
+            FOREIGN KEY(recipe_id) REFERENCES command_recipes(id) ON DELETE CASCADE,
+            FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE RESTRICT
+        );
+
         CREATE TABLE IF NOT EXISTS bookmarks (
             id INTEGER PRIMARY KEY,
             label TEXT NOT NULL,
@@ -366,6 +378,8 @@ mod tests {
             "bookmarks",
             "screenshots",
             "mempalace_sync",
+            "command_recipes",
+            "command_recipe_sources",
         ] {
             let exists: i64 = conn
                 .query_row(
