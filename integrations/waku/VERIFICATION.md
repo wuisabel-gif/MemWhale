@@ -55,8 +55,8 @@ modify SQLite approval fields, or weaken `review_agent_memories`.
 Run `scripts/verify-waku-mcp.py` as documented in the guide. Its fresh scratch
 contains per-phase stdout/stderr, `result.json`, and only synthetic Waku and
 MemoryWhale stores. The local passing runs were `run-5` (SDK 2.1.0), `run-6`
-(SDK 2.2.0), and `run-8` (final skill, source-identity, network/isolation guards,
-and native conversation-persistence check).
+(SDK 2.2.0), and `run-9` (final source-identity, network/isolation, exact persisted
+content, quiet-stderr, and native conversation-persistence checks).
 These runtime artifacts, the installed environment, and the source clone are
 not part of the PR. The fixture never deletes them.
 
@@ -67,7 +67,7 @@ and trace export are disabled. Only the selected local stdio server is configure
 The scripted client uses Waku's existing injection seam; neither MCP dispatch
 nor persistence is mocked.
 
-Five dependency-free asset/launcher checks run in MemoryWhale CI through
+Six dependency-free asset/launcher/verifier checks run in MemoryWhale CI through
 `scripts/test-waku-integration.py`. The optional native Waku scenario is run
 separately; a passing asset check alone is not a native integration pass.
 

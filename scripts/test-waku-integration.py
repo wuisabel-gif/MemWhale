@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import tempfile
 from types import ModuleType
 import unittest
 from unittest.mock import patch
@@ -56,6 +57,29 @@ class WakuAssets(unittest.TestCase):
 
     def test_verifier_syntax(self):
         ast.parse((ROOT / 'scripts/verify-waku-mcp.py').read_text())
+
+    def test_verifier_rejects_changed_note_content_and_stderr(self):
+        spec = importlib.util.spec_from_file_location('waku_verifier', ROOT / 'scripts/verify-waku-mcp.py')
+        verifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(verifier)
+        expected = [(verifier.HUMAN_TEXT, 'human', 1), (verifier.PROPOSED_TEXT, 'agent', 0)]
+        verifier.check_notes(expected)
+        for index in [0, 1]:
+            changed = list(expected)
+            changed[index] = ('substituted content', *changed[index][1:])
+            with self.assertRaises(RuntimeError):
+                verifier.check_notes(changed)
+        with tempfile.TemporaryDirectory(prefix='mw-waku-assertions-') as directory:
+            root = Path(directory)
+            for name in ['write', 'read', 'disabled']:
+                (root / (name + '.stderr')).write_text('')
+            self.assertEqual(verifier.check_stderr(root), [])
+            for name in ['write', 'read', 'disabled']:
+                path = root / (name + '.stderr')
+                path.write_text('unexpected warning')
+                with self.assertRaises(RuntimeError):
+                    verifier.check_stderr(root)
+                path.write_text('')
 
 
 if __name__ == '__main__':

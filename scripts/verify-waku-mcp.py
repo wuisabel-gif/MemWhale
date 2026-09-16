@@ -19,6 +19,8 @@ from types import SimpleNamespace as NS
 
 PIN = '4c19b28366df60c4c812e48851d19857cfb27398'
 MARKER = 'WAKU_MEMORYWHALE_SYNTHETIC_20260916'
+HUMAN_TEXT = MARKER + ': synthetic human-approved fixture.'
+PROPOSED_TEXT = MARKER + '_PROPOSED: synthetic lesson; awaiting normal review.'
 TOOLS = {'recent_errors', 'search_memory', 'get_context', 'remember', 'similar_failures', 'stats'}
 REPO = Path(__file__).resolve().parents[1]
 
@@ -26,6 +28,18 @@ REPO = Path(__file__).resolve().parents[1]
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def check_notes(notes):
+    require(notes == [(HUMAN_TEXT, 'human', 1), (PROPOSED_TEXT, 'agent', 0)],
+            'stored note content, approval, or provenance differs from the requested fixtures')
+
+
+def check_stderr(root):
+    nonempty = [name for name in ['write', 'read', 'disabled']
+                if (root / (name + '.stderr')).stat().st_size]
+    require(not nonempty, 'a passing verification must have empty stderr: ' + ', '.join(nonempty))
+    return nonempty
 
 
 def phase(root, name):
@@ -60,7 +74,7 @@ def phase(root, name):
             require(self.calls <= 2, 'unexpected agent-loop request')
             if name != 'disabled' and self.calls == 1:
                 tool = 'memorywhale_remember' if name == 'write' else 'memorywhale_search_memory'
-                args = {'text': MARKER + '_PROPOSED: synthetic lesson; awaiting normal review.'} if name == 'write' else {'query': MARKER}
+                args = {'text': PROPOSED_TEXT} if name == 'write' else {'query': MARKER}
                 content = [NS(type='tool_use', id='synthetic-call', name=tool, input=args)]
                 reason = 'tool_use'
             else:
@@ -144,7 +158,7 @@ def main():
         'MEMORYWHALE_DATA_DIR': str(root / 'store')}
     # Seed only explicit synthetic human evidence through the public CLI. Do
     # not turn off review_agent_memories or edit an approval bit in SQLite.
-    subprocess.run([str((a.bin_dir / 'mw').resolve()), 'remember', MARKER + ': synthetic human-approved fixture.'],
+    subprocess.run([str((a.bin_dir / 'mw').resolve()), 'remember', HUMAN_TEXT],
                    cwd=root / 'workspace', env=env, capture_output=True, check=True, timeout=15)
     outcomes = []
     for name in ['write', 'read', 'disabled']:
@@ -166,12 +180,13 @@ def main():
                 'native Waku conversation persistence did not survive the three phases')
     with sqlite3.connect(f'file:{root / "store/memorywhale.sqlite3"}?mode=ro', uri=True) as conn:
         notes = conn.execute('SELECT label, author_kind, approved FROM bookmarks ORDER BY id').fetchall()
-    require(len(notes) == 2 and notes[0][1:] == ('human', 1) and notes[1][1:] == ('agent', 0), 'note approval/provenance boundary changed')
+    check_notes(notes)
+    stderr_nonempty = check_stderr(root)
     report = {'status': 'PASS', 'waku_commit': revision, 'waku_version': importlib.metadata.version('waku-agent'),
         'mcp_version': importlib.metadata.version('mcp'), 'python_version': sys.version.split()[0],
         'mw_mcp_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
         'phases': outcomes, 'pending_note_preserved': True,
-        'stderr_nonempty': [name for name in ['write','read','disabled'] if (root / (name+'.stderr')).stat().st_size]}
+        'stderr_nonempty': stderr_nonempty}
     (root / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))
 
