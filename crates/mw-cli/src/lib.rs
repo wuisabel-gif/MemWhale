@@ -2,6 +2,7 @@
 
 pub mod agent_hook;
 pub mod github;
+pub mod handoff;
 pub mod integrate;
 pub mod mcp;
 pub mod remember;
