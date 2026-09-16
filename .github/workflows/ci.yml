@@ -29,6 +29,8 @@ jobs:
         run: python3 scripts/test-codewhale-plugin.py --bin-dir target/debug
       - name: Check Waku integration assets and launcher
         run: python3 scripts/test-waku-integration.py
+      - name: Check Kimi Code integration assets
+        run: python3 scripts/test-kimi-code-integration.py
 
   release-packages:
     name: Release package dry-run and smoke

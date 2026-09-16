@@ -18,3 +18,5 @@ __pycache__/
 
 # Isolated Waku verification environment, source checkout, and synthetic stores
 .verification-waku/
+# Isolated third-party source and Kimi verification profiles
+.verification-kimi/
