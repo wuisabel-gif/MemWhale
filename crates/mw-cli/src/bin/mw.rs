@@ -45,6 +45,7 @@ fn run() -> Result<(), String> {
             return Ok(());
         }
         Some("show") => return show_session(&raw_args[1..]),
+        Some("case") => return case_file_cmd(&raw_args[1..]),
         Some("list") => return list_sessions(&raw_args[1..]),
         Some("timeline") => return project_timeline(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
@@ -200,6 +201,25 @@ fn format_opt<T: std::fmt::Display>(value: &Option<T>) -> String {
         .as_ref()
         .map(ToString::to_string)
         .unwrap_or_else(|| "<none>".to_string())
+fn case_file_cmd(args: &[String]) -> Result<(), String> {
+    let conn = memorywhale_cli::storage::open()?;
+    match args.first().map(String::as_str) {
+        Some("create") => memorywhale_cli::case_files::create(&conn, &args[1..]),
+        Some("list") => memorywhale_cli::case_files::list(&conn),
+        Some("show") | Some("export") => {
+            let id: i64 = args
+                .get(1)
+                .ok_or("missing case file id")?
+                .parse()
+                .map_err(|_| "invalid case file id")?;
+            if args[0] == "show" {
+                memorywhale_cli::case_files::show(&conn, id)
+            } else {
+                memorywhale_cli::case_files::export(&conn, id)
+            }
+        }
+        _ => Err("usage: mw case create|show|list|export".into()),
+    }
 }
 
 fn record_session(notes: String, live: bool) -> Result<(), String> {
@@ -382,6 +402,8 @@ fn print_help() {
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw timeline --project X [--after DATE] [--before DATE] [--type TYPE] [--limit N]  read-only project event timeline\n\
          mw show <id>             print the full faithful transcript of a session\n\
+         mw case create --title T --command-ids 1,2 [--observations X] [--conclusion X] [--unresolved X] [--status open|resolved|closed]\n\
+         mw case show|list|export <id>  inspect human-authored case files\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
