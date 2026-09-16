@@ -15,3 +15,6 @@ src-tauri/gen/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Isolated Waku verification environment, source checkout, and synthetic stores
+.verification-waku/
