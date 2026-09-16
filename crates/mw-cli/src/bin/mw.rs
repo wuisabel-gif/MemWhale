@@ -302,7 +302,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank commands, sessions, and notes by relevance (--explain shows why)\n\
+         mw search <text> [--mode evidence|lessons|recipes|failures] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank memories by relevance (--explain shows why)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
@@ -2735,10 +2735,27 @@ fn note_meta(conn: &Connection, id: i64) -> Option<(String, String)> {
 fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
+    let mode_value = args.iter().enumerate().find_map(|(i, a)| {
+        a.strip_prefix("--mode=")
+            .map(str::to_owned)
+            .or_else(|| (a == "--mode").then(|| args.get(i + 1).cloned()).flatten())
+    });
+    let mode = mode_value
+        .as_deref()
+        .map(memorywhale_cli::SearchMode::parse)
+        .transpose()?;
+    let mode_index = args.iter().position(|a| a == "--mode");
     let terms: Vec<&str> = args
         .iter()
         .map(|s| s.as_str())
-        .filter(|a| *a != "--explain")
+        .enumerate()
+        .filter(|(i, a)| {
+            *a != "--explain"
+                && *a != "--mode"
+                && !a.starts_with("--mode=")
+                && mode_index != Some(i.saturating_sub(1))
+        })
+        .map(|(_, a)| a)
         .collect();
     // Pull inline `tag:`/`source:`/`agent:`/`before:`/`after:`/`limit:` filters out of the
     // terms; whatever's left is the free-text query.
@@ -2793,6 +2810,11 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         scope.machine.as_deref(),
         scope.cutoff(now),
     );
+    let mems = if let Some(mode) = mode {
+        mode.apply(mems)
+    } else {
+        mems
+    };
     // Inline tag:/source:/before:/after: filters narrow the set before ranking.
     let mems = memorywhale_cli::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);

@@ -41,6 +41,7 @@ pub(super) fn tool_defs() -> Value {
                 "project": {"type": "string", "description": "optional: only memory recorded for this project, e.g. demo"},
                 "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
                 "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"}
+                ,"mode": {"type": "string", "enum": ["evidence", "lessons", "recipes", "failures"], "description": "optional conservative retrieval view"}
             }, "required": ["query"]}
         },
         {
@@ -99,6 +100,7 @@ pub(super) fn call_tool(
                 scope_arg(args, "project"),
                 scope_arg(args, "machine"),
                 agent_arg(args)?,
+                mode_arg(args)?,
             )
         }
         "get_context" => {
@@ -276,6 +278,7 @@ fn search_memory(
     project: Option<&str>,
     machine: Option<&str>,
     agent: Option<String>,
+    mode: Option<crate::SearchMode>,
 ) -> Result<String, String> {
     let conn = open()?;
     let now = Utc::now();
@@ -293,6 +296,11 @@ fn search_memory(
         ..Default::default()
     };
     let mems = crate::filter_memories(mems, &filters);
+    let mems = if let Some(mode) = mode {
+        mode.apply(mems)
+    } else {
+        mems
+    };
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(query, now);
     let tags = task_tags(&[project, machine]);
@@ -308,6 +316,12 @@ fn search_memory(
         out.push_str(&render_hit(&conn, sm));
     }
     Ok(out)
+}
+
+fn mode_arg(args: &Value) -> Result<Option<crate::SearchMode>, String> {
+    scope_arg(args, "mode")
+        .map(crate::SearchMode::parse)
+        .transpose()
 }
 
 /// Non-empty scope values as engine task tags, so task-relevance scoring can

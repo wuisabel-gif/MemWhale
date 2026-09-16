@@ -1397,6 +1397,49 @@ pub fn filter_memories(
     mems
 }
 
+/// Conservative retrieval views based only on stored provenance and tags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchMode {
+    Evidence,
+    Lessons,
+    Recipes,
+    Failures,
+}
+
+impl SearchMode {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "evidence" => Ok(Self::Evidence),
+            "lessons" => Ok(Self::Lessons),
+            "recipes" => Ok(Self::Recipes),
+            "failures" => Ok(Self::Failures),
+            "unresolved" => Err(
+                "search mode `unresolved` is not available: resolution is not stored reliably"
+                    .into(),
+            ),
+            _ => Err(format!(
+                "unknown search mode {value:?}; choose evidence, lessons, recipes, failures"
+            )),
+        }
+    }
+    pub fn apply(self, mut mems: Vec<memorywhale_core::Memory>) -> Vec<memorywhale_core::Memory> {
+        use memorywhale_core::sqlite::decode_id;
+        match self {
+            Self::Evidence => mems
+                .retain(|m| !matches!(decode_id(m.id).0, memorywhale_core::sqlite::Source::Note)),
+            Self::Lessons => {
+                mems.retain(|m| matches!(decode_id(m.id).0, memorywhale_core::sqlite::Source::Note))
+            }
+            Self::Recipes => mems.retain(|m| {
+                matches!(decode_id(m.id).0, memorywhale_core::sqlite::Source::Note)
+                    && m.text.to_lowercase().contains("fix:")
+            }),
+            Self::Failures => mems.retain(|m| m.tags.iter().any(|t| t == "error")),
+        }
+        mems
+    }
+}
+
 /// True when agent-written memories should start unapproved and be excluded from
 /// retrieval until approved in the dashboard. On by default. Set
 /// `MEMORYWHALE_REVIEW_AGENT_MEMORIES=0` or
