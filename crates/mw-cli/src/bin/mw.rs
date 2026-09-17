@@ -118,7 +118,8 @@ fn compare_command_runs(args: &[String]) -> Result<(), String> {
         .map_err(|_| format!("invalid run id: {}", args[1]))?;
     let conn = memorywhale_cli::storage::open()?;
     let sql = "SELECT id, command, argv_json, cwd, exit_code, stdout, stderr, created_at,
-                      agent, capture_kind, repository_id, repository_name, worktree_root, notes
+                      agent, capture_kind, repository_id, repository_name, worktree_root, notes,
+                      error_fingerprint
                FROM command_runs WHERE id = ?1";
     let load = |id| {
         conn.query_row(sql, [id], |row| {
@@ -137,6 +138,7 @@ fn compare_command_runs(args: &[String]) -> Result<(), String> {
                 row.get::<_, Option<String>>(11)?,
                 row.get::<_, Option<String>>(12)?,
                 row.get::<_, String>(13)?,
+                row.get::<_, Option<String>>(14)?,
             ))
         })
         .map_err(|e| format!("could not load command_run {id}: {e}"))
@@ -152,15 +154,15 @@ fn compare_command_runs(args: &[String]) -> Result<(), String> {
         ("args", a.2.clone(), b.2.clone()),
         ("cwd", format_opt(&a.3), format_opt(&b.3)),
         ("exit_code", format_opt(&a.4), format_opt(&b.4)),
-        ("stdout", a.5.clone(), b.5.clone()),
-        ("stderr", a.6.clone(), b.6.clone()),
+        ("stdout", compare_text(&a.5), compare_text(&b.5)),
+        ("stderr", compare_text(&a.6), compare_text(&b.6)),
         ("timestamp", a.7.clone(), b.7.clone()),
         ("agent", format_opt(&a.8), format_opt(&b.8)),
         ("capture_kind", a.9.clone(), b.9.clone()),
         ("repository_id", format_opt(&a.10), format_opt(&b.10)),
         ("repository_name", format_opt(&a.11), format_opt(&b.11)),
         ("worktree_root", format_opt(&a.12), format_opt(&b.12)),
-        ("notes", a.13.clone(), b.13.clone()),
+        ("notes", compare_text(&a.13), compare_text(&b.13)),
     ];
     for (name, av, bv) in fields {
         println!("\n{name}:\n  [{}] {av}\n  [{}] {bv}", left, right);
@@ -168,7 +170,30 @@ fn compare_command_runs(args: &[String]) -> Result<(), String> {
             println!("  DIFFERENT");
         }
     }
+    println!(
+        "\nerror_fingerprint:\n  [{}] {}\n  [{}] {}",
+        left,
+        format_opt(&a.14),
+        right,
+        format_opt(&b.14)
+    );
     Ok(())
+}
+
+/// Stored output is untrusted terminal content. Keep normal capture redaction
+/// and truncation, but remove CSI/OSC controls before printing it.
+fn compare_text(value: &str) -> String {
+    let redacted = memorywhale_cli::sanitize_capture(value);
+    let controls = Regex::new(
+        r"(?:\x1b\[|\x{009b})[0-?]*[ -/]*[@-~]|(?:\x1b\]|\x{009d})[^\x07\x1b\x{009c}]*(?:\x07|\x1b\\|\x{009c})",
+    )
+    .expect("valid terminal control pattern")
+    .replace_all(&redacted, "");
+    let clean: String = controls
+        .chars()
+        .filter(|c| matches!(c, '\n' | '\t') || !c.is_control())
+        .collect();
+    memorywhale_cli::truncate_capture(&memorywhale_cli::sanitize_capture(&clean), 20_000)
 }
 
 fn format_opt<T: std::fmt::Display>(value: &Option<T>) -> String {
@@ -4901,5 +4926,24 @@ mod tests {
                 ("secret-run".to_string(), None),
             ]
         );
+    }
+
+    #[test]
+    fn compare_rejects_invalid_ids() {
+        let args = vec!["abc".to_string(), "2".to_string()];
+        assert_eq!(
+            compare_command_runs(&args).unwrap_err(),
+            "invalid run id: abc"
+        );
+    }
+
+    #[test]
+    fn compare_text_removes_terminal_controls_after_redaction_and_truncates() {
+        let value = "token=secret\x1b]8;;https://evil.test\x07visible\x1b[2J";
+        let rendered = compare_text(value);
+        assert!(!rendered.contains('\x1b'));
+        assert!(!rendered.contains("secret"));
+        assert!(rendered.contains("visible"));
+        assert_eq!(compare_text(&"x".repeat(20_001)).len(), 20_000);
     }
 }
