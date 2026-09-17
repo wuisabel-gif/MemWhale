@@ -225,14 +225,7 @@ fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory, explain: b
             .unwrap_or_else(|| ("\n  provenance: unknown".to_string(), false)),
         _ => (String::new(), true),
     };
-    let full_first_line = sm
-        .memory
-        .text
-        .lines()
-        .find(|l| !l.trim().is_empty())
-        .unwrap_or("")
-        .trim();
-    let snippet_truncated = full_first_line.chars().count() > 160;
+    let rendered_source = sm.memory.text.trim();
     let snippet: String = sm
         .memory
         .text
@@ -243,6 +236,11 @@ fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory, explain: b
         .chars()
         .take(160)
         .collect();
+    // The renderer intentionally keeps only the first non-empty line. Compare
+    // against the rendered source, rather than only that line, so multiline
+    // memories report the omission accurately too.
+    let snippet_truncated =
+        rendered_source != snippet || rendered_source.chars().count() > snippet.chars().count();
     let reasons = sm.reasons();
     let reasons = if reasons.is_empty() {
         "(low-signal match)".to_string()
@@ -685,5 +683,89 @@ mod tests {
         let high = recent_errors_limit(&json!({"limit": 10_000})).unwrap_err();
         assert!(high.contains("64"), "{high}");
         assert!(high.contains("10000"), "{high}");
+    }
+
+    #[test]
+    fn explain_schema_and_default_are_backward_compatible() {
+        let defs = tool_defs();
+        let search = defs
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|tool| tool["name"] == "search_memory")
+            .unwrap();
+        assert_eq!(
+            search["inputSchema"]["properties"]["explain"]["type"],
+            "boolean"
+        );
+        assert!(!json!({})
+            .get("explain")
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
+        assert!(!json!({"explain": "yes"})
+            .get("explain")
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn explanation_marks_multiline_omission() {
+        let memory = memorywhale_core::Memory {
+            id: 1,
+            text: "first line\nsecond line".into(),
+            created_at: Utc::now(),
+            last_used: Utc::now(),
+            mentions: 0,
+            importance: 0.5,
+            tags: vec![],
+            embedding: None,
+            agent: None,
+        };
+        let sm = memorywhale_core::ScoredMemory {
+            memory,
+            score: 0.5,
+            signals: vec![],
+        };
+        let out = render_hit(&Connection::open_in_memory().unwrap(), &sm, true);
+        assert!(out.contains("explanation: snippet_truncated=true"), "{out}");
+        assert!(out.contains("first line"));
+        assert!(!out.contains("second line"));
+    }
+
+    #[test]
+    fn explain_output_is_opt_in_and_contains_signal_breakdown() {
+        let memory = memorywhale_core::Memory {
+            id: 2,
+            text: "one line".into(),
+            created_at: Utc::now(),
+            last_used: Utc::now(),
+            mentions: 1,
+            importance: 0.5,
+            tags: vec![],
+            embedding: None,
+            agent: None,
+        };
+        let sm = memorywhale_core::ScoredMemory {
+            memory,
+            score: 0.5,
+            signals: vec![memorywhale_core::Signal {
+                name: "similarity".into(),
+                weight: 0.4,
+                score: 0.5,
+                applicable: true,
+                detail: "matched".into(),
+            }],
+        };
+        let conn = Connection::open_in_memory().unwrap();
+        let default = render_hit(&conn, &sm, false);
+        assert!(!default.contains("explanation:"));
+        assert_eq!(default, render_hit(&conn, &sm, false));
+        let explained = render_hit(&conn, &sm, true);
+        assert!(explained.contains("explanation: snippet_truncated=false"));
+        assert!(explained.contains("provenance_known=true"));
+        assert!(explained.contains("signal similarity: applicable=true"));
+        assert!(explained.contains("weight=0.400"));
+        assert!(explained.contains("contribution=0.200"));
+        assert!(explained.contains("matched"));
     }
 }
