@@ -1307,7 +1307,7 @@ pub const SEARCH_SOURCES: [&str; 5] = ["command", "session", "note", "document",
 /// interface uses the same vocabulary.
 pub const SEARCH_AGENTS: [&str; 5] = memorywhale_core::provenance::SUPPORTED_AGENTS;
 
-fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
+pub fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
     let d = chrono::NaiveDate::parse_from_str(val, "%Y-%m-%d")
         .map_err(|_| format!("invalid date in {kind}:{val} — use YYYY-MM-DD"))?;
     // `after` is inclusive from the start of the day; `before` through its end.

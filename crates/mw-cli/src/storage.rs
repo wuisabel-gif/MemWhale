@@ -1,6 +1,6 @@
 //! Canonical SQLite connection and schema ownership for every CLI surface.
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
 /// Open MemoryWhale's default database and bring it to the current schema.
@@ -13,6 +13,17 @@ pub fn open_path(path: &Path) -> Result<Connection, String> {
     let conn =
         Connection::open(path).map_err(|e| format!("failed to open {}: {e}", path.display()))?;
     initialize(&conn)?;
+    Ok(conn)
+}
+
+pub fn open_read_only(path: &Path) -> Result<Connection, String> {
+    if !path.is_file() {
+        return Err(format!("database does not exist: {}", path.display()));
+    }
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| format!("failed to open read-only database {}: {e}", path.display()))?;
+    conn.pragma_update(None, "query_only", true)
+        .map_err(|e| format!("failed to configure read-only database: {e}"))?;
     Ok(conn)
 }
 

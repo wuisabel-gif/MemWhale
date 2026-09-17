@@ -1936,7 +1936,7 @@ fn project_timeline(args: &[String]) -> Result<(), String> {
             "--after" => after = Some(next_value(&mut iter, "--after")?.to_string()),
             "--before" => before = Some(next_value(&mut iter, "--before")?.to_string()),
             "--type" => event_type = Some(next_value(&mut iter, "--type")?.to_string()),
-            "--limit" => limit = next_value(&mut iter, "--limit")?.parse().map_err(|_| "--limit must be a positive integer".to_string())?,
+            "--limit" => { limit = next_value(&mut iter, "--limit")?.parse().map_err(|_| "--limit must be a positive integer".to_string())?; if limit == 0 { return Err("--limit must be a positive integer".into()); } },
             other => return Err(format!("unexpected argument {other:?}; usage: mw timeline --project PROJECT [--after DATE] [--before DATE] [--type session|command] [--limit N]")),
         }
     }
@@ -1948,7 +1948,15 @@ fn project_timeline(args: &[String]) -> Result<(), String> {
             return Err("--type must be session or command".into());
         }
     }
-    let conn = open_session_db()?;
+    let conn = memorywhale_cli::storage::open_read_only(&database_path()?)?;
+    let after = after
+        .as_deref()
+        .map(|v| memorywhale_cli::parse_filter_day("after", v).map(|d| d.to_rfc3339()))
+        .transpose()?;
+    let before = before
+        .as_deref()
+        .map(|v| memorywhale_cli::parse_filter_day("before", v).map(|d| d.to_rfc3339()))
+        .transpose()?;
     let mut events: Vec<(String, String, String)> = Vec::new();
     if event_type.as_deref().is_none_or(|k| k == "session") {
         let mut stmt = conn.prepare("SELECT id, started_at, status, notes FROM sessions WHERE project = ?1 AND (?2 IS NULL OR started_at >= ?2) AND (?3 IS NULL OR started_at <= ?3)").map_err(|e| format!("failed to query sessions: {e}"))?;
@@ -1973,19 +1981,23 @@ fn project_timeline(args: &[String]) -> Result<(), String> {
     }
     if event_type.as_deref().is_none_or(|k| k == "command") {
         let tag = format!("project:{project}");
-        let mut stmt = conn.prepare("SELECT id, created_at, command, exit_code FROM command_runs WHERE instr(notes, ?1) > 0 AND (?2 IS NULL OR created_at >= ?2) AND (?3 IS NULL OR created_at <= ?3)").map_err(|e| format!("failed to query commands: {e}"))?;
+        let mut stmt = conn.prepare("SELECT id, created_at, command, exit_code, notes FROM command_runs WHERE instr(notes, ?1) > 0 AND (?2 IS NULL OR created_at >= ?2) AND (?3 IS NULL OR created_at <= ?3) ORDER BY created_at, id LIMIT ?4").map_err(|e| format!("failed to query commands: {e}"))?;
         for row in stmt
-            .query_map(params![tag, after, before], |r| {
+            .query_map(params![tag, after, before, limit as i64], |r| {
                 Ok((
                     r.get::<_, i64>(0)?,
                     r.get::<_, String>(1)?,
                     r.get::<_, String>(2)?,
                     r.get::<_, Option<i64>>(3)?,
+                    r.get::<_, String>(4)?,
                 ))
             })
             .map_err(|e| format!("failed to read commands: {e}"))?
         {
-            let (id, at, command, exit) = row.map_err(|e| e.to_string())?;
+            let (id, at, command, exit, notes) = row.map_err(|e| e.to_string())?;
+            if memorywhale_cli::project_of(&notes).as_deref() != Some(project.as_str()) {
+                continue;
+            }
             events.push((
                 at,
                 "command".into(),
