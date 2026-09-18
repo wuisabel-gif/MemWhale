@@ -57,6 +57,7 @@ fn run() -> Result<(), String> {
         Some("discard") => return discard_cmd(),
         Some("replay") => return replay_command(&raw_args[1..]),
         Some("compare") => return compare_command_runs(&raw_args[1..]),
+        Some("recipe") => return recipe_cmd(&raw_args[1..]),
         Some("demo") => return seed_demo(),
         Some("export") => return export_memory(&raw_args[1..]),
         Some("import") => return import_memory(&raw_args[1..]),
@@ -678,6 +679,12 @@ fn rm_memory(args: &[String]) -> Result<(), String> {
                     "DELETE FROM command_arguments WHERE command_run_id = ?1",
                     params![id],
                 );
+                conn.execute(
+                    "DELETE FROM command_recipes WHERE id IN
+                     (SELECT recipe_id FROM command_recipe_sources WHERE command_run_id = ?1)",
+                    params![id],
+                )
+                .map_err(|e| format!("failed to delete dependent recipes: {e}"))?;
                 conn.execute("DELETE FROM command_runs WHERE id = ?1", params![id])
                     .map_err(|e| format!("failed to delete command run: {e}"))?;
                 println!("mw: removed command run #{id}.");
@@ -859,6 +866,14 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
             |r| r.get(0),
         )
         .unwrap_or(0);
+    let dependent_recipes: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT recipe_id) FROM command_recipe_sources
+             WHERE command_run_id IN (SELECT id FROM command_runs WHERE created_at < ?1)",
+            params![cutoff],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
     if sessions.is_empty() && runs == 0 {
         println!("mw: nothing older than {spec}.");
@@ -866,7 +881,7 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
     }
     if dry {
         println!(
-            "mw: would remove {} session(s) and {runs} command run(s) older than {spec} (dry run).",
+            "mw: would remove {} session(s), {runs} command run(s), and {dependent_recipes} dependent recipe(s) (dry run).",
             sessions.len()
         );
         for (id, path) in &sessions {
@@ -879,18 +894,33 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         return Ok(());
     }
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("failed to begin prune: {e}"))?;
     for (id, transcript_path) in &sessions {
         if let Some(p) = transcript_path.as_deref().filter(|p| !p.is_empty()) {
             let _ = fs::remove_file(p);
         }
-        let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
+        tx.execute("DELETE FROM sessions WHERE id = ?1", params![id])
+            .map_err(|e| format!("failed to delete session: {e}"))?;
     }
-    let _ = conn.execute(
+    let recipes = tx
+        .execute(
+            "DELETE FROM command_recipes WHERE id IN
+         (SELECT recipe_id FROM command_recipe_sources
+          WHERE command_run_id IN (SELECT id FROM command_runs WHERE created_at < ?1))",
+            params![cutoff],
+        )
+        .map_err(|e| format!("failed to delete dependent recipes: {e}"))?;
+    tx.execute(
         "DELETE FROM command_runs WHERE created_at < ?1",
         params![cutoff],
-    );
+    )
+    .map_err(|e| format!("failed to delete command runs: {e}"))?;
+    tx.commit()
+        .map_err(|e| format!("failed to commit prune: {e}"))?;
     println!(
-        "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
+        "mw: pruned {} session(s), {runs} command run(s), and {recipes} dependent recipe(s) due to source retention ({spec}).",
         sessions.len()
     );
     Ok(())
@@ -1031,6 +1061,126 @@ fn mark_bookmark(args: &[String]) -> Result<(), String> {
     let id = memorywhale_cli::remember(&label, cwd.as_deref())?;
     println!("mw: marked bookmark #{id}");
     Ok(())
+}
+
+/// Manage reusable, metadata-only command recipes. Recipes are never executed;
+/// `copy` prints the recorded command for a human or another tool to inspect.
+fn recipe_cmd(args: &[String]) -> Result<(), String> {
+    let action = args.first().map(String::as_str).unwrap_or("list");
+    let conn = open_session_db()?;
+    match action {
+        "save" => {
+            let mut runs = Vec::new();
+            let mut description = None;
+            let mut cwd = None;
+            let mut criteria = None;
+            let mut i = 1;
+            while i < args.len() {
+                let key = &args[i];
+                i += 1;
+                let value = args
+                    .get(i)
+                    .ok_or_else(|| format!("missing value for {key}"))?;
+                i += 1;
+                match key.as_str() {
+                    "--run" => runs.extend(
+                        value
+                            .split(',')
+                            .map(|v| {
+                                v.parse::<i64>()
+                                    .map_err(|_| format!("invalid command run id: {v}"))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?,
+                    ),
+                    "--description" => description = Some(value.clone()),
+                    "--cwd" => cwd = Some(value.clone()),
+                    "--criteria" => criteria = Some(value.clone()),
+                    _ => return Err(format!("unknown option {key}")),
+                }
+            }
+            let description = description
+                .filter(|v| !v.is_empty())
+                .ok_or("--description is required")?;
+            let criteria = criteria.ok_or("--criteria is required")?;
+            if runs.is_empty() {
+                return Err("at least one explicit --run ID is required".into());
+            }
+            let tx = conn
+                .unchecked_transaction()
+                .map_err(|e| format!("failed to begin recipe save: {e}"))?;
+            let mut stmt = tx
+                .prepare("SELECT command, argv_json, cwd FROM command_runs WHERE id = ?1")
+                .map_err(|e| format!("failed to read command runs: {e}"))?;
+            let mut rows = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+            runs.retain(|id| seen.insert(*id));
+            for id in &runs {
+                rows.push(
+                    stmt.query_row([id], |r| {
+                        Ok((
+                            r.get::<_, String>(0)?,
+                            r.get::<_, String>(1)?,
+                            r.get::<_, Option<String>>(2)?,
+                        ))
+                    })
+                    .map_err(|_| format!("recorded command run not found: {id}"))?,
+                );
+            }
+            let (command, argv, recorded_cwd) = &rows[0];
+            if rows
+                .iter()
+                .skip(1)
+                .any(|(c, a, _)| c != command || a != argv)
+            {
+                return Err("source runs have incompatible command payloads".into());
+            }
+            let cwd = cwd.or_else(|| recorded_cwd.clone());
+            drop(stmt);
+            tx.execute("INSERT INTO command_recipes (description,cwd,args_json,expected_criteria,created_at) VALUES (?1,?2,?3,?4,?5)", params![description,cwd,argv,criteria,Utc::now().to_rfc3339()]).map_err(|e| format!("failed to save recipe: {e}"))?;
+            let recipe_id = tx.last_insert_rowid();
+            for (position, id) in runs.iter().enumerate() {
+                tx.execute("INSERT INTO command_recipe_sources (recipe_id,command_run_id,position) VALUES (?1,?2,?3)", params![recipe_id,id,position as i64]).map_err(|e| format!("failed to save recipe source: {e}"))?;
+            }
+            tx.commit()
+                .map_err(|e| format!("failed to commit recipe save: {e}"))?;
+            println!("saved recipe #{recipe_id}: {description} ({command})");
+            Ok(())
+        }
+        "list" => {
+            let mut s = conn.prepare("SELECT id,description,cwd,expected_criteria FROM command_recipes ORDER BY id DESC").map_err(|e| e.to_string())?;
+            let rows = s
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, Option<String>>(2)?,
+                        r.get::<_, String>(3)?,
+                    ))
+                })
+                .map_err(|e| e.to_string())?;
+            for r in rows {
+                let (id, d, c, k) = r.map_err(|e| e.to_string())?;
+                println!("#{id} {d} cwd={} criteria={k}", c.unwrap_or_default());
+            }
+            Ok(())
+        }
+        "show" | "copy" => {
+            let id: i64 = args
+                .get(1)
+                .ok_or("usage: mw recipe show|copy <recipe-id>")?
+                .parse()
+                .map_err(|_| "invalid recipe id")?;
+            let row=conn.query_row("SELECT description,cwd,args_json,expected_criteria FROM command_recipes WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).map_err(|_| format!("recipe not found: {id}"))?;
+            let sources:Vec<i64>=conn.prepare("SELECT command_run_id FROM command_recipe_sources WHERE recipe_id=?1 ORDER BY position").map_err(|e| e.to_string())?.query_map([id],|r|r.get(0)).map_err(|e| e.to_string())?.collect::<Result<_,_>>().map_err(|e|e.to_string())?;
+            if action == "copy" {
+                println!("{}", row.2);
+            } else {
+                println!("recipe #{id}: {}\ncwd: {}\nargs: {}\nexpected: {}\nsource runs: {:?}\n(no execution performed)",row.0,row.1.unwrap_or_default(),row.2,row.3,sources);
+            }
+            Ok(())
+        }
+        _ => Err("usage: mw recipe save|list|show|copy".into()),
+    }
 }
 
 /// Save a freeform lesson/conclusion (not tied to a specific command), so you

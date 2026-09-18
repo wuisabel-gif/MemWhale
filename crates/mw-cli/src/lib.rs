@@ -133,7 +133,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 10;
+pub const LATEST_SCHEMA_VERSION: i64 = 11;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -277,6 +277,36 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         ensure_agent(conn)?;
         conn.execute_batch("PRAGMA user_version = 10;")
             .map_err(|e| format!("failed to migrate command agent provenance: {e}"))?;
+    }
+    // Repair intermediate version-11 databases unconditionally. The first
+    // recipe build could write the version marker before all columns existed.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS command_recipes (
+             id INTEGER PRIMARY KEY, description TEXT NOT NULL, cwd TEXT,
+             args_json TEXT NOT NULL, expected_criteria TEXT NOT NULL,
+             created_at TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS command_recipe_sources (
+             recipe_id INTEGER NOT NULL, command_run_id INTEGER NOT NULL,
+             position INTEGER NOT NULL DEFAULT 0,
+             PRIMARY KEY (recipe_id, command_run_id),
+             FOREIGN KEY(recipe_id) REFERENCES command_recipes(id) ON DELETE CASCADE,
+             FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE RESTRICT
+         );
+         ",
+    )
+    .map_err(|e| format!("failed to migrate command recipes: {e}"))?;
+    if table_exists(conn, "command_recipe_sources")? {
+        add_column_if_missing(
+            conn,
+            "command_recipe_sources",
+            "position",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+    }
+    if version < 11 {
+        conn.execute_batch("PRAGMA user_version = 11;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
     Ok(())
 }

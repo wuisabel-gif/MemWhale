@@ -54,6 +54,20 @@ mw remember "the fix was passing --features vendored-ssl"  # save a lesson/concl
 mw remember "staging creds rotate friday" ttl:7d   # auto-expires after 7d (m/h/d/w) — drops from retrieval, evidence preserved
 mw replay 12                          # rerun a saved command run
 mw compare 12 34                      # compare two saved command runs, including provenance and differences
+
+### Reusable command recipes
+
+Recipes are local metadata assembled only from explicitly selected recorded
+command IDs. Saving records the description, cwd, arguments, expected criteria,
+and source-run links; it never executes a command. `copy` only prints the
+recorded argument JSON and is safe to inspect or paste manually:
+
+```text
+mw recipe save --run 12,19 --description "rebuild" --cwd /work --criteria "tests pass"
+mw recipe list
+mw recipe show 1
+mw recipe copy 1
+```
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
