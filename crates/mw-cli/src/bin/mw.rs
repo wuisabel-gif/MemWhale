@@ -112,7 +112,7 @@ fn compare_command_runs(args: &[String]) -> Result<(), String> {
     }
     let left: i64 = args[0]
         .parse()
-        .map_err(|_| format!("invalid run id: {}", args[0]))?;
+        .map_err(|_| format!("invalid run id: {}", compare_text(&args[0])))?;
     let right: i64 = args[1]
         .parse()
         .map_err(|_| format!("invalid run id: {}", args[1]))?;
@@ -150,19 +150,20 @@ fn compare_command_runs(args: &[String]) -> Result<(), String> {
         left, right
     );
     let fields = [
-        ("command", a.1.clone(), b.1.clone()),
-        ("args", a.2.clone(), b.2.clone()),
-        ("cwd", format_opt(&a.3), format_opt(&b.3)),
-        ("exit_code", format_opt(&a.4), format_opt(&b.4)),
+        ("command", compare_text(&a.1), compare_text(&b.1)),
+        ("args", compare_text(&a.2), compare_text(&b.2)),
+        ("cwd", compare_opt(&a.3), compare_opt(&b.3)),
+        ("exit_code", compare_opt(&a.4), compare_opt(&b.4)),
         ("stdout", compare_text(&a.5), compare_text(&b.5)),
         ("stderr", compare_text(&a.6), compare_text(&b.6)),
-        ("timestamp", a.7.clone(), b.7.clone()),
-        ("agent", format_opt(&a.8), format_opt(&b.8)),
-        ("capture_kind", a.9.clone(), b.9.clone()),
-        ("repository_id", format_opt(&a.10), format_opt(&b.10)),
-        ("repository_name", format_opt(&a.11), format_opt(&b.11)),
-        ("worktree_root", format_opt(&a.12), format_opt(&b.12)),
+        ("timestamp", compare_text(&a.7), compare_text(&b.7)),
+        ("agent", compare_opt(&a.8), compare_opt(&b.8)),
+        ("capture_kind", compare_text(&a.9), compare_text(&b.9)),
+        ("repository_id", compare_opt(&a.10), compare_opt(&b.10)),
+        ("repository_name", compare_opt(&a.11), compare_opt(&b.11)),
+        ("worktree_root", compare_opt(&a.12), compare_opt(&b.12)),
         ("notes", compare_text(&a.13), compare_text(&b.13)),
+        ("error_fingerprint", compare_opt(&a.14), compare_opt(&b.14)),
     ];
     for (name, av, bv) in fields {
         println!("\n{name}:\n  [{}] {av}\n  [{}] {bv}", left, right);
@@ -170,13 +171,6 @@ fn compare_command_runs(args: &[String]) -> Result<(), String> {
             println!("  DIFFERENT");
         }
     }
-    println!(
-        "\nerror_fingerprint:\n  [{}] {}\n  [{}] {}",
-        left,
-        format_opt(&a.14),
-        right,
-        format_opt(&b.14)
-    );
     Ok(())
 }
 
@@ -194,6 +188,10 @@ fn compare_text(value: &str) -> String {
         .filter(|c| matches!(c, '\n' | '\t') || !c.is_control())
         .collect();
     memorywhale_cli::truncate_capture(&memorywhale_cli::sanitize_capture(&clean), 20_000)
+}
+
+fn compare_opt<T: std::fmt::Display>(value: &Option<T>) -> String {
+    compare_text(&format_opt(value))
 }
 
 fn format_opt<T: std::fmt::Display>(value: &Option<T>) -> String {
