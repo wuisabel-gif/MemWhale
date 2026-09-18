@@ -1948,7 +1948,7 @@ fn project_timeline(args: &[String]) -> Result<(), String> {
             return Err("--type must be session or command".into());
         }
     }
-    let conn = memorywhale_cli::storage::open_immutable(&database_path()?)?;
+    let conn = memorywhale_cli::storage::open_read_only_snapshot(&database_path()?)?;
     let after = after
         .as_deref()
         .map(|v| memorywhale_cli::parse_filter_day("after", v).map(|d| d.to_rfc3339()))
@@ -1956,8 +1956,16 @@ fn project_timeline(args: &[String]) -> Result<(), String> {
     let before = before
         .as_deref()
         .map(|v| {
-            memorywhale_cli::parse_filter_day("after", v)
-                .map(|d| (d + chrono::Duration::days(1)).to_rfc3339())
+            // Parse with the user-facing label, then use midnight of the
+            // following day as an exclusive bound (including fractional
+            // timestamps throughout the requested day).
+            memorywhale_cli::parse_filter_day("before", v).map(|d| {
+                (d.date_naive() + chrono::Days::new(1))
+                    .and_hms_opt(0, 0, 0)
+                    .expect("midnight is always valid")
+                    .and_utc()
+                    .to_rfc3339()
+            })
         })
         .transpose()?;
     let mut events: Vec<(String, String, String)> = Vec::new();
