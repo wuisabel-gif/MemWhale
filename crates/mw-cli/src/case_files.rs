@@ -82,7 +82,15 @@ pub fn show(conn: &Connection, id: i64) -> Result<(), String> {
     }
     Ok(())
 }
-pub fn export(conn: &Connection, id: i64) -> Result<(), String> {
+pub fn export(conn: &Connection, id: i64, args: &[String]) -> Result<(), String> {
+    let format = args
+        .windows(2)
+        .find(|w| w[0] == "--format")
+        .map(|w| w[1].as_str())
+        .unwrap_or("json");
+    if !["json", "markdown", "md"].contains(&format) {
+        return Err("format must be json or markdown".into());
+    }
     let mut stmt=conn.prepare("SELECT title,observations,conclusion,unresolved_questions,status,created_at,updated_at FROM case_files WHERE id=?1").map_err(|e|e.to_string())?;
     let row=stmt.query_row([id],|r|Ok(json!({"id":id,"title":r.get::<_,String>(0)?,"observations":r.get::<_,String>(1)?,"conclusion":r.get::<_,String>(2)?,"unresolved_questions":r.get::<_,String>(3)?,"status":r.get::<_,String>(4)?,"created_at":r.get::<_,String>(5)?,"updated_at":r.get::<_,String>(6)?}))).map_err(|e|e.to_string())?;
     let mut commands = Vec::new();
@@ -104,15 +112,32 @@ pub fn export(conn: &Connection, id: i64) -> Result<(), String> {
         let (position, command_id, command, exit_code, stdout, stderr) =
             item.map_err(|e| e.to_string())?;
         command_ids.push(command_id);
-        commands.push(json!({"position": position, "command_id": command_id, "command": command, "exit_code": exit_code, "stdout": stdout, "stderr": stderr}));
+        commands.push(json!({"position": position, "command_id": command_id, "command": crate::sanitize_capture(&command), "exit_code": exit_code, "stdout": crate::sanitize_capture(&stdout), "stderr": crate::sanitize_capture(&stderr)}));
     }
     let mut exported = row;
     exported["command_ids"] = json!(command_ids);
     exported["evidence"] = json!(commands);
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&exported).map_err(|e| e.to_string())?
-    );
+    if format == "json" {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&exported).map_err(|e| e.to_string())?
+        );
+    } else {
+        println!("# {}\n\n- Status: {}\n- Created: {}\n- Updated: {}\n\n## Evidence / observations\n\n{}\n\n## Conclusion\n\n{}\n\n## Unresolved questions\n\n{}\n\n## Selected command links\n", exported["title"], exported["status"], exported["created_at"], exported["updated_at"], crate::sanitize_capture(exported["observations"].as_str().unwrap_or_default()), crate::sanitize_capture(exported["conclusion"].as_str().unwrap_or_default()), crate::sanitize_capture(exported["unresolved_questions"].as_str().unwrap_or_default()));
+        for command in commands {
+            println!(
+                "- [Command #{}](mw://command/{}) — exit {:?}: `{}`",
+                command["position"],
+                command["command_id"],
+                command["exit_code"],
+                command["command"]
+            );
+            println!(
+                "  - stdout: {}\n  - stderr: {}",
+                command["stdout"], command["stderr"]
+            );
+        }
+    }
     Ok(())
 }
 #[cfg(test)]

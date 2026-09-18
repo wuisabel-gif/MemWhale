@@ -215,7 +215,7 @@ fn case_file_cmd(args: &[String]) -> Result<(), String> {
             if args[0] == "show" {
                 memorywhale_cli::case_files::show(&conn, id)
             } else {
-                memorywhale_cli::case_files::export(&conn, id)
+                memorywhale_cli::case_files::export(&conn, id, &args[2..])
             }
         }
         _ => Err("usage: mw case create|show|list|export".into()),

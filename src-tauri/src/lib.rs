@@ -638,7 +638,12 @@ fn reset_demo_data(state: tauri::State<AppState>) -> Result<GraphPayload, AppErr
         DELETE FROM notes;
         DELETE FROM documents;
         DELETE FROM command_arguments;
-        DELETE FROM command_runs;
+        -- Case evidence is retained by policy. Do not remove referenced runs.
+        DELETE FROM command_runs
+        WHERE NOT EXISTS (
+            SELECT 1 FROM case_file_commands x
+            WHERE x.command_run_id = command_runs.id
+        );
         ",
     )?;
     drop(conn);
