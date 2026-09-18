@@ -1948,18 +1948,21 @@ fn project_timeline(args: &[String]) -> Result<(), String> {
             return Err("--type must be session or command".into());
         }
     }
-    let conn = memorywhale_cli::storage::open_read_only(&database_path()?)?;
+    let conn = memorywhale_cli::storage::open_immutable(&database_path()?)?;
     let after = after
         .as_deref()
         .map(|v| memorywhale_cli::parse_filter_day("after", v).map(|d| d.to_rfc3339()))
         .transpose()?;
     let before = before
         .as_deref()
-        .map(|v| memorywhale_cli::parse_filter_day("before", v).map(|d| d.to_rfc3339()))
+        .map(|v| {
+            memorywhale_cli::parse_filter_day("after", v)
+                .map(|d| (d + chrono::Duration::days(1)).to_rfc3339())
+        })
         .transpose()?;
     let mut events: Vec<(String, String, String)> = Vec::new();
     if event_type.as_deref().is_none_or(|k| k == "session") {
-        let mut stmt = conn.prepare("SELECT id, started_at, status, notes FROM sessions WHERE project = ?1 AND (?2 IS NULL OR started_at >= ?2) AND (?3 IS NULL OR started_at <= ?3)").map_err(|e| format!("failed to query sessions: {e}"))?;
+        let mut stmt = conn.prepare("SELECT id, started_at, status, notes FROM sessions WHERE project = ?1 AND (?2 IS NULL OR started_at >= ?2) AND (?3 IS NULL OR started_at < ?3)").map_err(|e| format!("failed to query sessions: {e}"))?;
         for row in stmt
             .query_map(params![project, after, before], |r| {
                 Ok((
@@ -1981,7 +1984,7 @@ fn project_timeline(args: &[String]) -> Result<(), String> {
     }
     if event_type.as_deref().is_none_or(|k| k == "command") {
         let tag = format!("project:{project}");
-        let mut stmt = conn.prepare("SELECT id, created_at, command, exit_code, notes FROM command_runs WHERE instr(notes, ?1) > 0 AND (?2 IS NULL OR created_at >= ?2) AND (?3 IS NULL OR created_at <= ?3) ORDER BY created_at, id LIMIT ?4").map_err(|e| format!("failed to query commands: {e}"))?;
+        let mut stmt = conn.prepare("SELECT id, created_at, command, exit_code, notes FROM command_runs WHERE instr(notes, ?1) > 0 AND (?2 IS NULL OR created_at >= ?2) AND (?3 IS NULL OR created_at < ?3) ORDER BY created_at, id LIMIT ?4").map_err(|e| format!("failed to query commands: {e}"))?;
         for row in stmt
             .query_map(params![tag, after, before, limit as i64], |r| {
                 Ok((

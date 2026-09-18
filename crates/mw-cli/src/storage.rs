@@ -27,6 +27,34 @@ pub fn open_read_only(path: &Path) -> Result<Connection, String> {
     Ok(conn)
 }
 
+pub fn open_immutable(path: &Path) -> Result<Connection, String> {
+    if !path.is_file() {
+        return Err(format!("database does not exist: {}", path.display()));
+    }
+    let uri = format!("file:{}?immutable=1", sqlite_uri_path(path));
+    let conn = Connection::open_with_flags(
+        &uri,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+    .map_err(|e| format!("failed to open immutable database {}: {e}", path.display()))?;
+    conn.pragma_update(None, "query_only", true)
+        .map_err(|e| format!("failed to configure immutable database: {e}"))?;
+    Ok(conn)
+}
+
+fn sqlite_uri_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~' | b'/') {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect()
+}
+
 /// Apply the connection policy and canonical base schema, then run migrations.
 ///
 /// Keeping the complete latest shape here lets every binary safely open either
