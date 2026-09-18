@@ -46,6 +46,7 @@ fn run() -> Result<(), String> {
         }
         Some("show") => return show_session(&raw_args[1..]),
         Some("list") => return list_sessions(&raw_args[1..]),
+        Some("timeline") => return project_timeline(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
         Some("remember") => return remember_cmd(&raw_args[1..]),
         Some("memory") => return memory_lifecycle_cmd(&raw_args[1..]),
@@ -379,6 +380,7 @@ fn print_help() {
          mw --live [--notes <text>]  autosave the session to SQLite while it is still running\n\
          mw --version | -V          print the current MemoryWhale version\n\
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
+         mw timeline --project X [--after DATE] [--before DATE] [--type TYPE] [--limit N]  read-only project event timeline\n\
          mw show <id>             print the full faithful transcript of a session\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
@@ -2004,6 +2006,115 @@ fn list_sessions(args: &[String]) -> Result<(), String> {
     }
     if count == 0 {
         println!("no sessions recorded yet; run `mw` to record one");
+    }
+    Ok(())
+}
+
+/// Print an evidence-only, chronological view of records explicitly tagged for
+/// a project. This deliberately does not connect events or suggest causality.
+fn project_timeline(args: &[String]) -> Result<(), String> {
+    let mut project = None;
+    let mut after = None;
+    let mut before = None;
+    let mut event_type = None;
+    let mut limit = 100usize;
+    let mut iter = args.iter();
+    fn next_value<'a>(
+        iter: &mut std::slice::Iter<'a, String>,
+        name: &str,
+    ) -> Result<&'a String, String> {
+        iter.next()
+            .ok_or_else(|| format!("{name} requires a value"))
+    }
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--project" => project = Some(next_value(&mut iter, "--project")?.to_string()),
+            "--after" => after = Some(next_value(&mut iter, "--after")?.to_string()),
+            "--before" => before = Some(next_value(&mut iter, "--before")?.to_string()),
+            "--type" => event_type = Some(next_value(&mut iter, "--type")?.to_string()),
+            "--limit" => { limit = next_value(&mut iter, "--limit")?.parse().map_err(|_| "--limit must be a positive integer".to_string())?; if limit == 0 { return Err("--limit must be a positive integer".into()); } },
+            other => return Err(format!("unexpected argument {other:?}; usage: mw timeline --project PROJECT [--after DATE] [--before DATE] [--type session|command] [--limit N]")),
+        }
+    }
+    let project = project.ok_or_else(|| {
+        "mw timeline requires --project PROJECT (scope is never implicit)".to_string()
+    })?;
+    if let Some(kind) = &event_type {
+        if !matches!(kind.as_str(), "session" | "command") {
+            return Err("--type must be session or command".into());
+        }
+    }
+    let conn = memorywhale_cli::storage::open_read_only_snapshot(&database_path()?)?;
+    let after = after
+        .as_deref()
+        .map(|v| memorywhale_cli::parse_filter_day("after", v).map(|d| d.to_rfc3339()))
+        .transpose()?;
+    let before = before
+        .as_deref()
+        .map(|v| {
+            // Parse with the user-facing label, then use midnight of the
+            // following day as an exclusive bound (including fractional
+            // timestamps throughout the requested day).
+            memorywhale_cli::parse_filter_day("before", v).map(|d| {
+                (d.date_naive() + chrono::Days::new(1))
+                    .and_hms_opt(0, 0, 0)
+                    .expect("midnight is always valid")
+                    .and_utc()
+                    .to_rfc3339()
+            })
+        })
+        .transpose()?;
+    let mut events: Vec<(String, String, String)> = Vec::new();
+    if event_type.as_deref().is_none_or(|k| k == "session") {
+        let mut stmt = conn.prepare("SELECT id, started_at, status, notes FROM sessions WHERE project = ?1 AND (?2 IS NULL OR started_at >= ?2) AND (?3 IS NULL OR started_at < ?3)").map_err(|e| format!("failed to query sessions: {e}"))?;
+        for row in stmt
+            .query_map(params![project, after, before], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(|e| format!("failed to read sessions: {e}"))?
+        {
+            let (id, at, status, notes) = row.map_err(|e| e.to_string())?;
+            events.push((
+                at,
+                "session".into(),
+                format!("#{id} status={status} {notes}"),
+            ));
+        }
+    }
+    if event_type.as_deref().is_none_or(|k| k == "command") {
+        let tag = format!("project:{project}");
+        let mut stmt = conn.prepare("SELECT id, created_at, command, exit_code, notes FROM command_runs WHERE instr(notes, ?1) > 0 AND (?2 IS NULL OR created_at >= ?2) AND (?3 IS NULL OR created_at < ?3) ORDER BY created_at, id LIMIT ?4").map_err(|e| format!("failed to query commands: {e}"))?;
+        for row in stmt
+            .query_map(params![tag, after, before, limit as i64], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, Option<i64>>(3)?,
+                    r.get::<_, String>(4)?,
+                ))
+            })
+            .map_err(|e| format!("failed to read commands: {e}"))?
+        {
+            let (id, at, command, exit, notes) = row.map_err(|e| e.to_string())?;
+            if memorywhale_cli::project_of(&notes).as_deref() != Some(project.as_str()) {
+                continue;
+            }
+            events.push((
+                at,
+                "command".into(),
+                format!("#{id} exit={:?} {command}", exit),
+            ));
+        }
+    }
+    events.sort_by(|a, b| a.0.cmp(&b.0));
+    for (at, kind, detail) in events.into_iter().take(limit) {
+        println!("{at}\t{kind}\t{detail}");
     }
     Ok(())
 }

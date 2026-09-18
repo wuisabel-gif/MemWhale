@@ -1,6 +1,6 @@
 //! Canonical SQLite connection and schema ownership for every CLI surface.
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
 /// Open MemoryWhale's default database and bring it to the current schema.
@@ -14,6 +14,66 @@ pub fn open_path(path: &Path) -> Result<Connection, String> {
         Connection::open(path).map_err(|e| format!("failed to open {}: {e}", path.display()))?;
     initialize(&conn)?;
     Ok(conn)
+}
+
+pub fn open_read_only(path: &Path) -> Result<Connection, String> {
+    if !path.is_file() {
+        return Err(format!("database does not exist: {}", path.display()));
+    }
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| format!("failed to open read-only database {}: {e}", path.display()))?;
+    conn.pragma_update(None, "query_only", true)
+        .map_err(|e| format!("failed to configure read-only database: {e}"))?;
+    Ok(conn)
+}
+
+pub fn open_immutable(path: &Path) -> Result<Connection, String> {
+    if !path.is_file() {
+        return Err(format!("database does not exist: {}", path.display()));
+    }
+    let uri = format!("file:{}?immutable=1", sqlite_uri_path(path));
+    let conn = Connection::open_with_flags(
+        &uri,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+    .map_err(|e| format!("failed to open immutable database {}: {e}", path.display()))?;
+    conn.pragma_update(None, "query_only", true)
+        .map_err(|e| format!("failed to configure immutable database: {e}"))?;
+    Ok(conn)
+}
+
+/// Open a database without ever causing SQLite to create or update files.
+///
+/// Immutable mode is ideal for a quiescent database, but intentionally ignores
+/// WAL frames.  If a writer has committed rows into an active WAL, use a
+/// normal read-only connection so SQLite can read the WAL and shared-memory
+/// index without granting write access.
+pub fn open_read_only_snapshot(path: &Path) -> Result<Connection, String> {
+    if !path.is_file() {
+        return Err(format!("database does not exist: {}", path.display()));
+    }
+    let mut wal = path.as_os_str().to_os_string();
+    wal.push("-wal");
+    let mut shm = path.as_os_str().to_os_string();
+    shm.push("-shm");
+    if Path::new(&wal).exists() || Path::new(&shm).exists() {
+        open_read_only(path)
+    } else {
+        open_immutable(path)
+    }
+}
+
+fn sqlite_uri_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~' | b'/') {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect()
 }
 
 /// Apply the connection policy and canonical base schema, then run migrations.
@@ -123,6 +183,7 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn v0_6_2_database_upgrades_without_data_loss() {
@@ -389,5 +450,37 @@ mod tests {
             })
             .unwrap();
         assert!(agent.is_none(), "legacy command rows default to NULL agent");
+    }
+
+    #[test]
+    fn read_only_snapshot_sees_committed_rows_in_active_wal() {
+        let path = std::env::temp_dir().join(format!(
+            "memorywhale-wal-test-{}-{}.sqlite3",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let writer = Connection::open(&path).unwrap();
+        writer.pragma_update(None, "journal_mode", "WAL").unwrap();
+        writer
+            .execute("CREATE TABLE rows (value TEXT NOT NULL)", [])
+            .unwrap();
+        writer
+            .execute("INSERT INTO rows VALUES ('committed')", [])
+            .unwrap();
+        assert!(path.with_extension("sqlite3-wal").exists());
+
+        let reader = open_read_only_snapshot(&path).unwrap();
+        let value: String = reader
+            .query_row("SELECT value FROM rows", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(value, "committed");
+        drop(reader);
+        drop(writer);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("sqlite3-wal"));
+        let _ = std::fs::remove_file(path.with_extension("sqlite3-shm"));
     }
 }

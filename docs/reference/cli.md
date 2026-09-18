@@ -38,6 +38,8 @@ mw --notes "Jetson build debugging"   # record a whole shell session until exit
 mw --live --notes "project:demo"      # autosave to SQLite every few seconds
 mw --version                           # print the installed MemoryWhale version
 mw list                               # list recorded sessions
+mw timeline --project demo             # read-only chronological project events
+mw timeline --project demo --after 2026-01-01 --before 2026-02-01 --type command --limit 50
 mw show 1                             # print the full transcript of a session
 mw search "linker error"              # search commands, output, notes, transcripts
 mw search docker after:2026-01-01 tag:infra   # filter results: tag:X, source:command|session|note|document|conversation, agent:claude|rho|cursor|codewhale|terminal, before:/after:YYYY-MM-DD, limit:N
