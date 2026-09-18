@@ -74,7 +74,12 @@ fn run() -> Result<(), String> {
         Some("tui") => return memorywhale_cli::tui::run(),
         Some("sync-mempalace") => return sync_mempalace(&raw_args[1..]),
         Some("git-fix") => return git_fix_cmd(&raw_args[1..]),
-        Some("doctor") => return doctor(),
+        Some("doctor") => {
+            if raw_args.get(1).is_some_and(|arg| arg == "capture") {
+                return capture_doctor();
+            }
+            return doctor();
+        }
         Some("global") => return global_cmd(&raw_args[1..]),
         Some("status") => return global_status(),
         Some("hooks") => return hooks_cmd(&raw_args[1..]),
@@ -4391,6 +4396,70 @@ fn doctor() -> Result<(), String> {
         memorywhale_cli::integrate::render_doctor_reports(mcp_stdio_ok)
     );
 
+    Ok(())
+}
+
+/// Read-only capture diagnosis; the probe uses a private temporary store.
+fn capture_doctor() -> Result<(), String> {
+    println!("MemoryWhale capture doctor (isolated dry run)\n");
+    let normal_dir = memorywhale_dir().ok();
+    let enabled = global_enabled_path().map(|p| p.exists()).unwrap_or(false);
+    let wired = shell_rc_path()
+        .ok()
+        .and_then(|p| fs::read_to_string(p).ok())
+        .is_some_and(|c| c.contains(RC_MARKER));
+    println!(
+        "  {} config: {}",
+        if normal_dir.is_some() { "ok  " } else { "WARN" },
+        normal_dir
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "unavailable".into())
+    );
+    println!(
+        "  {} hook: enabled={}, shell-wired={} (read-only)",
+        if enabled || wired { "ok  " } else { "WARN" },
+        enabled,
+        wired
+    );
+    let root = env::temp_dir().join(format!("memorywhale-capture-doctor-{}", std::process::id()));
+    fs::create_dir_all(&root).map_err(|e| format!("create isolated directory: {e}"))?;
+    let previous = env::var_os("MEMORYWHALE_DATA_DIR");
+    unsafe {
+        env::set_var("MEMORYWHALE_DATA_DIR", &root);
+    }
+    let synthetic =
+        memorywhale_cli::remember::remember_command(memorywhale_cli::remember::CommandRecord {
+            cwd: Some(env::current_dir().unwrap_or_default().display().to_string()),
+            exit_code: Some(0),
+            stdout: "capture-doctor synthetic".into(),
+            stderr: String::new(),
+            notes: "isolated capture doctor probe".into(),
+            command_parts: vec!["true".into()],
+            capture_kind: "doctor-synthetic".into(),
+            agent: None,
+        });
+    if let Some(value) = previous {
+        unsafe {
+            env::set_var("MEMORYWHALE_DATA_DIR", value);
+        }
+    } else {
+        unsafe {
+            env::remove_var("MEMORYWHALE_DATA_DIR");
+        }
+    }
+    let _ = fs::remove_dir_all(&root);
+    match synthetic {
+        Ok(Some(id)) => {
+            println!("  ok   store: isolated SQLite accepted synthetic record #{id}");
+            println!("  ok   receipt: synthetic record was acknowledged");
+            println!("  ok   last-record: isolated probe returned #{id}");
+            println!("  ok   fresh-synthetic: capture path is writable end-to-end");
+        }
+        Ok(None) => println!("  WARN fresh-synthetic: capture path returned no record"),
+        Err(err) => println!("  WARN store: isolated synthetic record failed: {err}"),
+    }
+    println!("  INFO last-record: normal store was not inspected (isolated mode)");
     Ok(())
 }
 

@@ -237,3 +237,12 @@ Captured text fields are limited to 1 MiB by default. Set
 truncated values include a marker with the stored and original byte counts.
 See [the local data threat model](../SECURITY.md) before enabling raw capture or
 sharing exported data.
+
+### Capture doctor
+
+`mw doctor capture` runs an explicit, isolated capture health probe. It reports
+configuration and hook wiring read-only, then writes one synthetic record only
+to a temporary SQLite store that is removed before exit. It distinguishes the
+isolated store, synthetic receipt acknowledgement, last isolated record, and
+fresh end-to-end capture result. It does not inspect or modify the normal store,
+enable hooks, or change configuration.
