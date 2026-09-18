@@ -279,19 +279,26 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
             .map_err(|e| format!("failed to migrate command agent provenance: {e}"))?;
     }
     if version < 11 {
-        conn.execute_batch("CREATE TABLE IF NOT EXISTS command_recipes (
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS command_recipes (
              id INTEGER PRIMARY KEY, description TEXT NOT NULL, cwd TEXT,
              args_json TEXT NOT NULL, expected_criteria TEXT NOT NULL,
              created_at TEXT NOT NULL
          );
          CREATE TABLE IF NOT EXISTS command_recipe_sources (
              recipe_id INTEGER NOT NULL, command_run_id INTEGER NOT NULL,
+             position INTEGER NOT NULL DEFAULT 0,
              PRIMARY KEY (recipe_id, command_run_id),
              FOREIGN KEY(recipe_id) REFERENCES command_recipes(id) ON DELETE CASCADE,
              FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE RESTRICT
          );
-         PRAGMA user_version = 11;")
+         PRAGMA user_version = 11;",
+        )
         .map_err(|e| format!("failed to migrate command recipes: {e}"))?;
+        let _ = conn.execute(
+            "ALTER TABLE command_recipe_sources ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
     }
     Ok(())
 }

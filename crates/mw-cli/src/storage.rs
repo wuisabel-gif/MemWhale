@@ -138,6 +138,7 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
         );
         CREATE TABLE IF NOT EXISTS command_recipe_sources (
             recipe_id INTEGER NOT NULL, command_run_id INTEGER NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (recipe_id, command_run_id),
             FOREIGN KEY(recipe_id) REFERENCES command_recipes(id) ON DELETE CASCADE,
             FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE RESTRICT
