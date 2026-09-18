@@ -66,6 +66,7 @@ fn run() -> Result<(), String> {
         Some("agent") => return agent_cmd(&raw_args[1..]),
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
+        Some("contradictions") => return contradictions_cmd(&raw_args[1..]),
         Some("explain") => return explain_cmd(&raw_args[1..]),
         Some("link") => return link_cmd(&raw_args[1..]),
         Some("unlink") => return unlink_cmd(&raw_args[1..]),
@@ -2937,6 +2938,34 @@ fn note_meta(conn: &Connection, id: i64) -> Option<(String, String)> {
         },
     )
     .ok()
+}
+
+fn contradictions_cmd(args: &[String]) -> Result<(), String> {
+    if args.len() != 2 {
+        return Err("usage: mw contradictions <memory-id> <memory-id>".into());
+    }
+    let left_id: i64 = args[0].parse().map_err(|_| "invalid left memory id")?;
+    let right_id: i64 = args[1].parse().map_err(|_| "invalid right memory id")?;
+    let conn = open_session_db()?;
+    let memories = memorywhale_core::sqlite::load_memories(&conn).map_err(|e| e.to_string())?;
+    let left = memories
+        .iter()
+        .find(|m| m.id == left_id)
+        .ok_or("left memory not found")?;
+    let right = memories
+        .iter()
+        .find(|m| m.id == right_id)
+        .ok_or("right memory not found")?;
+    println!("heuristic review: no semantic truth claim; original records are preserved");
+    println!(
+        "LEFT #{left_id}: {}\nRIGHT #{right_id}: {}",
+        left.text, right.text
+    );
+    let flag = memorywhale_core::contradiction::inspect(left, right)
+        .ok_or("no lexical contradiction signal found")?;
+    conn.execute("INSERT INTO contradiction_flags (left_memory_id,right_memory_id,score,reason,created_at) VALUES (?1,?2,?3,?4,?5)", rusqlite::params![flag.left_id,flag.right_id,flag.score,flag.reason,Utc::now().to_rfc3339()]).map_err(|e| e.to_string())?;
+    println!("FLAG pending: {} (score {:.2})", flag.reason, flag.score);
+    Ok(())
 }
 
 fn search_memory(args: &[String]) -> Result<(), String> {
