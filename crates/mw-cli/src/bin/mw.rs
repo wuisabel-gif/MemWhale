@@ -52,6 +52,7 @@ fn run() -> Result<(), String> {
         Some("memory") => return memory_lifecycle_cmd(&raw_args[1..]),
         Some("rm") => return rm_memory(&raw_args[1..]),
         Some("prune") => return prune_cmd(&raw_args[1..]),
+        Some("retention") => return retention_cmd(&raw_args[1..]),
         Some("audit") => return audit_cmd(),
         Some("share") => return share_cmd(&raw_args[1..]),
         Some("discard") => return discard_cmd(),
@@ -391,6 +392,7 @@ fn print_help() {
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
          mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
          mw audit                 report capture policy, retained volume, and high-volume sources\n\
+         mw retention report       report retained data and future purge targets (read-only)\n\
          mw status                print the effective capture mode for this directory and why\n\
          mw share [session|command] <id> [-o file]  write a self-contained HTML page to send to someone\n\
          mw discard               inside a recording: throw the current session away — nothing saved\n\
@@ -770,6 +772,48 @@ fn discard_cmd() -> Result<(), String> {
     fs::write(format!("{path}.discarded"), b"1")
         .map_err(|e| format!("failed to mark session for discard: {e}"))?;
     println!("mw: this session will NOT be saved. Type `exit` (or Ctrl-D) to close the shell.");
+    Ok(())
+}
+
+fn retention_cmd(args: &[String]) -> Result<(), String> {
+    if args.first().map(String::as_str) != Some("report") || args.len() > 1 {
+        return Err("usage: mw retention report (read-only; no data is deleted)".to_string());
+    }
+    let conn = open_session_db()?;
+    let report = memorywhale_cli::retention_report(&conn)?;
+    println!("MemoryWhale retention report (DRY RUN — no data changed)");
+    println!("\nCounts and time range");
+    println!(
+        "  sessions: {} ({} bytes; oldest {}; newest {})",
+        report.sessions,
+        report.session_bytes,
+        report.oldest_session.as_deref().unwrap_or("none"),
+        report.newest_session.as_deref().unwrap_or("none")
+    );
+    println!(
+        "  command runs: {} ({} bytes of stdout/stderr; oldest {}; newest {})",
+        report.runs,
+        report.output_bytes,
+        report.oldest_run.as_deref().unwrap_or("none"),
+        report.newest_run.as_deref().unwrap_or("none")
+    );
+    println!(
+        "  screenshots: {} | bookmarks: {} | pending agent notes: {}",
+        report.screenshots, report.bookmarks, report.pending_notes
+    );
+    println!("\nLargest outputs (command runs)");
+    for (id, size, command) in &report.largest_outputs {
+        println!("  #{id}: {size} bytes — {command}");
+    }
+    println!("\nProject breakdown");
+    for (name, count) in &report.projects {
+        println!("  {name}: {count}");
+    }
+    println!("Agent breakdown");
+    for (name, count) in &report.agents {
+        println!("  {name}: {count}");
+    }
+    println!("\nFuture purge targets (not selected or deleted): sessions/transcripts, command outputs, screenshots/files, and bookmarks; narrow selectors and explicit confirmation would be required.");
     Ok(())
 }
 
