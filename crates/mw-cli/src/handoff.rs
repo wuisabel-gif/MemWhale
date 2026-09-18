@@ -48,6 +48,21 @@ fn fence(text: &str) -> String {
     }
     "`".repeat(3.max(max_run + 1))
 }
+fn markdown_text(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace('*', "\\*")
+        .replace('_', "\\_")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
+        .replace('<', "\\<")
+        .replace('>', "\\>")
+        .replace('#', "\\#")
+}
+fn markdown_block(label: &str, text: &str) -> String {
+    let f = fence(text);
+    format!("{label}\n{f}text\n{text}\n{f}\n")
+}
 fn outcome(code: Option<i64>) -> String {
     match code {
         Some(0) => "success".into(),
@@ -94,9 +109,10 @@ pub fn export(
                 .map(|v| crate::redact(&v))
                 .collect();
             let argv_json = serde_json::to_string(&invocation).map_err(|e| e.to_string())?;
+            let command = crate::redact(&r.0);
             let ev = format!(
                 "$ {}\n{}\n{}",
-                r.0,
+                command,
                 bounded(r.4, &mut notices, "stdout"),
                 bounded(r.5, &mut notices, "stderr")
             );
@@ -145,8 +161,33 @@ pub fn export(
         }
         s.push_str("\n## Evidence\n");
         for r in &h.evidence {
-            let f = fence(&r.evidence);
-            s.push_str(&format!("### {} ({})\n\nSource IDs: `{}`\n\nInvocation: `{}`\n\nargv_json: `{}`\n\nExit outcome: `{}`\n\n{f}text\n{}\n{f}\n\nProvenance: `{}`\n\n",r.id,r.kind,r.source_ids.join("`, `"),r.invocation.as_ref().map(|v|v.join(" ")).unwrap_or_default(),r.argv_json.as_deref().unwrap_or(""),r.exit_outcome.as_deref().unwrap_or("not applicable"),r.evidence,serde_json::to_string(&r.provenance).unwrap()));
+            s.push_str(&format!(
+                "### {} ({})\n\n",
+                markdown_text(&r.id),
+                markdown_text(&r.kind)
+            ));
+            s.push_str(&markdown_block("Source IDs:", &r.source_ids.join("\n")));
+            s.push_str(&markdown_block(
+                "Invocation:",
+                &r.invocation
+                    .as_ref()
+                    .map(|v| serde_json::to_string(v).unwrap())
+                    .unwrap_or_default(),
+            ));
+            s.push_str(&markdown_block(
+                "argv_json:",
+                r.argv_json.as_deref().unwrap_or(""),
+            ));
+            s.push_str(&markdown_block(
+                "Exit outcome:",
+                r.exit_outcome.as_deref().unwrap_or("not applicable"),
+            ));
+            s.push_str(&markdown_block("Evidence:", &r.evidence));
+            s.push_str(&markdown_block(
+                "Provenance:",
+                &serde_json::to_string_pretty(&r.provenance).unwrap(),
+            ));
+            s.push('\n');
         }
         s += "## Unresolved questions\n- What remains to be verified?\n";
         s
@@ -165,9 +206,18 @@ pub fn export(
 }
 #[cfg(test)]
 mod tests {
-    use super::fence;
+    use super::{fence, markdown_block, markdown_text};
     #[test]
     fn fence_handles_backticks() {
         assert!(fence("x ``` y").len() > 3);
+    }
+
+    #[test]
+    fn markdown_rendering_is_literal_safe() {
+        let hostile = "line 1\n```\n<script>* [active]_markup_</script>";
+        let rendered = markdown_block("Evidence:", hostile);
+        assert!(rendered.contains(hostile));
+        assert!(rendered.starts_with("Evidence:\n````text\n"));
+        assert_eq!(markdown_text("a`*[x]#<b>"), "a\\`\\*\\[x\\]\\#\\<b\\>");
     }
 }
