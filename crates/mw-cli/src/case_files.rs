@@ -16,7 +16,7 @@ pub fn create(conn: &Connection, args: &[String]) -> Result<(), String> {
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
     tx.execute("INSERT INTO case_files (title, observations, conclusion, unresolved_questions, status, created_at, updated_at) VALUES (?1,?2,?3,?4,?5,?6,?6)", params![title, observations, conclusion, unresolved, status, Utc::now().to_rfc3339()]).map_err(|e| e.to_string())?;
     let case_id = tx.last_insert_rowid();
-    for id in ids.split(',') {
+    for (position, id) in ids.split(',').enumerate() {
         let id: i64 = id
             .trim()
             .parse()
@@ -31,7 +31,7 @@ pub fn create(conn: &Connection, args: &[String]) -> Result<(), String> {
         if !exists {
             return Err(format!("command run {id} does not exist"));
         }
-        tx.execute("INSERT INTO case_file_commands (case_file_id, command_run_id, position) VALUES (?1,?2,?3)", params![case_id,id, id]).map_err(|e| e.to_string())?;
+        tx.execute("INSERT INTO case_file_commands (case_file_id, command_run_id, position) VALUES (?1,?2,?3)", params![case_id,id, position as i64]).map_err(|e| e.to_string())?;
     }
     tx.commit().map_err(|e| e.to_string())?;
     println!("case file #{case_id} created");
@@ -85,9 +85,33 @@ pub fn show(conn: &Connection, id: i64) -> Result<(), String> {
 pub fn export(conn: &Connection, id: i64) -> Result<(), String> {
     let mut stmt=conn.prepare("SELECT title,observations,conclusion,unresolved_questions,status,created_at,updated_at FROM case_files WHERE id=?1").map_err(|e|e.to_string())?;
     let row=stmt.query_row([id],|r|Ok(json!({"id":id,"title":r.get::<_,String>(0)?,"observations":r.get::<_,String>(1)?,"conclusion":r.get::<_,String>(2)?,"unresolved_questions":r.get::<_,String>(3)?,"status":r.get::<_,String>(4)?,"created_at":r.get::<_,String>(5)?,"updated_at":r.get::<_,String>(6)?}))).map_err(|e|e.to_string())?;
+    let mut commands = Vec::new();
+    let mut command_ids = Vec::new();
+    let mut commands_stmt = conn.prepare("SELECT x.position,c.id,c.command,c.exit_code,c.stdout,c.stderr FROM case_file_commands x JOIN command_runs c ON c.id=x.command_run_id WHERE x.case_file_id=?1 ORDER BY x.position").map_err(|e| e.to_string())?;
+    for item in commands_stmt
+        .query_map([id], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<i64>>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, String>(5)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+    {
+        let (position, command_id, command, exit_code, stdout, stderr) =
+            item.map_err(|e| e.to_string())?;
+        command_ids.push(command_id);
+        commands.push(json!({"position": position, "command_id": command_id, "command": command, "exit_code": exit_code, "stdout": stdout, "stderr": stderr}));
+    }
+    let mut exported = row;
+    exported["command_ids"] = json!(command_ids);
+    exported["evidence"] = json!(commands);
     println!(
         "{}",
-        serde_json::to_string_pretty(&row).map_err(|e| e.to_string())?
+        serde_json::to_string_pretty(&exported).map_err(|e| e.to_string())?
     );
     Ok(())
 }
@@ -117,5 +141,32 @@ mod tests {
                 .unwrap(),
             "Failure"
         );
+    }
+
+    #[test]
+    fn preserves_requested_command_order_in_evidence_links() {
+        let c = Connection::open_in_memory().unwrap();
+        crate::storage::initialize(&c).unwrap();
+        for id in [20_i64, 7] {
+            c.execute("INSERT INTO command_runs(id,command,argv_json,created_at) VALUES(?1, 'test', '[]', 'now')", [id]).unwrap();
+        }
+        create(
+            &c,
+            &[
+                "--title".into(),
+                "ordered".into(),
+                "--command-ids".into(),
+                "20,7".into(),
+            ],
+        )
+        .unwrap();
+        let positions: Vec<(i64, i64)> = c
+            .prepare("SELECT position, command_run_id FROM case_file_commands ORDER BY position")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(positions, vec![(0, 20), (1, 7)]);
     }
 }

@@ -696,10 +696,18 @@ fn rm_memory(args: &[String]) -> Result<(), String> {
             |_| Ok(()),
         ) {
             Ok(()) => {
-                let _ = conn.execute(
-                    "DELETE FROM command_arguments WHERE command_run_id = ?1",
-                    params![id],
-                );
+                let linked: bool = conn
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM case_file_commands WHERE command_run_id = ?1)",
+                        params![id],
+                        |r| r.get(0),
+                    )
+                    .map_err(|e| format!("failed to check case links: {e}"))?;
+                if linked {
+                    return Err(format!(
+                        "cannot delete command run #{id}: it is linked to a case file"
+                    ));
+                }
                 conn.execute("DELETE FROM command_runs WHERE id = ?1", params![id])
                     .map_err(|e| format!("failed to delete command run: {e}"))?;
                 println!("mw: removed command run #{id}.");
@@ -876,7 +884,7 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         .collect();
     let runs: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM command_runs WHERE created_at < ?1",
+            "SELECT COUNT(*) FROM command_runs c WHERE c.created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = c.id)",
             params![cutoff],
             |r| r.get(0),
         )
@@ -907,13 +915,14 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
     }
-    let _ = conn.execute(
-        "DELETE FROM command_runs WHERE created_at < ?1",
+    let deleted_runs = conn.execute(
+        "DELETE FROM command_runs WHERE created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = command_runs.id)",
         params![cutoff],
-    );
+    ).map_err(|e| format!("failed to prune command runs: {e}"))?;
     println!(
-        "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
-        sessions.len()
+        "mw: pruned {} session(s) and {} command run(s) older than {spec}.",
+        sessions.len(),
+        deleted_runs
     );
     Ok(())
 }
