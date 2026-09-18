@@ -917,6 +917,10 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
     }
+    conn.execute(
+        "DELETE FROM command_arguments WHERE command_run_id IN (SELECT id FROM command_runs WHERE created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = command_runs.id))",
+        params![cutoff],
+    ).map_err(|e| format!("failed to prune command arguments: {e}"))?;
     let deleted_runs = conn.execute(
         "DELETE FROM command_runs WHERE created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = command_runs.id)",
         params![cutoff],

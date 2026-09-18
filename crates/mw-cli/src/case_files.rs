@@ -4,11 +4,11 @@ use rusqlite::{params, Connection};
 use serde_json::json;
 
 pub fn create(conn: &Connection, args: &[String]) -> Result<(), String> {
-    let title = value(args, "--title")?;
+    let title = crate::sanitize_capture(&value(args, "--title")?);
     let ids = value(args, "--command-ids")?;
-    let observations = value(args, "--observations").unwrap_or_default();
-    let conclusion = value(args, "--conclusion").unwrap_or_default();
-    let unresolved = value(args, "--unresolved").unwrap_or_default();
+    let observations = crate::sanitize_capture(&value(args, "--observations").unwrap_or_default());
+    let conclusion = crate::sanitize_capture(&value(args, "--conclusion").unwrap_or_default());
+    let unresolved = crate::sanitize_capture(&value(args, "--unresolved").unwrap_or_default());
     let status = value(args, "--status").unwrap_or_else(|_| "open".into());
     if !["open", "resolved", "closed"].contains(&status.as_str()) {
         return Err("status must be open, resolved, or closed".into());
@@ -127,7 +127,7 @@ pub fn export(conn: &Connection, id: i64, args: &[String]) -> Result<(), String>
         for command in commands {
             println!(
                 "- [Command #{}](mw://command/{}) — exit {:?}: `{}`",
-                command["position"],
+                command["command_id"],
                 command["command_id"],
                 command["exit_code"],
                 command["command"]
@@ -152,11 +152,15 @@ mod tests {
             &c,
             &[
                 "--title".into(),
-                "Failure".into(),
+                "Failure token=supersecret".into(),
                 "--command-ids".into(),
                 "1".into(),
                 "--observations".into(),
-                "observed".into(),
+                "observed token=anothersecret".into(),
+                "--conclusion".into(),
+                "fixed token=thirdsecret".into(),
+                "--unresolved".into(),
+                "question token=fourthsecret".into(),
             ],
         )
         .unwrap();
@@ -164,8 +168,18 @@ mod tests {
             c.query_row("SELECT title FROM case_files", [], |r| r
                 .get::<_, String>(0))
                 .unwrap(),
-            "Failure"
+            "Failure token=[REDACTED]"
         );
+        let fields: (String, String, String) = c
+            .query_row(
+                "SELECT observations, conclusion, unresolved_questions FROM case_files",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(fields.0, "observed token=[REDACTED]");
+        assert_eq!(fields.1, "fixed token=[REDACTED]");
+        assert_eq!(fields.2, "question token=[REDACTED]");
     }
 
     #[test]
