@@ -83,7 +83,7 @@ def main():
         check("[command · rho]" in run("mw", "search", "agent:rho"), "Rho provenance missing")
         check("[command · terminal]" in run("mw", "search", "agent:terminal"), "terminal provenance missing")
         with sqlite3.connect(data / "memorywhale.sqlite3") as conn:
-            check(conn.execute("PRAGMA user_version").fetchone()[0] == 10, "migration 10 missing")
+            check(conn.execute("PRAGMA user_version").fetchone()[0] == 11, "migration 11 missing")
             agents = [row[0] for row in conn.execute("SELECT agent FROM command_runs ORDER BY id")]
             check(agents == ["claude", "rho", None], f"unexpected agents: {agents}")
 

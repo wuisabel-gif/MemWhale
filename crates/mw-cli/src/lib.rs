@@ -1,6 +1,7 @@
 //! Shared helpers for the MemoryWhale CLI binaries.
 
 pub mod agent_hook;
+pub mod case_files;
 pub mod github;
 pub mod integrate;
 pub mod mcp;
@@ -133,7 +134,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 10;
+pub const LATEST_SCHEMA_VERSION: i64 = 11;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -277,6 +278,9 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         ensure_agent(conn)?;
         conn.execute_batch("PRAGMA user_version = 10;")
             .map_err(|e| format!("failed to migrate command agent provenance: {e}"))?;
+    }
+    if version < 11 {
+        conn.execute_batch("CREATE TABLE IF NOT EXISTS case_files (id INTEGER PRIMARY KEY, title TEXT NOT NULL, observations TEXT NOT NULL DEFAULT '', conclusion TEXT NOT NULL DEFAULT '', unresolved_questions TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL, updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS case_file_commands (case_file_id INTEGER NOT NULL, command_run_id INTEGER NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(case_file_id, command_run_id), FOREIGN KEY(case_file_id) REFERENCES case_files(id) ON DELETE CASCADE, FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE RESTRICT); CREATE INDEX IF NOT EXISTS idx_case_files_updated_at ON case_files(updated_at); PRAGMA user_version = 11;").map_err(|e| format!("failed to migrate case files: {e}"))?;
     }
     Ok(())
 }

@@ -45,6 +45,7 @@ fn run() -> Result<(), String> {
             return Ok(());
         }
         Some("show") => return show_session(&raw_args[1..]),
+        Some("case") => return case_file_cmd(&raw_args[1..]),
         Some("list") => return list_sessions(&raw_args[1..]),
         Some("timeline") => return project_timeline(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
@@ -200,6 +201,27 @@ fn format_opt<T: std::fmt::Display>(value: &Option<T>) -> String {
         .as_ref()
         .map(ToString::to_string)
         .unwrap_or_else(|| "<none>".to_string())
+}
+
+fn case_file_cmd(args: &[String]) -> Result<(), String> {
+    let conn = memorywhale_cli::storage::open()?;
+    match args.first().map(String::as_str) {
+        Some("create") => memorywhale_cli::case_files::create(&conn, &args[1..]),
+        Some("list") => memorywhale_cli::case_files::list(&conn),
+        Some("show") | Some("export") => {
+            let id: i64 = args
+                .get(1)
+                .ok_or("missing case file id")?
+                .parse()
+                .map_err(|_| "invalid case file id")?;
+            if args[0] == "show" {
+                memorywhale_cli::case_files::show(&conn, id)
+            } else {
+                memorywhale_cli::case_files::export(&conn, id, &args[2..])
+            }
+        }
+        _ => Err("usage: mw case create|show|list|export".into()),
+    }
 }
 
 fn record_session(notes: String, live: bool) -> Result<(), String> {
@@ -382,6 +404,8 @@ fn print_help() {
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw timeline --project X [--after DATE] [--before DATE] [--type TYPE] [--limit N]  read-only project event timeline\n\
          mw show <id>             print the full faithful transcript of a session\n\
+         mw case create --title T --command-ids 1,2 [--observations X] [--conclusion X] [--unresolved X] [--status open|resolved|closed]\n\
+         mw case show|list|export <id>  inspect human-authored case files\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
@@ -674,10 +698,18 @@ fn rm_memory(args: &[String]) -> Result<(), String> {
             |_| Ok(()),
         ) {
             Ok(()) => {
-                let _ = conn.execute(
-                    "DELETE FROM command_arguments WHERE command_run_id = ?1",
-                    params![id],
-                );
+                let linked: bool = conn
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM case_file_commands WHERE command_run_id = ?1)",
+                        params![id],
+                        |r| r.get(0),
+                    )
+                    .map_err(|e| format!("failed to check case links: {e}"))?;
+                if linked {
+                    return Err(format!(
+                        "cannot delete command run #{id}: it is linked to a case file"
+                    ));
+                }
                 conn.execute("DELETE FROM command_runs WHERE id = ?1", params![id])
                     .map_err(|e| format!("failed to delete command run: {e}"))?;
                 println!("mw: removed command run #{id}.");
@@ -854,7 +886,7 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         .collect();
     let runs: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM command_runs WHERE created_at < ?1",
+            "SELECT COUNT(*) FROM command_runs c WHERE c.created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = c.id)",
             params![cutoff],
             |r| r.get(0),
         )
@@ -885,13 +917,18 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
     }
-    let _ = conn.execute(
-        "DELETE FROM command_runs WHERE created_at < ?1",
+    conn.execute(
+        "DELETE FROM command_arguments WHERE command_run_id IN (SELECT id FROM command_runs WHERE created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = command_runs.id))",
         params![cutoff],
-    );
+    ).map_err(|e| format!("failed to prune command arguments: {e}"))?;
+    let deleted_runs = conn.execute(
+        "DELETE FROM command_runs WHERE created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = command_runs.id)",
+        params![cutoff],
+    ).map_err(|e| format!("failed to prune command runs: {e}"))?;
     println!(
-        "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
-        sessions.len()
+        "mw: pruned {} session(s) and {} command run(s) older than {spec}.",
+        sessions.len(),
+        deleted_runs
     );
     Ok(())
 }
