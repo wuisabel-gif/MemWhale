@@ -680,10 +680,11 @@ fn rm_memory(args: &[String]) -> Result<(), String> {
                     params![id],
                 );
                 conn.execute(
-                    "DELETE FROM command_recipe_sources WHERE command_run_id = ?1",
+                    "DELETE FROM command_recipes WHERE id IN
+                     (SELECT recipe_id FROM command_recipe_sources WHERE command_run_id = ?1)",
                     params![id],
                 )
-                .map_err(|e| format!("failed to unlink command run: {e}"))?;
+                .map_err(|e| format!("failed to delete dependent recipes: {e}"))?;
                 conn.execute("DELETE FROM command_runs WHERE id = ?1", params![id])
                     .map_err(|e| format!("failed to delete command run: {e}"))?;
                 println!("mw: removed command run #{id}.");
@@ -891,14 +892,20 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
     }
-    conn.execute("DELETE FROM command_recipe_sources WHERE command_run_id IN (SELECT id FROM command_runs WHERE created_at < ?1)", params![cutoff])
-        .map_err(|e| format!("failed to unlink pruned command runs: {e}"))?;
+    let recipes = conn
+        .execute(
+            "DELETE FROM command_recipes WHERE id IN
+         (SELECT recipe_id FROM command_recipe_sources
+          WHERE command_run_id IN (SELECT id FROM command_runs WHERE created_at < ?1))",
+            params![cutoff],
+        )
+        .map_err(|e| format!("failed to delete dependent recipes: {e}"))?;
     let _ = conn.execute(
         "DELETE FROM command_runs WHERE created_at < ?1",
         params![cutoff],
     );
     println!(
-        "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
+        "mw: pruned {} session(s), {runs} command run(s), and {recipes} recipe(s) older than {spec}.",
         sessions.len()
     );
     Ok(())
@@ -1091,10 +1098,8 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
                 .map_err(|e| format!("failed to read command runs: {e}"))?;
             let mut rows = Vec::new();
             let mut seen = std::collections::HashSet::new();
+            runs.retain(|id| seen.insert(*id));
             for id in &runs {
-                if !seen.insert(*id) {
-                    return Err(format!("duplicate command run id: {id}"));
-                }
                 rows.push(
                     stmt.query_row([id], |r| {
                         Ok((

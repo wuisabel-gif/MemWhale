@@ -295,10 +295,14 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
          PRAGMA user_version = 11;",
         )
         .map_err(|e| format!("failed to migrate command recipes: {e}"))?;
-        let _ = conn.execute(
-            "ALTER TABLE command_recipe_sources ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
+    }
+    if table_exists(conn, "command_recipe_sources")? {
+        add_column_if_missing(
+            conn,
+            "command_recipe_sources",
+            "position",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
     }
     Ok(())
 }
