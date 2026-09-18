@@ -18,6 +18,7 @@ _mw() {
     'prune:delete empty auto-recorded sessions'
     'audit:inspect capture policy and retained volume'
     'share:write a self-contained HTML page to send to someone'
+    'handoff:export selected local debugging evidence'
     'discard:inside a recording, throw the current session away'
     'replay:rerun a saved command run'
     'demo:seed a small demo dataset'

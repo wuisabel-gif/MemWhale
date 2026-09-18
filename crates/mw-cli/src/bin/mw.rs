@@ -401,6 +401,7 @@ fn print_help() {
          mw retention report       report retained data and future purge targets (read-only)\n\
          mw status                print the effective capture mode for this directory and why\n\
          mw share [session|command] <id> [-o file]  write a self-contained HTML page to send to someone\n\
+         mw handoff --ids c:ID,s:ID [--format markdown|json] --output FILE  export an explicit local debugging handoff\n\
          mw discard               inside a recording: throw the current session away — nothing saved\n\
          mw replay <run-id>       rerun a saved command from command_runs\n         mw compare <run-id> <run-id>  compare two command runs field by field (descriptive only)\n\
          mw demo                  seed a small demo terminal-memory dataset\n\
