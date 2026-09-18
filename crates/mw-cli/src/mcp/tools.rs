@@ -607,9 +607,27 @@ fn last_line(text: &str, max: usize) -> String {
 mod tests {
     use super::*;
     use rusqlite::Connection;
-    use std::sync::Mutex;
+    struct EnvVarGuard {
+        name: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
 
-    static DATA_DIR_LOCK: Mutex<()> = Mutex::new(());
+    impl EnvVarGuard {
+        fn set(name: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+            let previous = std::env::var_os(name);
+            std::env::set_var(name, value);
+            Self { name, previous }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var(self.name, value),
+                None => std::env::remove_var(self.name),
+            }
+        }
+    }
 
     /// A repeated-then-resolved-then-regressed timeline: the tool's formatted
     /// output must report the occurrence + resolution counts and point at a
@@ -774,32 +792,33 @@ mod tests {
 
     #[test]
     fn search_memory_parses_omitted_and_false_explain_through_call_tool() {
-        let _lock = DATA_DIR_LOCK.lock().unwrap();
         let dir = std::env::temp_dir().join(format!("memorywhale-mcp-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::env::set_var("MEMORYWHALE_DATA_DIR", &dir);
-        call_tool(
-            "remember",
-            &json!({"text": "production parser regression"}),
-            None,
-        )
-        .unwrap();
-        let omitted = call_tool(
-            "search_memory",
-            &json!({"query": "production parser regression"}),
-            None,
-        )
-        .unwrap();
-        let explicit_false = call_tool(
-            "search_memory",
-            &json!({"query": "production parser regression", "explain": false}),
-            None,
-        )
-        .unwrap();
-        assert_eq!(omitted, explicit_false);
-        assert!(!omitted.contains("explanation:"));
-        std::env::remove_var("MEMORYWHALE_DATA_DIR");
+        {
+            let _lock = crate::TEST_ENV_LOCK.lock().unwrap();
+            let _env = EnvVarGuard::set("MEMORYWHALE_DATA_DIR", &dir);
+            call_tool(
+                "remember",
+                &json!({"text": "production parser regression"}),
+                None,
+            )
+            .unwrap();
+            let omitted = call_tool(
+                "search_memory",
+                &json!({"query": "production parser regression"}),
+                None,
+            )
+            .unwrap();
+            let explicit_false = call_tool(
+                "search_memory",
+                &json!({"query": "production parser regression", "explain": false}),
+                None,
+            )
+            .unwrap();
+            assert_eq!(omitted, explicit_false);
+            assert!(!omitted.contains("explanation:"));
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
