@@ -70,11 +70,16 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
             .unwrap_or_default();
         conn.execute_batch("BEGIN IMMEDIATE")
             .map_err(|err| format!("failed to lock Codewhale receipt identity: {err}"))?;
-        let pattern = format!("%codewhale_session_hex:{session} codewhale_tool_call_hex:{call}%");
+        // Match the entire leading identity, including its final delimiter.
+        // LIKE wildcards or an unanchored substring can confuse prefix IDs or
+        // identity-shaped text inside the untrusted metadata that follows.
+        let identity = format!(
+            "agent:codewhale codewhale_session_hex:{session} codewhale_tool_call_hex:{call} "
+        );
         let duplicate: bool = conn
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM command_runs WHERE agent = ?1 AND notes LIKE ?2)",
-                params![memorywhale_core::provenance::AGENT_CODEWHALE, pattern],
+                "SELECT EXISTS(SELECT 1 FROM command_runs WHERE agent = ?1 AND substr(notes, 1, length(?2)) = ?2)",
+                params![memorywhale_core::provenance::AGENT_CODEWHALE, identity],
                 |row| row.get(0),
             )
             .map_err(|err| format!("failed to check Codewhale receipt identity: {err}"))?;

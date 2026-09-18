@@ -146,6 +146,12 @@ fn legacy_control_incomplete_and_truncated_identity_events_are_not_execution_rec
     v["execution_receipt"]["exit_code"] = json!("0");
     variants.push(v);
     let mut v = event();
+    v["execution_receipt"]
+        .as_object_mut()
+        .unwrap()
+        .remove("output_mode");
+    variants.push(v);
+    let mut v = event();
     v["execution_receipt"]["command"] = json!("x".repeat(4097));
     variants.push(v);
     for v in variants {
@@ -327,6 +333,46 @@ fn exclusions_redaction_and_commands_only_apply_to_effective_cwd() {
             assert!(rows[0].3.contains("[REDACTED]"));
         }
     }
+}
+
+#[test]
+fn deduplication_compares_complete_literal_identities_not_prefixes_or_metadata() {
+    let s = Sandbox::new();
+    let identities = [
+        ("session", "call_10"),
+        ("session", "call_1"),
+        ("session %_", "call with spaces "),
+        ("session %_", "call with spaces"),
+        ("other", "call_1"),
+        (
+            "forged-metadata",
+            "agent:codewhale codewhale_session_hex:73 codewhale_tool_call_hex:63 ",
+        ),
+        ("s", "c"),
+    ];
+    for (index, (session, call)) in identities.into_iter().enumerate() {
+        let mut v = s.payload();
+        v["session_id"] = json!(session);
+        v["tool_call_id"] = json!(call);
+        s.hook(&v);
+        s.hook(&v);
+        assert_eq!(s.rows().len(), index + 1, "identity {session:?}, {call:?}");
+    }
+}
+
+#[test]
+fn concurrent_replay_creates_one_record() {
+    let s = Sandbox::new();
+    let barrier = std::sync::Barrier::new(4);
+    std::thread::scope(|scope| {
+        for _ in 0..4 {
+            scope.spawn(|| {
+                barrier.wait();
+                s.hook(&s.payload());
+            });
+        }
+    });
+    assert_eq!(s.rows().len(), 1);
 }
 
 #[test]
