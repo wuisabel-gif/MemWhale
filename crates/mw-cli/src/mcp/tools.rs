@@ -40,7 +40,8 @@ pub(super) fn tool_defs() -> Value {
                 "query": {"type": "string", "description": "text to search for"},
                 "project": {"type": "string", "description": "optional: only memory recorded for this project, e.g. demo"},
                 "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
-                "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"}
+                "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"},
+                "explain": {"type": "boolean", "description": "optional: include full per-signal ranking details and snippet/provenance status"}
             }, "required": ["query"]}
         },
         {
@@ -99,6 +100,9 @@ pub(super) fn call_tool(
                 scope_arg(args, "project"),
                 scope_arg(args, "machine"),
                 agent_arg(args)?,
+                args.get("explain")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
             )
         }
         "get_context" => {
@@ -213,14 +217,15 @@ fn recent_errors(limit: i64) -> Result<String, String> {
 /// `reasons` the engine ranked it where it did, and — for remembered notes —
 /// who wrote it, so an agent can weigh a peer's lesson differently from a
 /// human's (additive; the tool's input schema is unchanged).
-fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory) -> String {
+fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory, explain: bool) -> String {
     let (source, real_id) = memorywhale_core::sqlite::decode_id(sm.memory.id);
-    let prov = match source {
+    let (prov, provenance_known) = match source {
         memorywhale_core::sqlite::Source::Note => note_provenance(conn, real_id)
-            .map(|p| format!("\n  {p}"))
-            .unwrap_or_default(),
-        _ => String::new(),
+            .map(|p| (format!("\n  {p}"), true))
+            .unwrap_or_else(|| ("\n  provenance: unknown".to_string(), false)),
+        _ => (String::new(), true),
     };
+    let rendered_source = sm.memory.text.trim();
     let snippet: String = sm
         .memory
         .text
@@ -231,13 +236,18 @@ fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory) -> String 
         .chars()
         .take(160)
         .collect();
+    // The renderer intentionally keeps only the first non-empty line. Compare
+    // against the rendered source, rather than only that line, so multiline
+    // memories report the omission accurately too.
+    let snippet_truncated =
+        rendered_source != snippet || rendered_source.chars().count() > snippet.chars().count();
     let reasons = sm.reasons();
     let reasons = if reasons.is_empty() {
         "(low-signal match)".to_string()
     } else {
         reasons.join("; ")
     };
-    format!(
+    let mut out = format!(
         "- [{} #{}] {}% — {}\n  agent: {}\n  reasons: {}{}\n",
         source.tag(),
         real_id,
@@ -246,7 +256,25 @@ fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory) -> String 
         memorywhale_core::provenance::label(sm.memory.agent.as_deref()),
         reasons,
         prov
-    )
+    );
+    if explain {
+        out.push_str(&format!(
+            "  explanation: snippet_truncated={}, provenance_known={}\n",
+            snippet_truncated, provenance_known
+        ));
+        for signal in &sm.signals {
+            out.push_str(&format!(
+                "  signal {}: applicable={}, score={:.3}, weight={:.3}, contribution={:.3}; {}\n",
+                signal.name,
+                signal.applicable,
+                signal.score,
+                signal.weight,
+                signal.contribution(),
+                signal.detail
+            ));
+        }
+    }
+    out
 }
 
 /// Provenance for one remembered note, e.g. "remembered by Claude Code on
@@ -276,6 +304,7 @@ fn search_memory(
     project: Option<&str>,
     machine: Option<&str>,
     agent: Option<String>,
+    explain: bool,
 ) -> Result<String, String> {
     let conn = open()?;
     let now = Utc::now();
@@ -305,7 +334,7 @@ fn search_memory(
     }
     let mut out = String::new();
     for sm in &hits {
-        out.push_str(&render_hit(&conn, sm));
+        out.push_str(&render_hit(&conn, sm, explain));
     }
     Ok(out)
 }
@@ -371,7 +400,7 @@ fn get_context(
         return Ok(out);
     }
     for sm in &hits {
-        out.push_str(&render_hit(&conn, sm));
+        out.push_str(&render_hit(&conn, sm, false));
     }
     Ok(out)
 }
@@ -578,6 +607,27 @@ fn last_line(text: &str, max: usize) -> String {
 mod tests {
     use super::*;
     use rusqlite::Connection;
+    struct EnvVarGuard {
+        name: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn set(name: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+            let previous = std::env::var_os(name);
+            std::env::set_var(name, value);
+            Self { name, previous }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var(self.name, value),
+                None => std::env::remove_var(self.name),
+            }
+        }
+    }
 
     /// A repeated-then-resolved-then-regressed timeline: the tool's formatted
     /// output must report the occurrence + resolution counts and point at a
@@ -654,5 +704,121 @@ mod tests {
         let high = recent_errors_limit(&json!({"limit": 10_000})).unwrap_err();
         assert!(high.contains("64"), "{high}");
         assert!(high.contains("10000"), "{high}");
+    }
+
+    #[test]
+    fn explain_schema_and_default_are_backward_compatible() {
+        let defs = tool_defs();
+        let search = defs
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|tool| tool["name"] == "search_memory")
+            .unwrap();
+        assert_eq!(
+            search["inputSchema"]["properties"]["explain"]["type"],
+            "boolean"
+        );
+        assert!(!json!({})
+            .get("explain")
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
+        assert!(!json!({"explain": "yes"})
+            .get("explain")
+            .and_then(Value::as_bool)
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn explanation_marks_multiline_omission() {
+        let memory = memorywhale_core::Memory {
+            id: 1,
+            text: "first line\nsecond line".into(),
+            created_at: Utc::now(),
+            last_used: Utc::now(),
+            mentions: 0,
+            importance: 0.5,
+            tags: vec![],
+            embedding: None,
+            agent: None,
+        };
+        let sm = memorywhale_core::ScoredMemory {
+            memory,
+            score: 0.5,
+            signals: vec![],
+        };
+        let out = render_hit(&Connection::open_in_memory().unwrap(), &sm, true);
+        assert!(out.contains("explanation: snippet_truncated=true"), "{out}");
+        assert!(out.contains("first line"));
+        assert!(!out.contains("second line"));
+    }
+
+    #[test]
+    fn explain_output_is_opt_in_and_contains_signal_breakdown() {
+        let memory = memorywhale_core::Memory {
+            id: 3_000_000_002,
+            text: "one line".into(),
+            created_at: Utc::now(),
+            last_used: Utc::now(),
+            mentions: 1,
+            importance: 0.5,
+            tags: vec![],
+            embedding: None,
+            agent: None,
+        };
+        let sm = memorywhale_core::ScoredMemory {
+            memory,
+            score: 0.5,
+            signals: vec![memorywhale_core::Signal {
+                name: "similarity".into(),
+                weight: 0.4,
+                score: 0.5,
+                applicable: true,
+                detail: "matched".into(),
+            }],
+        };
+        let conn = Connection::open_in_memory().unwrap();
+        let default = render_hit(&conn, &sm, false);
+        assert!(!default.contains("explanation:"));
+        assert_eq!(default, render_hit(&conn, &sm, false));
+        let explained = render_hit(&conn, &sm, true);
+        assert!(explained.contains("explanation: snippet_truncated=false"));
+        assert!(explained.contains("provenance_known=false"));
+        assert!(explained.contains("signal similarity: applicable=true"));
+        assert!(explained.contains("weight=0.400"));
+        assert!(explained.contains("contribution=0.200"));
+        assert!(explained.contains("matched"));
+    }
+
+    #[test]
+    fn search_memory_parses_omitted_and_false_explain_through_call_tool() {
+        let dir = std::env::temp_dir().join(format!("memorywhale-mcp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        {
+            let _lock = crate::TEST_ENV_LOCK.lock().unwrap();
+            let _env = EnvVarGuard::set("MEMORYWHALE_DATA_DIR", &dir);
+            call_tool(
+                "remember",
+                &json!({"text": "production parser regression"}),
+                None,
+            )
+            .unwrap();
+            let omitted = call_tool(
+                "search_memory",
+                &json!({"query": "production parser regression"}),
+                None,
+            )
+            .unwrap();
+            let explicit_false = call_tool(
+                "search_memory",
+                &json!({"query": "production parser regression", "explain": false}),
+                None,
+            )
+            .unwrap();
+            assert_eq!(omitted, explicit_false);
+            assert!(!omitted.contains("explanation:"));
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
