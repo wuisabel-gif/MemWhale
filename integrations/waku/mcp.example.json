@@ -1,0 +1,12 @@
+{
+  "servers": [
+    {
+      "name": "memorywhale",
+      "command": "/absolute/path/to/mw-mcp",
+      "args": [],
+      "env": {
+        "MEMORYWHALE_DATA_DIR": "/absolute/path/to/explicitly-selected-store"
+      }
+    }
+  ]
+}
