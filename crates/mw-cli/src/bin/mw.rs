@@ -201,6 +201,8 @@ fn format_opt<T: std::fmt::Display>(value: &Option<T>) -> String {
         .as_ref()
         .map(ToString::to_string)
         .unwrap_or_else(|| "<none>".to_string())
+}
+
 fn case_file_cmd(args: &[String]) -> Result<(), String> {
     let conn = memorywhale_cli::storage::open()?;
     match args.first().map(String::as_str) {
