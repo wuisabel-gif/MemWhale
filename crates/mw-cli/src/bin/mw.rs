@@ -66,6 +66,7 @@ fn run() -> Result<(), String> {
         Some("agent") => return agent_cmd(&raw_args[1..]),
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
+        Some("feedback") => return feedback_cmd(&raw_args[1..]),
         Some("explain") => return explain_cmd(&raw_args[1..]),
         Some("link") => return link_cmd(&raw_args[1..]),
         Some("unlink") => return unlink_cmd(&raw_args[1..]),
@@ -1007,6 +1008,73 @@ fn update_session_from_transcript(
     )
     .map_err(|err| format!("failed to autosave session: {err}"))?;
     Ok(byte_count)
+}
+
+fn feedback_cmd(args: &[String]) -> Result<(), String> {
+    let conn = memorywhale_cli::storage::open()?;
+    let action = args.first().map(String::as_str).unwrap_or("list");
+    match action {
+        "add" => {
+            if args.len() < 3 {
+                return Err("usage: mw feedback add <memory-id> <kind> [--actor NAME]".into());
+            }
+            let memory_id: i64 = args[1].parse().map_err(|_| "invalid memory id")?;
+            let kind = args[2].as_str();
+            if !["helpful", "irrelevant", "outdated", "contradicted"].contains(&kind) {
+                return Err(
+                    "feedback kind must be helpful, irrelevant, outdated, or contradicted".into(),
+                );
+            }
+            let actor = args
+                .windows(2)
+                .find(|w| w[0] == "--actor")
+                .map(|w| w[1].as_str());
+            conn.execute("INSERT INTO retrieval_feedback (memory_id,kind,created_at,actor) VALUES (?1,?2,?3,?4)", params![memory_id, kind, Utc::now().to_rfc3339(), actor]).map_err(|e| e.to_string())?;
+            println!(
+                "feedback #{} recorded (display-only)",
+                conn.last_insert_rowid()
+            );
+        }
+        "list" | "show" => {
+            let (sql, id): (&str, Option<i64>) = if action == "show" {
+                ("SELECT id,memory_id,kind,created_at,actor,undone_at FROM retrieval_feedback WHERE id=?1", Some(args.get(1).ok_or("feedback id required")?.parse().map_err(|_| "invalid feedback id")?))
+            } else {
+                ("SELECT id,memory_id,kind,created_at,actor,undone_at FROM retrieval_feedback WHERE (?1 IS NULL OR memory_id=?1) ORDER BY id DESC", args.get(1).map(|x| x.parse().map_err(|_| "invalid memory id")).transpose()?)
+            };
+            let mut st = conn.prepare(sql).map_err(|e| e.to_string())?;
+            let rows = st
+                .query_map(params![id], |r| {
+                    Ok(format!(
+                        "#{} memory={} {} {} actor={} undone={} ",
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, i64>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                        r.get::<_, Option<String>>(5)?.unwrap_or_default()
+                    ))
+                })
+                .map_err(|e| e.to_string())?;
+            for row in rows {
+                println!("{}", row.map_err(|e| e.to_string())?);
+            }
+        }
+        "undo" => {
+            let id: i64 = args
+                .get(1)
+                .ok_or("feedback id required")?
+                .parse()
+                .map_err(|_| "invalid feedback id")?;
+            conn.execute(
+                "UPDATE retrieval_feedback SET undone_at=?1 WHERE id=?2 AND undone_at IS NULL",
+                params![Utc::now().to_rfc3339(), id],
+            )
+            .map_err(|e| e.to_string())?;
+            println!("feedback #{id} undone");
+        }
+        _ => return Err("usage: mw feedback add|list|show|undo".into()),
+    }
+    Ok(())
 }
 
 fn open_session_db() -> Result<Connection, String> {
