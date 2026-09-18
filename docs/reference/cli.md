@@ -159,6 +159,10 @@ mw-run --notes "Check the Rust backend" -- cargo check
 Output still streams to your terminal while a copy (stdout, stderr, exit code,
 cwd, argv) is saved. `mw-run` exits with the same exit code as the command.
 
+## mw handoff — export selected debugging evidence
+
+`mw handoff --ids c:ID,s:ID [--format markdown|json] --output FILE` writes an explicit, local-only handoff. It refuses existing output files, redacts bounded evidence, and performs no network operation.
+
 ## mw-remember — save output you already have
 
 ```bash

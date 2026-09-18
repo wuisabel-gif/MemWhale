@@ -59,6 +59,7 @@ fn run() -> Result<(), String> {
         Some("compare") => return compare_command_runs(&raw_args[1..]),
         Some("demo") => return seed_demo(),
         Some("export") => return export_memory(&raw_args[1..]),
+        Some("handoff") => return handoff_cmd(&raw_args[1..]),
         Some("import") => return import_memory(&raw_args[1..]),
         Some("push") => return push_memory(&raw_args[1..]),
         Some("pull") => return pull_memory(&raw_args[1..]),
@@ -393,6 +394,7 @@ fn print_help() {
          mw audit                 report capture policy, retained volume, and high-volume sources\n\
          mw status                print the effective capture mode for this directory and why\n\
          mw share [session|command] <id> [-o file]  write a self-contained HTML page to send to someone\n\
+         mw handoff --ids c:ID,s:ID [--format markdown|json] --output FILE  export an explicit local debugging handoff\n\
          mw discard               inside a recording: throw the current session away — nothing saved\n\
          mw replay <run-id>       rerun a saved command from command_runs\n         mw compare <run-id> <run-id>  compare two command runs field by field (descriptive only)\n\
          mw demo                  seed a small demo terminal-memory dataset\n\
@@ -1444,6 +1446,33 @@ fn seed_demo() -> Result<(), String> {
     )
     .map_err(|err| format!("failed to insert demo bookmark: {err}"))?;
     println!("mw: demo memory inserted. Run `mw-serve` and search for project:demo.");
+    Ok(())
+}
+
+fn handoff_cmd(args: &[String]) -> Result<(), String> {
+    let mut ids = Vec::new();
+    let mut format = "markdown";
+    let mut output = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--ids" => {
+                ids = it
+                    .next()
+                    .ok_or("--ids requires values")?
+                    .split(',')
+                    .map(str::to_owned)
+                    .collect()
+            }
+            "--format" => format = it.next().ok_or("--format requires value")?,
+            "--output" | "-o" => output = Some(it.next().ok_or("--output requires path")?),
+            _ => return Err(format!("unknown handoff option {a}")),
+        }
+    }
+    let path = output.ok_or("handoff requires --output FILE")?;
+    let conn = open_session_db()?;
+    memorywhale_cli::handoff::export(&conn, &ids, format, std::path::Path::new(path))?;
+    println!("mw: wrote handoff {path}");
     Ok(())
 }
 
