@@ -278,9 +278,10 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         conn.execute_batch("PRAGMA user_version = 10;")
             .map_err(|e| format!("failed to migrate command agent provenance: {e}"))?;
     }
-    if version < 11 {
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS command_recipes (
+    // Repair intermediate version-11 databases unconditionally. The first
+    // recipe build could write the version marker before all columns existed.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS command_recipes (
              id INTEGER PRIMARY KEY, description TEXT NOT NULL, cwd TEXT,
              args_json TEXT NOT NULL, expected_criteria TEXT NOT NULL,
              created_at TEXT NOT NULL
@@ -292,10 +293,9 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
              FOREIGN KEY(recipe_id) REFERENCES command_recipes(id) ON DELETE CASCADE,
              FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE RESTRICT
          );
-         PRAGMA user_version = 11;",
-        )
-        .map_err(|e| format!("failed to migrate command recipes: {e}"))?;
-    }
+         ",
+    )
+    .map_err(|e| format!("failed to migrate command recipes: {e}"))?;
     if table_exists(conn, "command_recipe_sources")? {
         add_column_if_missing(
             conn,
@@ -303,6 +303,10 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
             "position",
             "INTEGER NOT NULL DEFAULT 0",
         )?;
+    }
+    if version < 11 {
+        conn.execute_batch("PRAGMA user_version = 11;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
     Ok(())
 }

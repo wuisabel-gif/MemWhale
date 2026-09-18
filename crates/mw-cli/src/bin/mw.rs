@@ -866,6 +866,14 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
             |r| r.get(0),
         )
         .unwrap_or(0);
+    let dependent_recipes: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT recipe_id) FROM command_recipe_sources
+             WHERE command_run_id IN (SELECT id FROM command_runs WHERE created_at < ?1)",
+            params![cutoff],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
     if sessions.is_empty() && runs == 0 {
         println!("mw: nothing older than {spec}.");
@@ -873,7 +881,7 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
     }
     if dry {
         println!(
-            "mw: would remove {} session(s) and {runs} command run(s) older than {spec} (dry run).",
+            "mw: would remove {} session(s), {runs} command run(s), and {dependent_recipes} dependent recipe(s) (dry run).",
             sessions.len()
         );
         for (id, path) in &sessions {
@@ -886,13 +894,17 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         return Ok(());
     }
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("failed to begin prune: {e}"))?;
     for (id, transcript_path) in &sessions {
         if let Some(p) = transcript_path.as_deref().filter(|p| !p.is_empty()) {
             let _ = fs::remove_file(p);
         }
-        let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
+        tx.execute("DELETE FROM sessions WHERE id = ?1", params![id])
+            .map_err(|e| format!("failed to delete session: {e}"))?;
     }
-    let recipes = conn
+    let recipes = tx
         .execute(
             "DELETE FROM command_recipes WHERE id IN
          (SELECT recipe_id FROM command_recipe_sources
@@ -900,12 +912,15 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
             params![cutoff],
         )
         .map_err(|e| format!("failed to delete dependent recipes: {e}"))?;
-    let _ = conn.execute(
+    tx.execute(
         "DELETE FROM command_runs WHERE created_at < ?1",
         params![cutoff],
-    );
+    )
+    .map_err(|e| format!("failed to delete command runs: {e}"))?;
+    tx.commit()
+        .map_err(|e| format!("failed to commit prune: {e}"))?;
     println!(
-        "mw: pruned {} session(s), {runs} command run(s), and {recipes} recipe(s) older than {spec}.",
+        "mw: pruned {} session(s), {runs} command run(s), and {recipes} dependent recipe(s) due to source retention ({spec}).",
         sessions.len()
     );
     Ok(())
