@@ -28,7 +28,7 @@
 
 use std::collections::HashSet;
 
-use crate::{Memory, Query, ScoredMemory, Signal, Weights};
+use crate::{Memory, Query, Ranking, ScoredMemory, Signal, Weights};
 
 /// Score one memory against a query. `query_embedding` enables semantic
 /// similarity (cosine) when the memory is also embedded; otherwise similarity
@@ -73,7 +73,19 @@ pub fn score_with_lexical(
         .filter(|s| s.applicable)
         .map(|s| s.weight)
         .sum();
-    let score = if denominator > 0.0 {
+    let score = if query.ranking == Ranking::Bayesian {
+        // These signals are not calibrated likelihoods: this is a transparent
+        // evidence/posterior proxy, not a probability claim.
+        let log_odds: f32 = signals
+            .iter()
+            .filter(|s| s.applicable)
+            .map(|s| {
+                let p = s.score.clamp(0.01, 0.99);
+                s.weight * (p / (1.0 - p)).ln()
+            })
+            .sum();
+        1.0 / (1.0 + (-log_odds).exp())
+    } else if denominator > 0.0 {
         (numerator / denominator).clamp(0.0, 1.0)
     } else {
         0.0
@@ -320,6 +332,7 @@ fn human_ago(days: f32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Ranking;
     use chrono::{Duration, TimeZone, Utc};
 
     fn mem(
@@ -395,6 +408,23 @@ mod tests {
         let s = score(&mem(1, "rust", 0, 1, 0.5, &["rust"]), &q, &w, None);
         let task = s.signals.iter().find(|x| x.name == "task").unwrap();
         assert!(!task.applicable);
+    }
+
+    #[test]
+    fn bayesian_is_opt_in_and_exposes_same_signals() {
+        let now = Utc.with_ymd_and_hms(2026, 6, 27, 12, 0, 0).unwrap();
+        let memory = mem(1, "rust compiler error", 0, 2, 0.8, &[]);
+        let query = Query::new("rust compiler", now);
+        let default = score(&memory, &query, &Weights::default(), None);
+        let bayesian = score(
+            &memory,
+            &query.with_ranking(Ranking::Bayesian),
+            &Weights::default(),
+            None,
+        );
+        assert_ne!(default.score, bayesian.score);
+        assert_eq!(default.signals.len(), bayesian.signals.len());
+        assert!(bayesian.score > 0.0 && bayesian.score < 1.0);
     }
 
     #[test]

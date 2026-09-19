@@ -237,3 +237,17 @@ Captured text fields are limited to 1 MiB by default. Set
 truncated values include a marker with the stored and original byte counts.
 See [the local data threat model](../SECURITY.md) before enabling raw capture or
 sharing exported data.
+
+### Optional Bayesian-style ranking
+
+`mw search` keeps its existing weighted-mean ranking by default. To opt in to a
+transparent evidence ranking, pass `--ranking bayesian` (or
+`ranking:bayesian`). The returned score is a `posterior_proxy`: a neutral-prior,
+weighted log-odds-style combination of the existing similarity, recency,
+importance, reinforcement, and task signals. It is **not a calibrated
+probability**. Explanations continue to show every signal, including pending,
+contradicted, or stale evidence; this ranking is retrieval-only and must not be
+used for authorization.
+
+MCP `search_memory` accepts `"ranking":"bayesian"`; omitting it preserves the
+existing output and ordering.
