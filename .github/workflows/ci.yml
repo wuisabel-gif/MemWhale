@@ -27,6 +27,8 @@ jobs:
         run: bash scripts/test-cursor-completions.sh
       - name: Check Codewhale plugin assets and isolated MCP
         run: python3 scripts/test-codewhale-plugin.py --bin-dir target/debug
+      - name: Check Kimi Code integration assets
+        run: python3 scripts/test-kimi-code-integration.py
 
   release-packages:
     name: Release package dry-run and smoke

@@ -15,3 +15,6 @@ src-tauri/gen/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Isolated third-party source and Kimi verification profiles
+.verification-kimi/

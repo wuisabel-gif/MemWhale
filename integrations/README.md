@@ -50,6 +50,7 @@ features.
 | Goose | Yes | No | Yes | [Guide](goose/README.md) |
 | Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |
 | Jan Desktop | Yes | No | No | [Guide](jan/README.md) |
+| Kimi Code CLI | Transport/configuration verified; native client call pending | No | Optional skill asset-checked; native loading pending | [Guide](kimi-code/README.md) |
 | OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
 | OpenCode | Yes | No | Example prompt | [Guide](opencode/README.md) |
 | OpenRouter | No; hosted model gateway | No | No; configure in the agent | [Guide](openrouter/README.md) |
