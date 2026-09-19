@@ -2942,10 +2942,14 @@ fn note_meta(conn: &Connection, id: i64) -> Option<(String, String)> {
 fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
     let explain = args.iter().any(|a| a == "--explain");
+    let bayesian = args
+        .iter()
+        .any(|a| a == "--ranking" || a == "ranking:bayesian");
     let terms: Vec<&str> = args
         .iter()
         .map(|s| s.as_str())
         .filter(|a| *a != "--explain")
+        .filter(|a| *a != "--ranking" && *a != "bayesian" && *a != "ranking:bayesian")
         .collect();
     // Pull inline `tag:`/`source:`/`agent:`/`before:`/`after:`/`limit:` filters out of the
     // terms; whatever's left is the free-text query.
@@ -3004,6 +3008,9 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     let mems = memorywhale_cli::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(&query, now);
+    if bayesian {
+        q = q.with_ranking(memorywhale_core::Ranking::Bayesian);
+    }
     let tags = scope.task_tags();
     if !tags.is_empty() {
         q = q.with_task(tags);

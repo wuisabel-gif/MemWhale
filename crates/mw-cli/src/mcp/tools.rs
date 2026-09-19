@@ -42,6 +42,7 @@ pub(super) fn tool_defs() -> Value {
                 "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
                 "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"},
                 "explain": {"type": "boolean", "description": "optional: include full per-signal ranking details and snippet/provenance status"}
+                ,"ranking": {"type": "string", "enum": ["default", "bayesian"], "description": "optional opt-in evidence_score/posterior_proxy ranking; not a calibrated probability"}
             }, "required": ["query"]}
         },
         {
@@ -103,6 +104,7 @@ pub(super) fn call_tool(
                 args.get("explain")
                     .and_then(Value::as_bool)
                     .unwrap_or(false),
+                args.get("ranking").and_then(Value::as_str),
             )
         }
         "get_context" => {
@@ -305,6 +307,7 @@ fn search_memory(
     machine: Option<&str>,
     agent: Option<String>,
     explain: bool,
+    ranking: Option<&str>,
 ) -> Result<String, String> {
     let conn = open()?;
     let now = Utc::now();
@@ -324,6 +327,9 @@ fn search_memory(
     let mems = crate::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(query, now);
+    if ranking == Some("bayesian") {
+        q = q.with_ranking(memorywhale_core::Ranking::Bayesian);
+    }
     let tags = task_tags(&[project, machine]);
     if !tags.is_empty() {
         q = q.with_task(tags);

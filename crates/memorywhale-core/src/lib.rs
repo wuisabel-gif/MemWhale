@@ -110,6 +110,15 @@ pub struct Query {
     pub task_tags: Vec<String>,
     /// Recency half-life in days (score halves every `half_life_days`).
     pub half_life_days: f32,
+    pub ranking: Ranking,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Ranking {
+    #[default]
+    Default,
+    /// Log-odds-style evidence proxy; not a calibrated probability.
+    Bayesian,
 }
 
 impl Query {
@@ -119,11 +128,17 @@ impl Query {
             now,
             task_tags: Vec::new(),
             half_life_days: 14.0,
+            ranking: Ranking::Default,
         }
     }
 
     pub fn with_task(mut self, tags: Vec<String>) -> Self {
         self.task_tags = tags;
+        self
+    }
+
+    pub fn with_ranking(mut self, ranking: Ranking) -> Self {
+        self.ranking = ranking;
         self
     }
 }
