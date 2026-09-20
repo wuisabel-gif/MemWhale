@@ -9,8 +9,8 @@
 class Memorywhale < Formula
   desc "Local-first terminal memory: record commands, sessions, and output into SQLite"
   homepage "https://github.com/wuisabel-gif/MemWhale"
-  url "https://github.com/wuisabel-gif/MemWhale/archive/refs/tags/v0.10.0.tar.gz"
-  sha256 "3300fa7a73c07ae866812e396b6551ae62d48a5508e35f65de83eba9bfca929e"
+  url "https://github.com/wuisabel-gif/MemWhale/archive/refs/tags/v0.11.1.tar.gz"
+  sha256 "e38d129387c7f86a6c1dadbc17ee4ac384127121f7af4b740386e6a171eede5d"
   license "MIT"
   head "https://github.com/wuisabel-gif/MemWhale.git", branch: "main"
 
