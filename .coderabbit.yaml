@@ -1,14 +1,14 @@
 # CodeRabbit configuration — https://docs.coderabbit.ai
-# Automatic AI review on every PR. Tuned for this Rust workspace.
+# Automatic PR review is off. Manual `@coderabbitai review` still works.
 language: en-US
 reviews:
   profile: chill            # substantive findings, not nitpicks
   request_changes_workflow: false
   high_level_summary: true
   poem: false
-  review_status: true
+  review_status: false
   auto_review:
-    enabled: true
+    enabled: false
     drafts: false
   # Skip generated / vendored / large committed artifacts — no value reviewing these.
   path_filters:
