@@ -220,7 +220,7 @@ const AR = {
   "release.eyebrow": "الجديد في 0.11.0",
   "release.title": "ذاكرة مشتركة. مصادر واضحة.",
   "release.copy":
-    "يشمل إصدار المنتج 0.11.0 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب. أما النواة القابلة لإعادة الاستخدام بلغة Rust فإصدارها 0.5.0: تتطلب القيم الحرفية لـ <code>Memory</code> في Rust الآن <code>agent: Option&lt;String&gt;</code>؛ وتظل بيانات JSON القديمة قابلة للقراءة بفضل القيمة الافتراضية في serde.",
+    "يشمل إصدار المنتج 0.11.0 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب. تبقى نواة Rust عند 0.5.0 ومخطط SQLite عند 10. قارن التشغيلات المسجّلة، واشرح الترتيب، وصِدّر تسليمات التنقيح المحلية.",
   "release.connectTitle": "اربط Claude Code وRho",
   "release.connectBody":
     "يثبّت كلٌّ من <code>mw integrate claude</code> و<code>mw integrate rho</code> إمكانية الوصول عبر MCP، وخطافات الالتقاط، ومهارة. يفحص <code>mw doctor</code> هذه المكوّنات كلًّا على حدة.",
@@ -384,7 +384,7 @@ const DE = {
   "release.eyebrow": "Neu in 0.11.0",
   "release.title": "Geteiltes Gedächtnis. Klare Herkunft.",
   "release.copy":
-    "Der Produktstand 0.11.0 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern hat die Version 0.5.0: Rust-<code>Memory</code>-Literale erfordern jetzt <code>agent: Option&lt;String&gt;</code>; älteres JSON bleibt dank des serde-Standardwerts lesbar.",
+    "Der Produktstand 0.11.0 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern bleibt 0.5.0, das SQLite-Schema bleibt 10. Vergleichen Sie aufgezeichnete Läufe, erklären Sie das Ranking und exportieren Sie lokale Debugging-Handoffs.",
   "release.connectTitle": "Claude Code und Rho anbinden",
   "release.connectBody":
     "<code>mw integrate claude</code> und <code>mw integrate rho</code> installieren MCP-Zugriff, Erfassungs-Hooks und einen Skill. <code>mw doctor</code> prüft diese Komponenten unabhängig voneinander.",
@@ -548,7 +548,7 @@ const FR = {
   "release.eyebrow": "Nouveau dans 0.11.0",
   "release.title": "Mémoire partagée. Provenance explicite.",
   "release.copy":
-    "Le produit 0.11.0 couvre le CLI, l'interface web et l'application de bureau. Le cœur Rust réutilisable est en version 0.5.0 : les littéraux Rust <code>Memory</code> exigent désormais <code>agent: Option&lt;String&gt;</code> ; l'ancien JSON reste lisible grâce à la valeur par défaut de serde.",
+    "Le produit 0.11.0 couvre le CLI, l'interface web et l'application de bureau. Le cœur Rust reste en 0.5.0 et le schéma SQLite reste 10. Comparez des exécutions enregistrées, expliquez le classement et exportez des handoffs de débogage locaux.",
   "release.connectTitle": "Connectez Claude Code et Rho",
   "release.connectBody":
     "<code>mw integrate claude</code> et <code>mw integrate rho</code> installent l'accès MCP, les hooks de capture et un skill. <code>mw doctor</code> vérifie ces composants séparément.",
@@ -712,7 +712,7 @@ const ZH_CN = {
   "release.eyebrow": "0.11.0 新功能",
   "release.title": "记忆可共享，来源可追溯。",
   "release.copy":
-    "CLI、Web UI 和桌面应用均已更新至 0.11.0，可复用的 Rust 核心库版本为 0.5.0。在 Rust 中以结构体字面量创建 <code>Memory</code> 时，现在必须提供 <code>agent: Option&lt;String&gt;</code> 字段；serde 会为旧 JSON 中缺失的字段填入默认值，因此旧数据仍可读取。",
+    "CLI、Web UI 和桌面应用均已更新至 0.11.0。可复用的 Rust 核心仍为 0.5.0，SQLite 架构仍为 10。可比较已记录的运行、解释排序，并导出本地调试交接。",
   "release.connectTitle": "连接 Claude Code 和 Rho",
   "release.connectBody":
     "<code>mw integrate claude</code> 和 <code>mw integrate rho</code> 会配置 MCP 连接，并安装采集钩子和技能文件。<code>mw doctor</code> 会逐项检查这些组件。",
@@ -876,7 +876,7 @@ const ZH_TW = {
   "release.eyebrow": "0.11.0 新功能",
   "release.title": "記憶可共用，來源可追溯。",
   "release.copy":
-    "CLI、Web UI 與桌面應用程式皆已更新至 0.11.0，可重複使用的 Rust 核心函式庫版本為 0.5.0。在 Rust 中以結構體字面值建立 <code>Memory</code> 時，現在必須提供 <code>agent: Option&lt;String&gt;</code> 欄位；serde 會為舊 JSON 中缺少的欄位填入預設值，因此舊資料仍可讀取。",
+    "CLI、Web UI 與桌面應用程式皆已更新至 0.11.0。可重複使用的 Rust 核心仍為 0.5.0，SQLite 架構仍為 10。可比較已記錄的執行、解釋排序，並匯出本機除錯交接。",
   "release.connectTitle": "連接 Claude Code 與 Rho",
   "release.connectBody":
     "<code>mw integrate claude</code> 與 <code>mw integrate rho</code> 會設定 MCP 連線，並安裝擷取掛鉤與技能檔案。<code>mw doctor</code> 會逐項檢查這些元件。",
@@ -1040,7 +1040,7 @@ const KO = {
   "release.eyebrow": "0.11.0의 새로운 기능",
   "release.title": "공유 메모리. 명확한 출처.",
   "release.copy":
-    "제품 0.11.0은 CLI, 웹 UI, 데스크톱 앱을 아우릅니다. 재사용 가능한 Rust 코어는 0.5.0입니다. Rust <code>Memory</code> 리터럴에는 이제 <code>agent: Option&lt;String&gt;</code>이 필요하며, 이전 JSON은 serde 기본값으로 계속 읽을 수 있습니다.",
+    "제품 0.11.0은 CLI, 웹 UI, 데스크톱 앱을 아우릅니다. 재사용 가능한 Rust 코어는 0.5.0, SQLite 스키마는 10으로 유지됩니다. 기록된 실행을 비교하고, 순위를 설명하고, 로컬 디버깅 핸드오프를 내보낼 수 있습니다.",
   "release.connectTitle": "Claude Code와 Rho 연결",
   "release.connectBody":
     "<code>mw integrate claude</code>와 <code>mw integrate rho</code>는 MCP 접근, 캡처 훅, 스킬을 설치합니다. <code>mw doctor</code>는 각 구성 요소를 따로 점검합니다.",
@@ -1204,7 +1204,7 @@ const JA = {
   "release.eyebrow": "0.11.0 の新機能",
   "release.title": "共有メモリ。明確な由来。",
   "release.copy":
-    "製品 0.11.0 は CLI、Web UI、デスクトップアプリにまたがります。再利用可能な Rust コアは 0.5.0 です。Rust の <code>Memory</code> リテラルには <code>agent: Option&lt;String&gt;</code> が必要になり、以前の JSON は serde のデフォルトによって引き続き読み取れます。",
+    "製品 0.11.0 は CLI、Web UI、デスクトップアプリにまたがります。再利用可能な Rust コアは 0.5.0、SQLite スキーマは 10 のままです。記録した実行の比較、ランキングの説明、ローカルデバッグのハンドオフ書き出しができます。",
   "release.connectTitle": "Claude Code と Rho を接続",
   "release.connectBody":
     "<code>mw integrate claude</code> と <code>mw integrate rho</code> は MCP アクセス、キャプチャフック、スキルをインストールします。<code>mw doctor</code> は各コンポーネントを個別に確認します。",
