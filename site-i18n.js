@@ -35,7 +35,7 @@ const EN = {
   "search.hint": "Search headings and content on this page.",
   "search.empty": "No matching sections.",
   "search.results": "Matching sections",
-  "hero.releaseBadge": "v0.11.0 is here",
+  "hero.releaseBadge": "v0.11.1 is here",
   "hero.title": "Make your terminal <span class=\"hero-accent\">remember</span>.",
   "hero.lead":
     "Keep useful terminal context locally. Let coding agents recover debugging knowledge from previous sessions.",
@@ -53,10 +53,10 @@ const EN = {
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
   "integrations.more": "All integrations",
-  "release.eyebrow": "New in 0.11.0",
+  "release.eyebrow": "New in 0.11.1",
   "release.title": "Shared memory. Explicit provenance.",
   "release.copy":
-    "Product 0.11.0 spans the CLI, web UI, and desktop app. The reusable Rust core remains 0.5.0 and SQLite schema remains 10. Compare recorded runs, explain ranking, and export local debugging handoffs.",
+    "Product 0.11.1 spans the CLI, web UI, and desktop app. The reusable Rust core is 0.5.1 and SQLite schema remains 10. Compare recorded runs, explain ranking, and export local debugging handoffs.",
   "release.connectTitle": "Connect Claude Code and Rho",
   "release.connectBody":
     "<code>mw integrate claude</code> and <code>mw integrate rho</code> install MCP access, capture hooks, and a skill. <code>mw doctor</code> checks those components independently.",
@@ -145,9 +145,9 @@ const EN = {
   "run.tryValue": "<code>mw demo</code> — writes sample data to the selected store",
   "run.prebuiltLabel": "Prebuilt install",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb on the releases page",
   "run.securityLabel": "Security",
@@ -199,7 +199,7 @@ const AR = {
   "search.hint": "ابحث في عناوين هذه الصفحة ومحتواها.",
   "search.empty": "لا توجد أقسام مطابقة.",
   "search.results": "الأقسام المطابقة",
-  "hero.releaseBadge": "الإصدار v0.11.0 متاح الآن",
+  "hero.releaseBadge": "الإصدار v0.11.1 متاح الآن",
   "hero.title": "اجعل طرفيتك <span class=\"hero-accent\">تتذكّر</span>.",
   "hero.lead":
     "احفظ سياق الطرفية المفيد محليًا. دع وكلاء البرمجة يسترجعون خبرات تصحيح الأخطاء من جلسات سابقة.",
@@ -217,10 +217,10 @@ const AR = {
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
   "integrations.more": "جميع التكاملات",
-  "release.eyebrow": "الجديد في 0.11.0",
+  "release.eyebrow": "الجديد في 0.11.1",
   "release.title": "ذاكرة مشتركة. مصادر واضحة.",
   "release.copy":
-    "يشمل إصدار المنتج 0.11.0 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب. تبقى نواة Rust عند 0.5.0 ومخطط SQLite عند 10. قارن التشغيلات المسجّلة، واشرح الترتيب، وصِدّر تسليمات التنقيح المحلية.",
+    "يشمل إصدار المنتج 0.11.1 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب. تبقى نواة Rust عند 0.5.1 ومخطط SQLite عند 10. قارن التشغيلات المسجّلة، واشرح الترتيب، وصِدّر تسليمات التنقيح المحلية.",
   "release.connectTitle": "اربط Claude Code وRho",
   "release.connectBody":
     "يثبّت كلٌّ من <code>mw integrate claude</code> و<code>mw integrate rho</code> إمكانية الوصول عبر MCP، وخطافات الالتقاط، ومهارة. يفحص <code>mw doctor</code> هذه المكوّنات كلًّا على حدة.",
@@ -309,9 +309,9 @@ const AR = {
   "run.tryValue": "<code>mw demo</code> — يكتب بيانات نموذجية في المخزن المحدد",
   "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb على صفحة الإصدارات",
   "run.securityLabel": "الأمان",
@@ -363,7 +363,7 @@ const DE = {
   "search.hint": "Durchsuche Überschriften und Inhalte dieser Seite.",
   "search.empty": "Keine passenden Abschnitte.",
   "search.results": "Passende Abschnitte",
-  "hero.releaseBadge": "v0.11.0 ist da",
+  "hero.releaseBadge": "v0.11.1 ist da",
   "hero.title": "Gib deinem Terminal ein <span class=\"hero-accent\">Gedächtnis</span>.",
   "hero.lead":
     "Bewahre nützlichen Terminal-Kontext lokal auf. Lass Programmieragenten Wissen zur Fehlersuche aus früheren Sitzungen abrufen.",
@@ -381,10 +381,10 @@ const DE = {
   "integrations.label": "Kompatibel mit",
   "integrations.via": "über MCP",
   "integrations.more": "Alle Integrationen",
-  "release.eyebrow": "Neu in 0.11.0",
+  "release.eyebrow": "Neu in 0.11.1",
   "release.title": "Geteiltes Gedächtnis. Klare Herkunft.",
   "release.copy":
-    "Der Produktstand 0.11.0 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern bleibt 0.5.0, das SQLite-Schema bleibt 10. Vergleichen Sie aufgezeichnete Läufe, erklären Sie das Ranking und exportieren Sie lokale Debugging-Handoffs.",
+    "Der Produktstand 0.11.1 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern ist 0.5.1, das SQLite-Schema bleibt 10. Vergleichen Sie aufgezeichnete Läufe, erklären Sie das Ranking und exportieren Sie lokale Debugging-Handoffs.",
   "release.connectTitle": "Claude Code und Rho anbinden",
   "release.connectBody":
     "<code>mw integrate claude</code> und <code>mw integrate rho</code> installieren MCP-Zugriff, Erfassungs-Hooks und einen Skill. <code>mw doctor</code> prüft diese Komponenten unabhängig voneinander.",
@@ -473,9 +473,9 @@ const DE = {
   "run.tryValue": "<code>mw demo</code> — schreibt Beispieldaten in den ausgewählten Speicher",
   "run.prebuiltLabel": "Vorkompiliert installieren",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">Anleitung zum versionsgebundenen Installer mit Prüfsummenprüfung</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">Anleitung zum versionsgebundenen Installer mit Prüfsummenprüfung</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb auf der Versionsseite",
   "run.securityLabel": "Sicherheit",
@@ -527,7 +527,7 @@ const FR = {
   "search.hint": "Recherchez dans les titres et le contenu de cette page.",
   "search.empty": "Aucune section correspondante.",
   "search.results": "Sections correspondantes",
-  "hero.releaseBadge": "La v0.11.0 est là",
+  "hero.releaseBadge": "La v0.11.1 est là",
   "hero.title": "Donnez à votre terminal une <span class=\"hero-accent\">mémoire</span>.",
   "hero.lead":
     "Gardez le contexte utile du terminal en local. Vos agents de code retrouvent les acquis du débogage des sessions précédentes.",
@@ -545,10 +545,10 @@ const FR = {
   "integrations.label": "Compatible avec",
   "integrations.via": "par MCP",
   "integrations.more": "Toutes les intégrations",
-  "release.eyebrow": "Nouveau dans 0.11.0",
+  "release.eyebrow": "Nouveau dans 0.11.1",
   "release.title": "Mémoire partagée. Provenance explicite.",
   "release.copy":
-    "Le produit 0.11.0 couvre le CLI, l'interface web et l'application de bureau. Le cœur Rust reste en 0.5.0 et le schéma SQLite reste 10. Comparez des exécutions enregistrées, expliquez le classement et exportez des handoffs de débogage locaux.",
+    "Le produit 0.11.1 couvre le CLI, l'interface web et l'application de bureau. Le cœur Rust est en 0.5.1 et le schéma SQLite reste 10. Comparez des exécutions enregistrées, expliquez le classement et exportez des handoffs de débogage locaux.",
   "release.connectTitle": "Connectez Claude Code et Rho",
   "release.connectBody":
     "<code>mw integrate claude</code> et <code>mw integrate rho</code> installent l'accès MCP, les hooks de capture et un skill. <code>mw doctor</code> vérifie ces composants séparément.",
@@ -637,9 +637,9 @@ const FR = {
   "run.tryValue": "<code>mw demo</code> — écrit des données d'exemple dans le stockage choisi",
   "run.prebuiltLabel": "Installation précompilée",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">Instructions d'installation épinglées et vérifiées par checksum</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">Instructions d'installation épinglées et vérifiées par checksum</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb sur la page des versions",
   "run.securityLabel": "Sécurité",
@@ -691,7 +691,7 @@ const ZH_CN = {
   "search.hint": "搜索本页的标题和内容。",
   "search.empty": "没有找到相关内容。",
   "search.results": "相关内容",
-  "hero.releaseBadge": "v0.11.0 现已发布",
+  "hero.releaseBadge": "v0.11.1 现已发布",
   "hero.title": "让终端<span class=\"hero-accent\">记住</span>调试经验。",
   "hero.lead":
     "在本地保存有用的命令、输出和调试背景，让 AI 编程助手在新会话中也能接着上次的经验工作。",
@@ -709,10 +709,10 @@ const ZH_CN = {
   "integrations.label": "兼容",
   "integrations.via": "通过 MCP",
   "integrations.more": "所有集成",
-  "release.eyebrow": "0.11.0 新功能",
+  "release.eyebrow": "0.11.1 新功能",
   "release.title": "记忆可共享，来源可追溯。",
   "release.copy":
-    "CLI、Web UI 和桌面应用均已更新至 0.11.0。可复用的 Rust 核心仍为 0.5.0，SQLite 架构仍为 10。可比较已记录的运行、解释排序，并导出本地调试交接。",
+    "CLI、Web UI 和桌面应用均已更新至 0.11.1。可复用的 Rust 核心为 0.5.1，SQLite 架构仍为 10。可比较已记录的运行、解释排序，并导出本地调试交接。",
   "release.connectTitle": "连接 Claude Code 和 Rho",
   "release.connectBody":
     "<code>mw integrate claude</code> 和 <code>mw integrate rho</code> 会配置 MCP 连接，并安装采集钩子和技能文件。<code>mw doctor</code> 会逐项检查这些组件。",
@@ -801,9 +801,9 @@ const ZH_CN = {
   "run.tryValue": "<code>mw demo</code>——将示例数据写入所选存储",
   "run.prebuiltLabel": "预编译安装",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "在发布页面下载 .deb 安装包",
   "run.securityLabel": "安全",
@@ -855,7 +855,7 @@ const ZH_TW = {
   "search.hint": "搜尋本頁的標題與內容。",
   "search.empty": "找不到相關內容。",
   "search.results": "相關內容",
-  "hero.releaseBadge": "v0.11.0 現已推出",
+  "hero.releaseBadge": "v0.11.1 現已推出",
   "hero.title": "讓終端機<span class=\"hero-accent\">記住</span>除錯經驗。",
   "hero.lead":
     "在本機保存有用的指令、輸出與除錯背景，讓 AI 程式助理在新的工作階段也能延續上次的經驗。",
@@ -873,10 +873,10 @@ const ZH_TW = {
   "integrations.label": "支援搭配",
   "integrations.via": "透過 MCP",
   "integrations.more": "所有整合",
-  "release.eyebrow": "0.11.0 新功能",
+  "release.eyebrow": "0.11.1 新功能",
   "release.title": "記憶可共用，來源可追溯。",
   "release.copy":
-    "CLI、Web UI 與桌面應用程式皆已更新至 0.11.0。可重複使用的 Rust 核心仍為 0.5.0，SQLite 架構仍為 10。可比較已記錄的執行、解釋排序，並匯出本機除錯交接。",
+    "CLI、Web UI 與桌面應用程式皆已更新至 0.11.1。可重複使用的 Rust 核心為 0.5.1，SQLite 架構仍為 10。可比較已記錄的執行、解釋排序，並匯出本機除錯交接。",
   "release.connectTitle": "連接 Claude Code 與 Rho",
   "release.connectBody":
     "<code>mw integrate claude</code> 與 <code>mw integrate rho</code> 會設定 MCP 連線，並安裝擷取掛鉤與技能檔案。<code>mw doctor</code> 會逐項檢查這些元件。",
@@ -965,9 +965,9 @@ const ZH_TW = {
   "run.tryValue": "<code>mw demo</code>——將範例資料寫入選定的儲存區",
   "run.prebuiltLabel": "預先編譯安裝",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">指定版本並核對 SHA256 的安裝步驟</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">指定版本並核對 SHA256 的安裝步驟</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "在發行頁面下載 .deb 安裝套件",
   "run.securityLabel": "安全性",
@@ -1019,7 +1019,7 @@ const KO = {
   "search.hint": "이 페이지의 제목과 내용을 검색하세요.",
   "search.empty": "일치하는 섹션이 없습니다.",
   "search.results": "일치하는 섹션",
-  "hero.releaseBadge": "v0.11.0 출시",
+  "hero.releaseBadge": "v0.11.1 출시",
   "hero.title": "터미널이 <span class=\"hero-accent\">기억하게</span> 하세요.",
   "hero.lead":
     "유용한 터미널 맥락을 로컬에 보관하세요. 코딩 에이전트가 이전 세션의 디버깅 지식을 되찾을 수 있습니다.",
@@ -1037,10 +1037,10 @@ const KO = {
   "integrations.label": "함께 쓰는 도구",
   "integrations.via": "MCP를 통해 연결",
   "integrations.more": "모든 통합",
-  "release.eyebrow": "0.11.0의 새로운 기능",
+  "release.eyebrow": "0.11.1의 새로운 기능",
   "release.title": "공유 메모리. 명확한 출처.",
   "release.copy":
-    "제품 0.11.0은 CLI, 웹 UI, 데스크톱 앱을 아우릅니다. 재사용 가능한 Rust 코어는 0.5.0, SQLite 스키마는 10으로 유지됩니다. 기록된 실행을 비교하고, 순위를 설명하고, 로컬 디버깅 핸드오프를 내보낼 수 있습니다.",
+    "제품 0.11.1은 CLI, 웹 UI, 데스크톱 앱을 아우릅니다. 재사용 가능한 Rust 코어는 0.5.1, SQLite 스키마는 10으로 유지됩니다. 기록된 실행을 비교하고, 순위를 설명하고, 로컬 디버깅 핸드오프를 내보낼 수 있습니다.",
   "release.connectTitle": "Claude Code와 Rho 연결",
   "release.connectBody":
     "<code>mw integrate claude</code>와 <code>mw integrate rho</code>는 MCP 접근, 캡처 훅, 스킬을 설치합니다. <code>mw doctor</code>는 각 구성 요소를 따로 점검합니다.",
@@ -1129,9 +1129,9 @@ const KO = {
   "run.tryValue": "<code>mw demo</code>—선택한 저장소에 샘플 데이터를 씁니다",
   "run.prebuiltLabel": "사전 빌드 설치",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">고정 버전·체크섬 검증 설치 안내</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">고정 버전·체크섬 검증 설치 안내</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "릴리스 페이지의 .deb",
   "run.securityLabel": "보안",
@@ -1183,7 +1183,7 @@ const JA = {
   "search.hint": "このページの見出しと内容を検索します。",
   "search.empty": "一致するセクションはありません。",
   "search.results": "一致するセクション",
-  "hero.releaseBadge": "v0.11.0 登場",
+  "hero.releaseBadge": "v0.11.1 登場",
   "hero.title": "ターミナルに<span class=\"hero-accent\">記憶</span>を。",
   "hero.lead":
     "役立つターミナルのコンテキストをローカルに保存。コーディングエージェントが過去のセッションのデバッグ知識を取り戻せます。",
@@ -1201,10 +1201,10 @@ const JA = {
   "integrations.label": "連携できるツール",
   "integrations.via": "MCP 経由",
   "integrations.more": "すべての連携",
-  "release.eyebrow": "0.11.0 の新機能",
+  "release.eyebrow": "0.11.1 の新機能",
   "release.title": "共有メモリ。明確な由来。",
   "release.copy":
-    "製品 0.11.0 は CLI、Web UI、デスクトップアプリにまたがります。再利用可能な Rust コアは 0.5.0、SQLite スキーマは 10 のままです。記録した実行の比較、ランキングの説明、ローカルデバッグのハンドオフ書き出しができます。",
+    "製品 0.11.1 は CLI、Web UI、デスクトップアプリにまたがります。再利用可能な Rust コアは 0.5.1、SQLite スキーマは 10 のままです。記録した実行の比較、ランキングの説明、ローカルデバッグのハンドオフ書き出しができます。",
   "release.connectTitle": "Claude Code と Rho を接続",
   "release.connectBody":
     "<code>mw integrate claude</code> と <code>mw integrate rho</code> は MCP アクセス、キャプチャフック、スキルをインストールします。<code>mw doctor</code> は各コンポーネントを個別に確認します。",
@@ -1293,9 +1293,9 @@ const JA = {
   "run.tryValue": "<code>mw demo</code> — 選択したストアにサンプルデータを書き込みます",
   "run.prebuiltLabel": "ビルド済みインストール",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md#install-or-upgrade\">固定版・チェックサム検証済みのインストール手順</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">固定版・チェックサム検証済みのインストール手順</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "リリースページの .deb",
   "run.securityLabel": "セキュリティ",
