@@ -42,6 +42,7 @@ The repository documentation is organized by the question a reader is asking.
 - [Integration matrix and client guides](../integrations/README.md)
 - [Waku Agent MCP integration](../integrations/waku/README.md) — native-loop verification with a scripted model; no automatic capture
 - [Kimi Code CLI integration](../integrations/kimi-code/README.md) — MCP transport verified; native client call pending
+- [Second-Opinion PR review](../integrations/second-opinion/README.md) — GitHub Action only; does not read the local store
 - [Antigravity CLI compatibility research](research/antigravity-cli.md) — documentation assessment, not a verified integration
 
 The root README is the product landing page. `docs/` explains how MemoryWhale

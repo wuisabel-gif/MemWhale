@@ -31,6 +31,8 @@ jobs:
         run: python3 scripts/test-waku-integration.py
       - name: Check Kimi Code integration assets
         run: python3 scripts/test-kimi-code-integration.py
+      - name: Check Second-Opinion integration guide
+        run: python3 scripts/test-second-opinion-integration.py
 
   release-packages:
     name: Release package dry-run and smoke
