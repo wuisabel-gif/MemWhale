@@ -3,6 +3,18 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.1] — Publish core provenance — September 20, 2026
+
+Product `0.11.1`; `memorywhale-core` `0.5.1`; SQLite schema `10`.
+
+crates.io publish of `memorywhale-cli` 0.11.0 failed because that crate uses
+`AGENT_CURSOR` and `AGENT_CODEWHALE`, which were in the workspace but not in
+published `memorywhale-core` 0.5.0. This patch publishes those constants as
+core 0.5.1 and points the CLI at that version. GitHub 0.11.0 binaries were
+already built from the workspace; use 0.11.1 for `cargo install`.
+
+See [release notes](docs/releases/0.11.1.md).
+
 ## [0.11.0] — Explainable Debugging Evidence — September 20, 2026
 
 Product version `0.11.0` across the CLI, web UI, and desktop app;
