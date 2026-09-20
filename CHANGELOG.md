@@ -3,6 +3,60 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] — Explainable Debugging Evidence — September 20, 2026
+
+Product version `0.11.0` across the CLI, web UI, and desktop app;
+`memorywhale-core` remains `0.5.0`; SQLite schema remains `10`.
+
+This release makes recorded evidence easier to compare, explain, and hand off
+without changing how capture writes the store. See the
+[release notes](docs/releases/0.11.0.md) for installation and integration
+limits.
+
+### Added
+
+- **Command compare** — `mw compare <run-id> <run-id>` shows field-level
+  differences between two recorded runs, with sanitization and truncation
+  applied to terminal-bound fields. (#299)
+- **Explainable ranking** — optional MCP `explain: true` reports why a hit
+  ranked where it did, without changing default scores. (#300)
+- **Project timelines** — `mw timeline --project <name>` lists a project's
+  recorded activity from a read-only store snapshot. (#307)
+- **Portable handoffs** — `mw handoff` exports explicitly selected command or
+  session IDs as local Markdown or JSON. It does not upload or overwrite.
+  (#302)
+- **Capture doctor** — `mw doctor capture` probes capture health in an isolated
+  store and does not enable hooks or write the normal database. (#305)
+- **Retention report** — `mw retention report` inventories retained data and
+  future purge targets without deleting anything. (#306)
+- **Cursor Shell capture** — opt-in Cursor hook capture for supported shell
+  events. (#278)
+- **Codewhale memory plugin and execution capture** — native plugin plus
+  opt-in execution capture on the MemoryWhale side. (#287, #288)
+- **Waku and Kimi Code MCP guides** — MCP-first setup, allowlisting, and
+  verification assets. Waku native-loop verification uses a scripted model;
+  Kimi native client execution remains pending. (#293, #298)
+- **Portable MCP setup and local skills** — owned MCP configuration and
+  explicit local skill installation for supported clients. (#274)
+
+### Improved
+
+- **Landing and i18n** — multilingual README and website, default English, and
+  clearer landing copy. (#265, #267, #269, #270, #273)
+- **Rho 2.10 verification** — recorded session and capture behavior against
+  Rho 2.10. (#280)
+- **TLS** — `rustls` upgraded for RUSTSEC-2026-0285. (#291)
+- **Information-flow constitution** — design policy for how evidence may move;
+  enforcement is not implemented. (#290)
+
+### Compatibility and limits
+
+- Existing databases remain schema 10. This release does not add a migration.
+- `memorywhale-core` stays `0.5.0`; there is no breaking Rust API change.
+- Case files, command recipes, retrieval feedback, contradiction flags,
+  search modes, and Bayesian ranking are not in this release.
+- Automatic agent recall is still not implemented.
+
 ## [0.10.0] — Agent-Native Memory — September 6, 2026
 
 Product version `0.10.0` across the CLI, web UI, and desktop app;

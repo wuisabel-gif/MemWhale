@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0a6b911696113a6221346fd4145b26a73f5a62493d8a8d34048d26a832c0c100 -->
+<!-- README-SOURCE-SHA256: 7a5d4a17ad8b2e5db9f71a79c6d40e3fed8a0bbe64a3e4b4e626067e6de03bc0 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="Logo de MemoryWhale" width="160" />
@@ -27,7 +27,7 @@ même une fois le terminal, la connexion SSH ou la session de l’agent terminé
 **MemoryWhale 0.10.0 — Agent-Native Memory · 6 septembre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version 0.10.0
 du produit ; le cœur Rust réutilisable est en version 0.5.0. Consultez les
-[notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)
+[notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)
 pour le guide de mise à niveau et les détails concernant la modification
 incompatible de l’API Rust.
 

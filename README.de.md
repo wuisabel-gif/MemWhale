@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0a6b911696113a6221346fd4145b26a73f5a62493d8a8d34048d26a832c0c100 -->
+<!-- README-SOURCE-SHA256: 7a5d4a17ad8b2e5db9f71a79c6d40e3fed8a0bbe64a3e4b4e626067e6de03bc0 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -27,7 +27,7 @@ längst beendet ist.
 **MemoryWhale 0.10.0 — Agent-Native Memory · 6. September 2026.**
 CLI, Weboberfläche und Desktop-App haben die gemeinsame Produktversion 0.10.0;
 der wiederverwendbare Rust-Kern hat die Version 0.5.0. Die
-[Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)
+[Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)
 enthalten Hinweise zum Upgrade und zur inkompatiblen Änderung der Rust-API.
 
 ## Warum MemoryWhale?

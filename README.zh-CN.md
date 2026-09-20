@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0a6b911696113a6221346fd4145b26a73f5a62493d8a8d34048d26a832c0c100 -->
+<!-- README-SOURCE-SHA256: 7a5d4a17ad8b2e5db9f71a79c6d40e3fed8a0bbe64a3e4b4e626067e6de03bc0 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -24,7 +24,7 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 
 **MemoryWhale 0.10.0 — Agent-Native Memory · 2026 年 9 月 6 日。**
 CLI、Web 界面和桌面应用统一使用产品版本 0.10.0；可复用的 Rust 核心版本为 0.5.0。
-升级指南和 Rust API 的不兼容变更请参阅[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)。
+升级指南和 Rust API 的不兼容变更请参阅[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)。
 
 ## 为什么选择 MemoryWhale
 

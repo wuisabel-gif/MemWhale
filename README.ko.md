@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0a6b911696113a6221346fd4145b26a73f5a62493d8a8d34048d26a832c0c100 -->
+<!-- README-SOURCE-SHA256: 7a5d4a17ad8b2e5db9f71a79c6d40e3fed8a0bbe64a3e4b4e626067e6de03bc0 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -24,7 +24,7 @@ MemoryWhale은 디버깅 중 실제로 일어난 일을 기록합니다. 명령,
 
 **MemoryWhale 0.10.0 — Agent-Native Memory · 2026년 9월 6일.**
 CLI, 웹 UI, 데스크톱 앱의 제품 버전은 모두 0.10.0이며, 재사용 가능한 Rust 코어의 버전은 0.5.0입니다.
-업그레이드 안내와 호환되지 않는 Rust API 변경은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)를 참고하세요.
+업그레이드 안내와 호환되지 않는 Rust API 변경은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)를 참고하세요.
 
 ## 왜 MemoryWhale인가요?
 

@@ -32,8 +32,7 @@ explicitly supplied local instruction skill. Supports `--dry-run`, `--check`,
 `--revert`, and `--skills-dir <directory>`. See
 [portable integrations](portable-integrations.md) for the separate Rho memory
 setup, safe removal rules, discovery paths, and live Rho verification.
-Build from current source to use these additions; they are not in the
-published 0.10.0 binaries.
+These additions ship in 0.11.0.
 
 Released commands ship as prebuilt binaries (see the README's Install section). If
 you're working from a source checkout instead, prefix any command with

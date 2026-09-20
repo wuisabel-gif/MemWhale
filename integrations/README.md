@@ -7,8 +7,7 @@ remain client-neutral.
 The development branch includes [portable setup and local skills](../docs/reference/portable-integrations.md):
 owned MCP configuration for Codex/Cursor, plus explicit local skill installation
 for Rho/Codex/Cursor. Rho's live memory-and-style test is recorded separately from
-configuration-only tests for the other clients. These additions are not yet in
-the 0.10.0 release.
+configuration-only tests for the other clients. These additions ship in 0.11.0.
 
 ## Capability definitions
 

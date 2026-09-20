@@ -4,8 +4,7 @@ Connect the same MemoryWhale store to different coding clients, and optionally
 install a reviewed response-style skill alongside it. These are **Interfaces**
 adapters: no new database schema, model provider, or skill marketplace.
 
-**Availability:** these commands are development-branch functionality, not part
-of the published 0.10.0 binaries. Build the current source checkout first:
+**Availability:** these commands ship in 0.11.0. From a source checkout, build first:
 
 ```sh
 cargo build --release --locked -p memorywhale-cli --bins

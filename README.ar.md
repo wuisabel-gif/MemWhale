@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0a6b911696113a6221346fd4145b26a73f5a62493d8a8d34048d26a832c0c100 -->
+<!-- README-SOURCE-SHA256: 7a5d4a17ad8b2e5db9f71a79c6d40e3fed8a0bbe64a3e4b4e626067e6de03bc0 -->
 
 <div dir="rtl">
 
@@ -28,7 +28,7 @@
 **MemoryWhale 0.10.0 — Agent-Native Memory · 6 سبتمبر 2026.**
 تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.10.0،
 أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.5.0. راجع
-[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.10.0/docs/releases/0.10.0.md)
+[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)
 للاطلاع على دليل الترقية والتغيير غير المتوافق في واجهة Rust البرمجية.
 
 ## لماذا MemoryWhale؟
