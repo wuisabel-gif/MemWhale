@@ -193,6 +193,9 @@ pub const LATEST_SCHEMA_VERSION: i64 = 11;
 /// Migration 10 — structured command provenance: adds nullable `agent` to
 /// `command_runs`. Existing command runs remain NULL because their capture
 /// client is not known retroactively.
+///
+/// Migration 11 — retrieval feedback: creates `retrieval_feedback` for local,
+/// attributable helpful/wrong records. Additive; existing rows are untouched.
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
