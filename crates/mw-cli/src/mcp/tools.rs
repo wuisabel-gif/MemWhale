@@ -348,9 +348,15 @@ fn search_memory(
 }
 
 fn mode_arg(args: &Value) -> Result<Option<crate::SearchMode>, String> {
-    scope_arg(args, "mode")
-        .map(crate::SearchMode::parse)
-        .transpose()
+    match args.get("mode") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) if !s.trim().is_empty() => {
+            crate::SearchMode::parse(s.trim()).map(Some)
+        }
+        Some(other) => Err(format!(
+            "mode must be one of evidence, lessons, recipes, failures; got {other}"
+        )),
+    }
 }
 
 /// Non-empty scope values as engine task tags, so task-relevance scoring can
@@ -621,6 +627,25 @@ fn last_line(text: &str, max: usize) -> String {
 mod tests {
     use super::*;
     use rusqlite::Connection;
+
+    #[test]
+    fn malformed_mode_is_an_input_error() {
+        assert_eq!(mode_arg(&serde_json::json!({})), Ok(None));
+        assert_eq!(mode_arg(&serde_json::json!({"mode": null})), Ok(None));
+        assert_eq!(
+            mode_arg(&serde_json::json!({"mode": "lessons"})),
+            Ok(Some(crate::SearchMode::Lessons))
+        );
+        for bad in [
+            serde_json::json!({"mode": ""}),
+            serde_json::json!({"mode": "  "}),
+            serde_json::json!({"mode": 3}),
+            serde_json::json!({"mode": ["lessons"]}),
+            serde_json::json!({"mode": "nope"}),
+        ] {
+            assert!(mode_arg(&bad).is_err(), "{bad} should be rejected");
+        }
+    }
     struct EnvVarGuard {
         name: &'static str,
         previous: Option<std::ffi::OsString>,
