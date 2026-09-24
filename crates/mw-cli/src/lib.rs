@@ -315,6 +315,34 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         PRAGMA user_version = 11;")
             .map_err(|e| format!("failed to migrate retrieval feedback: {e}"))?;
     }
+    ensure_feedback_cleanup(conn)?;
+    Ok(())
+}
+
+/// Delete feedback when its memory's row goes, whichever path deletes it.
+/// Row ids can be reused, so orphaned feedback would otherwise attach itself
+/// to a later memory. Offsets match `memorywhale_core::sqlite` id namespaces.
+fn ensure_feedback_cleanup(conn: &Connection) -> Result<(), String> {
+    if !table_exists(conn, "retrieval_feedback")? {
+        return Ok(());
+    }
+    for (table, offset) in [
+        ("documents", 0_i64),
+        ("command_runs", 1_000_000_000),
+        ("agent_turns", 2_000_000_000),
+        ("bookmarks", 3_000_000_000),
+        ("sessions", 4_000_000_000),
+    ] {
+        if table_exists(conn, table)? {
+            conn.execute_batch(&format!(
+                "CREATE TRIGGER IF NOT EXISTS trg_{table}_feedback_cleanup
+                 AFTER DELETE ON {table} BEGIN
+                     DELETE FROM retrieval_feedback WHERE memory_id = OLD.id + {offset};
+                 END;"
+            ))
+            .map_err(|e| format!("failed to add feedback cleanup for {table}: {e}"))?;
+        }
+    }
     Ok(())
 }
 
@@ -2622,6 +2650,30 @@ mod tests {
 
     // The migration is safe on a populated DB: an existing pre-provenance row is
     // backfilled as human/approved, and new provenance columns are usable.
+    #[test]
+    fn deleting_a_memory_deletes_its_feedback() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        migrate(&conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO bookmarks (id, label, created_at) VALUES (7, 'lesson', '2026-01-01T00:00:00Z');
+             INSERT INTO command_runs (id, command, argv_json, created_at) VALUES (7, 'cargo', '[]', '2026-01-01T00:00:00Z');
+             INSERT INTO retrieval_feedback (memory_id, kind, created_at) VALUES (3000000007, 'helpful', 'x');
+             INSERT INTO retrieval_feedback (memory_id, kind, created_at) VALUES (1000000007, 'helpful', 'x');
+             DELETE FROM bookmarks WHERE id = 7;",
+        )
+        .unwrap();
+        let left: Vec<i64> = conn
+            .prepare("SELECT memory_id FROM retrieval_feedback")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        // The note's feedback went with it; the command with the same row id kept its own.
+        assert_eq!(left, vec![1_000_000_007]);
+    }
+
     #[test]
     fn migrate_backfills_existing_rows_as_human() {
         let conn = Connection::open_in_memory().unwrap();
