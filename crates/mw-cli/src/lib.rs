@@ -1426,6 +1426,8 @@ pub fn filter_memories(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchMode {
     Evidence,
+    /// Every saved note. `mw remember` and `mw mark` write identical rows, so
+    /// this view cannot tell a lesson from a plain bookmark.
     Lessons,
     Recipes,
     Failures,
