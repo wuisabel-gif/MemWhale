@@ -3180,7 +3180,8 @@ fn contradictions_cmd(args: &[String]) -> Result<(), String> {
     println!("heuristic review: no semantic truth claim; original records are preserved");
     println!(
         "LEFT #{left_id}: {}\nRIGHT #{right_id}: {}",
-        left.text, right.text
+        compare_text(&left.text),
+        compare_text(&right.text)
     );
     let flag = memorywhale_core::contradiction::inspect(left, right)
         .ok_or("no lexical contradiction signal found")?;
@@ -3188,7 +3189,7 @@ fn contradictions_cmd(args: &[String]) -> Result<(), String> {
     println!(
         "FLAG #{} pending: {} (score {:.2})",
         conn.last_insert_rowid(),
-        flag.reason,
+        compare_text(&flag.reason),
         flag.score
     );
     Ok(())

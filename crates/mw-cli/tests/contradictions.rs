@@ -22,7 +22,7 @@ fn flag_is_created_listed_and_reviewed_through_cli() {
     let bin = env!("CARGO_BIN_EXE_mw");
     for note in [
         "always use cargo build release",
-        "do not use cargo build release",
+        "do not use cargo build release \u{1b}]52;c;cHduZWQ=\u{7}\u{1b}[2J",
     ] {
         stdout(&mw(
             &dir,
@@ -37,6 +37,10 @@ fn flag_is_created_listed_and_reviewed_through_cli() {
         &["contradictions", "1000000001", "1000000002"],
     ));
     assert!(created.contains("FLAG #1 pending"), "{created}");
+    assert!(
+        !created.contains('\u{1b}') && !created.contains('\u{7}'),
+        "terminal controls from memory text must not reach the terminal: {created:?}"
+    );
 
     let listed = stdout(&mw(&dir, bin, &["contradictions", "list"]));
     assert!(
