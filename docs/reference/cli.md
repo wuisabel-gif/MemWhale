@@ -56,6 +56,8 @@ mw search "build" --mode lessons       # explicit view: evidence, lessons, recip
 mw explain 1000000001                 # why this memory ranks: per-signal breakdown (ids come from `mw search`)
 mw link 1000000001 3000000001 rel:fixed-by   # link two memories (typed edge; ids from `mw search`)
 mw links 1000000001                   # show a memory's linked neighbors (both directions); mw unlink <a> <b> removes
+mw contradictions 1000000001 1000000002   # heuristic contradiction check; stores a pending flag (see docs/contradiction-flags.md)
+mw contradictions list                # review flags: then mw contradictions confirm|reject <flag-id>
 mw tui                                # interactive terminal browser (type to search, Enter to act, F1 help, Esc quit)
 mw git-fix                            # diagnose the last failed git command: what, why, the fix
 mw github context <pr>                 # fetch bounded, redacted GitHub PR context through gh

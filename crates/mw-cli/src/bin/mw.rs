@@ -69,6 +69,7 @@ fn run() -> Result<(), String> {
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
         Some("feedback") => return feedback_cmd(&raw_args[1..]),
+        Some("contradictions") => return contradictions_cmd(&raw_args[1..]),
         Some("explain") => return explain_cmd(&raw_args[1..]),
         Some("link") => return link_cmd(&raw_args[1..]),
         Some("unlink") => return unlink_cmd(&raw_args[1..]),
@@ -411,6 +412,8 @@ fn print_help() {
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
          mw search <text> [--mode evidence|lessons|recipes|failures] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank memories by relevance (--explain shows why)\n\
+         mw contradictions <a> <b>  flag two memories that share terms but differ on a negation cue (heuristic; stored as pending)\n\
+         mw contradictions list | confirm <flag-id> | reject <flag-id>  review stored contradiction flags (memories are never changed)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
@@ -3149,6 +3152,100 @@ fn take_ranking(
         ranking = Some(memorywhale_core::Ranking::parse(value)?);
     }
     Ok((ranking, rest))
+}
+
+const CONTRADICTIONS_USAGE: &str = "usage: mw contradictions <memory-id> <memory-id> | list | confirm <flag-id> | reject <flag-id>";
+
+fn contradictions_cmd(args: &[String]) -> Result<(), String> {
+    match args.first().map(String::as_str) {
+        Some("list") if args.len() == 1 => return list_contradiction_flags(),
+        Some(action @ ("confirm" | "reject")) if args.len() == 2 => {
+            return review_contradiction_flag(action, &args[1])
+        }
+        _ if args.len() != 2 => return Err(CONTRADICTIONS_USAGE.into()),
+        _ => {}
+    }
+    let left_id: i64 = args[0].parse().map_err(|_| "invalid left memory id")?;
+    let right_id: i64 = args[1].parse().map_err(|_| "invalid right memory id")?;
+    let conn = open_session_db()?;
+    let memories = memorywhale_core::sqlite::load_memories(&conn).map_err(|e| e.to_string())?;
+    let left = memories
+        .iter()
+        .find(|m| m.id == left_id)
+        .ok_or("left memory not found")?;
+    let right = memories
+        .iter()
+        .find(|m| m.id == right_id)
+        .ok_or("right memory not found")?;
+    println!("heuristic review: no semantic truth claim; original records are preserved");
+    println!(
+        "LEFT #{left_id}: {}\nRIGHT #{right_id}: {}",
+        left.text, right.text
+    );
+    let flag = memorywhale_core::contradiction::inspect(left, right)
+        .ok_or("no lexical contradiction signal found")?;
+    conn.execute("INSERT INTO contradiction_flags (left_memory_id,right_memory_id,score,reason,created_at) VALUES (?1,?2,?3,?4,?5)", rusqlite::params![flag.left_id,flag.right_id,flag.score,flag.reason,Utc::now().to_rfc3339()]).map_err(|e| e.to_string())?;
+    println!(
+        "FLAG #{} pending: {} (score {:.2})",
+        conn.last_insert_rowid(),
+        flag.reason,
+        flag.score
+    );
+    Ok(())
+}
+
+fn list_contradiction_flags() -> Result<(), String> {
+    let conn = open_session_db()?;
+    let mut stmt = conn
+        .prepare("SELECT id, left_memory_id, right_memory_id, score, status, created_at, reviewed_at FROM contradiction_flags ORDER BY status != 'pending', id")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(format!(
+                "flag #{} {} memories #{} vs #{} score {:.2} created {}{}",
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, f64>(3)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, Option<String>>(6)?
+                    .map(|t| format!(" reviewed {t}"))
+                    .unwrap_or_default()
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut any = false;
+    for row in rows {
+        println!("{}", row.map_err(|e| e.to_string())?);
+        any = true;
+    }
+    if !any {
+        println!("no contradiction flags");
+    }
+    Ok(())
+}
+
+/// `confirm` / `reject` a flag. Only the flag row changes; memories are untouched.
+fn review_contradiction_flag(action: &str, id: &str) -> Result<(), String> {
+    let id: i64 = id.parse().map_err(|_| "invalid flag id")?;
+    let status = if action == "confirm" {
+        "confirmed"
+    } else {
+        "rejected"
+    };
+    let conn = open_session_db()?;
+    let changed = conn
+        .execute(
+            "UPDATE contradiction_flags SET status = ?1, reviewed_at = ?2 WHERE id = ?3",
+            rusqlite::params![status, Utc::now().to_rfc3339(), id],
+        )
+        .map_err(|e| e.to_string())?;
+    if changed == 0 {
+        return Err(format!("contradiction flag #{id} not found"));
+    }
+    println!("flag #{id} {status}");
+    Ok(())
 }
 
 fn search_memory(args: &[String]) -> Result<(), String> {
