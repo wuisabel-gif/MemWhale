@@ -43,6 +43,19 @@
       "recall_at_1": 1.0,
       "recall_at_5": 1.0,
       "reciprocal_rank": 1.0
+    },
+    {
+      "system": "bayesian",
+      "top5": [
+        25,
+        18,
+        35,
+        28,
+        26
+      ],
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "reciprocal_rank": 1.0
     }
   ]
 }

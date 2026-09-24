@@ -74,6 +74,7 @@ deterministic. It is intentionally excluded from the committed numbers.
 | builtin | 0.522    | 0.961    | 0.747 |
 | keyword | 0.889    | 0.983    | 0.983 |
 | fts5    | 0.889    | 0.989    | 0.983 |
+| bayesian | 0.789   | 0.994    | 0.933 |
 
 **Honest read.** On a pure *text-match* gold set the lexical baselines still win,
 and that is expected, not a bug: recall here rewards nothing but term overlap,
@@ -97,6 +98,11 @@ keyword/FTS5 here, and it isn't supposed to.
 | builtin | **0.833**| **1.000**| **0.935** |
 | keyword | 0.444    | 0.806    | 0.630 |
 | fts5    | 0.417    | 0.694    | 0.580 |
+| bayesian | 0.778   | 1.000    | 0.907 |
+
+`bayesian` is the same engine with the opt-in `--ranking bayesian`. It trades a
+little intent recall@1 (0.833 → 0.778) for much better term-overlap ranking
+(recall@1 0.522 → 0.789, MRR 0.747 → 0.933), which is why it stays opt-in.
 
 **Honest read.** When the query's answer is decided by *context* rather than
 wording, the blend wins clearly — it leads on all three metrics. `builtin` gets

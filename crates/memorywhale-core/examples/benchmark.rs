@@ -7,11 +7,12 @@
 //! hand-labeled relevant ids. Re-running regenerates benchmarks/results/*.json
 //! byte-identically.
 //!
-//! Compares three retrieval systems over the same corpus:
+//! Compares four retrieval systems over the same corpus:
 //!   1. builtin  — BuiltinEngine with FTS5 BM25, recency, importance,
 //!      reinforcement, and task relevance.
 //!   2. keyword  — a plain substring/keyword-overlap baseline.
 //!   3. fts5     — an in-memory SQLite FTS5 (bm25) index over the same text.
+//!   4. bayesian — the same BuiltinEngine with opt-in `Ranking::Bayesian`.
 //!
 //! Two gold sets, each written to its own results directory:
 //!   - questions.json        → results/         — pure *term-overlap* recall
@@ -27,7 +28,7 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use memorywhale_core::engine::{BuiltinEngine, MemoryEngine};
-use memorywhale_core::{Memory, Query};
+use memorywhale_core::{Memory, Query, Ranking};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -98,12 +99,18 @@ fn reciprocal_rank(ranked: &[i64], rel: &BTreeSet<i64>) -> f64 {
 
 // ── rankers: each returns the full corpus ranked best→worst by id ────────────
 
-fn rank_builtin(memories: &[Memory], q: &QuerySpec, now: DateTime<Utc>) -> Vec<i64> {
+fn rank_builtin(
+    memories: &[Memory],
+    q: &QuerySpec,
+    now: DateTime<Utc>,
+    ranking: Ranking,
+) -> Vec<i64> {
     let query = if q.task_tags.is_empty() {
         Query::new(&q.text, now)
     } else {
         Query::new(&q.text, now).with_task(q.task_tags.clone())
-    };
+    }
+    .with_ranking(ranking);
     let eng = BuiltinEngine::new(memories.to_vec());
     eng.retrieve(&query, memories.len())
         .into_iter()
@@ -197,20 +204,21 @@ fn run_set(
     let results_dir = format!("{dir}/{results_subdir}");
     std::fs::create_dir_all(&results_dir)?;
 
-    const SYSTEMS: [&str; 3] = ["builtin", "keyword", "fts5"];
-    let mut sum_r1 = [0.0f64; 3];
-    let mut sum_r5 = [0.0f64; 3];
-    let mut sum_mrr = [0.0f64; 3];
+    const SYSTEMS: [&str; 4] = ["builtin", "keyword", "fts5", "bayesian"];
+    let mut sum_r1 = [0.0f64; 4];
+    let mut sum_r5 = [0.0f64; 4];
+    let mut sum_mrr = [0.0f64; 4];
 
     for q in &questions.questions {
         let rel: BTreeSet<i64> = q.relevant_ids.iter().copied().collect();
         let rankings = [
-            rank_builtin(memories, q, now),
+            rank_builtin(memories, q, now, Ranking::Default),
             rank_keyword(memories, q),
             rank_fts5(conn, memories, q)?,
+            rank_builtin(memories, q, now, Ranking::Bayesian),
         ];
 
-        let mut systems = Vec::with_capacity(3);
+        let mut systems = Vec::with_capacity(SYSTEMS.len());
         for (i, ranked) in rankings.iter().enumerate() {
             let r1 = recall_at_k(ranked, &rel, 1);
             let r5 = recall_at_k(ranked, &rel, 5);
@@ -239,7 +247,7 @@ fn run_set(
     }
 
     let n = questions.questions.len() as f64;
-    let rows: Vec<Row> = (0..3)
+    let rows: Vec<Row> = (0..SYSTEMS.len())
         .map(|i| Row {
             system: SYSTEMS[i].to_string(),
             recall_at_1: sum_r1[i] / n,
