@@ -48,6 +48,16 @@ fn flag_is_created_listed_and_reviewed_through_cli() {
         "{listed}"
     );
 
+    // Re-checking the pair, in either order, reuses flag #1 instead of adding one.
+    let again = stdout(&mw(
+        &dir,
+        bin,
+        &["contradictions", "1000000002", "1000000001"],
+    ));
+    assert!(again.contains("FLAG #1 pending"), "{again}");
+    let listed = stdout(&mw(&dir, bin, &["contradictions", "list"]));
+    assert_eq!(listed.lines().count(), 1, "{listed}");
+
     let rejected = stdout(&mw(&dir, bin, &["contradictions", "reject", "1"]));
     assert!(rejected.contains("flag #1 rejected"), "{rejected}");
     let listed = stdout(&mw(&dir, bin, &["contradictions", "list"]));

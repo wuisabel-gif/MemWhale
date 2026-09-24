@@ -3185,10 +3185,27 @@ fn contradictions_cmd(args: &[String]) -> Result<(), String> {
     );
     let flag = memorywhale_core::contradiction::inspect(left, right)
         .ok_or("no lexical contradiction signal found")?;
-    conn.execute("INSERT INTO contradiction_flags (left_memory_id,right_memory_id,score,reason,created_at) VALUES (?1,?2,?3,?4,?5)", rusqlite::params![flag.left_id,flag.right_id,flag.score,flag.reason,Utc::now().to_rfc3339()]).map_err(|e| e.to_string())?;
+    // One flag per unordered pair: store it low id first, and reuse an
+    // existing flag (with its review status) instead of adding a duplicate.
+    let (lo, hi) = (
+        flag.left_id.min(flag.right_id),
+        flag.left_id.max(flag.right_id),
+    );
+    conn.execute(
+        "INSERT INTO contradiction_flags (left_memory_id,right_memory_id,score,reason,created_at)
+         VALUES (?1,?2,?3,?4,?5) ON CONFLICT(left_memory_id,right_memory_id) DO NOTHING",
+        rusqlite::params![lo, hi, flag.score, flag.reason, Utc::now().to_rfc3339()],
+    )
+    .map_err(|e| e.to_string())?;
+    let (id, status): (i64, String) = conn
+        .query_row(
+            "SELECT id, status FROM contradiction_flags WHERE left_memory_id=?1 AND right_memory_id=?2",
+            rusqlite::params![lo, hi],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
     println!(
-        "FLAG #{} pending: {} (score {:.2})",
-        conn.last_insert_rowid(),
+        "FLAG #{id} {status}: {} (score {:.2})",
         compare_text(&flag.reason),
         flag.score
     );
