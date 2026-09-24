@@ -52,7 +52,7 @@ mw show 1                             # print the full transcript of a session
 mw search "linker error"              # search commands, output, notes, transcripts
 mw search docker after:2026-01-01 tag:infra   # filter results: tag:X, source:command|session|note|document|conversation, agent:claude|rho|cursor|codewhale|terminal, before:/after:YYYY-MM-DD, limit:N
 mw search "build" --mode lessons       # explicit view: evidence, lessons, recipes, or failures
-                                      # lessons = saved notes (mw remember and mw mark share storage); recipes = notes with a fix: marker
+                                      # evidence = everything except saved notes; lessons = saved notes (mw remember and mw mark share storage); recipes = notes with a fix: marker
 mw explain 1000000001                 # why this memory ranks: per-signal breakdown (ids come from `mw search`)
 mw link 1000000001 3000000001 rel:fixed-by   # link two memories (typed edge; ids from `mw search`)
 mw links 1000000001                   # show a memory's linked neighbors (both directions); mw unlink <a> <b> removes

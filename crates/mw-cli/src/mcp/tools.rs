@@ -42,7 +42,7 @@ pub(super) fn tool_defs() -> Value {
                 "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
                 "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"},
                 "explain": {"type": "boolean", "description": "optional: include full per-signal ranking details and snippet/provenance status"},
-                "mode": {"type": "string", "enum": ["evidence", "lessons", "recipes", "failures"], "description": "optional conservative retrieval view: evidence = captured commands/sessions; lessons = all saved notes (remember and mark share storage); recipes = notes with a fix: marker; failures = error-tagged memories"}
+                "mode": {"type": "string", "enum": ["evidence", "lessons", "recipes", "failures"], "description": "optional conservative retrieval view: evidence = everything except saved notes (commands, sessions, documents, conversations); lessons = all saved notes (remember and mark share storage); recipes = notes with a fix: marker; failures = error-tagged memories"}
             }, "required": ["query"]}
         },
         {
