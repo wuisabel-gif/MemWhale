@@ -415,6 +415,8 @@ fn print_help() {
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
          mw links <id>            show a memory's linked neighbors (both directions)\n\
+         mw feedback add <memory-id> helpful|irrelevant|outdated|contradicted [--actor NAME]  record local retrieval feedback\n\
+         mw feedback list [memory-id] | show <id> | undo <id>  review or reverse feedback\n\
          mw pet [--watch]         a whale whose mood reflects your memory store (--watch animates it)\n\
          mw tui                   interactive terminal browser: type to search, arrow keys to move, Enter to reveal the command\n\
          mw sync-mempalace [--wing NAME] [--limit N] [--dry-run]  sync local memories into a running MemPalace server, idempotent by memory id (needs mempalace_command in config)\n\
@@ -1095,6 +1097,11 @@ fn feedback_on(conn: &Connection, args: &[String]) -> Result<(), String> {
             );
         }
         "list" | "show" => {
+            if args.len() > 2 || (action == "show" && args.len() != 2) {
+                return Err(
+                    "usage: mw feedback list [memory-id] | mw feedback show <feedback-id>".into(),
+                );
+            }
             let (sql, id): (&str, Option<i64>) = if action == "show" {
                 ("SELECT id,memory_id,kind,created_at,actor,undone_at FROM retrieval_feedback WHERE id=?1", Some(args.get(1).ok_or("feedback id required")?.parse().map_err(|_| "invalid feedback id")?))
             } else {
@@ -1115,15 +1122,15 @@ fn feedback_on(conn: &Connection, args: &[String]) -> Result<(), String> {
                 })
                 .map_err(|e| e.to_string())?;
             for row in rows {
-                println!("{}", row.map_err(|e| e.to_string())?);
+                // actor is free-form input: strip terminal controls before printing.
+                println!("{}", compare_text(&row.map_err(|e| e.to_string())?));
             }
         }
         "undo" => {
-            let id: i64 = args
-                .get(1)
-                .ok_or("feedback id required")?
-                .parse()
-                .map_err(|_| "invalid feedback id")?;
+            let [_, id] = args else {
+                return Err("usage: mw feedback undo <feedback-id>".into());
+            };
+            let id: i64 = id.parse().map_err(|_| "invalid feedback id")?;
             let changed = conn
                 .execute(
                     "UPDATE retrieval_feedback SET undone_at=?1 WHERE id=?2 AND undone_at IS NULL",
@@ -5241,6 +5248,9 @@ mod tests {
         assert_eq!(actor, "codex");
 
         assert!(run(&["undo", "777"]).is_err(), "nonexistent undo");
+        assert!(run(&["undo", "1", "--actor", "x"]).is_err(), "extra undo args");
+        assert!(run(&["show"]).is_err(), "show needs an id");
+        assert!(run(&["show", "1", "extra"]).is_err(), "extra show args");
         run(&["undo", "1"]).unwrap();
         assert!(run(&["undo", "1"]).is_err(), "repeated undo");
     }
