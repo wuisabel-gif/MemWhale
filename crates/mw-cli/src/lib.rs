@@ -326,6 +326,7 @@ fn ensure_feedback_cleanup(conn: &Connection) -> Result<(), String> {
     if !table_exists(conn, "retrieval_feedback")? {
         return Ok(());
     }
+    let mut live = Vec::new();
     for (table, offset) in [
         ("documents", 0_i64),
         ("command_runs", 1_000_000_000),
@@ -341,8 +342,21 @@ fn ensure_feedback_cleanup(conn: &Connection) -> Result<(), String> {
                  END;"
             ))
             .map_err(|e| format!("failed to add feedback cleanup for {table}: {e}"))?;
+            live.push(format!("SELECT id + {offset} FROM {table}"));
         }
     }
+    // Purge feedback orphaned before these triggers existed. Row ids never
+    // reach the next namespace, so the union identifies live memories exactly.
+    let live = if live.is_empty() {
+        "SELECT NULL WHERE 0".to_string()
+    } else {
+        live.join(" UNION ALL ")
+    };
+    conn.execute(
+        &format!("DELETE FROM retrieval_feedback WHERE memory_id NOT IN ({live})"),
+        [],
+    )
+    .map_err(|e| format!("failed to purge orphaned feedback: {e}"))?;
     Ok(())
 }
 
@@ -2660,7 +2674,8 @@ mod tests {
              INSERT INTO command_runs (id, command, argv_json, created_at) VALUES (7, 'cargo', '[]', '2026-01-01T00:00:00Z');
              INSERT INTO retrieval_feedback (memory_id, kind, created_at) VALUES (3000000007, 'helpful', 'x');
              INSERT INTO retrieval_feedback (memory_id, kind, created_at) VALUES (1000000007, 'helpful', 'x');
-             DELETE FROM bookmarks WHERE id = 7;",
+             DELETE FROM bookmarks WHERE id = 7;
+             INSERT INTO retrieval_feedback (memory_id, kind, created_at) VALUES (3000000099, 'helpful', 'x');",
         )
         .unwrap();
         let left: Vec<i64> = conn
@@ -2670,8 +2685,16 @@ mod tests {
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap();
-        // The note's feedback went with it; the command with the same row id kept its own.
-        assert_eq!(left, vec![1_000_000_007]);
+        // The note's feedback went with it; the command with the same row id kept
+        // its own. The pre-existing orphan (#99) survives until the next open.
+        assert_eq!(left, vec![1_000_000_007, 3_000_000_099]);
+
+        // Feedback already orphaned (no note #99) is purged the next time the store opens.
+        migrate(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM retrieval_feedback", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
     }
 
     #[test]
