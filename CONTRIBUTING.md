@@ -4,6 +4,16 @@ MemoryWhale is a local-first terminal memory system. Contributions should make
 technical memory more durable, searchable, and useful across sessions and
 machines.
 
+## Your First Contribution
+
+Start with the pinned [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).
+It lists small tasks, each with the files to touch and a command to verify
+your change. Many need no Rust: translation reviews, documentation fixes, and
+frontend tests. Comment on an issue before starting so work isn't duplicated.
+
+Maintainers aim to give every pull request a first review within one working
+day, and each release's notes thank contributors by GitHub handle.
+
 ## Project Scope
 
 A feature belongs in MemoryWhale if it improves **capturing, preserving,

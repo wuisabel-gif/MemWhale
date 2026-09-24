@@ -983,8 +983,8 @@ Restart Claude Code to pick up hook and skill changes.</pre>
             <article class="card">
               <strong data-i18n="release.provenanceTitle">Know where evidence came from</strong>
               <p data-i18n="release.provenanceBody">Schema 10 stores command agents as <code>claude</code>,
-                <code>rho</code>, or <code>NULL</code>, displayed as
-                <code>terminal</code>. Agent is separate from source type.
+                <code>rho</code>, or <code>NULL</code>; <code>NULL</code> is
+                displayed as <code>terminal</code>. Agent is separate from source type.
                 Canonical repository IDs group linked worktrees without losing
                 each worktree's path.</p>
             </article>
@@ -1075,9 +1075,9 @@ Restart Claude Code to pick up hook and skill changes.</pre>
               Coding-agent sessions can lose context and repeat debugging you
               already did. <code>mw-mcp</code> is a Model Context Protocol
               server over your local memory — register it once and Claude Code,
-              Rho, Codex, or Cursor can query past failures directly. Trust the
-              client with the evidence it retrieves, including any model
-              provider to which that client sends context.
+              Rho, Codex, or Cursor can query past failures directly. Anything the
+              client retrieves can reach the model provider it sends context
+              to, so connect only clients you trust.
             </p>
             <div class="client-strip" role="group" aria-label="Clients with integration guides" data-i18n-aria-label="agents.clientsLabel">
               <span class="client-chip">Claude Code</span>

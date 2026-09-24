@@ -26,6 +26,9 @@ The CLI, web UI, and desktop app share product version 0.11.0; the reusable
 Rust core is version 0.5.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)
 for the upgrade guide. Schema remains 10.
 
+**Want to contribute?** Start with the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).
+Many tasks need no Rust, including translation reviews and documentation fixes.
+
 ## Why MemoryWhale
 
 - **Remember what actually happened.** Preserve the command, environment,
@@ -190,6 +193,7 @@ end-to-end scenario with real commands.
 
 MemoryWhale accepts changes that improve capturing, preserving, retrieving, or
 sharing development experience. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the
-scope rule, development commands, and pull-request checklist.
+scope rule, development commands, and pull-request checklist. New contributors
+can pick a task from the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).
 
 Licensed under the [MIT License](LICENSE).

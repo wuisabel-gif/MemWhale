@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 7a5d4a17ad8b2e5db9f71a79c6d40e3fed8a0bbe64a3e4b4e626067e6de03bc0 -->
+<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -6,7 +6,7 @@
 
 <h1 align="center">MemoryWhale</h1>
 
-<p align="center"><strong>Dauerhaftes lokales Debugging-Gedächtnis für Entwickler und Coding-Agenten.</strong></p>
+<p align="center"><strong>Dauerhaftes, lokales Debugging-Gedächtnis für Entwickler und Coding-Agenten.</strong></p>
 
 <p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
 
@@ -19,59 +19,62 @@
 </p>
 
 MemoryWhale hält fest, was beim Debuggen tatsächlich passiert ist: Befehle,
-Ausgaben, Fehler und die Lösungen, die funktioniert haben. Diese Informationen
-werden lokal in SQLite gespeichert, damit du und deine Coding-Agenten sie auch
-dann wiederfinden, wenn das Terminal, die SSH-Verbindung oder die Agentensitzung
-längst beendet ist.
+Ausgaben, Fehlschläge und die Fixes, die funktioniert haben. Diese Belege landen
+lokal in SQLite, sodass du und deine Coding-Agenten sie auch dann noch finden,
+wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist.
 
-**MemoryWhale 0.10.0 — Agent-Native Memory · 6. September 2026.**
-CLI, Weboberfläche und Desktop-App haben die gemeinsame Produktversion 0.10.0;
-der wiederverwendbare Rust-Kern hat die Version 0.5.0. Die
-[Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)
-enthalten Hinweise zum Upgrade und zur inkompatiblen Änderung der Rust-API.
+**MemoryWhale 0.11.0 — Explainable Debugging Evidence · 20. September 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.11.0; der
+wiederverwendbare Rust-Kern hat die Version 0.5.0. Hinweise zum Upgrade findest
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md).
+Das Schema bleibt bei Version 10.
+
+**Du willst mitmachen?** Fang mit dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) an.
+Für viele Aufgaben brauchst du kein Rust, etwa für das Prüfen von Übersetzungen
+oder Korrekturen an der Dokumentation.
 
 ## Warum MemoryWhale?
 
-- **Behalte, was wirklich passiert ist.** Bewahre Befehl, Umgebung, Ausgabe,
-  Fehler und Erkenntnis auf – nicht nur eine Zeile in der Shell-History.
-- **Nutze ein gemeinsames Gedächtnis für deine Coding-Agenten.** Jeder kompatible
-  stdio-MCP-Client kann über `mw-mcp` auf denselben lokalen Speicher zugreifen
-  und darin schreiben.
-- **Halte deine Entwicklungshistorie lokal.** MemoryWhale funktioniert ohne
-  Konto, gehosteten Dienst oder tokenbasierte Abrechnung für den Speicher.
+- **Festhalten, was wirklich passiert ist.** Bewahre Befehl, Umgebung, Ausgabe,
+  Fehlschlag und Erkenntnis auf – nicht nur eine Zeile in der Shell-History.
+- **Ein Gedächtnis für alle Coding-Agenten.** Jeder kompatible stdio-MCP-Client
+  kann über `mw-mcp` denselben lokalen Speicher lesen und beschreiben.
+- **Die Entwicklungshistorie bleibt lokal.** MemoryWhale funktioniert ohne
+  Konto, ohne gehosteten Dienst und ohne tokenbasierte Abrechnung für das
+  Gedächtnis.
 
 MemoryWhale speichert Entwicklungserfahrung, nicht alles. Es ist eine
-Gedächtnisschicht fürs Debugging – kein autonomer Coding-Agent, kein universelles
-persönliches Gedächtnis und kein Ersatz für Projektdokumentation.
+Gedächtnisschicht fürs Debugging – kein autonomer Coding-Agent, kein
+universelles persönliches Gedächtnis und kein Ersatz für Projektdokumentation.
 
 ## Neu in Agent-Native Memory
 
-- **Agenten verbinden und ihre Einrichtung prüfen.** Mit `mw integrate`
-  installierst du MCP-Zugriff, Capture-Hooks und Hinweise zur Speichernutzung
-  für Claude Code oder Rho. `mw doctor` prüft MCP, Hooks und Skills getrennt.
-- **Die Herkunft nachvollziehbar halten.** Schema 10 speichert den ausführenden
-  Agenten einer Befehlsaufzeichnung als `claude`, `rho` oder `NULL`. Das Anzeige-
-  und Filterlabel `terminal` steht für Terminal-, manuelle oder ältere
-  Aufzeichnungen; es beweist nicht, dass ein Mensch den Befehl ausgeführt hat.
-  Die Agentenidentität ist unabhängig vom Quelltyp, etwa `command`, `session`
-  oder `note`.
-- **Ein Repository teilen, Worktrees unterscheiden.** Kanonische Repository-IDs
-  gruppieren verknüpfte Worktrees, ohne deren jeweilige Wurzelverzeichnisse oder
-  vorhandene Projekt-Tags zu verlieren. Die Erkennung liest lokale Git-Metadaten
-  und kontaktiert keinen entfernten Dienst.
+- **Agenten anbinden und prüfen.** Mit `mw integrate` richtest du für Claude
+  Code oder Rho den MCP-Zugriff, Capture-Hooks und Hinweise zur
+  Gedächtnisnutzung ein; `mw doctor` prüft MCP, Hooks und Skills unabhängig
+  voneinander.
+- **Herkunft explizit halten.** Schema 10 speichert den Agenten eines Befehls
+  als `claude`, `rho` oder `NULL`. Das Anzeige- und Filterlabel `terminal`
+  steht für Terminal-, manuelle oder ältere Aufzeichnungen – es ist kein Beleg
+  dafür, dass ein Mensch den Befehl ausgeführt hat. Die Agentenidentität ist
+  unabhängig vom Quelltyp wie `command`, `session` oder `note`.
+- **Ein Repository, getrennte Worktrees.** Kanonische Repository-IDs fassen
+  verknüpfte Worktrees zusammen und behalten dabei das Wurzelverzeichnis jedes
+  Worktrees sowie vorhandene Projekt-Tags bei. Die Erkennung liest lokale
+  Git-Metadaten und fragt keinen entfernten Dienst ab.
 - **Lokale Schnittstellen nutzen.** `mw-serve` stellt HTTP-MCP unter
-  `POST /mcp` bereit. `mw-serve --api` aktiviert ausdrücklich die schreibgeschützte
-  JSON-API. Beide nutzen den Listener des Dashboards; Zugriffe außerhalb von
-  Loopback erfordern ein Token.
-- **GitHub-Kontext ausdrücklich abrufen.** `mw github context <pr>` liest
-  PR-Metadaten, Checks und Reviews über deine bestehende `gh`-Anmeldung. Der
-  ausgegebene Kontext ist größenbegrenzt und um erkannte sensible Daten bereinigt.
-  Die Funktion checkt keinen Code aus und speichert nichts automatisch als
-  Erinnerung. Es gibt keine GitHub-Synchronisierung im Hintergrund.
+  `POST /mcp` bereit; mit `mw-serve --api` schaltest du bewusst die
+  schreibgeschützte JSON-API zu. Beide laufen über den Listener des Dashboards;
+  Zugriff von außerhalb des Loopback-Interfaces erfordert ein Token.
+- **GitHub-Kontext gezielt abrufen.** `mw github context <pr>` liest
+  PR-Metadaten, Checks und Reviews über deinen bestehenden `gh`-Login. Der
+  Befehl gibt größenbegrenzten, um sensible Daten bereinigten Kontext aus,
+  ohne Code auszuchecken oder ihn automatisch im Gedächtnis zu speichern. Eine
+  GitHub-Synchronisierung im Hintergrund gibt es nicht.
 
 ## Installation
 
-Vorgefertigte Binärdateien gibt es für Linux x86_64/aarch64 und macOS:
+Vorkompilierte Binaries gibt es für Linux x86_64/aarch64 und macOS:
 
 ```bash
 (
@@ -84,7 +87,7 @@ Vorgefertigte Binärdateien gibt es für Linux x86_64/aarch64 und macOS:
 )
 ```
 
-Alternativ kannst du Cargo oder Homebrew verwenden:
+Alternativ installierst du über Cargo oder Homebrew:
 
 ```bash
 cargo install memorywhale-cli
@@ -101,12 +104,12 @@ mw --version
 mw doctor
 ```
 
-Unter Windows kannst du MemoryWhale in
-[WSL](https://learn.microsoft.com/windows/wsl/) ausführen. Hinweise zur
-Paketinstallation, zur Einrichtung des PATH und zu den unterstützten Plattformen
-findest du in der [Einstiegsanleitung](docs/guides/getting-started.md).
+Unter Windows läuft MemoryWhale in
+[WSL](https://learn.microsoft.com/windows/wsl/). Hinweise zur Installation
+über Paketmanager, zur PATH-Konfiguration und zu den einzelnen Plattformen
+stehen in der [Anleitung für den Einstieg](docs/guides/getting-started.md).
 
-## Ein Beispiel in 60 Sekunden
+## Beispiel in 60 Sekunden
 
 ```bash
 mw global on                         # capture future interactive shell commands
@@ -119,10 +122,9 @@ mw pet                               # check your memory store's mood
 
 ![Demo der Stimmungen von mw pet](assets/pet-demo.gif)
 
-Für längere Arbeiten zeichnet `mw --live` eine Shell-Sitzung mit regelmäßiger
-Sicherung auf, die auch nach einem Absturz verwertbar bleibt. `mw tui` öffnet
-einen interaktiven Browser im Terminal; `mw-serve` startet das lokale
-Web-Dashboard.
+Für längere Arbeiten zeichnet `mw --live` eine Shell-Sitzung auf, die auch einen
+Absturz übersteht. `mw tui` öffnet einen interaktiven Browser im Terminal,
+`mw-serve` startet das lokale Web-Dashboard.
 
 ## So funktioniert es
 
@@ -135,19 +137,20 @@ agent hooks ─────────► evidence + lessons ──► similar 
                                       CLI / MCP / TUI / Web / Desktop
 ```
 
-Aufzeichnung und Abruf sind unabhängig voneinander. MCP gibt einem Agenten
-Zugriff auf vorhandene Erinnerungen, zeichnet aber normale Terminalaktivität
-nicht automatisch auf. Das vollständige Modell beschreiben die
-[Architektur](docs/architecture.md) und das
+Aufzeichnung und Abruf sind voneinander unabhängig. MCP gibt einem Agenten
+Zugriff auf bereits vorhandene Erinnerungen, zeichnet aber normale
+Terminalaktivität nicht automatisch auf. Das vollständige Modell beschreiben
+die [Architektur](docs/architecture.md) und das
 [Konzept zur Aufzeichnung](docs/concepts/capture.md).
 
 ## Funktioniert mit deinem Coding-Agenten
 
-`mw-mcp` ist der gemeinsame Integrationspunkt: ein lokaler stdio-MCP-Server mit
-sechs Speicherwerkzeugen, die über `mw-serve` auch per HTTP verfügbar sind.
-Es gibt Anleitungen für Claude Code, Rho, Claude Desktop, Cursor, VS Code /
-GitHub Copilot, Windsurf, Zed, Codex CLI, Cline, Continue, Gemini CLI, Goose,
-OpenClaw, CrowClaw, Hermes Agent und weitere kompatible Clients.
+`mw-mcp` ist die gemeinsame Integrationsschnittstelle: ein lokaler
+stdio-MCP-Server mit sechs Gedächtniswerkzeugen, die über `mw-serve` auch per
+HTTP erreichbar sind. Anleitungen gibt es bereits für Claude Code, Rho, Claude
+Desktop, Cursor, VS Code / GitHub Copilot, Windsurf, Zed, Codex CLI, Cline,
+Continue, Gemini CLI, Goose, OpenClaw, CrowClaw, Hermes Agent und weitere
+kompatible Clients.
 
 ```bash
 mw integrate claude
@@ -155,59 +158,60 @@ mw integrate rho
 mw doctor
 ```
 
-Nicht alle Clients bieten dieselben Funktionen. MCP ermöglicht den
-Speicherzugriff; die automatische Aufzeichnung ausgeführter Befehle braucht
-einen clientspezifischen Hook. Die [Integrationsmatrix](integrations/README.md)
-unterscheidet Speicherzugriff, Aufzeichnung und Hinweise zur Speichernutzung
-und verlinkt die jeweils geprüften Einrichtungsanleitungen.
+Nicht jeder Client kann dasselbe. MCP ermöglicht den Zugriff aufs Gedächtnis;
+um ausgeführte Befehle automatisch aufzuzeichnen, braucht es einen
+clientspezifischen Hook. Die [Integrationsmatrix](integrations/README.md)
+unterscheidet zwischen Zugriff, Aufzeichnung und Hinweisen zur
+Gedächtnisnutzung und verlinkt alle geprüften Einrichtungsanleitungen.
 
-Rhos aktuelle Hook-Payload enthält weder Befehlstext noch stdout: Fehler können
-als Metadaten mit einem Platzhalterbefehl gespeichert werden; erfolgreiche
-Aufrufe ohne Befehlstext werden übersprungen. Die
+Die aktuelle Hook-Payload von Rho enthält weder den Befehlstext noch stdout:
+Fehlschläge lassen sich als Metadaten mit einem Platzhalterbefehl speichern,
+erfolgreiche Aufrufe ohne Befehlstext werden übersprungen. Die
 [Demo zur Übergabe zwischen Agenten](docs/guides/cross-agent-handoff.md)
-verwendet Fixtures und einen simulierten Rho-Client mit echtem MCP – keine live
-ausgeführten Agenten und keinen tatsächlich überprüften Cargo-Fix.
+arbeitet mit Fixtures und einem simulierten Rho-Client gegen echtes MCP – nicht
+mit live laufenden Agenten und nicht mit einem verifizierten Cargo-Fix.
 
-Der mitgelieferte Skill gibt Hinweise zur Speichernutzung. Er implementiert
-keinen automatischen Abruf zum Aufgabenstart, keine automatische Fehlersuche
-und kein Speichern vor einer Kontextkomprimierung. Diese Entscheidungen über
-den Sitzungsablauf bleiben beim Client. Über MCP verfasste Erkenntnisse warten
-standardmäßig auf eine Prüfung.
+Der mitgelieferte Skill gibt Hinweise zur Gedächtnisnutzung. Er implementiert
+weder einen automatischen Abruf beim Start einer Aufgabe noch ein automatisches
+Nachschlagen von Fehlschlägen oder ein Speichern vor der Kontextkomprimierung.
+Solche Entscheidungen über den Sitzungsablauf bleiben Sache des Clients. Über
+MCP angelegte Erkenntnisse müssen standardmäßig erst geprüft werden.
 
 ## Für wen ist MemoryWhale gedacht?
 
-MemoryWhale richtet sich an Entwickler, deren Debugging-Kontext über den
-Terminal-Scrollback, die Shell-History, mehrere Rechner und vorübergehende
-Agentensitzungen verteilt ist. Es ist besonders hilfreich, wenn du:
+MemoryWhale richtet sich an Entwickler, deren Debugging-Kontext über
+Terminal-Scrollback, Shell-History, verschiedene Rechner und kurzlebige
+Agentensitzungen verstreut ist. Besonders nützlich ist es, wenn du:
 
-- Builds, Abhängigkeiten, Git, Entwicklungsumgebungen oder Deployments untersuchst;
-- Coding-Agenten über mehrere Sitzungen nutzt oder zwischen Tools wechselst;
-- über SSH oder auf mehreren Entwicklungsrechnern arbeitest;
-- wiederkehrende Fehler und ihre Lösungen wiederfinden möchtest;
-- lokale Speicherung einem gehosteten Speicherdienst vorziehst.
+- Builds, Abhängigkeiten, Git, Umgebungen oder Deployments debuggst;
+- Coding-Agenten über mehrere Sitzungen hinweg nutzt oder zwischen Tools wechselst;
+- per SSH oder auf mehreren Entwicklungsrechnern arbeitest;
+- wiederkehrende Fehlschläge samt ihren Fixes durchsuchbar halten willst;
+- lokale Speicherung einem gehosteten Gedächtnisdienst vorziehst.
 
-Die [Anwendungsfälle](docs/concepts/use-cases.md) zeigen diese Szenarien
-Schritt für Schritt mit echten Befehlen.
+Unter [Anwendungsfälle](docs/concepts/use-cases.md) findest du jedes dieser
+Szenarien durchgespielt – von Anfang bis Ende und mit echten Befehlen.
 
 ## Dokumentation
 
-- [Dokumentationsübersicht](docs/README.md)
+- [Überblick über die Dokumentation](docs/README.md)
 - [Erste Schritte](docs/guides/getting-started.md)
 - [`mw pet`-Referenz](docs/reference/pet.md)
-- [Terminalaufzeichnung](docs/guides/terminal-capture.md)
+- [Terminal-Aufzeichnung](docs/guides/terminal-capture.md)
 - [Agentengedächtnis](docs/guides/agent-memory.md)
 - [CLI-Referenz](docs/reference/cli.md)
 - [Lokale JSON-API](docs/reference/api.md)
 - [MCP-Referenz](docs/reference/mcp.md)
 - [Sicherheit und lokales Bedrohungsmodell](docs/SECURITY.md)
-- [Ökosystem](ECOSYSTEM.md) – Delphin, ContextGC und MemoryWhale
+- [Ökosystem](ECOSYSTEM.md) – Delphin, ContextGC und MemoryWhale im Zusammenspiel
 - [Integrationsanleitungen und Funktionsmatrix](integrations/README.md)
 
 ## Mitwirken
 
-MemoryWhale begrüßt Änderungen, die das Aufzeichnen, Bewahren, Abrufen oder
+MemoryWhale nimmt Änderungen an, die das Aufzeichnen, Bewahren, Abrufen oder
 Teilen von Entwicklungserfahrung verbessern. In
-[CONTRIBUTING.md](CONTRIBUTING.md) findest du den Projektumfang,
-Entwicklungsbefehle und die Checkliste für Pull Requests.
+[CONTRIBUTING.md](CONTRIBUTING.md) findest du die Regeln zum Projektumfang, die
+Entwicklungsbefehle und die Checkliste für Pull Requests. Wenn du neu dabei
+bist, such dir eine Aufgabe aus dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) aus.
 
 Veröffentlicht unter der [MIT-Lizenz](LICENSE).
