@@ -1457,12 +1457,24 @@ impl SearchMode {
             }
             Self::Recipes => mems.retain(|m| {
                 matches!(decode_id(m.id).0, memorywhale_core::sqlite::Source::Note)
-                    && m.text.to_lowercase().contains("fix:")
+                    && has_fix_marker(&m.text)
             }),
             Self::Failures => mems.retain(|m| m.tags.iter().any(|t| t == "error")),
         }
         mems
     }
+}
+
+/// `fix:` as its own token (start of text or after a non-word character), so
+/// `prefix:` and `suffix:` don't count as fix metadata.
+fn has_fix_marker(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    lower.match_indices("fix:").any(|(i, _)| {
+        lower[..i]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !c.is_alphanumeric() && c != '_')
+    })
 }
 
 /// True when agent-written memories should start unapproved and be excluded from
@@ -1855,6 +1867,16 @@ pub const PDEATH_FD_ENV: &str = "MW_PDEATH_FD";
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fix_marker_requires_a_token_boundary() {
+        assert!(has_fix_marker("Fix: pin the linker"));
+        assert!(has_fix_marker("cargo failed. fix: set CC"));
+        assert!(has_fix_marker("(fix: retry)"));
+        assert!(!has_fix_marker("prefix: target triple"));
+        assert!(!has_fix_marker("the suffix: is ignored"));
+        assert!(!has_fix_marker("no marker here"));
+    }
 
     #[test]
     fn keeps_label_hides_value() {
