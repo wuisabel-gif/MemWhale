@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
+<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -171,5 +171,9 @@ MemoryWhale は、デバッグのコンテキストがターミナルのスク�
 MemoryWhale では、開発経験のキャプチャ、保存、検索、共有を改善する変更を受け付けています。
 対象範囲のルール、開発用コマンド、プルリクエストのチェックリストについては [CONTRIBUTING.md](CONTRIBUTING.md) をお読みください。
 初めてコントリビュートする方は、[「Start here」Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) からタスクを選べます。
+
+すべてのプルリクエストには、同じメンテナーによる姉妹プロジェクトの GitHub Action、[Second-Opinion](https://github.com/wuisabel-gif/second-opinion) による自動レビューも付きます。
+コメントはあくまで提案で、対応するかどうかは人が判断します。
+設定方法と制限については [Second-Opinion ガイド](integrations/second-opinion/README.md) を参照してください。
 
 [MIT ライセンス](LICENSE)の下で公開しています。

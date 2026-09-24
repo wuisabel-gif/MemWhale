@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
+<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -171,5 +171,8 @@ Rho 目前的钩子载荷不含命令文本和 stdout：失败可以用占位命
 凡是能改进开发经验的采集、保存、检索或共享的改动，MemoryWhale 都欢迎。
 范围约定、开发命令和 PR 检查清单见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 新贡献者可以从 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 中挑选任务。
+
+每个 PR 还会收到 [Second-Opinion](https://github.com/wuisabel-gif/second-opinion) 的自动评审。它是同一位维护者的姊妹项目，一个 GitHub Action。
+评审意见仅供参考，是否采纳由人来决定。配置方法和局限见 [Second-Opinion 指南](integrations/second-opinion/README.md)。
 
 基于 [MIT 许可证](LICENSE) 开源。

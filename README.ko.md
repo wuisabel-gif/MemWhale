@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
+<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -172,5 +172,9 @@ MemoryWhale은 디버깅 맥락이 터미널 스크롤백, 셸 히스토리, 여
 개발 경험을 캡처하고, 보존하고, 검색하고, 공유하는 기능을 개선하는 변경을 받습니다.
 기여 범위 규칙, 개발용 명령, 풀 리퀘스트 체크리스트는 [CONTRIBUTING.md](CONTRIBUTING.md)를 읽어 주세요.
 처음 기여하신다면 [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)에서 작업을 골라 보세요.
+
+모든 풀 리퀘스트에는 같은 메인테이너의 자매 프로젝트인 GitHub Action [Second-Opinion](https://github.com/wuisabel-gif/second-opinion)의 자동 리뷰도 달립니다.
+리뷰 코멘트는 제안일 뿐이며, 반영 여부는 사람이 결정합니다.
+설정 방법과 한계는 [Second-Opinion 가이드](integrations/second-opinion/README.md)를 참고하세요.
 
 [MIT 라이선스](LICENSE)로 배포됩니다.

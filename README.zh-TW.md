@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
+<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -171,5 +171,8 @@ MemoryWhale 正是為你這樣的開發者而做。以下情況特別適用：
 
 MemoryWhale 接受能改善開發經驗的擷取、保存、檢索或分享的變更。範圍規則、開發指令與 pull request 檢查清單，
 請見 [CONTRIBUTING.md](CONTRIBUTING.md)。新的貢獻者可以從 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 挑一個任務開始。
+
+每個 pull request 也會收到 [Second-Opinion](https://github.com/wuisabel-gif/second-opinion) 的自動審查。它是同一位維護者的姊妹專案，一個 GitHub Action。
+審查意見僅供參考，是否採納由人決定。設定方式與限制請見 [Second-Opinion 指南](integrations/second-opinion/README.md)。
 
 以 [MIT 授權](LICENSE)釋出。

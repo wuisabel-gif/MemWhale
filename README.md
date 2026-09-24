@@ -196,4 +196,9 @@ sharing development experience. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the
 scope rule, development commands, and pull-request checklist. New contributors
 can pick a task from the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).
 
+Every pull request also gets an automated review from
+[Second-Opinion](https://github.com/wuisabel-gif/second-opinion), a GitHub Action from a sister
+project by the same maintainer. Its comments are suggestions; a person decides
+what to act on. Setup and limits are in the [Second-Opinion guide](integrations/second-opinion/README.md).
+
 Licensed under the [MIT License](LICENSE).

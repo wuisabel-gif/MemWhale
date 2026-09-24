@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
+<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -213,5 +213,11 @@ conservation, la recherche ou le partage de l’expérience de développement.
 Lisez [CONTRIBUTING.md](CONTRIBUTING.md) pour connaître la règle de périmètre,
 les commandes de développement et la checklist des pull requests. Si vous
 débutez sur le projet, choisissez une tâche dans l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).
+
+Chaque pull request reçoit aussi une revue automatique de
+[Second-Opinion](https://github.com/wuisabel-gif/second-opinion), une GitHub Action issue d’un
+projet frère de MemoryWhale. Ses commentaires restent des suggestions ; la
+décision de les appliquer revient toujours à un humain. La configuration et les
+limites sont décrites dans le [guide Second-Opinion](integrations/second-opinion/README.md).
 
 Distribué sous [licence MIT](LICENSE).

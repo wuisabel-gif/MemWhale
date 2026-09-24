@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
+<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
 
 <div dir="rtl">
 
@@ -226,6 +226,11 @@ MemoryWhale مخصص للمطورين الذين يتوزع سياق تصحيح 
 استرجاعها أو مشاركتها. اقرأ [CONTRIBUTING.md](CONTRIBUTING.md) لمعرفة نطاق
 المشروع وأوامر التطوير وقائمة التحقق الخاصة بطلبات الدمج. ويمكن للمساهمين
 الجدد اختيار مهمة من [تذكرة «ابدأ من هنا»](https://github.com/wuisabel-gif/MemWhale/issues/317).
+
+يحصل كل طلب دمج أيضًا على مراجعة تلقائية من [Second-Opinion](https://github.com/wuisabel-gif/second-opinion)،
+وهو GitHub Action من مشروع شقيق لـ MemoryWhale يديره المشرف نفسه. تعليقاته
+مجرد اقتراحات، والقرار فيما يُنفَّذ منها يعود إلى شخص. تجد طريقة الإعداد
+والقيود في [دليل Second-Opinion](integrations/second-opinion/README.md).
 
 متاح بموجب [رخصة MIT](LICENSE).
 

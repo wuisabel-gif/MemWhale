@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: a97cc1e8f27cad05e884ecb8f7d07e3350335fb2166f58a02447ec5ef9eaa57b -->
+<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -213,5 +213,11 @@ Teilen von Entwicklungserfahrung verbessern. In
 [CONTRIBUTING.md](CONTRIBUTING.md) findest du die Regeln zum Projektumfang, die
 Entwicklungsbefehle und die Checkliste für Pull Requests. Wenn du neu dabei
 bist, such dir eine Aufgabe aus dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) aus.
+
+Jeder Pull Request bekommt außerdem ein automatisches Review von
+[Second-Opinion](https://github.com/wuisabel-gif/second-opinion), einer GitHub Action aus einem
+Schwesterprojekt von MemoryWhale. Die Kommentare sind Vorschläge; was davon
+umgesetzt wird, entscheidet ein Mensch. Einrichtung und Grenzen stehen im
+[Second-Opinion-Leitfaden](integrations/second-opinion/README.md).
 
 Veröffentlicht unter der [MIT-Lizenz](LICENSE).
