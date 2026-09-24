@@ -42,7 +42,8 @@ pub(super) fn tool_defs() -> Value {
                 "machine": {"type": "string", "description": "optional: only memory recorded on this machine"},
                 "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"},
                 "explain": {"type": "boolean", "description": "optional: include full per-signal ranking details and snippet/provenance status"},
-                "mode": {"type": "string", "enum": ["evidence", "lessons", "recipes", "failures"], "description": "optional conservative retrieval view: evidence = everything except saved notes (commands, sessions, documents, conversations); lessons = all saved notes (remember and mark share storage); recipes = notes with a fix: marker; failures = error-tagged memories"}
+                "mode": {"type": "string", "enum": ["evidence", "lessons", "recipes", "failures"], "description": "optional conservative retrieval view: evidence = everything except saved notes (commands, sessions, documents, conversations); lessons = all saved notes (remember and mark share storage); recipes = notes with a fix: marker; failures = error-tagged memories"},
+                "ranking": {"type": "string", "enum": ["default", "bayesian"], "description": "optional opt-in evidence_score/posterior_proxy ranking; not a calibrated probability"}
             }, "required": ["query"]}
         },
         {
@@ -105,6 +106,7 @@ pub(super) fn call_tool(
                     .and_then(Value::as_bool)
                     .unwrap_or(false),
                 mode_arg(args)?,
+                ranking_arg(args)?,
             )
         }
         "get_context" => {
@@ -250,9 +252,14 @@ fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory, explain: b
         reasons.join("; ")
     };
     let mut out = format!(
-        "- [{} #{}] {}% — {}\n  agent: {}\n  reasons: {}{}\n",
+        "- [{} #{}] {}{}% — {}\n  agent: {}\n  reasons: {}{}\n",
         source.tag(),
         real_id,
+        if sm.ranking == memorywhale_core::Ranking::Bayesian {
+            "posterior_proxy "
+        } else {
+            ""
+        },
         sm.percent(),
         snippet,
         memorywhale_core::provenance::label(sm.memory.agent.as_deref()),
@@ -266,12 +273,17 @@ fn render_hit(conn: &Connection, sm: &memorywhale_core::ScoredMemory, explain: b
         ));
         for signal in &sm.signals {
             out.push_str(&format!(
-                "  signal {}: applicable={}, score={:.3}, weight={:.3}, contribution={:.3}; {}\n",
+                "  signal {}: applicable={}, score={:.3}, weight={:.3}, {}={:.3}; {}\n",
                 signal.name,
                 signal.applicable,
                 signal.score,
                 signal.weight,
-                signal.contribution(),
+                if sm.ranking == memorywhale_core::Ranking::Bayesian {
+                    "log_odds"
+                } else {
+                    "contribution"
+                },
+                sm.term(signal),
                 signal.detail
             ));
         }
@@ -308,6 +320,7 @@ fn search_memory(
     agent: Option<String>,
     explain: bool,
     mode: Option<crate::SearchMode>,
+    ranking: memorywhale_core::Ranking,
 ) -> Result<String, String> {
     let conn = open()?;
     let now = Utc::now();
@@ -332,6 +345,7 @@ fn search_memory(
     };
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(query, now);
+    q = q.with_ranking(ranking);
     let tags = task_tags(&[project, machine]);
     if !tags.is_empty() {
         q = q.with_task(tags);
@@ -371,6 +385,16 @@ fn scope_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|s| !s.is_empty())
+}
+
+/// Optional `ranking`; omitted means default. Anything but `"default"` or
+/// `"bayesian"` (including a non-string) is rejected rather than ignored.
+fn ranking_arg(args: &Value) -> Result<memorywhale_core::Ranking, String> {
+    match args.get("ranking") {
+        None | Some(Value::Null) => Ok(memorywhale_core::Ranking::Default),
+        Some(Value::String(s)) => memorywhale_core::Ranking::parse(s),
+        Some(other) => Err(format!("ranking must be a string, got {other}")),
+    }
 }
 
 fn agent_arg(args: &Value) -> Result<Option<String>, String> {
@@ -785,6 +809,7 @@ mod tests {
             memory,
             score: 0.5,
             signals: vec![],
+            ranking: Default::default(),
         };
         let out = render_hit(&Connection::open_in_memory().unwrap(), &sm, true);
         assert!(out.contains("explanation: snippet_truncated=true"), "{out}");
@@ -815,6 +840,7 @@ mod tests {
                 applicable: true,
                 detail: "matched".into(),
             }],
+            ranking: memorywhale_core::Ranking::Default,
         };
         let conn = Connection::open_in_memory().unwrap();
         let default = render_hit(&conn, &sm, false);
@@ -827,6 +853,39 @@ mod tests {
         assert!(explained.contains("weight=0.400"));
         assert!(explained.contains("contribution=0.200"));
         assert!(explained.contains("matched"));
+
+        let bayesian = memorywhale_core::ScoredMemory {
+            ranking: memorywhale_core::Ranking::Bayesian,
+            ..sm
+        };
+        let explained = render_hit(&conn, &bayesian, true);
+        assert!(explained.contains("posterior_proxy 50%"), "{explained}");
+        // 0.4 · logit(0.5) = 0: the log-odds term, not the weighted-mean share.
+        assert!(explained.contains("log_odds=0.000"), "{explained}");
+        assert!(!explained.contains("contribution="), "{explained}");
+    }
+
+    #[test]
+    fn ranking_arg_rejects_unsupported_values() {
+        use memorywhale_core::Ranking;
+        assert_eq!(ranking_arg(&json!({})), Ok(Ranking::Default));
+        assert_eq!(
+            ranking_arg(&json!({"ranking": "default"})),
+            Ok(Ranking::Default)
+        );
+        assert_eq!(
+            ranking_arg(&json!({"ranking": "bayesian"})),
+            Ok(Ranking::Bayesian)
+        );
+        assert!(ranking_arg(&json!({"ranking": "bayes"})).is_err());
+        assert!(ranking_arg(&json!({"ranking": true})).is_err());
+        let err = call_tool(
+            "search_memory",
+            &json!({"query": "x", "ranking": "posterior"}),
+            None,
+        )
+        .unwrap_err();
+        assert!(err.contains("unsupported ranking"), "{err}");
     }
 
     #[test]

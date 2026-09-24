@@ -480,6 +480,7 @@ fn map_hits(payload: &str, query: &Query) -> anyhow::Result<Vec<ScoredMemory>> {
                     applicable: true,
                     detail: format!("mempalace semantic score {score:.2}"),
                 }],
+                ranking: crate::Ranking::Default,
             }
         })
         .collect())

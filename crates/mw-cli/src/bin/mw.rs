@@ -3128,8 +3128,32 @@ fn note_meta(conn: &Connection, id: i64) -> Option<(String, String)> {
     .ok()
 }
 
+/// Pull `--ranking <mode>` (or inline `ranking:<mode>`) out of the search args.
+/// Only the option's own value is consumed, so a plain `bayesian` query word
+/// stays a search term. A missing or unknown mode is a usage error.
+fn take_ranking(
+    args: &[String],
+) -> Result<(Option<memorywhale_core::Ranking>, Vec<String>), String> {
+    let mut ranking = None;
+    let mut rest = Vec::with_capacity(args.len());
+    let mut it = args.iter();
+    while let Some(arg) = it.next() {
+        let value = if arg == "--ranking" {
+            it.next().ok_or("usage: --ranking default|bayesian")?
+        } else if let Some(v) = arg.strip_prefix("ranking:") {
+            v
+        } else {
+            rest.push(arg.clone());
+            continue;
+        };
+        ranking = Some(memorywhale_core::Ranking::parse(value)?);
+    }
+    Ok((ranking, rest))
+}
+
 fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
+    let (ranking, args) = take_ranking(&args)?;
     let explain = args.iter().any(|a| a == "--explain");
     let mut mode_value: Option<String> = None;
     let mut terms: Vec<&str> = Vec::new();
@@ -3167,7 +3191,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         || filters.after.is_some();
     if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--mode evidence|lessons|recipes|failures] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--mode evidence|lessons|recipes|failures] [--ranking default|bayesian] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }
@@ -3176,8 +3200,9 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // ranks server-side over its own corpus, so the local scope filters don't
     // apply. If the server is unreachable we print a notice and fall through to
     // the builtin engine over local memory, so a misconfig never hard-fails.
-    // An explicit mode is enforced locally, so it never takes the external path.
-    if !has_filter && mode.is_none() {
+    // An explicit mode or `--ranking` is enforced by the builtin engine, so
+    // either one skips MemPalace.
+    if !has_filter && mode.is_none() && ranking.is_none() {
         if let Some(argv) = memorywhale_cli::mempalace_command() {
             let (cmd, rest) = argv.split_first().expect("mempalace_command is non-empty");
             let eng = memorywhale_core::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec())
@@ -3220,6 +3245,9 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     let mems = memorywhale_cli::filter_memories(mems, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(mems);
     let mut q = memorywhale_core::Query::new(&query, now);
+    if let Some(ranking) = ranking {
+        q = q.with_ranking(ranking);
+    }
     let tags = scope.task_tags();
     if !tags.is_empty() {
         q = q.with_task(tags);
@@ -3227,7 +3255,13 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // limit:N caps the ranked results; default matches the previous behaviour.
     let hits = engine.retrieve(&q, filters.limit.unwrap_or(20));
 
-    println!("# matches for {query:?}  (ranked)\n");
+    if q.ranking == memorywhale_core::Ranking::Bayesian {
+        println!(
+            "# matches for {query:?}  (ranked by posterior_proxy; not a calibrated probability)\n"
+        );
+    } else {
+        println!("# matches for {query:?}  (ranked)\n");
+    }
     if hits.is_empty() {
         println!("(none)");
         return Ok(());
@@ -5023,6 +5057,32 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static IMPORT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn take_ranking_consumes_only_the_option_value() {
+        use memorywhale_core::Ranking;
+        let v = |xs: &[&str]| xs.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            take_ranking(&v(&["bayesian"])).unwrap(),
+            (None, v(&["bayesian"]))
+        );
+        assert_eq!(
+            take_ranking(&v(&["rust", "--ranking", "default"])).unwrap(),
+            (Some(Ranking::Default), v(&["rust"]))
+        );
+        assert_eq!(
+            take_ranking(&v(&["--ranking", "bayesian", "bayesian"])).unwrap(),
+            (Some(Ranking::Bayesian), v(&["bayesian"]))
+        );
+        assert_eq!(
+            take_ranking(&v(&["ranking:bayesian", "rust"])).unwrap(),
+            (Some(Ranking::Bayesian), v(&["rust"]))
+        );
+        assert!(take_ranking(&v(&["rust", "--ranking"])).is_err());
+        assert!(take_ranking(&v(&["rust", "--ranking", "--explain"])).is_err());
+        assert!(take_ranking(&v(&["rust", "--ranking", "bayes"])).is_err());
+        assert!(take_ranking(&v(&["ranking:"])).is_err());
+    }
 
     #[test]
     fn mcp_probe_accepts_discovery_and_tools_list() {

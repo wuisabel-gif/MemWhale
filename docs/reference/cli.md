@@ -260,3 +260,22 @@ to a temporary SQLite store that is removed before exit. It distinguishes the
 isolated store, synthetic receipt acknowledgement, last isolated record, and
 fresh end-to-end capture result. It does not inspect or modify the normal store,
 enable hooks, or change configuration.
+
+### Optional Bayesian-style ranking
+
+`mw search` keeps its existing weighted-mean ranking by default. To opt in to a
+transparent evidence ranking, pass `--ranking bayesian` (or
+`ranking:bayesian`). The returned score is a `posterior_proxy`: a neutral-prior,
+weighted log-odds-style combination of the existing similarity, recency,
+importance, reinforcement, and task signals. It is **not a calibrated
+probability**. With `--explain`, each signal's line shows its log-odds term
+`weight × logit(score)` (score clamped to `[0.01, 0.99]`); the terms sum to the
+total inside `sigmoid(...)`. Explanations continue to show every signal,
+including pending, contradicted, or stale evidence; this ranking is
+retrieval-only and must not be used for authorization. `--ranking` requires a
+value (`default` or `bayesian`); anything else is a usage error. An explicit
+`--ranking` always uses the builtin engine, even when MemPalace is configured.
+
+MCP `search_memory` accepts `"ranking":"default"` or `"ranking":"bayesian"`;
+other values are rejected, and omitting it preserves the existing output and
+ordering.

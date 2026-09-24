@@ -28,7 +28,7 @@
 
 use std::collections::HashSet;
 
-use crate::{Memory, Query, ScoredMemory, Signal, Weights};
+use crate::{Memory, Query, Ranking, ScoredMemory, Signal, Weights};
 
 /// Score one memory against a query. `query_embedding` enables semantic
 /// similarity (cosine) when the memory is also embedded; otherwise similarity
@@ -73,7 +73,12 @@ pub fn score_with_lexical(
         .filter(|s| s.applicable)
         .map(|s| s.weight)
         .sum();
-    let score = if denominator > 0.0 {
+    let score = if query.ranking == Ranking::Bayesian {
+        // These signals are not calibrated likelihoods: this is a transparent
+        // evidence/posterior proxy, not a probability claim.
+        let log_odds: f32 = signals.iter().map(Signal::log_odds).sum();
+        1.0 / (1.0 + (-log_odds).exp())
+    } else if denominator > 0.0 {
         (numerator / denominator).clamp(0.0, 1.0)
     } else {
         0.0
@@ -83,6 +88,7 @@ pub fn score_with_lexical(
         memory: memory.clone(),
         score,
         signals,
+        ranking: query.ranking,
     }
 }
 
@@ -320,6 +326,7 @@ fn human_ago(days: f32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Ranking;
     use chrono::{Duration, TimeZone, Utc};
 
     fn mem(
@@ -395,6 +402,79 @@ mod tests {
         let s = score(&mem(1, "rust", 0, 1, 0.5, &["rust"]), &q, &w, None);
         let task = s.signals.iter().find(|x| x.name == "task").unwrap();
         assert!(!task.applicable);
+    }
+
+    #[test]
+    fn bayesian_is_opt_in_and_exposes_same_signals() {
+        let now = Utc.with_ymd_and_hms(2026, 6, 27, 12, 0, 0).unwrap();
+        let memory = mem(1, "rust compiler error", 0, 2, 0.8, &[]);
+        let query = Query::new("rust compiler", now);
+        let default = score(&memory, &query, &Weights::default(), None);
+        let bayesian = score(
+            &memory,
+            &query.with_ranking(Ranking::Bayesian),
+            &Weights::default(),
+            None,
+        );
+        assert_ne!(default.score, bayesian.score);
+        assert_eq!(default.signals.len(), bayesian.signals.len());
+        assert!(bayesian.score > 0.0 && bayesian.score < 1.0);
+        // The explained log-odds terms must reproduce the displayed aggregate.
+        let total: f32 = bayesian.signals.iter().map(|s| bayesian.term(s)).sum();
+        assert!((bayesian.score - 1.0 / (1.0 + (-total).exp())).abs() < 1e-6);
+        assert_eq!(bayesian.ranking, Ranking::Bayesian);
+        assert_eq!(default.ranking, Ranking::Default);
+    }
+
+    #[test]
+    fn bayesian_explanation_shows_log_odds_terms() {
+        let sig = |name: &str, weight: f32, score: f32, applicable: bool| Signal {
+            name: name.into(),
+            weight,
+            score,
+            applicable,
+            detail: String::new(),
+        };
+        // 0.4·logit(0.9) + 0.2·logit(0.5) + 0.15·logit(0.8) = 0.879 + 0 + 0.208
+        let signals = vec![
+            sig("similarity", 0.4, 0.9, true),
+            sig("recency", 0.2, 0.5, true),
+            sig("importance", 0.15, 0.8, true),
+            sig("task", 0.15, 0.0, false),
+        ];
+        let total: f32 = signals.iter().map(Signal::log_odds).sum();
+        assert!((total - 1.0868).abs() < 1e-3, "{total}");
+        let sm = ScoredMemory {
+            memory: mem(1, "x", 0, 0, 0.8, &[]),
+            score: 1.0 / (1.0 + (-total).exp()),
+            signals,
+            ranking: Ranking::Bayesian,
+        };
+        assert_eq!(sm.percent(), 75);
+        let out = sm.explain();
+        assert!(
+            out.contains("posterior_proxy 75%  = sigmoid(+1.087)"),
+            "{out}"
+        );
+        assert!(out.contains("w0.40 × logit0.90 = +0.879"), "{out}");
+        assert!(out.contains("w0.15 × logit0.80 = +0.208"), "{out}");
+        assert!(!out.contains("score 75%"), "{out}");
+
+        let default = ScoredMemory {
+            ranking: Ranking::Default,
+            ..sm
+        };
+        let out = default.explain();
+        assert!(out.contains("w0.40 × 0.90 = +0.360"), "{out}");
+        assert!(!out.contains("posterior_proxy"), "{out}");
+    }
+
+    #[test]
+    fn ranking_parse_rejects_unknown_values() {
+        assert_eq!(Ranking::parse("default"), Ok(Ranking::Default));
+        assert_eq!(Ranking::parse("bayesian"), Ok(Ranking::Bayesian));
+        assert!(Ranking::parse("Bayes").is_err());
+        assert!(Ranking::parse("").is_err());
     }
 
     #[test]

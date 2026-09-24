@@ -110,6 +110,33 @@ pub struct Query {
     pub task_tags: Vec<String>,
     /// Recency half-life in days (score halves every `half_life_days`).
     pub half_life_days: f32,
+    pub ranking: Ranking,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Ranking {
+    #[default]
+    Default,
+    /// Log-odds-style evidence proxy; not a calibrated probability.
+    Bayesian,
+}
+
+impl Ranking {
+    /// Parse a user-supplied ranking name (`default` or `bayesian`), so every
+    /// interface rejects unknown values the same way.
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "default" => Ok(Self::Default),
+            "bayesian" => Ok(Self::Bayesian),
+            other => Err(format!(
+                "unsupported ranking {other:?}; expected \"default\" or \"bayesian\""
+            )),
+        }
+    }
+
+    fn is_default(&self) -> bool {
+        *self == Self::Default
+    }
 }
 
 impl Query {
@@ -119,11 +146,17 @@ impl Query {
             now,
             task_tags: Vec::new(),
             half_life_days: 14.0,
+            ranking: Ranking::Default,
         }
     }
 
     pub fn with_task(mut self, tags: Vec<String>) -> Self {
         self.task_tags = tags;
+        self
+    }
+
+    pub fn with_ranking(mut self, ranking: Ranking) -> Self {
+        self.ranking = ranking;
         self
     }
 }
@@ -176,6 +209,18 @@ impl Signal {
             0.0
         }
     }
+
+    /// This signal's additive term in the Bayesian log-odds sum:
+    /// `weight × logit(score)`, with the score clamped to `[0.01, 0.99]`, or `0`
+    /// when the signal doesn't apply.
+    pub fn log_odds(&self) -> f32 {
+        if self.applicable {
+            let p = self.score.clamp(0.01, 0.99);
+            self.weight * (p / (1.0 - p)).ln()
+        } else {
+            0.0
+        }
+    }
 }
 
 /// A memory with its blended score and the signals that produced it — the unit
@@ -188,9 +233,29 @@ pub struct ScoredMemory {
     /// Blended relevance in `[0,1]`.
     pub score: f32,
     pub signals: Vec<Signal>,
+    /// Which aggregation produced `score`; explanations follow it.
+    #[serde(default, skip_serializing_if = "Ranking::is_default")]
+    pub ranking: Ranking,
 }
 
 impl ScoredMemory {
+    /// A signal's share of `score` under this memory's ranking mode: the
+    /// weighted-mean contribution by default, the log-odds term for Bayesian.
+    pub fn term(&self, s: &Signal) -> f32 {
+        match self.ranking {
+            Ranking::Default => s.contribution(),
+            Ranking::Bayesian => s.log_odds(),
+        }
+    }
+
+    /// Name of the aggregate score for display.
+    pub fn score_label(&self) -> &'static str {
+        match self.ranking {
+            Ranking::Default => "score",
+            Ranking::Bayesian => "posterior_proxy",
+        }
+    }
+
     pub fn percent(&self) -> u32 {
         (self.score * 100.0).round().clamp(0.0, 100.0) as u32
     }
@@ -203,8 +268,8 @@ impl ScoredMemory {
             .filter(|s| s.applicable && s.score >= 0.15)
             .collect();
         active.sort_by(|a, b| {
-            b.contribution()
-                .partial_cmp(&a.contribution())
+            self.term(b)
+                .partial_cmp(&self.term(a))
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         active.into_iter().map(|s| s.detail.clone()).collect()
@@ -233,16 +298,28 @@ impl ScoredMemory {
         if !m.tags.is_empty() {
             out.push_str(&format!("  links: {}\n", m.tags.join(", ")));
         }
-        out.push_str(&format!("  score {}%  =\n", self.percent()));
+        let bayesian = self.ranking == Ranking::Bayesian;
+        if bayesian {
+            let total: f32 = self.signals.iter().map(Signal::log_odds).sum();
+            out.push_str(&format!(
+                "  posterior_proxy {}%  = sigmoid({:+.3}), not a calibrated probability; log-odds =\n",
+                self.percent(),
+                total
+            ));
+        } else {
+            out.push_str(&format!("  score {}%  =\n", self.percent()));
+        }
         for s in &self.signals {
             let mark = if s.applicable { " " } else { "·" };
+            let factor = if bayesian { "logit" } else { "" };
             out.push_str(&format!(
-                "   {} {:<13} w{:.2} × {:.2} = {:+.3}   {}\n",
+                "   {} {:<13} w{:.2} × {}{:.2} = {:+.3}   {}\n",
                 mark,
                 s.name,
                 s.weight,
+                factor,
                 s.score,
-                s.contribution(),
+                self.term(s),
                 s.detail
             ));
         }
