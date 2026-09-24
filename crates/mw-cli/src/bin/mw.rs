@@ -2739,7 +2739,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         conn.query_row("SELECT COUNT(*) FROM src.retrieval_feedback", [], |r| {
             r.get(0)
         })
-        .unwrap_or(0)
+        .map_err(|err| format!("failed to read source retrieval feedback: {err}"))?
     } else {
         0
     };
