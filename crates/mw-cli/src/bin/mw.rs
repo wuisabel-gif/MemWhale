@@ -1062,24 +1062,32 @@ fn update_session_from_transcript(
 }
 
 fn feedback_cmd(args: &[String]) -> Result<(), String> {
-    let conn = memorywhale_cli::storage::open()?;
+    feedback_on(&open_session_db()?, args)
+}
+
+fn feedback_on(conn: &Connection, args: &[String]) -> Result<(), String> {
     let action = args.first().map(String::as_str).unwrap_or("list");
     match action {
         "add" => {
-            if args.len() < 3 {
-                return Err("usage: mw feedback add <memory-id> <kind> [--actor NAME]".into());
-            }
-            let memory_id: i64 = args[1].parse().map_err(|_| "invalid memory id")?;
-            let kind = args[2].as_str();
+            const USAGE: &str = "usage: mw feedback add <memory-id> <kind> [--actor NAME]";
+            let (id_arg, kind, actor) = match &args[1..] {
+                [id, kind] => (id, kind.as_str(), None),
+                [id, kind, flag, actor] if flag == "--actor" => {
+                    (id, kind.as_str(), Some(actor.as_str()))
+                }
+                _ => return Err(USAGE.into()),
+            };
+            let memory_id = parse_link_id(id_arg)?;
             if !["helpful", "irrelevant", "outdated", "contradicted"].contains(&kind) {
                 return Err(
                     "feedback kind must be helpful, irrelevant, outdated, or contradicted".into(),
                 );
             }
-            let actor = args
-                .windows(2)
-                .find(|w| w[0] == "--actor")
-                .map(|w| w[1].as_str());
+            if !memory_map(conn)?.contains_key(&memory_id) {
+                return Err(format!(
+                    "no memory with id {memory_id} (list ids with `mw search`)"
+                ));
+            }
             conn.execute("INSERT INTO retrieval_feedback (memory_id,kind,created_at,actor) VALUES (?1,?2,?3,?4)", params![memory_id, kind, Utc::now().to_rfc3339(), actor]).map_err(|e| e.to_string())?;
             println!(
                 "feedback #{} recorded (display-only)",
@@ -1116,11 +1124,17 @@ fn feedback_cmd(args: &[String]) -> Result<(), String> {
                 .ok_or("feedback id required")?
                 .parse()
                 .map_err(|_| "invalid feedback id")?;
-            conn.execute(
-                "UPDATE retrieval_feedback SET undone_at=?1 WHERE id=?2 AND undone_at IS NULL",
-                params![Utc::now().to_rfc3339(), id],
-            )
-            .map_err(|e| e.to_string())?;
+            let changed = conn
+                .execute(
+                    "UPDATE retrieval_feedback SET undone_at=?1 WHERE id=?2 AND undone_at IS NULL",
+                    params![Utc::now().to_rfc3339(), id],
+                )
+                .map_err(|e| e.to_string())?;
+            if changed == 0 {
+                return Err(format!(
+                    "no active feedback #{id} (it does not exist or was already undone)"
+                ));
+            }
             println!("feedback #{id} undone");
         }
         _ => return Err("usage: mw feedback add|list|show|undo".into()),
@@ -2718,8 +2732,25 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         }
     }
 
+    // ponytail: feedback (like memory_links) is keyed by this store's row ids,
+    // which import does not preserve, so it stays machine-local. Say so rather
+    // than dropping it silently; port it once import tracks an id mapping.
+    let skipped_feedback: i64 = if src_has("retrieval_feedback") {
+        conn.query_row("SELECT COUNT(*) FROM src.retrieval_feedback", [], |r| {
+            r.get(0)
+        })
+        .unwrap_or(0)
+    } else {
+        0
+    };
+
     conn.execute("DETACH DATABASE src", [])
         .map_err(|err| format!("failed to detach source: {err}"))?;
+    if skipped_feedback > 0 {
+        eprintln!(
+            "mw: note: {skipped_feedback} retrieval feedback record(s) were not imported (feedback is machine-local)"
+        );
+    }
 
     // Rebuild the searchable argument rows for any newly imported command runs.
     rebuild_missing_arguments(&conn)?;
@@ -5174,6 +5205,44 @@ mod tests {
 
         drop(conn);
         // env + temp dirs are restored by the Cleanup guard on drop
+    }
+
+    #[test]
+    fn feedback_rejects_orphans_bad_args_and_noop_undo() {
+        let conn = Connection::open_in_memory().unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, created_at)
+             VALUES ('cargo build', '[]', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        let mem = memory_map(&conn).unwrap().into_keys().next().unwrap();
+        let run = |a: &[&str]| {
+            let args: Vec<String> = a.iter().map(|s| s.to_string()).collect();
+            feedback_on(&conn, &args)
+        };
+        let m = mem.to_string();
+
+        assert!(run(&["add", "999999999", "helpful"]).is_err(), "orphan id");
+        assert!(
+            run(&["add", &m, "helpful", "--actor"]).is_err(),
+            "dangling --actor"
+        );
+        assert!(
+            run(&["add", &m, "helpful", "extra"]).is_err(),
+            "unknown arg"
+        );
+        assert!(run(&["add", &m, "helpful", "--bogus", "x"]).is_err());
+        run(&["add", &m, "helpful", "--actor", "codex"]).unwrap();
+        let actor: String = conn
+            .query_row("SELECT actor FROM retrieval_feedback", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(actor, "codex");
+
+        assert!(run(&["undo", "777"]).is_err(), "nonexistent undo");
+        run(&["undo", "1"]).unwrap();
+        assert!(run(&["undo", "1"]).is_err(), "repeated undo");
     }
 
     #[test]
