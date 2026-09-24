@@ -1121,9 +1121,14 @@ fn feedback_on(conn: &Connection, args: &[String]) -> Result<(), String> {
                     ))
                 })
                 .map_err(|e| e.to_string())?;
+            let mut printed = 0;
             for row in rows {
                 // actor is free-form input: strip terminal controls before printing.
                 println!("{}", compare_text(&row.map_err(|e| e.to_string())?));
+                printed += 1;
+            }
+            if action == "show" && printed == 0 {
+                return Err(format!("no feedback #{}", args[1]));
             }
         }
         "undo" => {
@@ -5248,8 +5253,12 @@ mod tests {
         assert_eq!(actor, "codex");
 
         assert!(run(&["undo", "777"]).is_err(), "nonexistent undo");
-        assert!(run(&["undo", "1", "--actor", "x"]).is_err(), "extra undo args");
+        assert!(
+            run(&["undo", "1", "--actor", "x"]).is_err(),
+            "extra undo args"
+        );
         assert!(run(&["show"]).is_err(), "show needs an id");
+        assert!(run(&["show", "999"]).is_err(), "missing feedback");
         assert!(run(&["show", "1", "extra"]).is_err(), "extra show args");
         run(&["undo", "1"]).unwrap();
         assert!(run(&["undo", "1"]).is_err(), "repeated undo");
