@@ -22,7 +22,7 @@ anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ureq = { version = "2", features = ["json"], optional = true }
+ureq = { version = "3", features = ["json"], optional = true }
 # The one SQLite loader (memorywhale_core::sqlite) lives here so the CLI and desktop
 # share it. bundled = no system libsqlite3 needed (matches the other crates).
 rusqlite = { version = "0.32", features = ["bundled"] }
