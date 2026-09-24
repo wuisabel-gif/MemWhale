@@ -3,6 +3,25 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] — Retrieval You Can Trust — Unreleased
+
+Product `0.12.0`; `memorywhale-core` `0.6.0`; SQLite schema `13`.
+
+See [release notes](docs/releases/0.12.0.md).
+
+### Added
+
+- **Search modes**: `--mode evidence|lessons|recipes|failures` for CLI and MCP search. (#309)
+- **Retrieval feedback**: local helpful/wrong records with undo. (#304)
+- **Bayesian ranking**: opt-in `--ranking bayesian`; default ranking unchanged. (#310)
+- **Contradiction flags**: reviewable flags for memories that may disagree. (#308)
+- **Case files**: ordered, exportable local debugging records. (#301)
+- **Command recipes**: reusable commands backed by their source runs. (#303)
+
+### Changed
+
+- **Contributor onboarding**: Start here issue, Dependabot, and a pass over all seven translations. (#319)
+
 ## [0.11.1] — Publish core provenance — September 20, 2026
 
 Product `0.11.1`; `memorywhale-core` `0.5.1`; SQLite schema `10`.
