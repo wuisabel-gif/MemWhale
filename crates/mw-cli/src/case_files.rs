@@ -48,9 +48,9 @@ fn json_string(value: &serde_json::Value) -> String {
 /// Redact, strip terminal controls, then redact again, so a control split
 /// inside a secret label cannot hide it. Use for any stored or printed text.
 pub fn clean(text: &str) -> String {
-    crate::sanitize_capture(&crate::strip_terminal_controls(
-        &crate::sanitize_capture(text),
-    ))
+    crate::sanitize_capture(&crate::strip_terminal_controls(&crate::sanitize_capture(
+        text,
+    )))
 }
 
 fn clean_strings(value: &mut serde_json::Value) {
