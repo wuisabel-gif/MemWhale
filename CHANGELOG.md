@@ -12,11 +12,15 @@ See [release notes](docs/releases/0.12.0.md).
 ### Added
 
 - **Search modes**: `--mode evidence|lessons|recipes|failures` for CLI and MCP search. (#309)
-- **Retrieval feedback**: local helpful/wrong records with undo. (#304)
+- **Retrieval feedback**: local helpful/irrelevant/outdated/contradicted records with undo; display-only in 0.12. (#304, #333)
 - **Bayesian ranking**: opt-in `--ranking bayesian`; default ranking unchanged. (#310)
 - **Contradiction flags**: reviewable flags for memories that may disagree. (#308)
 - **Case files**: ordered, exportable local debugging records. (#301)
 - **Command recipes**: reusable commands backed by their source runs. (#303)
+
+### Fixed
+
+- **Codewhale capture**: exact receipt identity matching; prefix IDs no longer drop captures. (#335)
 
 ### Changed
 
