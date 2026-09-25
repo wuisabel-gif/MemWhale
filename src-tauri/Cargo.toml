@@ -20,7 +20,7 @@ tauri-build = { version = "2.1", features = [] }
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
-dirs = "5"
+dirs = "6"
 memorywhale-cli = { path = "../crates/mw-cli" }
 # The desktop app is the embedding consumer: it caches Ollama vectors and calls
 # `with_embedder`, so it enables the (otherwise off-by-default) `embeddings`
