@@ -5770,6 +5770,41 @@ mod tests {
     }
 
     #[test]
+    fn prune_keeps_case_runs_and_recipes_but_drops_recipe_source_links() {
+        let conn = Connection::open_in_memory().unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
+        for id in [1_i64, 2] {
+            conn.execute("INSERT INTO command_runs(id,command,argv_json,created_at) VALUES(?1,'old','[]','2000-01-01T00:00:00Z')", params![id]).unwrap();
+        }
+        memorywhale_cli::case_files::create(
+            &conn,
+            &["--title", "keep", "--command-ids", "2"].map(String::from),
+        )
+        .unwrap();
+        conn.execute_batch(
+            "INSERT INTO command_recipes(id,description,args_json,expected_criteria,created_at)
+                 VALUES(7,'r','[]','','2026-01-01T00:00:00Z');
+             INSERT INTO command_recipe_sources(recipe_id,command_run_id,position) VALUES(7,1,0);",
+        )
+        .unwrap();
+        let tx = conn.unchecked_transaction().unwrap();
+        assert_eq!(prune_command_runs(&tx, "2020-01-01T00:00:00Z").unwrap(), 1);
+        tx.commit().unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(
+            count("SELECT id FROM command_runs"),
+            2,
+            "case-linked run kept"
+        );
+        assert_eq!(
+            count("SELECT COUNT(*) FROM command_recipes"),
+            1,
+            "recipe kept"
+        );
+        assert_eq!(count("SELECT COUNT(*) FROM command_recipe_sources"), 0);
+    }
+
+    #[test]
     fn compare_text_removes_terminal_controls_after_redaction_and_truncates() {
         let value = "token=secret\x1b]8;;https://evil.test\x07visible\x1b[2J";
         let rendered = compare_text(value);
