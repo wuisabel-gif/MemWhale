@@ -38,6 +38,11 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           test -s "docs/releases/$version.md"
+          # The release title is the notes' first heading; refuse stale notes.
+          head -n1 "docs/releases/$version.md" | grep -q "^# MemoryWhale $version — " || {
+            echo "docs/releases/$version.md must start with '# MemoryWhale $version — <name>'" >&2
+            exit 1
+          }
       - name: Verify crates together in dependency order
         run: cargo publish --dry-run --locked -p memorywhale-core -p memorywhale-cli
       - name: Prepare draft release
@@ -55,7 +60,7 @@ jobs:
             echo "Release already exists; retrying missing build/publish steps."
           else
             gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
-              --title "MemoryWhale $VERSION — Agent-Native Memory" \
+              --title "$(sed -n '1s/^# //p' "docs/releases/$VERSION.md")" \
               --notes-file "docs/releases/$VERSION.md"
           fi
 
@@ -196,7 +201,7 @@ jobs:
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest \
-            --title "MemoryWhale $VERSION — Agent-Native Memory" \
+            --title "$(sed -n '1s/^# //p' "docs/releases/$VERSION.md")" \
             --notes-file "docs/releases/$VERSION.md"
 
   # Update Formula/memorywhale.rb on main to point at the new tag, so
