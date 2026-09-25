@@ -144,6 +144,15 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
             approved INTEGER NOT NULL DEFAULT 1
         );
 
+        CREATE TABLE IF NOT EXISTS contradiction_flags (
+            id INTEGER PRIMARY KEY, left_memory_id INTEGER NOT NULL,
+            right_memory_id INTEGER NOT NULL, score REAL NOT NULL,
+            reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL, reviewed_at TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_contradiction_flags_pair
+            ON contradiction_flags(left_memory_id, right_memory_id);
+
         CREATE TABLE IF NOT EXISTS screenshots (
             id INTEGER PRIMARY KEY,
             command_run_id INTEGER,

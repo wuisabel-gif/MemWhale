@@ -61,6 +61,7 @@
 //!   is purely lexical/BM25 and pulls in no network dependency.
 //! - `mempalace` (off by default) — the MemPalace MCP backend above.
 
+pub mod contradiction;
 pub mod embed;
 pub mod engine;
 #[cfg(feature = "mempalace")]

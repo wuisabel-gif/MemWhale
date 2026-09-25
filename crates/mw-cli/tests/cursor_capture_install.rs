@@ -220,13 +220,19 @@ fn relative_data_directory_and_hostile_paths_are_quoted_and_stale_requires_rever
 fn missing_executable_and_nonregular_or_symlink_paths_are_rejected() {
     let s = Sandbox::new();
     let isolated = s.0.join("mw");
-    fs::copy(env!("CARGO_BIN_EXE_mw"), &isolated).unwrap();
+    // Copy from a child process: a writable descriptor held by this
+    // multi-threaded test process can leak into a concurrently forked sibling
+    // until its exec, and running the copy then fails with ETXTBSY.
+    #[cfg(not(target_os = "macos"))]
+    assert!(Command::new("cp")
+        .arg(env!("CARGO_BIN_EXE_mw"))
+        .arg(&isolated)
+        .status()
+        .unwrap()
+        .success());
     // Copying binaries on macOS requires ad-hoc re-signing; use a hard link instead.
     #[cfg(target_os = "macos")]
-    {
-        fs::remove_file(&isolated).unwrap();
-        fs::hard_link(env!("CARGO_BIN_EXE_mw"), &isolated).unwrap();
-    }
+    fs::hard_link(env!("CARGO_BIN_EXE_mw"), &isolated).unwrap();
     let mut c = Command::new(&isolated);
     bad(c
         .args(["integrate", "cursor", "--capture"])

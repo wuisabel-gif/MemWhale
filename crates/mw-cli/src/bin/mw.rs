@@ -45,6 +45,7 @@ fn run() -> Result<(), String> {
             return Ok(());
         }
         Some("show") => return show_session(&raw_args[1..]),
+        Some("case") => return case_file_cmd(&raw_args[1..]),
         Some("list") => return list_sessions(&raw_args[1..]),
         Some("timeline") => return project_timeline(&raw_args[1..]),
         Some("mark") => return mark_bookmark(&raw_args[1..]),
@@ -69,6 +70,7 @@ fn run() -> Result<(), String> {
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
         Some("feedback") => return feedback_cmd(&raw_args[1..]),
+        Some("contradictions") => return contradictions_cmd(&raw_args[1..]),
         Some("explain") => return explain_cmd(&raw_args[1..]),
         Some("link") => return link_cmd(&raw_args[1..]),
         Some("unlink") => return unlink_cmd(&raw_args[1..]),
@@ -208,6 +210,27 @@ fn format_opt<T: std::fmt::Display>(value: &Option<T>) -> String {
         .as_ref()
         .map(ToString::to_string)
         .unwrap_or_else(|| "<none>".to_string())
+}
+
+fn case_file_cmd(args: &[String]) -> Result<(), String> {
+    let conn = memorywhale_cli::storage::open()?;
+    match args.first().map(String::as_str) {
+        Some("create") => memorywhale_cli::case_files::create(&conn, &args[1..]),
+        Some("list") => memorywhale_cli::case_files::list(&conn),
+        Some("show") | Some("export") => {
+            let id: i64 = args
+                .get(1)
+                .ok_or("missing case file id")?
+                .parse()
+                .map_err(|_| "invalid case file id")?;
+            if args[0] == "show" {
+                memorywhale_cli::case_files::show(&conn, id)
+            } else {
+                memorywhale_cli::case_files::export(&conn, id, &args[2..])
+            }
+        }
+        _ => Err("usage: mw case create|show|list|export".into()),
+    }
 }
 
 fn record_session(notes: String, live: bool) -> Result<(), String> {
@@ -390,6 +413,8 @@ fn print_help() {
          mw list [--project X] [--machine Y] [--since 7d]  list recorded sessions\n\
          mw timeline --project X [--after DATE] [--before DATE] [--type TYPE] [--limit N]  read-only project event timeline\n\
          mw show <id>             print the full faithful transcript of a session\n\
+         mw case create --title T --command-ids 1,2 [--observations X] [--conclusion X] [--unresolved X] [--status open|resolved|closed]\n\
+         mw case show|list|export <id>  inspect human-authored case files\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
@@ -411,6 +436,8 @@ fn print_help() {
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
          mw search <text> [--mode evidence|lessons|recipes|failures] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank memories by relevance (--explain shows why)\n\
+         mw contradictions <a> <b>  flag two memories that share terms but differ on a negation cue (heuristic; stored as pending)\n\
+         mw contradictions list | confirm <flag-id> | reject <flag-id>  review stored contradiction flags (memories are never changed)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
          mw link <a> <b> [rel:<type>]  link two memories (default relation \"related\"); ids come from `mw search`\n\
          mw unlink <a> <b> [rel:<type>]  remove the link between two memories\n\
@@ -686,12 +713,30 @@ fn rm_memory(args: &[String]) -> Result<(), String> {
             |_| Ok(()),
         ) {
             Ok(()) => {
-                let _ = conn.execute(
+                let linked: bool = conn
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM case_file_commands WHERE command_run_id = ?1)",
+                        params![id],
+                        |r| r.get(0),
+                    )
+                    .map_err(|e| format!("failed to check case links: {e}"))?;
+                if linked {
+                    return Err(format!(
+                        "cannot delete command run #{id}: it is linked to a case file"
+                    ));
+                }
+                let tx = conn
+                    .unchecked_transaction()
+                    .map_err(|e| format!("failed to start delete transaction: {e}"))?;
+                tx.execute(
                     "DELETE FROM command_arguments WHERE command_run_id = ?1",
                     params![id],
-                );
-                conn.execute("DELETE FROM command_runs WHERE id = ?1", params![id])
+                )
+                .map_err(|e| format!("failed to delete command arguments: {e}"))?;
+                tx.execute("DELETE FROM command_runs WHERE id = ?1", params![id])
                     .map_err(|e| format!("failed to delete command run: {e}"))?;
+                tx.commit()
+                    .map_err(|e| format!("failed to commit command-run delete: {e}"))?;
                 println!("mw: removed command run #{id}.");
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => {
@@ -908,7 +953,7 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         .collect();
     let runs: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM command_runs WHERE created_at < ?1",
+            "SELECT COUNT(*) FROM command_runs c WHERE c.created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = c.id)",
             params![cutoff],
             |r| r.get(0),
         )
@@ -939,15 +984,24 @@ fn prune_older_than(spec: &str, dry: bool) -> Result<(), String> {
         }
         let _ = conn.execute("DELETE FROM sessions WHERE id = ?1", params![id]);
     }
-    let _ = conn.execute(
-        "DELETE FROM command_runs WHERE created_at < ?1",
-        params![cutoff],
-    );
+    let deleted_runs = prune_command_runs(&conn, &cutoff)?;
     println!(
-        "mw: pruned {} session(s) and {runs} command run(s) older than {spec}.",
-        sessions.len()
+        "mw: pruned {} session(s) and {} command run(s) older than {spec}.",
+        sessions.len(),
+        deleted_runs
     );
     Ok(())
+}
+
+/// Delete unlinked command runs older than `cutoff` in one statement, so it is
+/// atomic. Their `command_arguments` go with them via `ON DELETE CASCADE`;
+/// case-linked runs are skipped, so the `ON DELETE RESTRICT` link never fires.
+fn prune_command_runs(conn: &Connection, cutoff: &str) -> Result<usize, String> {
+    conn.execute(
+        "DELETE FROM command_runs WHERE created_at < ?1 AND NOT EXISTS (SELECT 1 FROM case_file_commands x WHERE x.command_run_id = command_runs.id)",
+        params![cutoff],
+    )
+    .map_err(|e| format!("failed to prune command runs: {e}"))
 }
 
 /// Locate a sibling MemoryWhale binary (installed next to this one), falling
@@ -3149,6 +3203,118 @@ fn take_ranking(
         ranking = Some(memorywhale_core::Ranking::parse(value)?);
     }
     Ok((ranking, rest))
+}
+
+const CONTRADICTIONS_USAGE: &str = "usage: mw contradictions <memory-id> <memory-id> | list | confirm <flag-id> | reject <flag-id>";
+
+fn contradictions_cmd(args: &[String]) -> Result<(), String> {
+    match args.first().map(String::as_str) {
+        Some("list") if args.len() == 1 => return list_contradiction_flags(),
+        Some(action @ ("confirm" | "reject")) if args.len() == 2 => {
+            return review_contradiction_flag(action, &args[1])
+        }
+        _ if args.len() != 2 => return Err(CONTRADICTIONS_USAGE.into()),
+        _ => {}
+    }
+    let left_id: i64 = args[0].parse().map_err(|_| "invalid left memory id")?;
+    let right_id: i64 = args[1].parse().map_err(|_| "invalid right memory id")?;
+    let conn = open_session_db()?;
+    let memories = memorywhale_core::sqlite::load_memories(&conn).map_err(|e| e.to_string())?;
+    let left = memories
+        .iter()
+        .find(|m| m.id == left_id)
+        .ok_or("left memory not found")?;
+    let right = memories
+        .iter()
+        .find(|m| m.id == right_id)
+        .ok_or("right memory not found")?;
+    println!("heuristic review: no semantic truth claim; original records are preserved");
+    println!(
+        "LEFT #{left_id}: {}\nRIGHT #{right_id}: {}",
+        compare_text(&left.text),
+        compare_text(&right.text)
+    );
+    let flag = memorywhale_core::contradiction::inspect(left, right)
+        .ok_or("no lexical contradiction signal found")?;
+    // One flag per unordered pair: store it low id first, and reuse an
+    // existing flag (with its review status) instead of adding a duplicate.
+    let (lo, hi) = (
+        flag.left_id.min(flag.right_id),
+        flag.left_id.max(flag.right_id),
+    );
+    conn.execute(
+        "INSERT INTO contradiction_flags (left_memory_id,right_memory_id,score,reason,created_at)
+         VALUES (?1,?2,?3,?4,?5) ON CONFLICT(left_memory_id,right_memory_id) DO NOTHING",
+        rusqlite::params![lo, hi, flag.score, flag.reason, Utc::now().to_rfc3339()],
+    )
+    .map_err(|e| e.to_string())?;
+    let (id, status): (i64, String) = conn
+        .query_row(
+            "SELECT id, status FROM contradiction_flags WHERE left_memory_id=?1 AND right_memory_id=?2",
+            rusqlite::params![lo, hi],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
+    println!(
+        "FLAG #{id} {status}: {} (score {:.2})",
+        compare_text(&flag.reason),
+        flag.score
+    );
+    Ok(())
+}
+
+fn list_contradiction_flags() -> Result<(), String> {
+    let conn = open_session_db()?;
+    let mut stmt = conn
+        .prepare("SELECT id, left_memory_id, right_memory_id, score, status, created_at, reviewed_at FROM contradiction_flags ORDER BY status != 'pending', id")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(format!(
+                "flag #{} {} memories #{} vs #{} score {:.2} created {}{}",
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, f64>(3)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, Option<String>>(6)?
+                    .map(|t| format!(" reviewed {t}"))
+                    .unwrap_or_default()
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut any = false;
+    for row in rows {
+        println!("{}", row.map_err(|e| e.to_string())?);
+        any = true;
+    }
+    if !any {
+        println!("no contradiction flags");
+    }
+    Ok(())
+}
+
+/// `confirm` / `reject` a flag. Only the flag row changes; memories are untouched.
+fn review_contradiction_flag(action: &str, id: &str) -> Result<(), String> {
+    let id: i64 = id.parse().map_err(|_| "invalid flag id")?;
+    let status = if action == "confirm" {
+        "confirmed"
+    } else {
+        "rejected"
+    };
+    let conn = open_session_db()?;
+    let changed = conn
+        .execute(
+            "UPDATE contradiction_flags SET status = ?1, reviewed_at = ?2 WHERE id = ?3",
+            rusqlite::params![status, Utc::now().to_rfc3339(), id],
+        )
+        .map_err(|e| e.to_string())?;
+    if changed == 0 {
+        return Err(format!("contradiction flag #{id} not found"));
+    }
+    println!("flag #{id} {status}");
+    Ok(())
 }
 
 fn search_memory(args: &[String]) -> Result<(), String> {
@@ -5429,6 +5595,41 @@ mod tests {
             compare_command_runs(&args).unwrap_err(),
             "invalid run id: abc"
         );
+    }
+
+    #[test]
+    fn prune_skips_case_linked_runs_and_cascades_unlinked_arguments() {
+        let conn = Connection::open_in_memory().unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
+        for id in [1_i64, 2] {
+            conn.execute("INSERT INTO command_runs(id,command,argv_json,created_at) VALUES(?1,'old','[]','2000-01-01T00:00:00Z')", params![id]).unwrap();
+            conn.execute(
+                "INSERT INTO command_arguments(command_run_id,position,value) VALUES(?1,0,'arg')",
+                params![id],
+            )
+            .unwrap();
+        }
+        memorywhale_cli::case_files::create(
+            &conn,
+            &["--title", "keep", "--command-ids", "2"].map(String::from),
+        )
+        .unwrap();
+        assert_eq!(
+            prune_command_runs(&conn, "2020-01-01T00:00:00Z").unwrap(),
+            1
+        );
+        let remaining: Vec<i64> = conn
+            .prepare("SELECT command_run_id FROM command_arguments")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(remaining, vec![2]);
+        let runs: i64 = conn
+            .query_row("SELECT COUNT(*) FROM command_runs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(runs, 1);
     }
 
     #[test]
