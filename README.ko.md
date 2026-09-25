@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
+<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -22,10 +22,10 @@ MemoryWhale은 디버깅하면서 실제로 일어난 일, 즉 실행한 명령�
 이 기록을 로컬 SQLite에 저장하기 때문에 터미널을 닫거나 SSH 연결이 끊기거나 에이전트 세션이 끝난 뒤에도
 여러분과 코딩 에이전트가 다시 찾아볼 수 있습니다.
 
-**MemoryWhale 0.11.0 — Explainable Debugging Evidence · 2026년 9월 20일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.11.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.5.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)를 참고하세요.
-스키마는 10 그대로입니다.
+**MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026년 9월 25일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.12.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.6.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)를 참고하세요.
+스토어를 열면 스키마가 10에서 13으로 마이그레이션됩니다.
 
 **기여하고 싶으신가요?** [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)부터 시작해 보세요.
 번역 검토나 문서 수정처럼 Rust를 몰라도 할 수 있는 작업이 많습니다.

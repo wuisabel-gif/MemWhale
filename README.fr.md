@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
+<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -24,10 +24,10 @@ traces sont stockées dans une base SQLite locale, pour que vous et vos agents d
 code puissiez les retrouver une fois le terminal fermé, la connexion SSH coupée
 ou la session de l’agent terminée.
 
-**MemoryWhale 0.11.0 — Explainable Debugging Evidence · 20 septembre 2026.**
+**MemoryWhale 0.12.0 — Retrieval You Can Trust · 25 septembre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit
-0.11.0 ; le cœur Rust réutilisable est en version 0.5.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)
-pour le guide de mise à niveau. Le schéma reste en version 10.
+0.12.0 ; le cœur Rust réutilisable est en version 0.6.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)
+pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 13.
 
 **Envie de contribuer ?** Commencez par l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).
 Beaucoup de tâches ne demandent aucune connaissance de Rust, notamment la relecture

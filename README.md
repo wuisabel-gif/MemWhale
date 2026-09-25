@@ -21,10 +21,10 @@ failures, and the fixes that worked. It stores that evidence in local SQLite so
 you and your coding agents can find it after the terminal, SSH connection, or
 agent session is gone.
 
-**MemoryWhale 0.11.0 — Explainable Debugging Evidence · September 20, 2026.**
-The CLI, web UI, and desktop app share product version 0.11.0; the reusable
-Rust core is version 0.5.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)
-for the upgrade guide. Schema remains 10.
+**MemoryWhale 0.12.0 — Retrieval You Can Trust · September 25, 2026.**
+The CLI, web UI, and desktop app share product version 0.12.0; the reusable
+Rust core is version 0.6.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)
+for the upgrade guide. Opening a store migrates it from schema 10 to 13.
 
 **Want to contribute?** Start with the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).
 Many tasks need no Rust, including translation reviews and documentation fixes.

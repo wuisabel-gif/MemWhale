@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
+<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -23,11 +23,11 @@ Ausgaben, Fehlschläge und die Fixes, die funktioniert haben. Diese Belege lande
 lokal in SQLite, sodass du und deine Coding-Agenten sie auch dann noch finden,
 wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist.
 
-**MemoryWhale 0.11.0 — Explainable Debugging Evidence · 20. September 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.11.0; der
-wiederverwendbare Rust-Kern hat die Version 0.5.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md).
-Das Schema bleibt bei Version 10.
+**MemoryWhale 0.12.0 — Retrieval You Can Trust · 25. September 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.12.0; der
+wiederverwendbare Rust-Kern hat die Version 0.6.0. Hinweise zum Upgrade findest
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md).
+Beim Öffnen wird ein Speicher von Schema 10 auf 13 migriert.
 
 **Du willst mitmachen?** Fang mit dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) an.
 Für viele Aufgaben brauchst du kein Rust, etwa für das Prüfen von Übersetzungen

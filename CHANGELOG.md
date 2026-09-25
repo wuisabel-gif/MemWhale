@@ -3,7 +3,7 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [0.12.0] — Retrieval You Can Trust — Unreleased
+## [0.12.0] — Retrieval You Can Trust — September 25, 2026
 
 Product `0.12.0`; `memorywhale-core` `0.6.0`; SQLite schema `13`.
 
@@ -21,10 +21,12 @@ See [release notes](docs/releases/0.12.0.md).
 ### Fixed
 
 - **Codewhale capture**: exact receipt identity matching; prefix IDs no longer drop captures. (#335)
+- **Test reliability**: tests that execute freshly written files no longer fail with `ETXTBSY`. (#336)
 
 ### Changed
 
 - **Contributor onboarding**: Start here issue, Dependabot, and a pass over all seven translations. (#319)
+- **Second-Opinion review**: documented as a thin PR-review interface, noted in the README, and kept advisory when the review provider fails. (#316, #334, #339)
 
 ## [0.11.1] — Publish core provenance — September 20, 2026
 

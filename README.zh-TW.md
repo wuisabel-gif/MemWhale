@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
+<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -22,10 +22,10 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 這些證據存在本機的 SQLite 裡，就算終端機關了、SSH 斷了，或代理的工作階段已經結束，
 你和你的程式開發代理之後都還找得到。
 
-**MemoryWhale 0.11.0 — Explainable Debugging Evidence · 2026 年 9 月 20 日。**
-CLI、Web 介面與桌面應用程式共用同一個產品版本 0.11.0；可重複使用的 Rust 核心則是 0.5.0。
-升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)。
-資料庫 schema 版本維持 10。
+**MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日。**
+CLI、Web 介面與桌面應用程式共用同一個產品版本 0.12.0；可重複使用的 Rust 核心則是 0.6.0。
+升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)。
+開啟資料儲存區時，其 schema 會從 10 遷移到 13。
 
 **想參與貢獻嗎？** 可以先從 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 開始。
 很多工作完全不需要會 Rust，例如審閱翻譯、修正文件。

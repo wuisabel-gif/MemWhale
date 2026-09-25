@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 693301b6a0450efa434e88f08ce48396310ee90b85790c7269a5f1abaffcb523 -->
+<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -22,9 +22,9 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 这些证据保存在本地 SQLite 中，即使终端已关闭、SSH 已断开或智能体会话已结束，
 你和编程智能体仍然可以找回它们。
 
-**MemoryWhale 0.11.0 — Explainable Debugging Evidence · 2026 年 9 月 20 日。**
-CLI、Web 界面和桌面应用共用产品版本号 0.11.0；可复用的 Rust 核心版本为 0.5.0。
-升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.11.0/docs/releases/0.11.0.md)。Schema 版本仍为 10。
+**MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日。**
+CLI、Web 界面和桌面应用共用产品版本号 0.12.0；可复用的 Rust 核心版本为 0.6.0。
+升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)。打开存储库时，其 schema 会从 10 迁移到 13。
 
 **想参与贡献？** 可以先看看 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317)。
 很多任务不需要会 Rust，比如审校翻译、修正文档。

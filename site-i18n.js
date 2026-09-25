@@ -35,7 +35,7 @@ const EN = {
   "search.hint": "Search headings and content on this page.",
   "search.empty": "No matching sections.",
   "search.results": "Matching sections",
-  "hero.releaseBadge": "v0.11.1 is here",
+  "hero.releaseBadge": "v0.12.0 is here",
   "hero.title": "Make your terminal <span class=\"hero-accent\">remember</span>.",
   "hero.lead":
     "Keep useful terminal context locally. Let coding agents recover debugging knowledge from previous sessions.",
@@ -53,19 +53,19 @@ const EN = {
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
   "integrations.more": "All integrations",
-  "release.eyebrow": "New in 0.11.1",
-  "release.title": "Shared memory. Explicit provenance.",
+  "release.eyebrow": "New in 0.12.0",
+  "release.title": "Retrieval you can trust.",
   "release.copy":
-    "Product 0.11.1 spans the CLI, web UI, and desktop app. The reusable Rust core is 0.5.1 and SQLite schema remains 10. Compare recorded runs, explain ranking, and export local debugging handoffs.",
-  "release.connectTitle": "Connect Claude Code and Rho",
+    "Product 0.12.0 spans the CLI, web UI, and desktop app. The reusable Rust core is 0.6.0, and opening a store migrates it to SQLite schema 13. Choose what a search returns, review memories that disagree, and keep debugging evidence as case files and recipes.",
+  "release.connectTitle": "Search the way you mean",
   "release.connectBody":
-    "<code>mw integrate claude</code> and <code>mw integrate rho</code> install MCP access, capture hooks, and a skill. <code>mw doctor</code> checks those components independently.",
-  "release.provenanceTitle": "Know where evidence came from",
+    "<code>mw search --mode evidence|lessons|recipes|failures</code> narrows results to one kind of memory. Opt-in <code>--ranking bayesian</code> combines the existing signals as log-odds; the default ranking is unchanged.",
+  "release.provenanceTitle": "Review before you trust",
   "release.provenanceBody":
-    "Schema 10 stores command agents as <code>claude</code>, <code>rho</code>, or <code>NULL</code>; <code>NULL</code> is displayed as <code>terminal</code>. Agent is separate from source type. Canonical repository IDs group linked worktrees without losing each worktree's path.",
-  "release.interfaceTitle": "Choose your local interface",
+    "<code>mw feedback</code> records local helpful, irrelevant, outdated, or contradicted marks. <code>mw contradictions</code> flags memories that may disagree for you to confirm or reject. Neither changes a memory, and feedback does not affect ranking yet.",
+  "release.interfaceTitle": "Keep the whole story",
   "release.interfaceBody":
-    "<code>mw-serve</code> adds HTTP MCP at <code>POST /mcp</code>. <code>--api</code> opts into a read-only JSON API. <code>mw github context &lt;pr&gt;</code> explicitly reads PR metadata, checks, commit statuses, and reviews via your <code>gh</code> login: no checkout, automatic save, or background sync.",
+    "<code>mw case</code> groups ordered command runs with observations and a conclusion, exportable as JSON or Markdown. <code>mw recipe</code> saves a reusable command from verified runs. Both stay local and redacted, and nothing runs automatically.",
   "who.eyebrow": "Who it's for",
   "who.title": "Built for three ways of working.",
   "who.copy":
@@ -145,9 +145,9 @@ const EN = {
   "run.tryValue": "<code>mw demo</code> — writes sample data to the selected store",
   "run.prebuiltLabel": "Prebuilt install",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb on the releases page",
   "run.securityLabel": "Security",
@@ -199,7 +199,7 @@ const AR = {
   "search.hint": "ابحث في عناوين هذه الصفحة ومحتواها.",
   "search.empty": "لا توجد أقسام مطابقة.",
   "search.results": "الأقسام المطابقة",
-  "hero.releaseBadge": "الإصدار v0.11.1 متاح الآن",
+  "hero.releaseBadge": "الإصدار v0.12.0 متاح الآن",
   "hero.title": "اجعل طرفيتك <span class=\"hero-accent\">تتذكّر</span>.",
   "hero.lead":
     "احفظ سياق الطرفية المفيد على جهازك، واسمح لوكلاء البرمجة باسترجاع خبرة تصحيح الأخطاء من الجلسات السابقة.",
@@ -217,19 +217,19 @@ const AR = {
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
   "integrations.more": "جميع التكاملات",
-  "release.eyebrow": "الجديد في 0.11.1",
-  "release.title": "ذاكرة مشتركة. مصادر واضحة.",
+  "release.eyebrow": "الجديد في 0.12.0",
+  "release.title": "استرجاع يمكنك الوثوق به.",
   "release.copy":
-    "يشمل إصدار المنتج 0.11.1 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب؛ أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.5.1، ويبقى مخطط SQLite على الإصدار 10. قارن بين عمليات التنفيذ المسجّلة، واعرف سبب ترتيب النتائج، وصدِّر سياق تصحيح الأخطاء محليًا لتسليمه إلى غيرك.",
-  "release.connectTitle": "اربط Claude Code وRho",
+    "يشمل إصدار المنتج 0.12.0 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب؛ أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.6.0، وعند فتح مخزن البيانات يُرحَّل إلى مخطط SQLite رقم 13. اختر ما يعيده البحث، وراجع الذكريات المتعارضة، واحفظ شواهد تصحيح الأخطاء في ملفات حالات ووصفات.",
+  "release.connectTitle": "ابحث بما تقصده",
   "release.connectBody":
-    "يثبّت كلٌّ من <code>mw integrate claude</code> و<code>mw integrate rho</code> وصول MCP، وخطافات الالتقاط، ومهارة (skill). يفحص <code>mw doctor</code> هذه المكوّنات كلًّا على حدة.",
-  "release.provenanceTitle": "اعرف مصدر الشواهد",
+    "يحصر <code>mw search --mode evidence|lessons|recipes|failures</code> النتائج في نوع واحد من الذكريات. ويجمع <code>--ranking bayesian</code>، عند تفعيله صراحةً، الإشارات الحالية على هيئة لوغاريتم الأرجحية (log-odds)؛ ويبقى الترتيب الافتراضي دون تغيير.",
+  "release.provenanceTitle": "راجِع قبل أن تثق",
   "release.provenanceBody":
-    "يخزّن المخطط 10 هوية الوكيل لكل أمر بالقيم <code>claude</code> أو <code>rho</code> أو <code>NULL</code>؛ وتُعرض القيمة <code>NULL</code> باسم <code>terminal</code>. هوية الوكيل مستقلة عن نوع المصدر. وتجمع معرّفات المستودعات الموحّدة أشجار العمل المرتبطة (worktrees) دون فقدان مسار أيٍّ منها.",
-  "release.interfaceTitle": "اختر واجهتك المحلية",
+    "يسجّل <code>mw feedback</code> محليًا تقييماتك للذكريات: مفيدة، أو غير ذات صلة، أو قديمة، أو متناقضة. ويُبرز <code>mw contradictions</code> الذكريات التي قد تتعارض لتؤكد التعارض أو ترفضه بنفسك. لا يغيّر أيٌّ منهما الذكريات نفسها، ولا تؤثر التقييمات في الترتيب حتى الآن.",
+  "release.interfaceTitle": "احتفظ بالقصة كاملة",
   "release.interfaceBody":
-    "يضيف <code>mw-serve</code> خادم MCP عبر HTTP على <code>POST /mcp</code>، ويتيح الخيار <code>--api</code> تفعيل واجهة JSON API للقراءة فقط عند الطلب. ويقرأ <code>mw github context &lt;pr&gt;</code> عند استدعائه صراحةً البيانات الوصفية لطلب الدمج (PR)، والفحوص، وحالات الإيداعات، والمراجعات باستخدام تسجيل دخولك إلى <code>gh</code>: دون إجراء checkout أو حفظ تلقائي أو مزامنة في الخلفية.",
+    "يجمع <code>mw case</code> عمليات تنفيذ الأوامر بترتيبها مع الملاحظات والاستنتاج، ويمكن تصديرها بصيغة JSON أو Markdown. ويحفظ <code>mw recipe</code> أمرًا قابلًا لإعادة الاستخدام من عمليات تنفيذ جرى التحقق منها. يبقى كلاهما محليًا مع حجب البيانات الحساسة، ولا يُنفَّذ أي شيء تلقائيًا.",
   "who.eyebrow": "لمن صُمّم",
   "who.title": "صُمّم لثلاثة أنماط من العمل.",
   "who.copy":
@@ -309,9 +309,9 @@ const AR = {
   "run.tryValue": "<code>mw demo</code> — يكتب بيانات نموذجية في المخزن المحدد",
   "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "حزمة .deb من صفحة الإصدارات",
   "run.securityLabel": "الأمان",
@@ -363,7 +363,7 @@ const DE = {
   "search.hint": "Durchsuche Überschriften und Inhalte dieser Seite.",
   "search.empty": "Keine passenden Abschnitte.",
   "search.results": "Passende Abschnitte",
-  "hero.releaseBadge": "v0.11.1 ist da",
+  "hero.releaseBadge": "v0.12.0 ist da",
   "hero.title": "Gib deinem Terminal ein <span class=\"hero-accent\">Gedächtnis</span>.",
   "hero.lead":
     "Bewahre nützlichen Terminal-Kontext lokal auf. Lass Coding-Agenten auf Debugging-Wissen aus früheren Sitzungen zurückgreifen.",
@@ -381,19 +381,19 @@ const DE = {
   "integrations.label": "Funktioniert mit",
   "integrations.via": "über MCP",
   "integrations.more": "Alle Integrationen",
-  "release.eyebrow": "Neu in 0.11.1",
-  "release.title": "Geteiltes Gedächtnis. Nachvollziehbare Herkunft.",
+  "release.eyebrow": "Neu in 0.12.0",
+  "release.title": "Treffer, denen du vertrauen kannst.",
   "release.copy":
-    "Die Produktversion 0.11.1 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern steht bei 0.5.1, das SQLite-Schema bleibt bei Version 10. Vergleiche aufgezeichnete Läufe, lass dir das Ranking erklären und exportiere lokale Debugging-Übergaben.",
-  "release.connectTitle": "Claude Code und Rho anbinden",
+    "Die Produktversion 0.12.0 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern steht bei 0.6.0; beim Öffnen wird ein Speicher auf SQLite-Schema 13 migriert. Leg fest, was eine Suche liefert, prüfe widersprüchliche Erinnerungen und bewahre Debugging-Belege als Fallakten und Rezepte auf.",
+  "release.connectTitle": "Suchen, wie du es meinst",
   "release.connectBody":
-    "<code>mw integrate claude</code> und <code>mw integrate rho</code> richten MCP-Zugriff, Capture-Hooks und einen Skill ein. <code>mw doctor</code> prüft diese Komponenten unabhängig voneinander.",
-  "release.provenanceTitle": "Wissen, woher die Belege stammen",
+    "<code>mw search --mode evidence|lessons|recipes|failures</code> beschränkt die Ergebnisse auf eine Art von Erinnerung. Das optionale <code>--ranking bayesian</code> verrechnet die vorhandenen Signale als Log-Odds; das Standard-Ranking bleibt unverändert.",
+  "release.provenanceTitle": "Erst prüfen, dann vertrauen",
   "release.provenanceBody":
-    "Schema 10 speichert den Agenten eines Befehls als <code>claude</code>, <code>rho</code> oder <code>NULL</code>; <code>NULL</code> wird als <code>terminal</code> angezeigt. Agent und Quelltyp sind voneinander getrennt. Kanonische Repository-IDs fassen verknüpfte Worktrees zusammen, ohne den Pfad der einzelnen Worktrees zu verlieren.",
-  "release.interfaceTitle": "Wähle deine lokale Schnittstelle",
+    "<code>mw feedback</code> speichert lokale Markierungen: hilfreich, irrelevant, veraltet oder widersprüchlich. <code>mw contradictions</code> kennzeichnet Erinnerungen, die sich möglicherweise widersprechen, damit du sie bestätigen oder verwerfen kannst. Keins von beiden verändert eine Erinnerung, und Feedback wirkt sich noch nicht auf das Ranking aus.",
+  "release.interfaceTitle": "Die ganze Geschichte festhalten",
   "release.interfaceBody":
-    "<code>mw-serve</code> bietet HTTP-MCP unter <code>POST /mcp</code>. Mit <code>--api</code> schaltest du bewusst eine schreibgeschützte JSON-API zu. <code>mw github context &lt;pr&gt;</code> liest gezielt PR-Metadaten, Checks, Commit-Status und Reviews über deinen <code>gh</code>-Login – ohne Checkout, ohne automatisches Speichern und ohne Synchronisierung im Hintergrund.",
+    "<code>mw case</code> bündelt Befehlsläufe in ihrer Reihenfolge mit Beobachtungen und einem Fazit und lässt sich als JSON oder Markdown exportieren. <code>mw recipe</code> speichert einen wiederverwendbaren Befehl aus verifizierten Läufen. Beides bleibt lokal und maskiert, und nichts wird automatisch ausgeführt.",
   "who.eyebrow": "Für wen?",
   "who.title": "Gemacht für drei Arbeitsweisen.",
   "who.copy":
@@ -473,9 +473,9 @@ const DE = {
   "run.tryValue": "<code>mw demo</code> — schreibt Beispieldaten in den ausgewählten Speicher",
   "run.prebuiltLabel": "Vorkompilierte Binaries",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb auf der Releases-Seite",
   "run.securityLabel": "Sicherheit",
@@ -527,7 +527,7 @@ const FR = {
   "search.hint": "Recherche dans les titres et le contenu de cette page.",
   "search.empty": "Aucune section ne correspond.",
   "search.results": "Sections correspondantes",
-  "hero.releaseBadge": "La v0.11.1 est disponible",
+  "hero.releaseBadge": "La v0.12.0 est disponible",
   "hero.title": "Donnez de la <span class=\"hero-accent\">mémoire</span> à votre terminal.",
   "hero.lead":
     "Conservez en local le contexte utile du terminal. Vos agents de code retrouvent ce qui a été appris en déboguant lors des sessions précédentes.",
@@ -545,19 +545,19 @@ const FR = {
   "integrations.label": "Compatible avec",
   "integrations.via": "via MCP",
   "integrations.more": "Toutes les intégrations",
-  "release.eyebrow": "Nouveautés de la 0.11.1",
-  "release.title": "Une mémoire partagée. Une provenance explicite.",
+  "release.eyebrow": "Nouveautés de la 0.12.0",
+  "release.title": "Une recherche digne de confiance.",
   "release.copy":
-    "La version produit 0.11.1 couvre le CLI, l’interface web et l’application de bureau. Le cœur Rust réutilisable passe en 0.5.1 et le schéma SQLite reste en version 10. Comparez des exécutions enregistrées, comprenez le classement des résultats et exportez des dossiers de passation de débogage en local.",
-  "release.connectTitle": "Connectez Claude Code et Rho",
+    "La version produit 0.12.0 couvre le CLI, l’interface web et l’application de bureau. Le cœur Rust réutilisable passe en 0.6.0, et l’ouverture d’une base la migre vers le schéma SQLite 13. Choisissez ce que renvoie une recherche, examinez les mémoires qui se contredisent et conservez vos preuves de débogage sous forme de dossiers et de recettes.",
+  "release.connectTitle": "Cherchez ce que vous voulez dire",
   "release.connectBody":
-    "<code>mw integrate claude</code> et <code>mw integrate rho</code> installent l’accès MCP, les hooks de capture et un skill. <code>mw doctor</code> vérifie chacun de ces composants indépendamment.",
-  "release.provenanceTitle": "Sachez d’où viennent les traces",
+    "<code>mw search --mode evidence|lessons|recipes|failures</code> limite les résultats à un seul type de mémoire. L’option facultative <code>--ranking bayesian</code> combine les signaux existants en log-odds ; le classement par défaut reste inchangé.",
+  "release.provenanceTitle": "Vérifiez avant de vous fier",
   "release.provenanceBody":
-    "Le schéma 10 enregistre l’agent d’une commande sous la forme <code>claude</code>, <code>rho</code> ou <code>NULL</code> ; <code>NULL</code> s’affiche comme <code>terminal</code>. L’agent est distinct du type de source. Des identifiants de dépôt canoniques regroupent les worktrees liés sans perdre le chemin de chacun.",
-  "release.interfaceTitle": "Choisissez votre interface locale",
+    "<code>mw feedback</code> enregistre en local vos avis : utile, hors sujet, obsolète ou contredit. <code>mw contradictions</code> signale les mémoires susceptibles de se contredire, pour que vous les confirmiez ou les rejetiez. Aucune des deux commandes ne modifie une mémoire, et les avis n’influencent pas encore le classement.",
+  "release.interfaceTitle": "Gardez toute l’histoire",
   "release.interfaceBody":
-    "<code>mw-serve</code> ajoute MCP en HTTP sur <code>POST /mcp</code>. <code>--api</code> active, sur demande, une API JSON en lecture seule. <code>mw github context &lt;pr&gt;</code> lit explicitement les métadonnées d’une PR, ses checks, les statuts de commit et les reviews via votre session <code>gh</code> : pas de checkout, pas d’enregistrement automatique, pas de synchronisation en arrière-plan.",
+    "<code>mw case</code> regroupe des exécutions de commandes dans l’ordre, avec des observations et une conclusion, exportables en JSON ou en Markdown. <code>mw recipe</code> enregistre une commande réutilisable à partir d’exécutions vérifiées. Tout reste en local, avec masquage des secrets, et rien ne s’exécute automatiquement.",
   "who.eyebrow": "Pour qui ?",
   "who.title": "Pensé pour trois façons de travailler.",
   "who.copy":
@@ -637,9 +637,9 @@ const FR = {
   "run.tryValue": "<code>mw demo</code> — écrit des données d’exemple dans le stockage sélectionné",
   "run.prebuiltLabel": "Binaires précompilés",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Paquet .deb sur la page des versions",
   "run.securityLabel": "Sécurité",
@@ -691,7 +691,7 @@ const ZH_CN = {
   "search.hint": "搜索本页的标题和内容。",
   "search.empty": "没有找到相关内容。",
   "search.results": "相关内容",
-  "hero.releaseBadge": "v0.11.1 现已发布",
+  "hero.releaseBadge": "v0.12.0 现已发布",
   "hero.title": "让终端<span class=\"hero-accent\">记住</span>调试经验。",
   "hero.lead":
     "在本地保留有用的终端上下文，让编程智能体从以往会话中找回调试经验。",
@@ -709,19 +709,19 @@ const ZH_CN = {
   "integrations.label": "已支持",
   "integrations.via": "通过 MCP",
   "integrations.more": "所有集成",
-  "release.eyebrow": "0.11.1 新功能",
-  "release.title": "记忆可共享，来源可追溯。",
+  "release.eyebrow": "0.12.0 新功能",
+  "release.title": "检索结果，值得信赖。",
   "release.copy":
-    "产品版本 0.11.1 覆盖 CLI、Web UI 和桌面应用；可复用的 Rust 核心为 0.5.1，SQLite schema 版本仍为 10。现在可以对比已记录的运行、查看排序依据，并导出本地调试交接包。",
-  "release.connectTitle": "连接 Claude Code 和 Rho",
+    "产品版本 0.12.0 覆盖 CLI、Web UI 和桌面应用；可复用的 Rust 核心为 0.6.0，打开存储库时会自动迁移到 SQLite schema 13。现在可以指定搜索返回哪类结果、审查相互矛盾的记忆，并把调试证据保存为案例档案和命令配方。",
+  "release.connectTitle": "按你的意图搜索",
   "release.connectBody":
-    "<code>mw integrate claude</code> 和 <code>mw integrate rho</code> 会安装 MCP 访问配置、采集钩子和一个技能。<code>mw doctor</code> 会分别检查这几个组件。",
-  "release.provenanceTitle": "证据来源一目了然",
+    "<code>mw search --mode evidence|lessons|recipes|failures</code> 可把结果限定为某一类记忆。<code>--ranking bayesian</code> 需手动开启，它会把现有信号按对数几率（log-odds）合并；默认排序保持不变。",
+  "release.provenanceTitle": "先审查，再信任",
   "release.provenanceBody":
-    "Schema 10 把命令的智能体字段存为 <code>claude</code>、<code>rho</code> 或 <code>NULL</code>，其中 <code>NULL</code> 显示为 <code>terminal</code>。智能体与来源类型相互独立。规范化的仓库 ID 会把关联的工作树归到一起，且不丢失每个工作树的路径。",
-  "release.interfaceTitle": "选择本地接口",
+    "<code>mw feedback</code> 在本地记录“有用”“无关”“过时”或“有矛盾”等标记。<code>mw contradictions</code> 会标出可能相互矛盾的记忆，由你确认或驳回。两者都不会修改记忆，反馈目前也还不影响排序。",
+  "release.interfaceTitle": "保留完整来龙去脉",
   "release.interfaceBody":
-    "<code>mw-serve</code> 新增了 <code>POST /mcp</code> 上的 HTTP MCP。只读 JSON API 需要用 <code>--api</code> 显式开启。<code>mw github context &lt;pr&gt;</code> 借助你已登录的 <code>gh</code>，按需读取 PR 元数据、检查结果、提交状态和评审意见：不检出代码，不自动保存，也没有后台同步。",
+    "<code>mw case</code> 把按顺序执行的命令连同观察记录和结论整理在一起，可导出为 JSON 或 Markdown。<code>mw recipe</code> 从已验证的运行中保存可复用的命令。两者都只保存在本地并经过脱敏，也不会自动执行任何操作。",
   "who.eyebrow": "适合谁",
   "who.title": "三种开发日常，都用得上。",
   "who.copy":
@@ -801,9 +801,9 @@ const ZH_CN = {
   "run.tryValue": "<code>mw demo</code>——向当前选定的存储写入示例数据",
   "run.prebuiltLabel": "预编译安装",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "在发布页面下载 .deb 安装包",
   "run.securityLabel": "安全",
@@ -855,7 +855,7 @@ const ZH_TW = {
   "search.hint": "搜尋本頁的標題與內容。",
   "search.empty": "找不到相關內容。",
   "search.results": "相關內容",
-  "hero.releaseBadge": "v0.11.1 現已推出",
+  "hero.releaseBadge": "v0.12.0 現已推出",
   "hero.title": "讓終端機<span class=\"hero-accent\">記住</span>除錯經驗。",
   "hero.lead":
     "把有用的終端機脈絡留在本機，讓 AI 程式助理能找回先前工作階段累積的除錯知識。",
@@ -873,19 +873,19 @@ const ZH_TW = {
   "integrations.label": "可搭配使用",
   "integrations.via": "透過 MCP",
   "integrations.more": "所有整合",
-  "release.eyebrow": "0.11.1 新功能",
-  "release.title": "記憶可共用，來源可追溯。",
+  "release.eyebrow": "0.12.0 新功能",
+  "release.title": "值得信賴的檢索結果。",
   "release.copy":
-    "產品版本 0.11.1 涵蓋 CLI、Web UI 與桌面應用程式；可重複使用的 Rust 核心為 0.5.1，SQLite schema 維持 10。可以比較已記錄的執行結果、查看排序依據的說明，並匯出本機的除錯交接資料。",
-  "release.connectTitle": "連接 Claude Code 與 Rho",
+    "產品版本 0.12.0 涵蓋 CLI、Web UI 與桌面應用程式；可重複使用的 Rust 核心為 0.6.0，開啟資料儲存區時會自動遷移到 SQLite schema 13。你可以指定搜尋要回傳哪類結果、檢視彼此矛盾的記憶，並將除錯證據保存為案例檔與指令配方。",
+  "release.connectTitle": "照你的意思搜尋",
   "release.connectBody":
-    "<code>mw integrate claude</code> 與 <code>mw integrate rho</code> 會安裝 MCP 存取、擷取 hook 與 skill。<code>mw doctor</code> 會分別檢查這些元件。",
-  "release.provenanceTitle": "清楚知道證據從哪裡來",
+    "<code>mw search --mode evidence|lessons|recipes|failures</code> 可將結果限縮為單一類型的記憶。<code>--ranking bayesian</code> 需自行啟用，會以對數勝算（log-odds）結合現有訊號；預設排序維持不變。",
+  "release.provenanceTitle": "先檢視，再信任",
   "release.provenanceBody":
-    "Schema 10 將指令的代理欄位存為 <code>claude</code>、<code>rho</code> 或 <code>NULL</code>，<code>NULL</code> 會顯示為 <code>terminal</code>。代理身分與來源類型分開記錄。標準儲存庫 ID 會把連結的 worktree 歸在一起，同時保留每個 worktree 的路徑。",
-  "release.interfaceTitle": "選擇本機介面",
+    "<code>mw feedback</code> 會在本機記錄「有幫助」、「不相關」、「已過時」或「有矛盾」等標記。<code>mw contradictions</code> 會標出可能彼此矛盾的記憶，交由你確認或駁回。兩者都不會修改記憶，回饋目前也還不會影響排序。",
+  "release.interfaceTitle": "保留完整脈絡",
   "release.interfaceBody":
-    "<code>mw-serve</code> 在 <code>POST /mcp</code> 提供 HTTP MCP。唯讀 JSON API 需加上 <code>--api</code> 才會啟用。<code>mw github context &lt;pr&gt;</code> 會透過你的 <code>gh</code> 登入，明確讀取 PR 中繼資料、檢查結果、commit 狀態與審查意見：不會 checkout、不會自動儲存，也不會在背景同步。",
+    "<code>mw case</code> 會將依序執行的指令連同觀察紀錄與結論整理在一起，可匯出為 JSON 或 Markdown。<code>mw recipe</code> 會從已驗證的執行中儲存可重複使用的指令。兩者都只保存在本機，敏感資訊會經過遮蔽，也不會自動執行任何東西。",
   "who.eyebrow": "適合誰",
   "who.title": "為三種工作方式而設計。",
   "who.copy":
@@ -965,9 +965,9 @@ const ZH_TW = {
   "run.tryValue": "<code>mw demo</code>——將範例資料寫入目前選定的資料庫",
   "run.prebuiltLabel": "預編譯版安裝",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "發行頁面提供 .deb",
   "run.securityLabel": "安全性",
@@ -1019,7 +1019,7 @@ const KO = {
   "search.hint": "이 페이지의 제목과 본문을 검색합니다.",
   "search.empty": "일치하는 섹션이 없습니다.",
   "search.results": "일치하는 섹션",
-  "hero.releaseBadge": "v0.11.1 출시",
+  "hero.releaseBadge": "v0.12.0 출시",
   "hero.title": "터미널이 <span class=\"hero-accent\">기억하게</span> 하세요.",
   "hero.lead":
     "유용한 터미널 맥락을 로컬에 남겨 두세요. 코딩 에이전트가 이전 세션의 디버깅 지식을 다시 찾아 쓸 수 있습니다.",
@@ -1037,19 +1037,19 @@ const KO = {
   "integrations.label": "함께 쓸 수 있는 도구",
   "integrations.via": "MCP 연동",
   "integrations.more": "전체 통합 보기",
-  "release.eyebrow": "0.11.1 새 기능",
-  "release.title": "공유 메모리, 명확한 출처.",
+  "release.eyebrow": "0.12.0 새 기능",
+  "release.title": "믿고 쓰는 검색.",
   "release.copy":
-    "제품 버전 0.11.1은 CLI, 웹 UI, 데스크톱 앱에 공통으로 적용됩니다. 재사용 가능한 Rust 코어는 0.5.1이고, SQLite 스키마는 10 그대로입니다. 기록된 실행을 비교하고, 검색 순위의 근거를 확인하고, 로컬 디버깅 인계 자료를 내보낼 수 있습니다.",
-  "release.connectTitle": "Claude Code와 Rho 연결",
+    "제품 버전 0.12.0은 CLI, 웹 UI, 데스크톱 앱에 공통으로 적용됩니다. 재사용 가능한 Rust 코어는 0.6.0이며, 스토어를 열면 SQLite 스키마 13으로 마이그레이션됩니다. 검색 결과의 종류를 고르고, 서로 어긋나는 메모리를 검토하고, 디버깅 증거를 케이스 파일과 레시피로 남길 수 있습니다.",
+  "release.connectTitle": "의도대로 검색",
   "release.connectBody":
-    "<code>mw integrate claude</code>와 <code>mw integrate rho</code>로 MCP 접근, 캡처 훅, 스킬을 설치합니다. <code>mw doctor</code>는 각 구성 요소를 따로 점검합니다.",
-  "release.provenanceTitle": "증거의 출처 파악",
+    "<code>mw search --mode evidence|lessons|recipes|failures</code>는 결과를 한 종류의 메모리로 좁힙니다. 직접 켜야 하는 <code>--ranking bayesian</code>은 기존 신호를 로그 오즈로 결합하며, 기본 순위는 그대로입니다.",
+  "release.provenanceTitle": "믿기 전에 검토",
   "release.provenanceBody":
-    "스키마 10은 명령을 실행한 에이전트를 <code>claude</code>, <code>rho</code>, <code>NULL</code> 중 하나로 저장하고, <code>NULL</code>은 <code>terminal</code>로 표시합니다. 에이전트는 소스 유형과 별개입니다. 정규 저장소 ID로 연결된 워크트리를 묶어도 각 워크트리의 경로는 그대로 남습니다.",
-  "release.interfaceTitle": "로컬 인터페이스 선택",
+    "<code>mw feedback</code>은 유용함, 무관함, 오래됨, 모순됨 표시를 로컬에 기록합니다. <code>mw contradictions</code>는 서로 어긋날 수 있는 메모리를 표시하고, 확인할지 기각할지는 사용자가 정합니다. 둘 다 메모리를 변경하지 않으며, 피드백은 아직 순위에 영향을 주지 않습니다.",
+  "release.interfaceTitle": "전체 맥락 보존",
   "release.interfaceBody":
-    "<code>mw-serve</code>는 <code>POST /mcp</code>로 HTTP MCP를 제공합니다. 읽기 전용 JSON API는 <code>--api</code>를 줄 때만 켜집니다. <code>mw github context &lt;pr&gt;</code>는 <code>gh</code> 로그인으로 PR 메타데이터, 체크, 커밋 상태, 리뷰를 명시적으로 읽어 옵니다. 체크아웃도, 자동 저장도, 백그라운드 동기화도 하지 않습니다.",
+    "<code>mw case</code>는 순서대로 실행한 명령을 관찰 내용 및 결론과 함께 묶으며, JSON이나 Markdown으로 내보낼 수 있습니다. <code>mw recipe</code>는 검증된 실행에서 재사용 가능한 명령을 저장합니다. 둘 다 로컬에만 저장되고 민감한 정보는 가려지며, 자동으로 실행되는 것은 없습니다.",
   "who.eyebrow": "사용 대상",
   "who.title": "세 가지 작업 방식을 위해 만들었습니다.",
   "who.copy":
@@ -1129,9 +1129,9 @@ const KO = {
   "run.tryValue": "<code>mw demo</code> — 선택한 저장소에 샘플 데이터를 기록합니다",
   "run.prebuiltLabel": "사전 빌드 설치",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "릴리스 페이지의 .deb 패키지",
   "run.securityLabel": "보안",
@@ -1183,7 +1183,7 @@ const JA = {
   "search.hint": "このページの見出しと本文を検索します。",
   "search.empty": "一致するセクションはありません。",
   "search.results": "一致したセクション",
-  "hero.releaseBadge": "v0.11.1 リリース",
+  "hero.releaseBadge": "v0.12.0 リリース",
   "hero.title": "ターミナルに<span class=\"hero-accent\">記憶</span>を。",
   "hero.lead":
     "役立つターミナルのコンテキストを手元に残し、コーディングエージェントが過去のセッションのデバッグ知識を引き出せるようにします。",
@@ -1201,19 +1201,19 @@ const JA = {
   "integrations.label": "対応ツール",
   "integrations.via": "MCP 経由",
   "integrations.more": "すべての連携を見る",
-  "release.eyebrow": "0.11.1 の新機能",
-  "release.title": "メモリは共有、出所は明確に。",
+  "release.eyebrow": "0.12.0 の新機能",
+  "release.title": "信頼できる検索を。",
   "release.copy":
-    "製品バージョン 0.11.1 は CLI、Web UI、デスクトップアプリに共通です。再利用可能な Rust コアは 0.5.1 で、SQLite スキーマは引き続き 10 です。記録した実行結果の比較、ランキング根拠の説明、ローカルでのデバッグ引き継ぎ資料のエクスポートができます。",
-  "release.connectTitle": "Claude Code と Rho を接続",
+    "製品バージョン 0.12.0 は CLI、Web UI、デスクトップアプリに共通です。再利用可能な Rust コアは 0.6.0 で、ストアを開くと SQLite スキーマ 13 に移行されます。検索で返す内容を選び、食い違うメモリを確認し、デバッグの証拠をケースファイルやレシピとして残せます。",
+  "release.connectTitle": "意図どおりに検索",
   "release.connectBody":
-    "<code>mw integrate claude</code> と <code>mw integrate rho</code> は、MCP アクセス、キャプチャ用フック、スキルをインストールします。<code>mw doctor</code> はそれらを個別にチェックします。",
-  "release.provenanceTitle": "証拠の出所がわかる",
+    "<code>mw search --mode evidence|lessons|recipes|failures</code> は、結果を 1 種類のメモリに絞り込みます。オプトインの <code>--ranking bayesian</code> は、既存のシグナルを対数オッズとして組み合わせます。デフォルトのランキングは変わりません。",
+  "release.provenanceTitle": "信頼する前に確認",
   "release.provenanceBody":
-    "スキーマ 10 では、コマンドを実行したエージェントを <code>claude</code>、<code>rho</code>、または <code>NULL</code> として保存し、<code>NULL</code> は <code>terminal</code> と表示されます。エージェントはソース種別とは別に扱われます。正規のリポジトリ ID によって、各ワークツリーのパスを保ったまま、リンクされたワークツリーをひとまとめにできます。",
-  "release.interfaceTitle": "ローカルインターフェースを選べる",
+    "<code>mw feedback</code> は、「役に立った」「無関係」「古い」「矛盾している」といった評価をローカルに記録します。<code>mw contradictions</code> は食い違う可能性のあるメモリを示し、確定するか却下するかはあなたが判断します。どちらもメモリ自体は変更せず、フィードバックはまだランキングに影響しません。",
+  "release.interfaceTitle": "経緯をまるごと残す",
   "release.interfaceBody":
-    "<code>mw-serve</code> は <code>POST /mcp</code> で HTTP MCP を提供します。<code>--api</code> を指定すると、読み取り専用の JSON API も有効になります（オプトイン）。<code>mw github context &lt;pr&gt;</code> は、<code>gh</code> のログイン情報を使って PR のメタデータ、チェック、コミットステータス、レビューを明示的に読み取ります。チェックアウト、自動保存、バックグラウンド同期は行いません。",
+    "<code>mw case</code> は、順序どおりのコマンド実行を観察内容と結論とともにまとめ、JSON または Markdown でエクスポートできます。<code>mw recipe</code> は、検証済みの実行から再利用可能なコマンドを保存します。どちらもローカルに保存され、機密情報はマスクされます。自動で実行されるものはありません。",
   "who.eyebrow": "対象ユーザー",
   "who.title": "3 つの働き方に合わせて。",
   "who.copy":
@@ -1293,9 +1293,9 @@ const JA = {
   "run.tryValue": "<code>mw demo</code> — 選択中のストアにサンプルデータを書き込みます",
   "run.prebuiltLabel": "ビルド済みバイナリ",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.11.1/docs/releases/0.11.1.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.11.1 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.12.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "リリースページの .deb パッケージ",
   "run.securityLabel": "セキュリティ",

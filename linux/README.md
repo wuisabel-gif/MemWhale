@@ -4,9 +4,9 @@ Everything needed to run MemoryWhale as a first-class Linux citizen: install the
 CLI binaries, auto-record commands with a shell hook, keep the dashboard alive
 as a service, and package it as a `.deb`.
 
-MemoryWhale 0.11.0 — Explainable Debugging Evidence — uses the same product version on
+MemoryWhale 0.12.0 — Retrieval You Can Trust — uses the same product version on
 Linux, macOS, the CLI, and the UI. See the
-[release notes](../docs/releases/0.11.0.md).
+[release notes](../docs/releases/0.12.0.md).
 
 Storage is local-first: commands, sessions, and notes land in
 `~/.local/share/MemoryWhale/memorywhale.sqlite3` unless
@@ -117,7 +117,7 @@ With [`cargo-deb`](https://github.com/kornelski/cargo-deb):
 ```bash
 cargo install cargo-deb
 cargo deb -p memorywhale-cli   # run from the repository root
-# writes target/debian/memorywhale_0.11.0-1_<arch>.deb (revision may vary)
+# writes target/debian/memorywhale_0.12.0-1_<arch>.deb (revision may vary)
 sudo dpkg -i target/debian/memorywhale_*.deb
 ```
 
