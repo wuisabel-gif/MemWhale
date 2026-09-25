@@ -1335,7 +1335,13 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
             {
                 return Err("source runs have incompatible command payloads".into());
             }
-            let cwd = cwd.or_else(|| recorded_cwd.clone());
+            let cwd = cwd.or_else(|| recorded_cwd.as_deref().map(clean));
+            // Clean each recorded argument, then re-encode, so the stored payload
+            // stays valid JSON and carries no secret the run's argv held.
+            let argv: Vec<String> = serde_json::from_str(argv)
+                .map_err(|e| format!("recorded argv is not valid JSON: {e}"))?;
+            let argv = serde_json::to_string(&argv.iter().map(|a| clean(a)).collect::<Vec<_>>())
+                .map_err(|e| format!("failed to encode recipe arguments: {e}"))?;
             drop(stmt);
             tx.execute("INSERT INTO command_recipes (description,cwd,args_json,expected_criteria,created_at) VALUES (?1,?2,?3,?4,?5)", params![description,cwd,argv,criteria,Utc::now().to_rfc3339()]).map_err(|e| format!("failed to save recipe: {e}"))?;
             let recipe_id = tx.last_insert_rowid();

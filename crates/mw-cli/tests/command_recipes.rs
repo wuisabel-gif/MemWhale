@@ -200,6 +200,32 @@ fn save_rejects_malformed_options_and_stores_redacted_text() {
         .unwrap();
     assert!(!stored.contains("secret1234567890"), "stored: {stored:?}");
 
+    let secret_run = remember(&dir, &["deploy", "--token=abcdef1234567890secret"]).to_string();
+    assert!(mw(
+        &dir,
+        &[
+            "recipe",
+            "save",
+            "--run",
+            &secret_run,
+            "--description",
+            "d",
+            "--criteria",
+            "ok"
+        ]
+    )
+    .status
+    .success());
+    let args: String = db(&dir)
+        .query_row(
+            "SELECT args_json FROM command_recipes ORDER BY id DESC LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(!args.contains("abcdef1234567890secret"), "args: {args}");
+    serde_json::from_str::<Vec<String>>(&args).expect("args stay valid JSON");
+
     assert!(!mw(&dir, &["recipe", "list", "extra"]).status.success());
     assert!(!mw(&dir, &["recipe", "show", "1", "extra"]).status.success());
 }
