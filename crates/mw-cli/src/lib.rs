@@ -315,48 +315,74 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         PRAGMA user_version = 11;")
             .map_err(|e| format!("failed to migrate retrieval feedback: {e}"))?;
     }
-    ensure_feedback_cleanup(conn)?;
+    ensure_memory_ref_cleanup(conn)?;
     Ok(())
 }
 
-/// Delete feedback when its memory's row goes, whichever path deletes it.
-/// Row ids can be reused, so orphaned feedback would otherwise attach itself
-/// to a later memory. Offsets match `memorywhale_core::sqlite` id namespaces.
-fn ensure_feedback_cleanup(conn: &Connection) -> Result<(), String> {
-    if !table_exists(conn, "retrieval_feedback")? {
-        return Ok(());
-    }
-    let mut live = Vec::new();
-    for (table, offset) in [
-        ("documents", 0_i64),
+/// Delete rows that point at a memory when that memory's row goes, whichever
+/// path deletes it. Row ids can be reused, so a leftover reference would
+/// otherwise attach itself to a later memory. Offsets match
+/// `memorywhale_core::sqlite` id namespaces.
+fn ensure_memory_ref_cleanup(conn: &Connection) -> Result<(), String> {
+    const SOURCES: [(&str, i64); 5] = [
+        ("documents", 0),
         ("command_runs", 1_000_000_000),
         ("agent_turns", 2_000_000_000),
         ("bookmarks", 3_000_000_000),
         ("sessions", 4_000_000_000),
-    ] {
+    ];
+    // (referencing table, trigger suffix, columns holding a memory id)
+    const REFS: [(&str, &str, &[&str]); 2] = [
+        ("retrieval_feedback", "feedback", &["memory_id"]),
+        (
+            "contradiction_flags",
+            "contradiction",
+            &["left_memory_id", "right_memory_id"],
+        ),
+    ];
+    let mut live = Vec::new();
+    for (table, offset) in SOURCES {
         if table_exists(conn, table)? {
-            conn.execute_batch(&format!(
-                "CREATE TRIGGER IF NOT EXISTS trg_{table}_feedback_cleanup
-                 AFTER DELETE ON {table} BEGIN
-                     DELETE FROM retrieval_feedback WHERE memory_id = OLD.id + {offset};
-                 END;"
-            ))
-            .map_err(|e| format!("failed to add feedback cleanup for {table}: {e}"))?;
             live.push(format!("SELECT id + {offset} FROM {table}"));
         }
     }
-    // Purge feedback orphaned before these triggers existed. Row ids never
-    // reach the next namespace, so the union identifies live memories exactly.
+    // Row ids never reach the next namespace, so the union identifies live
+    // memories exactly.
     let live = if live.is_empty() {
         "SELECT NULL WHERE 0".to_string()
     } else {
         live.join(" UNION ALL ")
     };
-    conn.execute(
-        &format!("DELETE FROM retrieval_feedback WHERE memory_id NOT IN ({live})"),
-        [],
-    )
-    .map_err(|e| format!("failed to purge orphaned feedback: {e}"))?;
+    for (refs, suffix, columns) in REFS {
+        if !table_exists(conn, refs)? {
+            continue;
+        }
+        for (table, offset) in SOURCES {
+            if !table_exists(conn, table)? {
+                continue;
+            }
+            let matches = columns
+                .iter()
+                .map(|c| format!("{c} = OLD.id + {offset}"))
+                .collect::<Vec<_>>()
+                .join(" OR ");
+            conn.execute_batch(&format!(
+                "CREATE TRIGGER IF NOT EXISTS trg_{table}_{suffix}_cleanup
+                 AFTER DELETE ON {table} BEGIN
+                     DELETE FROM {refs} WHERE {matches};
+                 END;"
+            ))
+            .map_err(|e| format!("failed to add {refs} cleanup for {table}: {e}"))?;
+        }
+        // Purge rows orphaned before these triggers existed.
+        let orphaned = columns
+            .iter()
+            .map(|c| format!("{c} NOT IN ({live})"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        conn.execute(&format!("DELETE FROM {refs} WHERE {orphaned}"), [])
+            .map_err(|e| format!("failed to purge orphaned {refs}: {e}"))?;
+    }
     Ok(())
 }
 
@@ -2664,6 +2690,27 @@ mod tests {
 
     // The migration is safe on a populated DB: an existing pre-provenance row is
     // backfilled as human/approved, and new provenance columns are usable.
+    #[test]
+    fn deleting_a_memory_deletes_its_contradiction_flags() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO bookmarks (id, label, created_at) VALUES (1, 'a', 'x'), (2, 'b', 'x'), (3, 'c', 'x');
+             INSERT INTO contradiction_flags (left_memory_id, right_memory_id, score, reason, created_at)
+                 VALUES (3000000001, 3000000002, 1.0, 'r', 'x'), (3000000002, 3000000003, 1.0, 'r', 'x');
+             DELETE FROM bookmarks WHERE id = 1;",
+        )
+        .unwrap();
+        let left: Vec<(i64, i64)> = conn
+            .prepare("SELECT left_memory_id, right_memory_id FROM contradiction_flags")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(left, vec![(3_000_000_002, 3_000_000_003)]);
+    }
+
     #[test]
     fn deleting_a_memory_deletes_its_feedback() {
         let conn = Connection::open_in_memory().unwrap();
