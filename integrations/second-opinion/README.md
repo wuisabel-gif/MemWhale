@@ -8,8 +8,8 @@ and it does not read `memorywhale.sqlite3`.
 ## Status
 
 Verified against the pinned action
-`wuisabel-gif/second-opinion@e5cce405ea722fb7c7c5cfa28224c5735127cf6d`
-(v0.3.0) and this repository's `.github/workflows/second-opinion.yml`.
+`wuisabel-gif/second-opinion@bfaa581cb908813afa183dd4729c1571e4b93250`
+(v0.4.0) and this repository's `.github/workflows/second-opinion.yml`.
 Reviews run only when the `REVIEW_API_KEY` Actions secret is present. A green
 "Agent-agnostic review" check is not proof that a model ran if the secret is
 missing; the job then warns and skips.

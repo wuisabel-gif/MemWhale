@@ -7,7 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 GUIDE = ROOT / "integrations" / "second-opinion" / "README.md"
 WORKFLOW = ROOT / ".github" / "workflows" / "second-opinion.yml"
-PIN = "wuisabel-gif/second-opinion@e5cce405ea722fb7c7c5cfa28224c5735127cf6d"
+PIN = "wuisabel-gif/second-opinion@bfaa581cb908813afa183dd4729c1571e4b93250"
 HEADINGS = [
     "## Status",
     "## Requirements",
