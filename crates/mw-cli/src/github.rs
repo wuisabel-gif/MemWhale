@@ -227,7 +227,7 @@ fn validate_repository(repository: &str) -> Result<String, String> {
     Ok(format!("{owner}/{name}"))
 }
 
-fn neutralize_terminal_controls(value: &str) -> String {
+pub(crate) fn neutralize_terminal_controls(value: &str) -> String {
     // Remove complete CSI/OSC sequences as well as bare controls. Retaining
     // their printable suffix (e.g. "[2Jpassword=") can obscure a secret label.
     static ANSI: OnceLock<regex::Regex> = OnceLock::new();
