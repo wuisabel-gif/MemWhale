@@ -164,6 +164,12 @@ mod fake_gh {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+    // Far beyond any fixture's real runtime, even on a loaded CI runner, so
+    // only tests that exercise the deadline ever see it fire.
+    const GENEROUS: Duration = Duration::from_secs(120);
+    // Deadline tests use this; their fake processes outlive it by far.
+    const DEADLINE: Duration = Duration::from_secs(3);
+
     // An injected executable, not PATH/env mutation: tests can run in parallel
     // with each other and with the rest of the CLI suite, without network/login.
     struct FakeGh {
@@ -184,11 +190,20 @@ mod fake_gh {
             ));
             fs::create_dir(&directory).unwrap();
             let fake = Self { directory };
-            fake.put("gh", &format!(
+            fake.put("gh.sh", &format!(
                 "#!/bin/sh\nset -eu\ncd \"${{0%/*}}\"\nprintf '%s\\n' \"$$\" > pid\nprintf '%s\\n' \"$*\" >> calls\n{script}\n"
             ));
-            fs::set_permissions(fake.directory.join("gh"), fs::Permissions::from_mode(0o700))
-                .unwrap();
+            // Never exec a file this process wrote: a concurrent test's spawn
+            // can inherit the write fd and make exec fail with ETXTBSY. `cp`
+            // writes the executable in its own process and exits first.
+            let gh = fake.directory.join("gh");
+            assert!(Command::new("cp")
+                .arg(fake.directory.join("gh.sh"))
+                .arg(&gh)
+                .status()
+                .unwrap()
+                .success());
+            fs::set_permissions(&gh, fs::Permissions::from_mode(0o700)).unwrap();
             fake
         }
 
@@ -238,9 +253,13 @@ esac
         }
 
         fn gh(&self) -> Gh {
+            self.gh_with(GENEROUS)
+        }
+
+        fn gh_with(&self, runtime: Duration) -> Gh {
             Gh {
                 program: self.directory.join("gh"),
-                runtime: Duration::from_secs(3),
+                runtime,
             }
         }
 
@@ -469,41 +488,37 @@ esac
         for stream in ["stdout", "stderr"] {
             let redirect = if stream == "stderr" { " >&2" } else { "" };
             let fake = FakeGh::new(&format!(
-                "sleep 30 &\n(dd if=/dev/zero bs=8192 count=65 2>/dev/null){redirect}\nwait"
+                "sleep 600 &\n(dd if=/dev/zero bs=8192 count=65 2>/dev/null){redirect}\nwait"
             ));
             let started = Instant::now();
             let error = fake.gh().run(&[], MAX_GH_RESPONSE_BYTES).unwrap_err();
+            // The cap, not the generous deadline, ended the run, and cleanup
+            // did not wait for the descendant still holding the pipes.
             assert!(error.contains(&format!("{stream} safety limit")), "{error}");
-            assert!(started.elapsed() < Duration::from_secs(3));
+            assert!(started.elapsed() < GENEROUS);
             fake.assert_reaped();
         }
     }
 
     #[test]
     fn closed_pipes_do_not_remove_the_process_deadline() {
-        let fake = FakeGh::new("exec 1>&- 2>&-\nexec sleep 30");
-        // Use the normal fixture budget: a one-second startup deadline races
-        // process scheduling when the whole workspace suite runs in parallel.
-        let gh = fake.gh();
+        let fake = FakeGh::new("exec 1>&- 2>&-\nexec sleep 600");
+        let gh = fake.gh_with(DEADLINE);
         let started = Instant::now();
-        assert!(gh
-            .run(&[], MAX_GH_RESPONSE_BYTES)
-            .unwrap_err()
-            .contains("runtime limit"));
-        assert!(started.elapsed() < Duration::from_secs(10));
+        let error = gh.run(&[], MAX_GH_RESPONSE_BYTES).unwrap_err();
+        assert!(error.contains("runtime limit"), "{error}");
+        assert!(started.elapsed() < GENEROUS);
         fake.assert_reaped();
     }
 
     #[test]
     fn exited_child_with_descendant_holding_pipes_cannot_hang_cleanup() {
-        let fake = FakeGh::new("sleep 30 &\nexit 0");
-        let gh = fake.gh();
+        let fake = FakeGh::new("sleep 600 &\nexit 0");
+        let gh = fake.gh_with(DEADLINE);
         let started = Instant::now();
-        assert!(gh
-            .run(&[], MAX_GH_RESPONSE_BYTES)
-            .unwrap_err()
-            .contains("runtime limit"));
-        assert!(started.elapsed() < Duration::from_secs(10));
+        let error = gh.run(&[], MAX_GH_RESPONSE_BYTES).unwrap_err();
+        assert!(error.contains("runtime limit"), "{error}");
+        assert!(started.elapsed() < GENEROUS);
         fake.assert_reaped();
     }
 
