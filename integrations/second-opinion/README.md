@@ -13,6 +13,9 @@ Verified against the pinned action
 Reviews run only when the `REVIEW_API_KEY` Actions secret is present. A green
 "Agent-agnostic review" check is not proof that a model ran if the secret is
 missing; the job then warns and skips.
+The review step is advisory (`continue-on-error`): if the provider fails
+(for example an exhausted token quota or an outage), the job warns and
+passes. Check the job log or the PR for a posted review before relying on it.
 
 This guide does not ship a model. Provider, base URL, and model are repository
 variables. Do not put a provider key in the workflow YAML.

@@ -36,8 +36,12 @@ jobs:
           echo "::warning::REVIEW_API_KEY is not configured; Second-Opinion review was skipped."
           echo "Configure the repository secret to enable this reviewer."
 
+      # Advisory reviewer: a provider failure (quota, outage, rate limit) must
+      # not turn the PR red. Findings are posted as review comments either way.
       - name: Run Second-Opinion
+        id: review
         if: steps.config.outputs.configured == 'true'
+        continue-on-error: true
         uses: wuisabel-gif/second-opinion@e5cce405ea722fb7c7c5cfa28224c5735127cf6d # v0.3.0
         with:
           api-key: ${{ secrets.REVIEW_API_KEY }}
@@ -51,3 +55,8 @@ jobs:
           passes: ${{ vars.REVIEW_PASSES || '1' }}
           vote-threshold: ${{ vars.REVIEW_VOTE_THRESHOLD }}
           context-bytes: ${{ vars.REVIEW_CONTEXT_BYTES || '60000' }}
+
+      - name: Explain skipped review
+        if: steps.review.outcome == 'failure'
+        run: |
+          echo "::warning::Second-Opinion could not complete this review (see the step log, e.g. provider quota). It is advisory and does not block merging."
