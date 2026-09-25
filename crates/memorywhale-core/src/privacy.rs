@@ -61,7 +61,8 @@ fn is_secret_flag(argument: &str) -> bool {
     let Some(flag) = argument.strip_prefix("--") else {
         return false;
     };
-    let flag = flag.split_once('=').map_or(flag, |(name, _)| name);
+    let flag = strip_terminal_controls(flag);
+    let flag = flag.split_once('=').map_or(flag.as_str(), |(name, _)| name);
     let normalized: String = flag
         .chars()
         .filter(|character| *character != '-' && *character != '_')
@@ -128,6 +129,67 @@ pub fn redact(text: &str) -> String {
                 None => REDACTED.to_string(),
             })
             .into_owned();
+    }
+    redact_control_split(out)
+}
+
+/// Remove CSI/OSC sequences and bare control characters, keeping `\n` and `\t`.
+pub fn strip_terminal_controls(text: &str) -> String {
+    terminal_controls().replace_all(text, "").into_owned()
+}
+
+fn terminal_controls() -> &'static Regex {
+    static CONTROLS: OnceLock<Regex> = OnceLock::new();
+    CONTROLS.get_or_init(|| {
+        Regex::new(
+            r"(?:\x1b\[|\x{009b})[0-?]*[ -/]*[@-~]|(?:\x1b\]|\x{009d})[^\x07\x1b\x{009c}]*(?:\x07|\x1b\\|\x{009c})|[\p{Cc}&&[^\n\t]]",
+        )
+        .expect("valid terminal control pattern")
+    })
+}
+
+/// Catch secrets whose label or value is split by terminal controls, such as
+/// `tok\x1ben=...` or `pass\x1b[0mword=...`. Matching runs on a
+/// control-stripped view, but only the secret value's span is replaced in the
+/// original, so colors and other controls elsewhere in stored output survive.
+fn redact_control_split(mut out: String) -> String {
+    if !terminal_controls().is_match(&out) {
+        return out;
+    }
+    for re in secret_patterns() {
+        // `visible` drops controls; `origin[i]` is the byte offset in `out` of
+        // visible byte `i`. A visible char's bytes stay contiguous in `out`.
+        let mut visible = String::with_capacity(out.len());
+        let mut origin = Vec::with_capacity(out.len());
+        let mut kept = 0;
+        for control in terminal_controls()
+            .find_iter(&out)
+            .map(|m| m.range())
+            .chain(std::iter::once(out.len()..out.len()))
+        {
+            visible.push_str(&out[kept..control.start]);
+            origin.extend(kept..control.start);
+            kept = control.end;
+        }
+        let mut redacted = String::with_capacity(out.len());
+        let mut cursor = 0;
+        for caps in re.captures_iter(&visible) {
+            let whole = caps.get(0).expect("whole match");
+            let value_start = caps
+                .name("label")
+                .map_or(whole.start(), |label| label.end());
+            if value_start >= whole.end() {
+                continue;
+            }
+            let start = origin[value_start];
+            redacted.push_str(&out[cursor..start]);
+            redacted.push_str(REDACTED);
+            cursor = origin[whole.end() - 1] + 1;
+        }
+        if cursor > 0 {
+            redacted.push_str(&out[cursor..]);
+            out = redacted;
+        }
     }
     out
 }
@@ -280,6 +342,40 @@ mod tests {
         let arguments = vec!["--password=very-long-secret".to_string()];
         let sanitized = sanitize_arguments(&arguments);
         assert!(sanitized[0].len() <= 12);
+    }
+
+    #[test]
+    fn redacts_secrets_split_by_terminal_controls() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let env = EnvGuard::new();
+        env.clear_no_redact();
+        env.clear_max_bytes();
+        for input in [
+            "tok\x1ben=abc123secret",
+            "pass\x1b[31mword=abc123secret",
+            "api\x1b]0;title\x07_key: abc123secret",
+            "token=abc\x1b[0m123secret",
+            "gh\x1b[1mp_0123456789abcdefghijABCDEF",
+            "tok\ren=abc123secret",
+        ] {
+            let redacted = redact(input);
+            assert!(redacted.contains(REDACTED), "{input:?} -> {redacted:?}");
+            assert!(
+                !strip_terminal_controls(&redacted).contains("123secret")
+                    && !redacted.contains("0123456789abcdef"),
+                "{input:?} -> {redacted:?}"
+            );
+        }
+        // Controls outside the secret value are preserved.
+        assert_eq!(
+            redact("\x1b[31mtok\x1ben=abc123secret\x1b[0m done"),
+            "\x1b[31mtok\x1ben=[REDACTED]\x1b[0m done"
+        );
+        assert_eq!(redact("\x1b[32mok\x1b[0m"), "\x1b[32mok\x1b[0m");
+        assert_eq!(
+            sanitize_arguments(&["--to\x1bken".to_string(), "short".to_string()]),
+            ["--to\x1bken", "[REDACTED]"]
+        );
     }
 
     #[test]

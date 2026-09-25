@@ -120,3 +120,58 @@ fn command_capture_notes_and_arguments_are_redacted_in_db() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn control_split_secrets_are_redacted_in_command_stdout_and_notes() {
+    let dir = std::env::temp_dir().join(format!("mw-privacy-controls-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let secret = "abc123secret";
+
+    let out = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
+        .env("MEMORYWHALE_DATA_DIR", &dir)
+        .args([
+            "--cwd",
+            dir.to_str().unwrap(),
+            "--stdout",
+            &format!("\x1b[32mok\x1b[0m pass\x1b[1mword={secret}"),
+            "--notes",
+            &format!("api\x1b]0;x\x07_key: {secret}"),
+            "--",
+            "deploy",
+            &format!("tok\x1ben={secret}"),
+            "--to\x1b[0mken",
+            secret,
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "mw-remember failed: {out:?}");
+
+    let conn = Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+    let (command, argv_json, stdout, notes): (String, String, String, String) = conn
+        .query_row(
+            "SELECT command, argv_json, stdout, notes FROM command_runs ORDER BY id DESC LIMIT 1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .unwrap();
+    let arguments: Vec<String> = conn
+        .prepare("SELECT value FROM command_arguments ORDER BY position")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+
+    for stored in [&argv_json, &stdout, &notes, &arguments.join(" ")] {
+        assert!(stored.contains("[REDACTED]"), "not redacted: {stored:?}");
+        assert!(!stored.contains(secret), "raw secret landed: {stored:?}");
+    }
+    assert!(
+        !command.contains(secret),
+        "raw secret in command: {command:?}"
+    );
+    // Legitimate color output outside the secret survives capture.
+    assert!(stdout.starts_with("\x1b[32mok\x1b[0m"), "{stdout:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

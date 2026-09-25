@@ -1854,8 +1854,8 @@ pub fn remember_as(
 }
 
 pub use memorywhale_core::privacy::{
-    max_capture_bytes, redact, sanitize_arguments, sanitize_capture, truncate_capture,
-    DEFAULT_MAX_CAPTURE_BYTES, REDACTED,
+    max_capture_bytes, redact, sanitize_arguments, sanitize_capture, strip_terminal_controls,
+    truncate_capture, DEFAULT_MAX_CAPTURE_BYTES, REDACTED,
 };
 
 /// Finalize the current in-progress recording the moment this process's parent
@@ -2582,9 +2582,11 @@ mod tests {
             "abcdef123456",
             "ghp_0123456789abcdefghijABCDEF",
             "hunter2secret",
+            "split4control",
         ];
+        // `tok\x1ben=` is split by a terminal control so a naive regex misses it.
         let note = "the fix: API_KEY=abcdef123456, token ghp_0123456789abcdefghijABCDEF, \
-                    password: hunter2secret in .env";
+                    password: hunter2secret in .env, tok\x1ben=split4control";
         let id = remember(note, Some("/tmp/repo")).unwrap();
         assert!(id > 0);
 

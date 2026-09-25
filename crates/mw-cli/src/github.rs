@@ -8,7 +8,6 @@
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::OnceLock;
 use std::time::Duration;
 
 mod command;
@@ -227,27 +226,12 @@ fn validate_repository(repository: &str) -> Result<String, String> {
     Ok(format!("{owner}/{name}"))
 }
 
-pub(crate) fn neutralize_terminal_controls(value: &str) -> String {
-    // Remove complete CSI/OSC sequences as well as bare controls. Retaining
-    // their printable suffix (e.g. "[2Jpassword=") can obscure a secret label.
-    static ANSI: OnceLock<regex::Regex> = OnceLock::new();
-    let ansi = ANSI.get_or_init(|| {
-        regex::Regex::new(
-            r"(?:\x1b\[|\x{009b})[0-?]*[ -/]*[@-~]|(?:\x1b\]|\x{009d})[^\x07\x1b\x{009c}]*(?:\x07|\x1b\\|\x{009c})",
-        )
-        .expect("valid terminal control pattern")
-    });
-    ansi.replace_all(value, "")
-        .chars()
-        .filter(|character| matches!(character, '\n' | '\t') || !character.is_control())
-        .collect()
-}
-
 fn external_text(value: &str, limit: usize) -> String {
-    let value = neutralize_terminal_controls(&crate::sanitize_capture(value));
-    // Redact before and after normalization: controls can either separate a
-    // label from preceding text or split/obscure the label itself.
-    cap(&crate::sanitize_capture(&value), limit)
+    // Redaction already sees through controls that split a secret label.
+    cap(
+        &crate::strip_terminal_controls(&crate::sanitize_capture(value)),
+        limit,
+    )
 }
 
 fn string_field(value: &Value, key: &str, limit: usize) -> String {
@@ -415,7 +399,7 @@ fn render_context(
     output.push_str(&checks_section(checks));
     output.push_str(&statuses_section(statuses));
     output.push_str(&reviews_section(reviews));
-    neutralize_terminal_controls(&output)
+    crate::strip_terminal_controls(&output)
 }
 
 fn cap(value: &str, max_bytes: usize) -> String {

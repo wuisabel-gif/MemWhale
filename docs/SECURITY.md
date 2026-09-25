@@ -11,6 +11,10 @@ need the same protection as shell history or an unencrypted developer backup.
   system user may be able to read its files.
 - Secret redaction reduces accidental retention; it is not a security
   boundary. Unknown formats and transformed credentials can evade patterns.
+  Secret patterns are also matched on a view with terminal controls (CSI/OSC
+  sequences and bare control characters) removed, so a control that splits a
+  label such as `tok\x1ben=` does not hide the value. Only the secret value is
+  replaced; colors and other controls elsewhere in stored output are kept.
 - Synced, exported, shared, or backed-up files leave the local trust boundary.
   Review them before sending and protect the destination independently.
 - The dashboard should only be exposed beyond loopback when authentication is
