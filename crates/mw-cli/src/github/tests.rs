@@ -184,9 +184,20 @@ mod fake_gh {
             ));
             fs::create_dir(&directory).unwrap();
             let fake = Self { directory };
-            fake.put("gh", &format!(
+            fake.put("gh.src", &format!(
                 "#!/bin/sh\nset -eu\ncd \"${{0%/*}}\"\nprintf '%s\\n' \"$$\" > pid\nprintf '%s\\n' \"$*\" >> calls\n{script}\n"
             ));
+            // Materialize the executable from a child process. A writable
+            // descriptor held by this multi-threaded test process can leak into
+            // a concurrently forked sibling until its exec, and executing the
+            // file during that window fails with ETXTBSY ("Text file busy").
+            let status = std::process::Command::new("cp")
+                .arg(fake.directory.join("gh.src"))
+                .arg(fake.directory.join("gh"))
+                .status()
+                .unwrap();
+            assert!(status.success());
+            fs::remove_file(fake.directory.join("gh.src")).unwrap();
             fs::set_permissions(fake.directory.join("gh"), fs::Permissions::from_mode(0o700))
                 .unwrap();
             fake
