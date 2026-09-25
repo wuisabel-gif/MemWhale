@@ -159,7 +159,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 12;
+pub const LATEST_SCHEMA_VERSION: i64 = 13;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -200,6 +200,10 @@ pub const LATEST_SCHEMA_VERSION: i64 = 12;
 ///
 /// Migration 12 — case files: creates `case_files` and the ordered
 /// `case_file_commands` links to the command runs a case cites.
+///
+/// Migration 13 — command recipes: `command_recipes` stores a self-contained
+/// payload; `command_recipe_sources` links it to its ordered source runs.
+/// Deleting a source run only drops that provenance link, never the recipe.
 pub fn migrate(conn: &Connection) -> Result<(), String> {
     let version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -321,6 +325,24 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
     }
     if version < 12 {
         conn.execute_batch("CREATE TABLE IF NOT EXISTS case_files (id INTEGER PRIMARY KEY, title TEXT NOT NULL, observations TEXT NOT NULL DEFAULT '', conclusion TEXT NOT NULL DEFAULT '', unresolved_questions TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL, updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS case_file_commands (case_file_id INTEGER NOT NULL, command_run_id INTEGER NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(case_file_id, command_run_id), FOREIGN KEY(case_file_id) REFERENCES case_files(id) ON DELETE CASCADE, FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE RESTRICT); CREATE INDEX IF NOT EXISTS idx_case_files_updated_at ON case_files(updated_at); PRAGMA user_version = 12;").map_err(|e| format!("failed to migrate case files: {e}"))?;
+    }
+    if version < 13 {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS command_recipes (
+                 id INTEGER PRIMARY KEY, description TEXT NOT NULL, cwd TEXT,
+                 args_json TEXT NOT NULL, expected_criteria TEXT NOT NULL,
+                 created_at TEXT NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS command_recipe_sources (
+                 recipe_id INTEGER NOT NULL, command_run_id INTEGER NOT NULL,
+                 position INTEGER NOT NULL,
+                 PRIMARY KEY (recipe_id, command_run_id),
+                 FOREIGN KEY(recipe_id) REFERENCES command_recipes(id) ON DELETE CASCADE,
+                 FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE CASCADE
+             );
+             PRAGMA user_version = 13;",
+        )
+        .map_err(|e| format!("failed to migrate command recipes: {e}"))?;
     }
     ensure_memory_ref_cleanup(conn)?;
     Ok(())
@@ -2782,6 +2804,29 @@ mod tests {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
         assert_eq!(version, LATEST_SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn migration_11_creates_final_recipe_source_shape() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA user_version = 10;").unwrap();
+        migrate(&conn).unwrap();
+        let has_position: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('command_recipe_sources') WHERE name = 'position'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_position, 1);
+        let on_delete: String = conn
+            .query_row(
+                "SELECT on_delete FROM pragma_foreign_key_list('command_recipe_sources') WHERE \"table\" = 'command_runs'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(on_delete, "CASCADE", "deleting a run must not be blocked");
     }
 
     // The TUI review primitives, straight against an in-memory DB.
