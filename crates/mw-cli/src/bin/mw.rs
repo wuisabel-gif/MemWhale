@@ -416,6 +416,8 @@ fn print_help() {
          mw show <id>             print the full faithful transcript of a session\n\
          mw case create --title T --command-ids 1,2 [--observations X] [--conclusion X] [--unresolved X] [--status open|resolved|closed]\n\
          mw case show|list|export <id>  inspect human-authored case files\n\
+         mw recipe save --run 12,19 --description X [--cwd DIR] [--criteria X]  save a reusable command from verified runs\n\
+         mw recipe list | show <id> | copy <id>  browse saved recipes (copy prints the command; nothing runs)\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
@@ -1346,7 +1348,12 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
                 .map_err(|e| e.to_string())?;
             for r in rows {
                 let (id, d, c, k) = r.map_err(|e| e.to_string())?;
-                println!("#{id} {d} cwd={} criteria={k}", c.unwrap_or_default());
+                println!(
+                    "#{id} {} cwd={} criteria={}",
+                    compare_text(&d),
+                    compare_text(&c.unwrap_or_default()),
+                    compare_text(&k)
+                );
             }
             Ok(())
         }
@@ -1359,9 +1366,9 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
             let row=conn.query_row("SELECT description,cwd,args_json,expected_criteria FROM command_recipes WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).map_err(|_| format!("recipe not found: {id}"))?;
             let sources:Vec<i64>=conn.prepare("SELECT command_run_id FROM command_recipe_sources WHERE recipe_id=?1 ORDER BY position").map_err(|e| e.to_string())?.query_map([id],|r|r.get(0)).map_err(|e| e.to_string())?.collect::<Result<_,_>>().map_err(|e|e.to_string())?;
             if action == "copy" {
-                println!("{}", row.2);
+                println!("{}", compare_text(&row.2));
             } else {
-                println!("recipe #{id}: {}\ncwd: {}\nargs: {}\nexpected: {}\nsource runs: {:?}\n(no execution performed)",row.0,row.1.unwrap_or_default(),row.2,row.3,sources);
+                println!("recipe #{id}: {}\ncwd: {}\nargs: {}\nexpected: {}\nsource runs: {:?}\n(no execution performed)",compare_text(&row.0),compare_text(&row.1.unwrap_or_default()),compare_text(&row.2),compare_text(&row.3),sources);
             }
             Ok(())
         }
