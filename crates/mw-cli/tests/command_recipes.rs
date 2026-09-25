@@ -149,3 +149,57 @@ fn prune_keeps_recipes_and_reports_actual_deletions() {
     assert_eq!(count(&dir, "command_recipe_sources"), 0);
     assert!(!transcript.exists());
 }
+
+#[test]
+fn save_rejects_malformed_options_and_stores_redacted_text() {
+    let dir = data_dir("strict");
+    let run = remember(&dir, &["echo\u{1b}]52;c;aGk=\u{7}", "hi"]).to_string();
+    for bad in [
+        vec!["--run", &run, "--description", "--cwd", "--criteria", "ok"],
+        vec![
+            "--run",
+            &run,
+            "--description",
+            "a",
+            "--description",
+            "b",
+            "--criteria",
+            "ok",
+        ],
+        vec!["--run", &run, "--description", "a", "--criteria", ""],
+    ] {
+        let mut args = vec!["recipe", "save"];
+        args.extend(bad.iter().copied());
+        assert!(
+            !mw(&dir, &args).status.success(),
+            "{bad:?} should be rejected"
+        );
+    }
+    assert_eq!(count(&dir, "command_recipes"), 0);
+
+    let out = mw(
+        &dir,
+        &[
+            "recipe",
+            "save",
+            "--run",
+            &run,
+            "--description",
+            "tok\u{1b}en=secret1234567890",
+            "--criteria",
+            "prints hi",
+        ],
+    );
+    assert!(out.status.success(), "{out:?}");
+    assert!(
+        !out.stdout.contains(&0x1b) && !out.stdout.contains(&0x07),
+        "save output must not carry terminal controls: {out:?}"
+    );
+    let stored: String = db(&dir)
+        .query_row("SELECT description FROM command_recipes", [], |r| r.get(0))
+        .unwrap();
+    assert!(!stored.contains("secret1234567890"), "stored: {stored:?}");
+
+    assert!(!mw(&dir, &["recipe", "list", "extra"]).status.success());
+    assert!(!mw(&dir, &["recipe", "show", "1", "extra"]).status.success());
+}

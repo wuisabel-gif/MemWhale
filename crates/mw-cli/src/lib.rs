@@ -2807,7 +2807,7 @@ mod tests {
     }
 
     #[test]
-    fn migration_11_creates_final_recipe_source_shape() {
+    fn migration_13_creates_final_recipe_source_shape() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA user_version = 10;").unwrap();
         migrate(&conn).unwrap();

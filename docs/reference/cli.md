@@ -66,7 +66,6 @@ mw remember "the fix was passing --features vendored-ssl"  # save a lesson/concl
 mw remember "staging creds rotate friday" ttl:7d   # auto-expires after 7d (m/h/d/w) — drops from retrieval, evidence preserved
 mw replay 12                          # rerun a saved command run
 mw compare 12 34                      # compare two saved command runs, including provenance and differences
-
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
@@ -95,8 +94,13 @@ mw global on|off|status               # auto-record every new terminal
 
 Recipes are local metadata assembled only from explicitly selected recorded
 command IDs. Saving records the description, cwd, arguments, expected criteria,
-and source-run links; it never executes a command. `copy` only prints the
-recorded argument JSON and is safe to inspect or paste manually.
+and source-run links; it never executes a command. The description,
+criteria, and cwd are redacted before they are stored, like other captured
+text. `copy` only prints the recorded argument JSON (redacted) and is safe to
+inspect; it is not guaranteed to be a pasteable shell command.
+
+These saved recipes are separate from `mw search --mode recipes`, which
+selects notes that carry a `fix:` marker.
 
 Every `--run` must share the same command and arguments (duplicates are
 ignored); the first listed run supplies the default cwd, and `show` lists

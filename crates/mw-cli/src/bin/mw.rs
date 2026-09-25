@@ -416,8 +416,8 @@ fn print_help() {
          mw show <id>             print the full faithful transcript of a session\n\
          mw case create --title T --command-ids 1,2 [--observations X] [--conclusion X] [--unresolved X] [--status open|resolved|closed]\n\
          mw case show|list|export <id>  inspect human-authored case files\n\
-         mw recipe save --run 12,19 --description X [--cwd DIR] [--criteria X]  save a reusable command from verified runs\n\
-         mw recipe list | show <id> | copy <id>  browse saved recipes (copy prints the command; nothing runs)\n\
+         mw recipe save --run 12,19 --description X --criteria X [--cwd DIR]  save a reusable command from verified runs\n\
+         mw recipe list | show <id> | copy <id>  browse saved recipes (copy prints the recorded argv JSON, redacted; nothing runs)\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
@@ -1268,8 +1268,13 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
                 i += 1;
                 let value = args
                     .get(i)
+                    .filter(|v| !v.starts_with("--"))
                     .ok_or_else(|| format!("missing value for {key}"))?;
                 i += 1;
+                let once = |slot: &Option<String>| match slot {
+                    Some(_) => Err(format!("{key} given more than once")),
+                    None => Ok(Some(value.clone())),
+                };
                 match key.as_str() {
                     "--run" => runs.extend(
                         value
@@ -1280,16 +1285,24 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
                             })
                             .collect::<Result<Vec<_>, _>>()?,
                     ),
-                    "--description" => description = Some(value.clone()),
-                    "--cwd" => cwd = Some(value.clone()),
-                    "--criteria" => criteria = Some(value.clone()),
+                    "--description" => description = once(&description)?,
+                    "--cwd" => cwd = once(&cwd)?,
+                    "--criteria" => criteria = once(&criteria)?,
                     _ => return Err(format!("unknown option {key}")),
                 }
             }
+            // Stored text is redacted like other captured text, so secrets in
+            // it cannot leave the machine through `mw export`.
+            let clean = memorywhale_cli::case_files::clean;
             let description = description
                 .filter(|v| !v.is_empty())
+                .map(|v| clean(&v))
                 .ok_or("--description is required")?;
-            let criteria = criteria.ok_or("--criteria is required")?;
+            let criteria = criteria
+                .filter(|v| !v.is_empty())
+                .map(|v| clean(&v))
+                .ok_or("--criteria is required")?;
+            let cwd = cwd.filter(|v| !v.is_empty()).map(|v| clean(&v));
             if runs.is_empty() {
                 return Err("at least one explicit --run ID is required".into());
             }
@@ -1331,10 +1344,17 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
             }
             tx.commit()
                 .map_err(|e| format!("failed to commit recipe save: {e}"))?;
-            println!("saved recipe #{recipe_id}: {description} ({command})");
+            println!(
+                "saved recipe #{recipe_id}: {} ({})",
+                compare_text(&description),
+                compare_text(command)
+            );
             Ok(())
         }
         "list" => {
+            if args.len() > 1 {
+                return Err("usage: mw recipe list".into());
+            }
             let mut s = conn.prepare("SELECT id,description,cwd,expected_criteria FROM command_recipes ORDER BY id DESC").map_err(|e| e.to_string())?;
             let rows = s
                 .query_map([], |r| {
@@ -1358,6 +1378,9 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
             Ok(())
         }
         "show" | "copy" => {
+            if args.len() != 2 {
+                return Err("usage: mw recipe show|copy <recipe-id>".into());
+            }
             let id: i64 = args
                 .get(1)
                 .ok_or("usage: mw recipe show|copy <recipe-id>")?
