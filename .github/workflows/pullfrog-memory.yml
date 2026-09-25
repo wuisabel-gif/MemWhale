@@ -16,7 +16,7 @@ jobs:
       # workflow_run jobs use the trusted default branch. Do not check out or
       # execute code from the Pullfrog PR that triggered the completed run.
       - name: Check out the default branch
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -78,7 +78,7 @@ jobs:
             target/release/mw export project:pullfrog
 
       - name: Upload the MemoryWhale artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: pullfrog-memory-${{ github.event.workflow_run.id }}
           path: ${{ runner.temp }}/memorywhale/exports

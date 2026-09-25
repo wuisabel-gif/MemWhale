@@ -42,10 +42,10 @@ jobs:
     name: Validate README localization contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: Test localization safeguards
@@ -63,10 +63,10 @@ jobs:
       pull-requests: write
     steps:
       # Always use trusted main content when this job can access the provider secret.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: Check translation provider configuration
