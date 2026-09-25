@@ -1395,7 +1395,9 @@ fn recipe_cmd(args: &[String]) -> Result<(), String> {
             let row=conn.query_row("SELECT description,cwd,args_json,expected_criteria FROM command_recipes WHERE id=?1",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).map_err(|_| format!("recipe not found: {id}"))?;
             let sources:Vec<i64>=conn.prepare("SELECT command_run_id FROM command_recipe_sources WHERE recipe_id=?1 ORDER BY position").map_err(|e| e.to_string())?.query_map([id],|r|r.get(0)).map_err(|e| e.to_string())?.collect::<Result<_,_>>().map_err(|e|e.to_string())?;
             if action == "copy" {
-                println!("{}", compare_text(&row.2));
+                // Full document, no truncation: the stored JSON is already
+                // redacted, and clean() only strips controls/re-redacts.
+                println!("{}", memorywhale_cli::case_files::clean(&row.2));
             } else {
                 println!("recipe #{id}: {}\ncwd: {}\nargs: {}\nexpected: {}\nsource runs: {:?}\n(no execution performed)",compare_text(&row.0),compare_text(&row.1.unwrap_or_default()),compare_text(&row.2),compare_text(&row.3),sources);
             }

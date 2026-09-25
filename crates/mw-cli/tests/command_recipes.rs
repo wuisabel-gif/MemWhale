@@ -229,3 +229,30 @@ fn save_rejects_malformed_options_and_stores_redacted_text() {
     assert!(!mw(&dir, &["recipe", "list", "extra"]).status.success());
     assert!(!mw(&dir, &["recipe", "show", "1", "extra"]).status.success());
 }
+
+#[test]
+fn copy_prints_complete_json_for_large_argv() {
+    let dir = data_dir("large");
+    let big = "x".repeat(30_000);
+    let run = remember(&dir, &["echo", &big]).to_string();
+    assert!(mw(
+        &dir,
+        &[
+            "recipe",
+            "save",
+            "--run",
+            &run,
+            "--description",
+            "big",
+            "--criteria",
+            "ok"
+        ]
+    )
+    .status
+    .success());
+    let out = mw(&dir, &["recipe", "copy", "1"]);
+    assert!(out.status.success(), "{out:?}");
+    let argv: Vec<String> =
+        serde_json::from_str(String::from_utf8_lossy(&out.stdout).trim()).expect("complete JSON");
+    assert_eq!(argv.last().map(String::len), Some(30_000));
+}
