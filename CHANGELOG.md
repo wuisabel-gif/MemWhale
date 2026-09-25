@@ -3,6 +3,25 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.12.1] — Harden Secret Redaction — September 25, 2026
+
+Product `0.12.1`; `memorywhale-core` `0.6.1`; SQLite schema `13`.
+
+See [release notes](docs/releases/0.12.1.md).
+
+### Security
+
+- **Redaction resists terminal-control splits.** A control sequence inside a
+  secret label (e.g. `tok<ESC>en=…`) no longer evades redaction before storage
+  or export. The redact → strip-controls → redact pass now lives in the shared
+  `memorywhale-core` privacy module used by every capture and export surface. (#337)
+
+### Changed
+
+- **Second-Opinion reviewer** pinned to v0.4.0, with the guide and its
+  consistency check kept in sync. (#320)
+- **Dependencies:** grouped npm and Cargo minor/patch updates. (#321, #326)
+
 ## [0.12.0] — Retrieval You Can Trust — September 25, 2026
 
 Product `0.12.0`; `memorywhale-core` `0.6.0`; SQLite schema `13`.
