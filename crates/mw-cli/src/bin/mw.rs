@@ -3496,6 +3496,9 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     let (scope, args) = Scope::take(args)?;
     let (ranking, args) = take_ranking(&args)?;
     let explain = args.iter().any(|a| a == "--explain");
+    // Opt-in: recorded feedback reweights the retrieved order. Off by default,
+    // so the default ranking and output are byte-for-byte unchanged.
+    let use_feedback = args.iter().any(|a| a == "--use-feedback");
     let mut mode_value: Option<String> = None;
     let mut terms: Vec<&str> = Vec::new();
     let mut iter = args.iter();
@@ -3514,7 +3517,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
                 return Err(format!("--mode given more than once (second value: {v:?})"))
             }
             Some(v) => mode_value = Some(v),
-            None if a == "--explain" => {}
+            None if a == "--explain" || a == "--use-feedback" => {}
             None => terms.push(a.as_str()),
         }
     }
@@ -3532,7 +3535,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         || filters.after.is_some();
     if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--mode evidence|lessons|recipes|failures] [--ranking default|bayesian] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--mode evidence|lessons|recipes|failures] [--ranking default|bayesian] [--use-feedback] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }
@@ -3542,8 +3545,10 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     // apply. If the server is unreachable we print a notice and fall through to
     // the builtin engine over local memory, so a misconfig never hard-fails.
     // An explicit mode or `--ranking` is enforced by the builtin engine, so
-    // either one skips MemPalace.
-    if !has_filter && mode.is_none() && ranking.is_none() {
+    // either one skips MemPalace. `--use-feedback` reweights by local feedback
+    // keyed to local memory ids, which don't apply to MemPalace's own corpus, so
+    // it skips MemPalace too.
+    if !has_filter && mode.is_none() && ranking.is_none() && !use_feedback {
         if let Some(argv) = memorywhale_cli::mempalace_command() {
             let (cmd, rest) = argv.split_first().expect("mempalace_command is non-empty");
             let eng = memorywhale_core::engine::MemPalaceEngine::new(cmd.clone(), rest.to_vec())
@@ -3594,14 +3599,26 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         q = q.with_task(tags);
     }
     // limit:N caps the ranked results; default matches the previous behaviour.
-    let hits = engine.retrieve(&q, filters.limit.unwrap_or(20));
+    let mut hits = engine.retrieve(&q, filters.limit.unwrap_or(20));
+    // Opt-in: recorded feedback reorders the retrieved set (order only; scores
+    // and their explanations are untouched). Empty when the flag is off.
+    let feedback_net = if use_feedback {
+        memorywhale_cli::feedback_rerank(&conn, &mut hits)
+    } else {
+        std::collections::HashMap::new()
+    };
 
+    let fb_note = if use_feedback {
+        "; feedback-adjusted"
+    } else {
+        ""
+    };
     if q.ranking == memorywhale_core::Ranking::Bayesian {
         println!(
-            "# matches for {query:?}  (ranked by posterior_proxy; not a calibrated probability)\n"
+            "# matches for {query:?}  (ranked by posterior_proxy; not a calibrated probability{fb_note})\n"
         );
     } else {
-        println!("# matches for {query:?}  (ranked)\n");
+        println!("# matches for {query:?}  (ranked{fb_note})\n");
     }
     if hits.is_empty() {
         println!("(none)");
@@ -3644,6 +3661,10 @@ fn search_memory(args: &[String]) -> Result<(), String> {
             // Full per-signal breakdown + reasons (reuses the engine's view).
             for line in sm.explain().lines() {
                 println!("      {line}");
+            }
+            if use_feedback {
+                let net = feedback_net.get(&sm.memory.id).copied().unwrap_or(0);
+                println!("      feedback: {}", memorywhale_cli::feedback_explain(net));
             }
             println!();
         }

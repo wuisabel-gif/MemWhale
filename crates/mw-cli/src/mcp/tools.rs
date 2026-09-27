@@ -43,7 +43,8 @@ pub(super) fn tool_defs() -> Value {
                 "agent": {"type": "string", "enum": crate::SEARCH_AGENTS, "description": "optional producing agent; terminal matches NULL/manual records"},
                 "explain": {"type": "boolean", "description": "optional: include full per-signal ranking details and snippet/provenance status"},
                 "mode": {"type": "string", "enum": ["evidence", "lessons", "recipes", "failures"], "description": "optional conservative retrieval view: evidence = everything except saved notes (commands, sessions, documents, conversations); lessons = all saved notes (remember and mark share storage); recipes = notes with a fix: marker; failures = error-tagged memories"},
-                "ranking": {"type": "string", "enum": ["default", "bayesian"], "description": "optional opt-in evidence_score/posterior_proxy ranking; not a calibrated probability"}
+                "ranking": {"type": "string", "enum": ["default", "bayesian"], "description": "optional opt-in evidence_score/posterior_proxy ranking; not a calibrated probability"},
+                "use_feedback": {"type": "boolean", "description": "optional opt-in: reorder results by recorded retrieval feedback (helpful boosts, irrelevant/outdated/contradicted demote; only active feedback, order only, relevance scores unchanged)"}
             }, "required": ["query"]}
         },
         {
@@ -107,6 +108,9 @@ pub(super) fn call_tool(
                     .unwrap_or(false),
                 mode_arg(args)?,
                 ranking_arg(args)?,
+                args.get("use_feedback")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
             )
         }
         "get_context" => {
@@ -313,6 +317,7 @@ fn note_provenance(conn: &Connection, id: i64) -> Option<String> {
 /// Rank all memories (commands, sessions, notes, …) for the query via the
 /// explainable engine — the same loader + scorer the CLI and desktop use.
 /// "now" is supplied by this caller so ranking is deterministic in tests.
+#[allow(clippy::too_many_arguments)] // distinct, flat search parameters
 fn search_memory(
     query: &str,
     project: Option<&str>,
@@ -321,6 +326,7 @@ fn search_memory(
     explain: bool,
     mode: Option<crate::SearchMode>,
     ranking: memorywhale_core::Ranking,
+    use_feedback: bool,
 ) -> Result<String, String> {
     let conn = open()?;
     let now = Utc::now();
@@ -350,13 +356,23 @@ fn search_memory(
     if !tags.is_empty() {
         q = q.with_task(tags);
     }
-    let hits = engine.retrieve(&q, 20);
+    let mut hits = engine.retrieve(&q, 20);
+    // Opt-in feedback reranking (order only; scores/explanations untouched).
+    let feedback_net = if use_feedback {
+        crate::feedback_rerank(&conn, &mut hits)
+    } else {
+        std::collections::HashMap::new()
+    };
     if hits.is_empty() {
         return Ok(format!("(no matches for {query:?})"));
     }
     let mut out = String::new();
     for sm in &hits {
         out.push_str(&render_hit(&conn, sm, explain));
+        if use_feedback && explain {
+            let net = feedback_net.get(&sm.memory.id).copied().unwrap_or(0);
+            out.push_str(&format!("  feedback: {}\n", crate::feedback_explain(net)));
+        }
     }
     Ok(out)
 }

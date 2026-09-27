@@ -1531,6 +1531,90 @@ pub fn filter_memories(
     mems
 }
 
+// ── feedback reranking (opt-in) ────────────────────────────────────────────
+//
+// Recorded retrieval feedback (the `retrieval_feedback` table) can nudge the
+// order of an already-retrieved, already-scoped result set. It is opt-in and
+// lives entirely in the CLI layer: core stays generic and never learns what
+// feedback means. Feedback only *reorders* — it never adds, hides, or filters a
+// memory, and it never touches the relevance score or its explanation, so the
+// displayed `score % = Σ contributions` audit stays honest.
+
+/// Score nudge per net feedback point. Bounded (see [`FEEDBACK_CAP`]) so
+/// feedback breaks near-ties and lifts/sinks a memory a rung, without letting a
+/// pile of votes override relevance.
+pub const FEEDBACK_STEP: f32 = 0.05;
+/// Absolute cap on the feedback nudge, so no memory can be boosted or demoted by
+/// more than this regardless of how many votes it has.
+pub const FEEDBACK_CAP: f32 = 0.15;
+
+/// The ranking nudge for a net feedback count (helpful minus negative kinds),
+/// `net × STEP` clamped to `±CAP`.
+pub fn feedback_delta(net: i32) -> f32 {
+    (net as f32 * FEEDBACK_STEP).clamp(-FEEDBACK_CAP, FEEDBACK_CAP)
+}
+
+/// Net *active* feedback per memory id: `+1` per `helpful`, `-1` per
+/// `irrelevant`/`outdated`/`contradicted`, counting only rows with
+/// `undone_at IS NULL`. Best-effort: any DB error yields an empty map so search
+/// never fails because of feedback. Ids match `Memory::id` (the encoded id the
+/// `feedback` command stores).
+pub fn active_feedback_net(conn: &Connection) -> HashMap<i64, i32> {
+    let mut out = HashMap::new();
+    let Ok(mut st) = conn.prepare(
+        "SELECT memory_id, SUM(CASE WHEN kind='helpful' THEN 1 \
+         WHEN kind IN ('irrelevant','outdated','contradicted') THEN -1 ELSE 0 END) \
+         FROM retrieval_feedback WHERE undone_at IS NULL GROUP BY memory_id",
+    ) else {
+        return out;
+    };
+    let Ok(rows) = st.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?))) else {
+        return out;
+    };
+    for (id, net) in rows.flatten() {
+        if net != 0 {
+            out.insert(id, net as i32);
+        }
+    }
+    out
+}
+
+/// Re-rank `hits` in place by feedback-adjusted score, highest first. Each hit's
+/// own `score` (and explanation) is left untouched — feedback only reorders. The
+/// sort is stable, so ties and memories with no feedback keep their prior
+/// relative order. Returns the net feedback per memory id, for callers that
+/// annotate `--explain`.
+pub fn feedback_rerank(
+    conn: &Connection,
+    hits: &mut [memorywhale_core::ScoredMemory],
+) -> HashMap<i64, i32> {
+    let net = active_feedback_net(conn);
+    if net.is_empty() {
+        return net;
+    }
+    let adj = |sm: &memorywhale_core::ScoredMemory| {
+        sm.score + feedback_delta(net.get(&sm.memory.id).copied().unwrap_or(0))
+    };
+    hits.sort_by(|a, b| {
+        adj(b)
+            .partial_cmp(&adj(a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    net
+}
+
+/// One-line, human-readable feedback note for `--explain`.
+pub fn feedback_explain(net: i32) -> String {
+    if net == 0 {
+        "none recorded → no ranking adjustment".into()
+    } else {
+        format!(
+            "net {net:+} (helpful − wrong/outdated) → ranking {:+.3}",
+            feedback_delta(net)
+        )
+    }
+}
+
 /// Conservative retrieval views based only on stored provenance and tags.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchMode {
@@ -3192,5 +3276,119 @@ mod tests {
             provenance_label("agent", None, "2026-07-12", None),
             "remembered by agent on 2026-07-12"
         );
+    }
+}
+
+#[cfg(test)]
+mod feedback_rerank_tests {
+    use super::*;
+    use chrono::Utc;
+    use memorywhale_core::{Memory, ScoredMemory};
+    use rusqlite::Connection;
+
+    fn db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        conn
+    }
+
+    fn add_feedback(conn: &Connection, memory_id: i64, kind: &str) {
+        conn.execute(
+            "INSERT INTO retrieval_feedback (memory_id, kind, created_at) VALUES (?1, ?2, ?3)",
+            params![memory_id, kind, Utc::now().to_rfc3339()],
+        )
+        .unwrap();
+    }
+
+    fn hit(id: i64, score: f32) -> ScoredMemory {
+        let now = Utc::now();
+        ScoredMemory {
+            memory: Memory {
+                id,
+                text: format!("memory {id}"),
+                created_at: now,
+                last_used: now,
+                mentions: 0,
+                importance: 0.5,
+                tags: vec![],
+                embedding: None,
+                agent: None,
+            },
+            score,
+            signals: vec![],
+            ranking: Default::default(),
+        }
+    }
+
+    fn ids(hits: &[ScoredMemory]) -> Vec<i64> {
+        hits.iter().map(|h| h.memory.id).collect()
+    }
+
+    // (a) No active feedback → order and scores are exactly unchanged.
+    #[test]
+    fn no_feedback_leaves_order_and_scores_untouched() {
+        let conn = db();
+        let mut hits = vec![hit(1, 0.80), hit(2, 0.60), hit(3, 0.40)];
+        let net = feedback_rerank(&conn, &mut hits);
+        assert!(net.is_empty());
+        assert_eq!(ids(&hits), vec![1, 2, 3]);
+        assert_eq!(hits[0].score, 0.80);
+        assert_eq!(hits[1].score, 0.60);
+    }
+
+    // (b) A memory marked helpful ranks above an otherwise-equal one, and its
+    // relevance score is left untouched (feedback reorders only).
+    #[test]
+    fn helpful_lifts_above_equal_peer() {
+        let conn = db();
+        add_feedback(&conn, 2, "helpful");
+        // #1 and #2 tie on relevance; #2 is helpful so it must lead. #1 keeps its
+        // pre-feedback position relative to the untouched #3.
+        let mut hits = vec![hit(1, 0.60), hit(2, 0.60), hit(3, 0.10)];
+        feedback_rerank(&conn, &mut hits);
+        assert_eq!(ids(&hits), vec![2, 1, 3]);
+        assert_eq!(hits[0].score, 0.60, "score is not mutated by reranking");
+    }
+
+    // (c) A memory marked wrong/outdated ranks below an otherwise-equal one.
+    #[test]
+    fn negative_feedback_sinks_below_equal_peer() {
+        let conn = db();
+        add_feedback(&conn, 1, "outdated");
+        add_feedback(&conn, 3, "contradicted");
+        let mut hits = vec![hit(1, 0.60), hit(2, 0.60), hit(3, 0.60)];
+        feedback_rerank(&conn, &mut hits);
+        // Only #2 is un-penalised, so it leads; #1 and #3 keep prior order.
+        assert_eq!(ids(&hits), vec![2, 1, 3]);
+    }
+
+    // (d) Undone feedback is ignored.
+    #[test]
+    fn undone_feedback_is_ignored() {
+        let conn = db();
+        add_feedback(&conn, 2, "helpful");
+        conn.execute(
+            "UPDATE retrieval_feedback SET undone_at = ?1 WHERE memory_id = 2",
+            params![Utc::now().to_rfc3339()],
+        )
+        .unwrap();
+        let mut hits = vec![hit(1, 0.60), hit(2, 0.60)];
+        let net = feedback_rerank(&conn, &mut hits);
+        assert!(net.is_empty(), "undone feedback must not count");
+        assert_eq!(ids(&hits), vec![1, 2]);
+    }
+
+    // The nudge is bounded and cannot override a clear relevance gap.
+    #[test]
+    fn boost_is_bounded_and_does_not_override_relevance() {
+        let conn = db();
+        for _ in 0..20 {
+            add_feedback(&conn, 2, "helpful");
+        }
+        assert_eq!(feedback_delta(20), FEEDBACK_CAP);
+        // #1 leads by more than the cap, so no amount of helpful votes flips it.
+        let mut hits = vec![hit(1, 0.90), hit(2, 0.60)];
+        feedback_rerank(&conn, &mut hits);
+        assert_eq!(ids(&hits), vec![1, 2]);
     }
 }

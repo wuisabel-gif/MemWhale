@@ -52,6 +52,7 @@ mw show 1                             # print the full transcript of a session
 mw search "linker error"              # search commands, output, notes, transcripts
 mw search docker after:2026-01-01 tag:infra   # filter results: tag:X, source:command|session|note|document|conversation, agent:claude|rho|cursor|codewhale|terminal, before:/after:YYYY-MM-DD, limit:N
 mw search "build" --mode lessons       # explicit view: evidence, lessons, recipes, or failures
+mw search "flaky test" --use-feedback  # reorder by recorded feedback (opt-in; see below)
                                       # evidence = everything except saved notes; lessons = saved notes (mw remember and mw mark share storage); recipes = notes with a fix: marker
 mw explain 1000000001                 # why this memory ranks: per-signal breakdown (ids come from `mw search`)
 mw link 1000000001 3000000001 rel:fixed-by   # link two memories (typed edge; ids from `mw search`)
@@ -306,3 +307,29 @@ value (`default` or `bayesian`); anything else is a usage error. An explicit
 MCP `search_memory` accepts `"ranking":"default"` or `"ranking":"bayesian"`;
 other values are rejected, and omitting it preserves the existing output and
 ordering.
+
+### Optional feedback-adjusted ranking
+
+`mw search` ignores recorded retrieval feedback by default. Pass `--use-feedback`
+to reorder the retrieved results by the feedback stored with `mw feedback add`.
+It is opt-in and reorders **only**: without the flag the ranking and output are
+unchanged, and even with it the relevance score shown for each hit (and its
+`--explain` breakdown) is untouched — feedback breaks near-ties and lifts or
+sinks a memory a rung, it does not rewrite relevance.
+
+Only **active** feedback counts (rows not undone with `mw feedback undo`). Per
+memory, feedback nets to `helpful` minus `irrelevant`/`outdated`/`contradicted`;
+that net is turned into a bounded ranking nudge of `net × 0.05`, clamped to
+`±0.15`, added to the score purely for ordering. So one net helpful lifts a
+memory by 0.05, three or more by the 0.15 cap; a clear relevance gap always
+wins. The sort is stable: ties and memories with no feedback keep their prior
+order, and nothing is ever filtered out. With `--explain`, each hit gains a
+`feedback:` line naming its net and the applied nudge.
+
+Feedback is stored locally and keyed to local memory ids, so `--use-feedback`
+always uses the builtin engine (it skips MemPalace, like `--ranking`). It
+reorders already-retrieved, already-approved, in-scope results only; it never
+resurfaces unapproved or out-of-scope memories.
+
+MCP `search_memory` accepts `"use_feedback": true` for the same behaviour;
+omitting it (or `false`) preserves the existing output and ordering.
