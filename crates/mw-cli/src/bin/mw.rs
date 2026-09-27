@@ -1785,18 +1785,20 @@ fn seed_demo() -> Result<(), String> {
     let conn = open_session_db()?;
     let now = Utc::now().to_rfc3339();
     let demo_notes = "project:demo host:jetson runtime:host";
+    let demo_stderr = "error: failed to build\\nNo package 'libsoup-3.0' found\\n";
     conn.execute(
-        "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at, error_fingerprint)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             "cargo",
             serde_json::to_string(&vec!["cargo", "check"]).unwrap(),
             "/demo/MemoryWhale",
             101_i64,
             "",
-            "error: failed to build\\nNo package 'libsoup-3.0' found\\n",
+            demo_stderr,
             demo_notes,
-            now
+            now,
+            memorywhale_cli::error_fingerprint("cargo", demo_stderr)
         ],
     )
     .map_err(|err| format!("failed to insert demo command: {err}"))?;
@@ -2996,6 +2998,9 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
     // Rebuild the searchable argument rows for any newly imported command runs.
     rebuild_missing_arguments(&conn)?;
 
+    // Imported failures arrive without a fingerprint; group them with local
+    // recurrences (idempotent: only fills rows that still lack one).
+    memorywhale_cli::backfill_error_fingerprints(&conn)?;
     let after_runs: i64 = conn
         .query_row("SELECT COUNT(*) FROM command_runs", [], |r| r.get(0))
         .unwrap_or(before_runs);

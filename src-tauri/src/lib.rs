@@ -743,13 +743,19 @@ fn save_command_run(
         .db
         .lock()
         .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
+    // Same failure-fingerprint rule as `mw-run` / `mw-remember`, from the
+    // sanitized stderr, so desktop-recorded failures group as recurring too.
+    let fingerprint = match request.exit_code {
+        Some(0) | None => None,
+        Some(_) => memorywhale_cli::error_fingerprint(&command, &stderr),
+    };
     let tx = conn.transaction()?;
     tx.execute(
         "
         INSERT INTO command_runs
             (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
-             agent, repository_id, repository_name, worktree_root)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10, ?11)
+             agent, repository_id, repository_name, worktree_root, error_fingerprint)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10, ?11, ?12)
         ",
         params![
             command,
@@ -762,7 +768,8 @@ fn save_command_run(
             created_at,
             repository.as_ref().map(|repo| repo.id.as_str()),
             repository.as_ref().map(|repo| repo.name.as_str()),
-            repository.as_ref().map(|repo| repo.worktree_root.as_str())
+            repository.as_ref().map(|repo| repo.worktree_root.as_str()),
+            fingerprint
         ],
     )?;
     let run_id = tx.last_insert_rowid();

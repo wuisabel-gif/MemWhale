@@ -88,12 +88,21 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
             return Ok(None);
         }
     }
+    // Fingerprint failures so a recurring error groups with its prior runs
+    // (`mw context --last-error`, `similar_failures`). Same rule as `mw-run`:
+    // computed from the redacted stderr we store, failures only.
+    let redacted_stderr = crate::sanitize_capture(&record.stderr);
+    let fingerprint = match record.exit_code {
+        Some(0) | None => None,
+        Some(_) => crate::error_fingerprint(&command, &redacted_stderr),
+    };
     conn.execute(
         "
         INSERT INTO command_runs
             (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
-             capture_kind, agent, repository_id, repository_name, worktree_root)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+             capture_kind, agent, repository_id, repository_name, worktree_root,
+             error_fingerprint)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
         ",
         params![
             command,
@@ -101,14 +110,15 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
             record.cwd,
             record.exit_code,
             crate::sanitize_capture(&record.stdout),
-            crate::sanitize_capture(&record.stderr),
+            redacted_stderr,
             crate::sanitize_capture(&record.notes),
             created_at,
             record.capture_kind,
             record.agent,
             repository.as_ref().map(|repo| repo.id.as_str()),
             repository.as_ref().map(|repo| repo.name.as_str()),
-            repository.as_ref().map(|repo| repo.worktree_root.as_str())
+            repository.as_ref().map(|repo| repo.worktree_root.as_str()),
+            fingerprint
         ],
     )
     .map_err(|err| format!("failed to insert command run: {err}"))?;

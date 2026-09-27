@@ -592,7 +592,7 @@ pub fn ensure_error_fingerprint(conn: &Connection) -> Result<(), String> {
 /// Compute fingerprints for existing failed rows that don't have one, so the
 /// "you've hit this N times" history works retroactively on a populated DB the
 /// first time migration 4 runs.
-fn backfill_error_fingerprints(conn: &Connection) -> Result<(), String> {
+pub fn backfill_error_fingerprints(conn: &Connection) -> Result<(), String> {
     if !table_exists(conn, "command_runs")? {
         return Ok(());
     }
