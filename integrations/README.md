@@ -56,6 +56,7 @@ features.
 | OpenRouter | No; hosted model gateway | No | No; configure in the agent | [Guide](openrouter/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |
 | Pullfrog | No; PR workflow only | No | No | [Guide](pullfrog/README.md) |
+| Qwen Code | Transport/configuration verified; native client call pending | No | Optional `QWEN.md` guidance; native loading pending | [Guide](qwen-code/README.md) |
 | Second-Opinion | No; GitHub Action review only | No | No | [Guide](second-opinion/README.md) |
 | Rho | Yes | Yes, optional capture hook | Yes, optional skill | [Guide](rho/README.md) |
 | VS Code / GitHub Copilot | Yes | No | Yes | [Guide](vscode/README.md) |

@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "memorywhale": {
+      "command": "/absolute/path/to/mw-mcp",
+      "args": [],
+      "cwd": "/absolute/path/to/your/project",
+      "env": {
+        "MEMORYWHALE_DATA_DIR": "/absolute/path/to/a-new-memorywhale-store"
+      },
+      "includeTools": [
+        "recent_errors",
+        "search_memory",
+        "get_context",
+        "remember",
+        "similar_failures",
+        "stats"
+      ],
+      "timeout": 120000,
+      "trust": false
+    }
+  }
+}
