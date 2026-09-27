@@ -27,7 +27,7 @@ memorywhale-cli = { path = "../crates/mw-cli" }
 # feature. The CLI leaves this off, keeping `ureq` out of the CLI build.
 memorywhale-core = { path = "../crates/memorywhale-core", features = ["embeddings"] }
 regex = "1"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2.1", features = [] }
