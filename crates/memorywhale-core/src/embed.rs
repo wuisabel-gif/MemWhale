@@ -95,11 +95,12 @@ impl Embedder for OllamaEmbedder {
 
     fn embed(&self, text: &str) -> anyhow::Result<Vec<f32>> {
         let url = format!("{}/api/embeddings", self.endpoint);
-        let resp = ureq::post(&url)
-            .send_json(ureq::json!({ "model": self.model, "prompt": text }))
+        let mut resp = ureq::post(&url)
+            .send_json(serde_json::json!({ "model": self.model, "prompt": text }))
             .map_err(|e| anyhow::anyhow!("ollama request failed: {e}"))?;
         let body: serde_json::Value = resp
-            .into_json()
+            .body_mut()
+            .read_json()
             .map_err(|e| anyhow::anyhow!("ollama response not JSON: {e}"))?;
         let arr = body
             .get("embedding")
