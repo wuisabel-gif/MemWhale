@@ -15,7 +15,7 @@
 use chrono::{DateTime, Utc};
 use memorywhale_core::engine::MemoryEngine;
 use regex::Regex;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::env;
 use std::fs;
 use std::io::{BufRead, Read, Write};
@@ -2670,6 +2670,15 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
         .unwrap_or(0);
 
+    // Source row id -> destination row id, per memory table, built as rows are
+    // inserted (or matched to an existing duplicate). retrieval_feedback and
+    // memory_links reference memories by namespaced ids that decode to these
+    // per-table row ids, so they can only be remapped after these maps exist.
+    use std::collections::HashMap;
+    let mut cmd_map: HashMap<i64, i64> = HashMap::new();
+    let mut session_map: HashMap<i64, i64> = HashMap::new();
+    let mut note_map: HashMap<i64, i64> = HashMap::new();
+
     // A source DB written by an older `mw` may be missing columns added later
     // (e.g. sessions.status). Select `s.<col>` when present, else a default, so
     // cross-version imports don't fail.
@@ -2687,7 +2696,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "command_runs");
         if c.contains("command") && c.contains("argv_json") && c.contains("created_at") {
             let sql = format!(
-                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs s",
+                "SELECT s.id, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.command_runs s",
                 sel(&c, "command", "''"),
                 sel(&c, "argv_json", "'[]'"),
                 sel(&c, "cwd", "NULL"),
@@ -2702,6 +2711,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 sel(&c, "worktree_root", "NULL")
             );
             type ImportedCommandRun = (
+                i64,
                 String,
                 String,
                 Option<String>,
@@ -2733,6 +2743,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                         r.get(9)?,
                         r.get(10)?,
                         r.get(11)?,
+                        r.get(12)?,
                     ))
                 });
                 let rows = mapped
@@ -2742,6 +2753,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 rows
             };
             for (
+                src_id,
                 command,
                 argv_json,
                 cwd,
@@ -2779,14 +2791,17 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                     .as_deref()
                     .and_then(memorywhale_cli::agent_hook::Agent::parse)
                     .map(|agent| agent.as_str().to_string());
-                let exists: i64 = conn
+                let existing: Option<i64> = conn
                     .query_row(
-                        "SELECT COUNT(*) FROM command_runs WHERE command = ?1 AND argv_json = ?2 AND created_at = ?3",
+                        "SELECT id FROM command_runs WHERE command = ?1 AND argv_json = ?2 AND created_at = ?3",
                         params![command, argv_json, created_at],
                         |r| r.get(0),
                     )
-                    .unwrap_or(0);
-                if exists == 0 {
+                    .optional()
+                    .map_err(|err| format!("failed to look up command run: {err}"))?;
+                if let Some(dest_id) = existing {
+                    cmd_map.insert(src_id, dest_id);
+                } else {
                     conn.execute(
                         "INSERT INTO command_runs
                             (command, argv_json, cwd, exit_code, stdout, stderr, notes, created_at,
@@ -2808,7 +2823,9 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                         ],
                     )
                     .map_err(|err| format!("failed to merge command run: {err}"))?;
-                } else if agent.is_some() {
+                    cmd_map.insert(src_id, conn.last_insert_rowid());
+                }
+                if existing.is_some() && agent.is_some() {
                     // A legacy duplicate may predate structured provenance.
                     // Fill only NULL so a trusted existing attribution wins.
                     conn.execute(
@@ -2828,7 +2845,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
         let c = src_columns(&conn, "sessions");
         if c.contains("started_at") && c.contains("transcript_path") {
             let sql = format!(
-                "SELECT {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.sessions s",
+                "SELECT s.id, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} FROM src.sessions s",
                 sel(&c, "shell", "''"),
                 sel(&c, "cwd", "NULL"),
                 sel(&c, "transcript_path", "''"),
@@ -2843,6 +2860,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 sel(&c, "worktree_root", "NULL")
             );
             type ImportedSession = (
+                i64,
                 String,
                 Option<String>,
                 String,
@@ -2874,6 +2892,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                         r.get(9)?,
                         r.get(10)?,
                         r.get(11)?,
+                        r.get(12)?,
                     ))
                 });
                 let rows = mapped
@@ -2883,6 +2902,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 rows
             };
             for (
+                src_id,
                 shell,
                 cwd,
                 path,
@@ -2904,14 +2924,17 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                 } else {
                     transcript.len() as i64
                 };
-                let exists: i64 = conn
+                let existing: Option<i64> = conn
                     .query_row(
-                        "SELECT COUNT(*) FROM sessions WHERE started_at = ?1 AND transcript_path = ?2",
+                        "SELECT id FROM sessions WHERE started_at = ?1 AND transcript_path = ?2",
                         params![started, path],
                         |r| r.get(0),
                     )
-                    .unwrap_or(0);
-                if exists == 0 {
+                    .optional()
+                    .map_err(|err| format!("failed to look up session: {err}"))?;
+                if let Some(dest_id) = existing {
+                    session_map.insert(src_id, dest_id);
+                } else {
                     conn.execute(
                         "INSERT INTO sessions
                             (shell, cwd, transcript_path, transcript, notes, started_at, ended_at,
@@ -2933,6 +2956,7 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
                         ],
                     )
                     .map_err(|err| format!("failed to merge session: {err}"))?;
+                    session_map.insert(src_id, conn.last_insert_rowid());
                 }
             }
         }
@@ -2942,54 +2966,163 @@ fn import_sqlite(src: &std::path::Path) -> Result<(), String> {
     if src_has("bookmarks") {
         let c = src_columns(&conn, "bookmarks");
         let sql = format!(
-            "SELECT {}, {}, {} FROM src.bookmarks s",
+            "SELECT s.id, {}, {}, {} FROM src.bookmarks s",
             sel(&c, "label", "''"),
             sel(&c, "cwd", "NULL"),
             sel(&c, "created_at", "''")
         );
-        let rows: Vec<(String, Option<String>, String)> = conn
+        let rows: Vec<(i64, String, Option<String>, String)> = conn
             .prepare(&sql)
             .and_then(|mut stmt| {
-                stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
                     .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
             })
             .map_err(|err| format!("failed to read imported bookmarks: {err}"))?;
-        for (label, cwd, created_at) in rows {
+        for (src_id, label, cwd, created_at) in rows {
             let label = memorywhale_cli::sanitize_capture(&label);
-            let exists: i64 = conn
+            let existing: Option<i64> = conn
                 .query_row(
-                    "SELECT COUNT(*) FROM bookmarks WHERE label = ?1 AND created_at = ?2",
+                    "SELECT id FROM bookmarks WHERE label = ?1 AND created_at = ?2",
                     params![label, created_at],
                     |r| r.get(0),
                 )
-                .unwrap_or(0);
-            if exists == 0 {
+                .optional()
+                .map_err(|err| format!("failed to look up bookmark: {err}"))?;
+            if let Some(dest_id) = existing {
+                note_map.insert(src_id, dest_id);
+            } else {
                 conn.execute(
                     "INSERT INTO bookmarks (label, cwd, created_at) VALUES (?1, ?2, ?3)",
                     params![label, cwd, created_at],
                 )
                 .map_err(|err| format!("failed to merge bookmark: {err}"))?;
+                note_map.insert(src_id, conn.last_insert_rowid());
             }
         }
     }
 
-    // ponytail: feedback (like memory_links) is keyed by this store's row ids,
-    // which import does not preserve, so it stays machine-local. Say so rather
-    // than dropping it silently; port it once import tracks an id mapping.
-    let skipped_feedback: i64 = if src_has("retrieval_feedback") {
-        conn.query_row("SELECT COUNT(*) FROM src.retrieval_feedback", [], |r| {
-            r.get(0)
-        })
-        .map_err(|err| format!("failed to read source retrieval feedback: {err}"))?
-    } else {
-        0
+    // Feedback and typed links reference memories by namespaced ids that decode
+    // to per-table source row ids. Remap each through the maps built above; a
+    // row whose target did not import (documents/agent_turns aren't imported by
+    // the CLI, or a duplicate that was filtered) is skipped and counted.
+    let remap = |old_id: i64| -> Option<i64> {
+        use memorywhale_core::sqlite::{decode_id, encode_id, Source};
+        let (source, row) = decode_id(old_id);
+        let new_row = match source {
+            Source::Command => cmd_map.get(&row),
+            Source::Session => session_map.get(&row),
+            Source::Note => note_map.get(&row),
+            // Documents and conversation turns are desktop-only; the CLI import
+            // never inserts them, so nothing can point at them here.
+            Source::Document | Source::Conversation => None,
+        }?;
+        Some(encode_id(source, *new_row))
     };
+
+    let (mut feedback_imported, mut feedback_skipped) = (0i64, 0i64);
+    if src_has("retrieval_feedback") {
+        type FeedbackRow = (
+            i64,
+            String,
+            String,
+            Option<i64>,
+            Option<String>,
+            Option<String>,
+        );
+        let rows: Vec<FeedbackRow> = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT memory_id, kind, created_at, source_session_id, actor, undone_at
+                     FROM src.retrieval_feedback s",
+                )
+                .map_err(|err| format!("failed to read source retrieval feedback: {err}"))?;
+            stmt.query_map([], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                ))
+            })
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(|err| format!("failed to decode source retrieval feedback: {err}"))?
+        };
+        for (memory_id, kind, created_at, source_session_id, actor, undone_at) in rows {
+            let Some(new_memory_id) = remap(memory_id) else {
+                feedback_skipped += 1;
+                continue;
+            };
+            // source_session_id is a raw sessions row id; remap it or drop the
+            // stale reference rather than pointing at an unrelated local row.
+            let new_session_id = source_session_id.and_then(|id| session_map.get(&id).copied());
+            // No natural unique key, so dedupe on the identifying tuple to keep
+            // re-import idempotent (actor is nullable; IS matches NULL).
+            let exists: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM retrieval_feedback
+                     WHERE memory_id = ?1 AND kind = ?2 AND created_at = ?3 AND actor IS ?4",
+                    params![new_memory_id, kind, created_at, actor],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            if exists == 0 {
+                conn.execute(
+                    "INSERT INTO retrieval_feedback
+                        (memory_id, kind, created_at, source_session_id, actor, undone_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![
+                        new_memory_id,
+                        kind,
+                        created_at,
+                        new_session_id,
+                        actor,
+                        undone_at
+                    ],
+                )
+                .map_err(|err| format!("failed to merge retrieval feedback: {err}"))?;
+            }
+            feedback_imported += 1;
+        }
+    }
+
+    let (mut links_imported, mut links_skipped) = (0i64, 0i64);
+    if src_has("memory_links") {
+        let rows: Vec<(i64, i64, String, Option<String>)> = {
+            let mut stmt = conn
+                .prepare("SELECT from_id, to_id, relation, created_at FROM src.memory_links s")
+                .map_err(|err| format!("failed to read source memory links: {err}"))?;
+            stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+                .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+                .map_err(|err| format!("failed to decode source memory links: {err}"))?
+        };
+        for (from_id, to_id, relation, created_at) in rows {
+            let (Some(new_from), Some(new_to)) = (remap(from_id), remap(to_id)) else {
+                links_skipped += 1;
+                continue;
+            };
+            // PRIMARY KEY (from_id, to_id, relation) makes this idempotent.
+            conn.execute(
+                "INSERT OR IGNORE INTO memory_links (from_id, to_id, relation, created_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![new_from, new_to, relation, created_at],
+            )
+            .map_err(|err| format!("failed to merge memory link: {err}"))?;
+            links_imported += 1;
+        }
+    }
 
     conn.execute("DETACH DATABASE src", [])
         .map_err(|err| format!("failed to detach source: {err}"))?;
-    if skipped_feedback > 0 {
+    if feedback_imported > 0 || feedback_skipped > 0 {
         eprintln!(
-            "mw: note: {skipped_feedback} retrieval feedback record(s) were not imported (feedback is machine-local)"
+            "mw: imported {feedback_imported} retrieval feedback record(s), skipped {feedback_skipped} (target memory absent)"
+        );
+    }
+    if links_imported > 0 || links_skipped > 0 {
+        eprintln!(
+            "mw: imported {links_imported} memory link(s), skipped {links_skipped} (target memory absent)"
         );
     }
 
@@ -5618,6 +5751,144 @@ mod tests {
 
         drop(conn);
         // env + temp dirs are restored by the Cleanup guard on drop
+    }
+
+    #[test]
+    fn import_remaps_feedback_and_links_to_dest_ids() {
+        use memorywhale_core::sqlite::{encode_id, Source};
+
+        let _env_guard = IMPORT_ENV_LOCK.lock().unwrap();
+        let previous_data_dir = env::var_os("MEMORYWHALE_DATA_DIR");
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dest = env::temp_dir().join(format!("mw-import-remap-{unique}"));
+        let src_dir = env::temp_dir().join(format!("mw-import-remap-src-{unique}"));
+        fs::create_dir_all(&dest).unwrap();
+        fs::create_dir_all(&src_dir).unwrap();
+        env::set_var("MEMORYWHALE_DATA_DIR", &dest);
+
+        struct Cleanup {
+            previous_data_dir: Option<std::ffi::OsString>,
+            dest: std::path::PathBuf,
+            src_dir: std::path::PathBuf,
+        }
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                if let Some(value) = self.previous_data_dir.take() {
+                    env::set_var("MEMORYWHALE_DATA_DIR", value);
+                } else {
+                    env::remove_var("MEMORYWHALE_DATA_DIR");
+                }
+                let _ = fs::remove_dir_all(&self.dest);
+                let _ = fs::remove_dir_all(&self.src_dir);
+            }
+        }
+        let _cleanup = Cleanup {
+            previous_data_dir,
+            dest: dest.clone(),
+            src_dir: src_dir.clone(),
+        };
+
+        // Source row ids (7, 5) deliberately differ from the ids the fresh dest
+        // will assign (1, 1), so a passing assertion proves the remap happened
+        // rather than a coincidental id match.
+        let src_db = src_dir.join("memorywhale.sqlite3");
+        let src_conn = Connection::open(&src_db).unwrap();
+        src_conn
+            .execute_batch(
+                "CREATE TABLE command_runs (
+                    id INTEGER PRIMARY KEY, command TEXT NOT NULL, argv_json TEXT NOT NULL,
+                    cwd TEXT, exit_code INTEGER, stdout TEXT DEFAULT '', stderr TEXT DEFAULT '',
+                    notes TEXT DEFAULT '', created_at TEXT NOT NULL);
+                CREATE TABLE bookmarks (
+                    id INTEGER PRIMARY KEY, label TEXT NOT NULL, cwd TEXT, created_at TEXT NOT NULL);
+                CREATE TABLE retrieval_feedback (
+                    id INTEGER PRIMARY KEY, memory_id INTEGER NOT NULL, kind TEXT NOT NULL,
+                    created_at TEXT NOT NULL, source_session_id INTEGER, actor TEXT, undone_at TEXT);
+                CREATE TABLE memory_links (
+                    from_id INTEGER NOT NULL, to_id INTEGER NOT NULL,
+                    relation TEXT NOT NULL DEFAULT 'related', created_at TEXT,
+                    PRIMARY KEY (from_id, to_id, relation));
+                INSERT INTO command_runs (id, command, argv_json, cwd, exit_code, created_at)
+                    VALUES (7, 'cargo build', '[\"cargo\",\"build\"]', '/tmp', 0, '2026-01-01T00:00:00Z');
+                INSERT INTO bookmarks (id, label, created_at)
+                    VALUES (5, 'the fix', '2026-01-02T00:00:00Z');
+                INSERT INTO retrieval_feedback (memory_id, kind, created_at, actor)
+                    VALUES (1000000007, 'helpful', '2026-01-03T00:00:00Z', 'agent');
+                INSERT INTO retrieval_feedback (memory_id, kind, created_at, actor)
+                    VALUES (3000000005, 'helpful', '2026-01-03T00:00:01Z', NULL);
+                INSERT INTO retrieval_feedback (memory_id, kind, created_at, actor)
+                    VALUES (1000000999, 'helpful', '2026-01-03T00:00:02Z', 'agent');
+                INSERT INTO memory_links (from_id, to_id, relation, created_at)
+                    VALUES (1000000007, 3000000005, 'related', '2026-01-04T00:00:00Z');
+                INSERT INTO memory_links (from_id, to_id, relation, created_at)
+                    VALUES (1000000007, 1000000999, 'related', '2026-01-04T00:00:01Z');",
+            )
+            .unwrap();
+        drop(src_conn);
+
+        import_sqlite(&src_db).unwrap();
+
+        let conn = Connection::open(dest.join("memorywhale.sqlite3")).unwrap();
+        let cmd_id: i64 = conn
+            .query_row(
+                "SELECT id FROM command_runs WHERE command = 'cargo build'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let note_id: i64 = conn
+            .query_row(
+                "SELECT id FROM bookmarks WHERE label = 'the fix'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let want_cmd = encode_id(Source::Command, cmd_id);
+        let want_note = encode_id(Source::Note, note_id);
+
+        // Both resolvable feedback rows landed pointing at the remapped memories;
+        // the row whose target (command 999) never imported was skipped.
+        let fb_ids: Vec<i64> = conn
+            .prepare("SELECT memory_id FROM retrieval_feedback ORDER BY memory_id")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        let mut want_fb = vec![want_cmd, want_note];
+        want_fb.sort();
+        assert_eq!(
+            fb_ids, want_fb,
+            "feedback must remap to dest ids and skip absent target"
+        );
+
+        // Only the link whose endpoints both imported lands, remapped.
+        let links: Vec<(i64, i64, String)> = conn
+            .prepare("SELECT from_id, to_id, relation FROM memory_links")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(links, vec![(want_cmd, want_note, "related".to_string())]);
+
+        drop(conn);
+
+        // Re-import must be idempotent: same counts, no duplicates.
+        import_sqlite(&src_db).unwrap();
+        let conn = Connection::open(dest.join("memorywhale.sqlite3")).unwrap();
+        let fb_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM retrieval_feedback", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(fb_count, 2, "re-import must not duplicate feedback");
+        let link_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM memory_links", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(link_count, 1, "re-import must not duplicate links");
+        drop(conn);
     }
 
     #[test]

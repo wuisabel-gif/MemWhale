@@ -62,6 +62,18 @@ pub fn decode_id(id: i64) -> (Source, i64) {
     }
 }
 
+/// Re-apply a source's namespace to a per-table row id. Inverse of
+/// [`decode_id`]; used when import remaps source row ids to destination ids.
+pub fn encode_id(source: Source, row_id: i64) -> i64 {
+    match source {
+        Source::Document => row_id,
+        Source::Command => CMD_NS + row_id,
+        Source::Conversation => TURN_NS + row_id,
+        Source::Note => NOTE_NS + row_id,
+        Source::Session => SESSION_NS + row_id,
+    }
+}
+
 fn parse_ts(ts: &str) -> DateTime<Utc> {
     match DateTime::parse_from_rfc3339(ts) {
         Ok(d) => d.with_timezone(&Utc),

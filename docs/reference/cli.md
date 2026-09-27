@@ -90,6 +90,12 @@ mw pull <ssh-host> [path]             # the reverse: copy another machine's memo
 mw global on|off|status               # auto-record every new terminal
 ```
 
+`import`, `push`, and `pull` carry retrieval feedback and typed `mw link` edges
+across machines. As they merge the memory tables they build an old-to-new
+row-id map and remap each feedback record and link to the destination IDs, so
+recall on the other machine keeps its feedback and relationships. A record whose
+target memory did not import is skipped and counted, and re-import is idempotent.
+
 ### Reusable command recipes
 
 Recipes are local metadata assembled only from explicitly selected recorded
