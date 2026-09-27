@@ -15,7 +15,8 @@ MemoryWhale transport PASS; native Mistral Vibe client call pending.**
 - A real transport handshake against the freshly built
   `target/release/mw-mcp` (version 0.12.1) with an isolated
   `MEMORYWHALE_DATA_DIR` returned server `memorywhale`, version `0.12.1`, a
-  `tools` capability, and negotiated protocol `2025-11-25`. `tools/list`
+  `tools` capability, and negotiated protocol `2025-11-25`. After the
+  `notifications/initialized` notification, `tools/list`
   returned all six tools: `recent_errors`, `search_memory`, `get_context`,
   `remember`, `similar_failures`, `stats`. Observed replies:
 

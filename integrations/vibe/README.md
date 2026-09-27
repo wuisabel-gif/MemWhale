@@ -92,8 +92,9 @@ First run the direct MemoryWhale transport check with an isolated store:
 
 ```bash
 D="$(mktemp -d)/mw-store"; mkdir -p "$D"
-printf '%s\n%s\n' \
+printf '%s\n%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","clientInfo":{"name":"vibe-verify","version":"1"},"capabilities":{}}}' \
+  '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
   | MEMORYWHALE_DATA_DIR="$D" /absolute/path/to/mw-mcp
 ```
