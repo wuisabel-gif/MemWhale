@@ -149,5 +149,8 @@ For an explicit write:
 ## Uninstall
 
 Remove the `"memorywhale"` entry from your `mcp_config` dict (or delete the
-config snippet). No global state is written outside your Python code. Do not
-delete the MemoryWhale database or unrelated MCP entries.
+config snippet). No global OpenHands configuration is written outside your
+Python code. The configured MemoryWhale database created or updated by
+`mw-mcp` remains on disk after you remove the entry; delete it yourself only
+if you want to discard that memory. Do not delete the MemoryWhale database or
+unrelated MCP entries as part of uninstalling.
