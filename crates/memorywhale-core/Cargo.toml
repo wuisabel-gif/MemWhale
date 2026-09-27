@@ -31,7 +31,7 @@ regex = "1"
 # `dirs` is used only by the `dump_eval` example, which reads a real
 # memorywhale.sqlite3 into an eval_data.json gold-set skeleton.
 [dev-dependencies]
-dirs = "5"
+dirs = "6"
 
 # These examples drive the Ollama embedder, so they need the `embeddings` feature
 # (and thus `ureq`). Gating them keeps the default `cargo test` build ureq-free.

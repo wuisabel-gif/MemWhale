@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "development-tools"]
 # the aarch64 (Jetson) release builds work on a bare machine.
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-dirs = "5"
+dirs = "6"
 getrandom = "0.2"
 # The `mempalace` feature adds no dependencies (std process + serde_json +
 # anyhow, all already present), so it's enabled unconditionally: it lets
