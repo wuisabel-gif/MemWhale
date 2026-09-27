@@ -1,0 +1,33 @@
+# MemoryWhale MCP server for Mistral Vibe.
+# Add to ./.vibe/config.toml (project) or ~/.vibe/config.toml (user).
+# Replace both /absolute/path/to/... placeholders before use.
+
+[[mcp_servers]]
+name = "memorywhale"
+transport = "stdio"
+command = "/absolute/path/to/mw-mcp"
+args = []
+env = { "MEMORYWHALE_DATA_DIR" = "/absolute/path/to/a-new-memorywhale-store" }
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+
+# Per-tool permissions. Vibe names MCP tools "{server_name}_{tool_name}",
+# so the six MemoryWhale tools are memorywhale_recent_errors, etc.
+# Keep the reviewed write (remember) on "ask" rather than "always".
+[tools.memorywhale_recent_errors]
+permission = "always"
+
+[tools.memorywhale_search_memory]
+permission = "always"
+
+[tools.memorywhale_get_context]
+permission = "always"
+
+[tools.memorywhale_remember]
+permission = "ask"
+
+[tools.memorywhale_similar_failures]
+permission = "always"
+
+[tools.memorywhale_stats]
+permission = "always"
