@@ -38,7 +38,9 @@ const EN = {
   "hero.releaseBadge": "v0.12.0 is here",
   "hero.title": "Make your terminal <span class=\"hero-accent\">remember</span>.",
   "hero.lead":
-    "Keep useful terminal context locally. Let coding agents recover debugging knowledge from previous sessions.",
+    "Hit an error you've seen before and MemoryWhale hands back the fix. It keeps debugging evidence on your machine, so your coding agents stop re-solving the same problems.",
+  "hero.proof":
+    "In a controlled eval on project-specific bugs, an agent solved <strong>25%</strong> without memory and <strong>96%</strong> with it (synthetic tasks; <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">how it was measured</a>).",
   "hero.demoCta": "View Demo",
   "hero.installCta": "Quick Start",
   "hero.localTitle": "Local-first",
@@ -202,7 +204,9 @@ const AR = {
   "hero.releaseBadge": "الإصدار v0.12.0 متاح الآن",
   "hero.title": "اجعل طرفيتك <span class=\"hero-accent\">تتذكّر</span>.",
   "hero.lead":
-    "احفظ سياق الطرفية المفيد على جهازك، واسمح لوكلاء البرمجة باسترجاع خبرة تصحيح الأخطاء من الجلسات السابقة.",
+    "حين يتكرر خطأ سبق أن واجهته، يُعيد إليك MemoryWhale الإصلاح. ويحتفظ بأدلة تصحيح الأخطاء على جهازك، فلا يضطر وكلاء البرمجة إلى حل المشكلات نفسها مرة بعد مرة.",
+  "hero.proof":
+    "في تقييم مضبوط على أخطاء خاصة بالمشروع، حلّ الوكيل <strong>25%</strong> من المهام دون ذاكرة و<strong>96%</strong> منها مع الذاكرة (مهام اصطناعية؛ <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">كيف أُجري القياس</a>).",
   "hero.demoCta": "شاهد العرض التجريبي",
   "hero.installCta": "البدء السريع",
   "hero.localTitle": "محلي أولًا",
@@ -366,7 +370,9 @@ const DE = {
   "hero.releaseBadge": "v0.12.0 ist da",
   "hero.title": "Gib deinem Terminal ein <span class=\"hero-accent\">Gedächtnis</span>.",
   "hero.lead":
-    "Bewahre nützlichen Terminal-Kontext lokal auf. Lass Coding-Agenten auf Debugging-Wissen aus früheren Sitzungen zurückgreifen.",
+    "Taucht ein Fehler auf, den du schon kennst, liefert dir MemoryWhale den Fix. Die Debugging-Belege bleiben auf deinem Rechner, damit deine Coding-Agenten nicht immer wieder dieselben Probleme lösen.",
+  "hero.proof":
+    "In einer kontrollierten Evaluation mit projektspezifischen Bugs löste ein Agent ohne Gedächtnis <strong>25%</strong> der Aufgaben, mit Gedächtnis <strong>96%</strong> (synthetische Aufgaben; <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">so wurde gemessen</a>).",
   "hero.demoCta": "Demo ansehen",
   "hero.installCta": "Schnellstart",
   "hero.localTitle": "Local-first",
@@ -530,7 +536,9 @@ const FR = {
   "hero.releaseBadge": "La v0.12.0 est disponible",
   "hero.title": "Donnez de la <span class=\"hero-accent\">mémoire</span> à votre terminal.",
   "hero.lead":
-    "Conservez en local le contexte utile du terminal. Vos agents de code retrouvent ce qui a été appris en déboguant lors des sessions précédentes.",
+    "Vous retombez sur une erreur déjà vue ? MemoryWhale vous redonne le correctif. Les traces de débogage restent sur votre machine, et vos agents de code cessent de résoudre sans cesse les mêmes problèmes.",
+  "hero.proof":
+    "Lors d’une évaluation contrôlée sur des bugs propres à un projet, un agent en a résolu <strong>25%</strong> sans mémoire et <strong>96%</strong> avec (tâches synthétiques ; <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">la méthode de mesure</a>).",
   "hero.demoCta": "Voir la démo",
   "hero.installCta": "Démarrage rapide",
   "hero.localTitle": "Local d’abord",
@@ -694,7 +702,9 @@ const ZH_CN = {
   "hero.releaseBadge": "v0.12.0 现已发布",
   "hero.title": "让终端<span class=\"hero-accent\">记住</span>调试经验。",
   "hero.lead":
-    "在本地保留有用的终端上下文，让编程智能体从以往会话中找回调试经验。",
+    "再次遇到以前见过的报错时，MemoryWhale 会直接给出修复方法。调试证据都保存在你自己的机器上，编程智能体不必再一遍遍重新解决同样的问题。",
+  "hero.proof":
+    "在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 <strong>25%</strong>，有记忆时解决了 <strong>96%</strong>（合成任务；<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">测评方法</a>）。",
   "hero.demoCta": "查看演示",
   "hero.installCta": "快速上手",
   "hero.localTitle": "本地优先",
@@ -858,7 +868,9 @@ const ZH_TW = {
   "hero.releaseBadge": "v0.12.0 現已推出",
   "hero.title": "讓終端機<span class=\"hero-accent\">記住</span>除錯經驗。",
   "hero.lead":
-    "把有用的終端機脈絡留在本機，讓 AI 程式助理能找回先前工作階段累積的除錯知識。",
+    "再次碰到以前遇過的錯誤時，MemoryWhale 會直接把修正方法交還給你。除錯證據都留在你自己的電腦上，AI 程式助理不必再一次次重新解決同樣的問題。",
+  "hero.proof":
+    "在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 <strong>25%</strong>，有記憶時則解決了 <strong>96%</strong>（合成任務；<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">評測方式</a>）。",
   "hero.demoCta": "觀看示範",
   "hero.installCta": "快速上手",
   "hero.localTitle": "本機優先",
@@ -1022,7 +1034,9 @@ const KO = {
   "hero.releaseBadge": "v0.12.0 출시",
   "hero.title": "터미널이 <span class=\"hero-accent\">기억하게</span> 하세요.",
   "hero.lead":
-    "유용한 터미널 맥락을 로컬에 남겨 두세요. 코딩 에이전트가 이전 세션의 디버깅 지식을 다시 찾아 쓸 수 있습니다.",
+    "전에 본 오류를 다시 만나면 MemoryWhale이 해결책을 바로 건네줍니다. 디버깅 기록을 내 컴퓨터에 보관하므로 코딩 에이전트가 같은 문제를 매번 처음부터 다시 풀지 않아도 됩니다.",
+  "hero.proof":
+    "프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 <strong>25%</strong>, 메모리가 있을 때는 <strong>96%</strong> 해결했습니다(합성 과제, <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">측정 방법</a>).",
   "hero.demoCta": "데모 보기",
   "hero.installCta": "빠른 시작",
   "hero.localTitle": "로컬 우선",
@@ -1186,7 +1200,9 @@ const JA = {
   "hero.releaseBadge": "v0.12.0 リリース",
   "hero.title": "ターミナルに<span class=\"hero-accent\">記憶</span>を。",
   "hero.lead":
-    "役立つターミナルのコンテキストを手元に残し、コーディングエージェントが過去のセッションのデバッグ知識を引き出せるようにします。",
+    "以前に見たエラーにまた遭遇したら、MemoryWhale がそのときの修正を返します。デバッグの記録は手元のマシンに保存されるので、コーディングエージェントが同じ問題を何度も解き直す必要はありません。",
+  "hero.proof":
+    "プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで <strong>25%</strong>、メモリありで <strong>96%</strong> の課題を解決しました（合成タスク。<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md\">測定方法</a>）。",
   "hero.demoCta": "デモを見る",
   "hero.installCta": "クイックスタート",
   "hero.localTitle": "ローカルファースト",

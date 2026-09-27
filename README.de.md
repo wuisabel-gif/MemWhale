@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
+<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -18,10 +18,21 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="Local-first, kein Upload"/>
 </p>
 
+<p align="center">
+  <img src="assets/recall-demo.gif" alt="Ein Build-Fehler taucht wieder auf; mw context meldet, dass er schon zweimal aufgetreten ist, und mw search liefert den gespeicherten Fix." width="820" />
+</p>
+
+**Du stößt auf einen Fehler. MemoryWhale weiß noch, dass du ihn schon einmal hattest, und liefert dir gleich den Fix.**
+
 MemoryWhale hält fest, was beim Debuggen tatsächlich passiert ist: Befehle,
 Ausgaben, Fehlschläge und die Fixes, die funktioniert haben. Diese Belege landen
 lokal in SQLite, sodass du und deine Coding-Agenten sie auch dann noch finden,
-wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist.
+wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. Über MCP arbeitet es mit 19 Coding-Agenten zusammen, ganz ohne Konto und ohne Upload.
+
+> In einer kontrollierten Evaluation mit projektspezifischen Bugs löste ein Agent ohne
+> Gedächtnis **25%** der Aufgaben, mit Gedächtnis **96%**. Es handelt sich um
+> synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
+> [so wurde gemessen](benchmarks/README.md).
 
 **MemoryWhale 0.12.0 — Retrieval You Can Trust · 25. September 2026.**
 CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.12.0; der

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
+<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -18,11 +18,21 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="local-first, rien n’est envoyé"/>
 </p>
 
+<p align="center">
+  <img src="assets/recall-demo.gif" alt="Une erreur de build réapparaît ; mw context indique qu’elle s’est déjà produite deux fois et mw search renvoie le correctif enregistré." width="820" />
+</p>
+
+**Vous tombez sur une erreur. MemoryWhale se souvient que vous l’avez déjà rencontrée et vous redonne le correctif.**
+
 MemoryWhale enregistre ce qui s’est réellement passé pendant que vous déboguez :
 les commandes, leur sortie, les échecs et les correctifs qui ont fonctionné. Ces
 traces sont stockées dans une base SQLite locale, pour que vous et vos agents de
 code puissiez les retrouver une fois le terminal fermé, la connexion SSH coupée
-ou la session de l’agent terminée.
+ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via MCP, sans compte et sans que rien ne soit envoyé.
+
+> Lors d’une évaluation contrôlée sur des bugs propres à un projet, un agent en a résolu
+> **25%** sans mémoire et **96%** avec. Il s’agit de tâches synthétiques qui démontrent le
+> mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](benchmarks/README.md).
 
 **MemoryWhale 0.12.0 — Retrieval You Can Trust · 25 septembre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit

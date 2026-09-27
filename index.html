@@ -418,6 +418,15 @@
         font-size: 1rem;
         line-height: 1.7;
       }
+      .hero-proof {
+        max-width: 52ch;
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.6;
+      }
+      .hero-proof strong { color: var(--ink, inherit); }
+      .hero-proof a { color: var(--azure); text-decoration: underline; }
 
       .hero-benefits {
         display: grid;
@@ -861,8 +870,9 @@
             <h1 id="hero-brand">MemoryWhale</h1>
             <p class="hero-headline" data-i18n="hero.title">Make your terminal <span class="hero-accent">remember</span>.</p>
             <p class="lead" data-i18n="hero.lead">
-              Keep useful terminal context locally. Let coding agents recover debugging knowledge from previous sessions.
+              Hit an error you've seen before and MemoryWhale hands back the fix. It keeps debugging evidence on your machine, so your coding agents stop re-solving the same problems.
             </p>
+            <p class="hero-proof" data-i18n="hero.proof">In a controlled eval on project-specific bugs, an agent solved <strong>25%</strong> without memory and <strong>96%</strong> with it (synthetic tasks; <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/README.md">how it was measured</a>).</p>
             <ul class="hero-benefits">
               <li>
                 <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>

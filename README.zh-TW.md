@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
+<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -18,9 +18,19 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="本機優先，不上傳任何資料"/>
 </p>
 
+<p align="center">
+  <img src="assets/recall-demo.gif" alt="建置錯誤再次出現：mw context 顯示它已經發生過兩次，mw search 則找回先前儲存的修正方法。" width="820" />
+</p>
+
+**遇到錯誤時，MemoryWhale 記得你以前碰過，並直接把當時的修正方法交還給你。**
+
 MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸出、失敗，以及最後真正有效的修正。
 這些證據存在本機的 SQLite 裡，就算終端機關了、SSH 斷了，或代理的工作階段已經結束，
 你和你的程式開發代理之後都還找得到。
+它透過 MCP 支援 19 種程式開發代理，不需要帳號，也不會上傳任何資料。
+
+> 在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 **25%** 的問題，有記憶時則解決了 **96%**。
+> 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](benchmarks/README.md)。
 
 **MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日。**
 CLI、Web 介面與桌面應用程式共用同一個產品版本 0.12.0；可重複使用的 Rust 核心則是 0.6.0。

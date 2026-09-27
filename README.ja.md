@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
+<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -18,9 +18,19 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="ローカルファースト、アップロードなし"/>
 </p>
 
+<p align="center">
+  <img src="assets/recall-demo.gif" alt="ビルドエラーが再発すると、mw context はこのエラーがすでに 2 回発生していると報告し、mw search は保存済みの修正を返します。" width="820" />
+</p>
+
+**エラーに遭遇すると、MemoryWhale は以前にも見たエラーであることを覚えていて、そのときの修正を返してくれます。**
+
 MemoryWhale は、デバッグ中に実際に起きたこと（実行したコマンド、出力、失敗、そして実際に効いた修正）を記録します。
 記録はローカルの SQLite に保存されるので、ターミナルや SSH 接続、エージェントのセッションがなくなった後でも、
 あなた自身やコーディングエージェントがあとから探し出せます。
+MCP 経由で 19 種類のコーディングエージェントと連携でき、アカウントは不要で、何もアップロードされません。
+
+> プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで **25%**、メモリありで **96%** の課題を解決しました。
+> これはメカニズムを示すための合成タスクであり、実環境での調査ではありません。詳しくは[測定方法](benchmarks/README.md)をご覧ください。
 
 **MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日**
 CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.12.0 で、再利用可能な Rust コアのバージョンは 0.6.0 です。

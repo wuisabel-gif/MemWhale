@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
+<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -18,9 +18,19 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="로컬 우선, 업로드 없음"/>
 </p>
 
+<p align="center">
+  <img src="assets/recall-demo.gif" alt="빌드 오류가 다시 발생하자 mw context는 이 오류가 이미 두 번 발생했다고 알려 주고, mw search는 저장해 둔 해결책을 찾아 줍니다." width="820" />
+</p>
+
+**오류가 발생하면 MemoryWhale은 전에 겪은 오류라는 것을 기억해 두었다가 해결책을 바로 건네줍니다.**
+
 MemoryWhale은 디버깅하면서 실제로 일어난 일, 즉 실행한 명령과 출력, 실패, 그리고 효과가 있었던 해결책을 기록합니다.
 이 기록을 로컬 SQLite에 저장하기 때문에 터미널을 닫거나 SSH 연결이 끊기거나 에이전트 세션이 끝난 뒤에도
 여러분과 코딩 에이전트가 다시 찾아볼 수 있습니다.
+MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계정이 필요 없고 아무것도 업로드하지 않습니다.
+
+> 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
+> 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](benchmarks/README.md)을 참고하세요.
 
 **MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026년 9월 25일**
 CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.12.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.6.0입니다.

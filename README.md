@@ -16,10 +16,22 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="local-first, nothing uploaded"/>
 </p>
 
+<p align="center">
+  <img src="assets/recall-demo.gif" alt="A build error comes back; mw context reports it was hit twice and mw search returns the saved fix." width="820" />
+</p>
+
+**You hit an error. MemoryWhale remembers you've seen it before, and hands back the fix.**
+
 MemoryWhale records what actually happened while you debug: commands, output,
 failures, and the fixes that worked. It stores that evidence in local SQLite so
 you and your coding agents can find it after the terminal, SSH connection, or
-agent session is gone.
+agent session is gone. It works with 19 coding agents through MCP, with no
+account and nothing uploaded.
+
+> In a controlled evaluation on project-specific bugs, an agent solved **25%**
+> without memory and **96%** with it. These are synthetic tasks that
+> demonstrate the mechanism, not a field study; see
+> [how it was measured](benchmarks/README.md).
 
 **MemoryWhale 0.12.0 — Retrieval You Can Trust · September 25, 2026.**
 The CLI, web UI, and desktop app share product version 0.12.0; the reusable

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 31efb45a9e5acb20dcd2d289542d1245d9235c6a7b47ce4721a63eb35a43e809 -->
+<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -18,9 +18,19 @@
   <img src="https://img.shields.io/badge/local--first-no%20upload-168a69" alt="本地优先，不上传数据"/>
 </p>
 
+<p align="center">
+  <img src="assets/recall-demo.gif" alt="构建错误再次出现：mw context 显示它已出现过两次，mw search 返回之前保存的修复方法。" width="820" />
+</p>
+
+**遇到报错时，MemoryWhale 记得你以前见过它，并直接把当时的修复方法交还给你。**
+
 MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败，以及最终奏效的修复。
 这些证据保存在本地 SQLite 中，即使终端已关闭、SSH 已断开或智能体会话已结束，
 你和编程智能体仍然可以找回它们。
+它通过 MCP 支持 19 种编程智能体，无需注册账号，也不会上传任何数据。
+
+> 在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 **25%** 的问题，有记忆时解决了 **96%**。
+> 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](benchmarks/README.md)。
 
 **MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日。**
 CLI、Web 界面和桌面应用共用产品版本号 0.12.0；可复用的 Rust 核心版本为 0.6.0。
