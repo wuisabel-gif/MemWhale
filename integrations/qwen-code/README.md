@@ -164,8 +164,10 @@ local database do not make model inference offline.
   the intended store.
 - Keep normal approvals for `remember`; do not set `trust: true` or a broad
   allowlist to hide an unreviewed write.
-- If discovery times out, raise `timeout` (default 600000ms) or
-  `discoveryTimeoutMs`, and confirm `mw-mcp` starts on its own.
+- If discovery times out, raise `discoveryTimeoutMs`, which governs the
+  connect and tool-listing handshake, and confirm `mw-mcp` starts on its own.
+  `timeout` (default 600000ms) applies to individual `tools/call` requests, not
+  discovery, so raise it only for slow tool calls.
 - Project-level stdio servers run local commands when a trusted folder opens. Do
   not place this configuration in an untrusted repository.
 
