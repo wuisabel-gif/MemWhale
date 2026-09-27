@@ -3,6 +3,18 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] — Feedback-Aware, Portable Memory — Unreleased
+
+Product `0.13.0`; `memorywhale-core` `0.7.0`; SQLite schema `13`.
+
+See [release notes](docs/releases/0.13.0.md).
+
+### Added
+
+- **Feedback-adjusted ranking**: opt-in `mw search --use-feedback` / MCP `use_feedback` reorders results by recorded feedback; default ranking unchanged. (#349)
+- **Portable feedback and links**: `import`/`pull`/`push` carry `retrieval_feedback` and `memory_links`, remapping row ids to the destination. (#348)
+- **Core**: `encode_id`, the inverse of `decode_id`, for id remapping. (#348)
+
 ## [0.12.1] — Harden Secret Redaction — September 25, 2026
 
 Product `0.12.1`; `memorywhale-core` `0.6.1`; SQLite schema `13`.
