@@ -48,6 +48,13 @@ proposed fix against the gold resolution.
 The contrast is the point: memory is negligible on errors a model already knows,
 and decisive on the project-specific gotchas that dominate real debugging.
 
+## 4. Terminal-Bench (planned) — [`terminal_bench/`](terminal_bench/README.md)
+
+**Public tasks, public grading.** Runs Claude Code on
+[Terminal-Bench](https://www.tbench.ai) through its official Harbor harness,
+once alone and once with MemoryWhale carried across tasks. We did not write the
+tasks or the verifiers. Harness ready; no results yet.
+
 ## Reading the three together
 
 Evals 2 and 3 compose into the end-to-end story: the fix is *retrievable* ~95% of

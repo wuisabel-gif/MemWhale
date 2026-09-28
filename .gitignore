@@ -20,3 +20,6 @@ __pycache__/
 .verification-waku/
 # Isolated third-party source and Kimi verification profiles
 .verification-kimi/
+
+# Terminal-Bench carried memory store (published with results, not committed)
+benchmarks/terminal_bench/store/
