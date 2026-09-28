@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
+<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -32,9 +32,9 @@ MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계�
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
 > 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](benchmarks/README.md)을 참고하세요.
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026년 9월 25일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.12.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.6.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)를 참고하세요.
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 2026년 9월 27일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.13.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.7.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)를 참고하세요.
 스토어를 열면 스키마가 10에서 13으로 마이그레이션됩니다.
 
 **기여하고 싶으신가요?** [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)부터 시작해 보세요.

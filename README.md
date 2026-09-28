@@ -33,9 +33,9 @@ account and nothing uploaded.
 > demonstrate the mechanism, not a field study; see
 > [how it was measured](benchmarks/README.md).
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · September 25, 2026.**
-The CLI, web UI, and desktop app share product version 0.12.0; the reusable
-Rust core is version 0.6.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · September 27, 2026.**
+The CLI, web UI, and desktop app share product version 0.13.0; the reusable
+Rust core is version 0.7.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)
 for the upgrade guide. Opening a store migrates it from schema 10 to 13.
 
 **Want to contribute?** Start with the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).

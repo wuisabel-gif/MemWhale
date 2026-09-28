@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
+<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -32,9 +32,9 @@ MCP 経由で 19 種類のコーディングエージェントと連携でき、
 > プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで **25%**、メモリありで **96%** の課題を解決しました。
 > これはメカニズムを示すための合成タスクであり、実環境での調査ではありません。詳しくは[測定方法](benchmarks/README.md)をご覧ください。
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日**
-CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.12.0 で、再利用可能な Rust コアのバージョンは 0.6.0 です。
-アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 13 に移行されます。
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 2026 年 9 月 27 日**
+CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.13.0 で、再利用可能な Rust コアのバージョンは 0.7.0 です。
+アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 13 に移行されます。
 
 **コントリビュートしてみませんか？** まずは[「Start here」Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) をご覧ください。
 翻訳のレビューやドキュメントの修正など、Rust の知識がなくても取り組めるタスクがたくさんあります。

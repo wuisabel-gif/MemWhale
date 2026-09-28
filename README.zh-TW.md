@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
+<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -32,9 +32,9 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 > 在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 **25%** 的問題，有記憶時則解決了 **96%**。
 > 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](benchmarks/README.md)。
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日。**
-CLI、Web 介面與桌面應用程式共用同一個產品版本 0.12.0；可重複使用的 Rust 核心則是 0.6.0。
-升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)。
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 2026 年 9 月 27 日。**
+CLI、Web 介面與桌面應用程式共用同一個產品版本 0.13.0；可重複使用的 Rust 核心則是 0.7.0。
+升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)。
 開啟資料儲存區時，其 schema 會從 10 遷移到 13。
 
 **想參與貢獻嗎？** 可以先從 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 開始。

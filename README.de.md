@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
+<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -34,10 +34,10 @@ wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. �
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](benchmarks/README.md).
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · 25. September 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.12.0; der
-wiederverwendbare Rust-Kern hat die Version 0.6.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md).
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 27. September 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.13.0; der
+wiederverwendbare Rust-Kern hat die Version 0.7.0. Hinweise zum Upgrade findest
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md).
 Beim Öffnen wird ein Speicher von Schema 10 auf 13 migriert.
 
 **Du willst mitmachen?** Fang mit dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) an.

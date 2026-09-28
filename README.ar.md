@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
+<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
 
 <div dir="rtl">
 
@@ -35,10 +35,10 @@
 > و**96%** منها مع الذاكرة. هذه مهام اصطناعية توضّح آلية العمل، وليست دراسة ميدانية؛
 > راجع [كيف أُجري القياس](benchmarks/README.md).
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · 25 سبتمبر 2026.**
-تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.12.0،
-أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.6.0. راجع
-[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 27 سبتمبر 2026.**
+تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.13.0،
+أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.7.0. راجع
+[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)
 للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 13.
 
 **هل تودّ المساهمة؟** ابدأ من [تذكرة «ابدأ من هنا»](https://github.com/wuisabel-gif/MemWhale/issues/317).

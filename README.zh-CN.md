@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
+<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -32,9 +32,9 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 > 在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 **25%** 的问题，有记忆时解决了 **96%**。
 > 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](benchmarks/README.md)。
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · 2026 年 9 月 25 日。**
-CLI、Web 界面和桌面应用共用产品版本号 0.12.0；可复用的 Rust 核心版本为 0.6.0。
-升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)。打开存储库时，其 schema 会从 10 迁移到 13。
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 2026 年 9 月 27 日。**
+CLI、Web 界面和桌面应用共用产品版本号 0.13.0；可复用的 Rust 核心版本为 0.7.0。
+升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)。打开存储库时，其 schema 会从 10 迁移到 13。
 
 **想参与贡献？** 可以先看看 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317)。
 很多任务不需要会 Rust，比如审校翻译、修正文档。

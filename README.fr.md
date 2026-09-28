@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 5cf6a3dd6ba9efd02769ec7458e970efd81b1d014644553c8f04dd6422244d93 -->
+<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -34,9 +34,9 @@ ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via M
 > **25%** sans mémoire et **96%** avec. Il s’agit de tâches synthétiques qui démontrent le
 > mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](benchmarks/README.md).
 
-**MemoryWhale 0.12.0 — Retrieval You Can Trust · 25 septembre 2026.**
+**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 27 septembre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit
-0.12.0 ; le cœur Rust réutilisable est en version 0.6.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.12.0/docs/releases/0.12.0.md)
+0.13.0 ; le cœur Rust réutilisable est en version 0.7.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)
 pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 13.
 
 **Envie de contribuer ?** Commencez par l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).

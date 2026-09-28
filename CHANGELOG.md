@@ -3,7 +3,7 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [0.13.0] — Feedback-Aware, Portable Memory — Unreleased
+## [0.13.0] — Feedback-Aware, Portable Memory — September 27, 2026
 
 Product `0.13.0`; `memorywhale-core` `0.7.0`; SQLite schema `13`.
 
@@ -14,6 +14,16 @@ See [release notes](docs/releases/0.13.0.md).
 - **Feedback-adjusted ranking**: opt-in `mw search --use-feedback` / MCP `use_feedback` reorders results by recorded feedback; default ranking unchanged. (#349)
 - **Portable feedback and links**: `import`/`pull`/`push` carry `retrieval_feedback` and `memory_links`, remapping row ids to the destination. (#348)
 - **Core**: `encode_id`, the inverse of `decode_id`, for id remapping. (#348)
+- **Integrations**: Qwen Code (#345), OpenHands Software Agent SDK (#346), and Mistral Vibe (#347).
+
+### Fixed
+
+- **Recurring failures recognized on every capture path.** `mw-remember`, the desktop app, `mw demo`, and `mw import` now store error fingerprints, so `mw context --last-error` no longer calls a repeat error "first time". (#351)
+
+### Changed
+
+- README and landing page lead with the recall demo and benchmark. (#352)
+- **Dependencies:** `ureq` 3, `rusqlite` 0.40, `toml_edit` 0.25, `dirs` 6, `lucide-react` 1.x. (#325, #327–#330)
 
 ## [0.12.1] — Harden Secret Redaction — September 25, 2026
 
