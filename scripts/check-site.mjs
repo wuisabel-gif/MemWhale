@@ -104,15 +104,15 @@ for (const tool of ["recent_errors", "search_memory", "get_context", "remember",
   expect(html.includes(tool), `MCP tool missing from landing page: ${tool}`);
 }
 
-// The setup excerpt must match actual CLI messages, not invented success output.
-const claudeIntegration = await readFile(resolve(root, "crates/mw-cli/src/integrate/claude/mod.rs"), "utf8");
-for (const message of [
-  "MemoryWhale installed for Claude Code.",
-  "mcp:      memorywhale registered (user scope)",
-  "Restart Claude Code to pick up hook and skill changes."
+// The hero recall excerpt must match actual CLI messages, not invented output.
+const cliSource = await readFile(resolve(root, "crates/mw-cli/src/lib.rs"), "utf8");
+for (const [shown, source] of [
+  ["You've hit this 2 times — a later run succeeded 1 of 2 times.", "You've hit this {times} — {outcome}{now}. [{}]"],
+  ["a later run succeeded 1 of 2 times", "a later run succeeded {} of {} times"],
 ]) {
-  expect(html.includes(message) && claudeIntegration.includes(message), `unverified setup output: ${message}`);
+  expect(html.includes(shown) && cliSource.includes(source), `unverified recall output: ${shown}`);
 }
+expect(!/(?:jsdelivr|unpkg|cdnjs)/i.test(await readFile(resolve(root, "site-ocean.js"), "utf8")), "ocean scene loads a third-party script");
 for (const client of ["claude-code", "rho", "codex", "cursor"]) {
   const guide = `integrations/${client}/README.md`;
   await access(resolve(root, guide));

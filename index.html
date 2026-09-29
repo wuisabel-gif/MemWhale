@@ -44,6 +44,7 @@
     </script>
     <script defer src="site-i18n.js"></script>
     <script defer src="site-search.js"></script>
+    <script type="module" src="site-ocean.js"></script>
     <style>
       :root {
         --paper: #f3f7fb;
@@ -447,6 +448,58 @@
       .terminal-lights { display: flex; gap: 6px; flex-shrink: 0; }
       .terminal-note { padding: 0 18px 16px; color: #a8c0c9; font-size: 0.72rem; line-height: 1.6; }
       .hero-terminal pre { font-size: 0.75rem; overflow-wrap: anywhere; }
+      /* Ocean hero: a dark panel with the 3D scene (site-ocean.js) behind the copy.
+         Without WebGL the gradient alone remains. */
+      .hero {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        margin: 14px -14px 0;
+        padding: 56px 44px 60px;
+        border-radius: 28px;
+        background: radial-gradient(ellipse at 72% -10%, #1a7a8c 0%, #0a3346 38%, #03101c 100%);
+        color: #e6f4f1;
+        box-shadow: 0 30px 80px -40px rgba(3, 16, 28, 0.7);
+      }
+      .ocean-canvas { position: absolute; inset: 0; z-index: -2; display: block; width: 100%; height: 100%; }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: linear-gradient(90deg, rgba(3, 16, 28, 0.78) 0%, rgba(3, 16, 28, 0.35) 55%, rgba(3, 16, 28, 0) 100%);
+      }
+      html[dir="rtl"] .hero::before { transform: scaleX(-1); }
+      .hero h1 { color: #f4fbfa; }
+      .hero .hero-headline { color: #d7ecec; }
+      .hero .hero-accent { color: #2dd4bf; }
+      .hero .lead, .hero .hero-proof, .hero .benefit-copy span { color: #a9c7cb; }
+      .hero .hero-proof strong, .hero .benefit-copy strong { color: #f4fbfa; }
+      .hero .hero-proof a, .hero .release-badge { color: #7cf5e6; }
+      .hero .release-badge { padding: 5px 12px; border: 1px solid rgba(45, 212, 191, 0.35); border-radius: 999px; background: rgba(45, 212, 191, 0.08); }
+      .hero .benefit-icon { color: #2dd4bf; }
+      .hero .button.secondary { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px rgba(214, 240, 238, 0.28); }
+      .hero-terminal.device {
+        position: relative;
+        padding: 18px 18px 14px 50px;
+        border: 0;
+        border-radius: 30px;
+        background: linear-gradient(160deg, #fbf3dc, #f3e7c9 45%, #d9c79c);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5), 0 9px 0 #b9a577, inset 0 2px 0 #ffffff;
+        transform: perspective(1400px) rotateY(-8deg) rotateX(3deg);
+        transition: transform 0.6s ease;
+      }
+      .hero-terminal.device:hover { transform: perspective(1400px) rotateY(-2deg) rotateX(1deg); }
+      html[dir="rtl"] .hero-terminal.device { transform: perspective(1400px) rotateY(8deg) rotateX(3deg); }
+      .device-grille { position: absolute; left: 17px; top: 50%; display: grid; gap: 7px; transform: translateY(-50%); }
+      .device-grille i { display: block; width: 18px; height: 5px; border-radius: 3px; background: #c4b182; box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25); }
+      .device .terminal-bar { border-radius: 14px 14px 0 0; background: #0d2231; }
+      .device pre { min-height: 232px; border-radius: 0 0 14px 14px; background: #06141f; box-shadow: inset 0 0 50px rgba(45, 212, 191, 0.07); }
+      .device .terminal-note { padding: 10px 4px 0; color: #6b5d3d; }
+      .recall-demo .warn { color: #ffd479; }
+      .recall-caret { display: inline-block; width: 0.55em; height: 1.1em; margin-left: 2px; vertical-align: -0.2em; background: #74f1e5; animation: caret-blink 1s steps(1) infinite; }
+      @keyframes caret-blink { 50% { opacity: 0; } }
 
       .integration-strip {
         display: flex;
@@ -493,36 +546,6 @@
       .hero-visual {
         display: grid;
         gap: 8px;
-      }
-
-      .whale-scene {
-        position: relative;
-        display: grid;
-        place-items: center;
-        height: 190px;
-        overflow: hidden;
-        isolation: isolate;
-      }
-
-      .whale-scene::before {
-        content: "";
-        position: absolute;
-        inset: 5% 10%;
-        z-index: -1;
-        border-radius: 50%;
-        background: radial-gradient(ellipse, rgba(16, 182, 198, 0.12), transparent 68%);
-      }
-
-      .whale-wrap {
-        width: min(330px, 85%);
-        filter: drop-shadow(0 12px 14px rgba(31, 110, 131, 0.13));
-        animation: whale-float 7s ease-in-out infinite;
-      }
-
-      .whale-svg {
-        display: block;
-        width: 100%;
-        height: auto;
       }
 
       .terminal {
@@ -725,15 +748,6 @@
         font-size: 0.76rem;
       }
 
-      @keyframes whale-float {
-        0%,
-        100% {
-          transform: translateY(3px) rotate(-1deg);
-        }
-        50% {
-          transform: translateY(-5px) rotate(1deg);
-        }
-      }
 
       @media (max-width: 960px) {
         .hero {
@@ -783,12 +797,12 @@
         .nav-actions { gap: 4px; }
         .language-picker select { width: 96px; min-width: 0; }
         .github-button { padding-inline: 8px; }
-        .hero { padding-top: 24px; }
+        .hero { margin-inline: -8px; padding: 28px 20px 32px; border-radius: 22px; }
+        .hero-terminal.device { padding-left: 18px; transform: none; }
+        .device-grille { display: none; }
         .hero-headline { font-size: 1.55rem; }
         .cta-row { gap: 10px; }
         .button { padding-inline: 16px; }
-        .whale-scene { height: 155px; }
-        .whale-wrap { width: min(285px, 85%); }
         .integration-strip { justify-content: center; text-align: center; }
         .integration-tools { justify-content: center; gap: 10px 20px; }
         .feature-overview { grid-template-columns: 1fr; }
@@ -865,6 +879,7 @@
 
       <main id="top">
         <section id="overview" class="hero" aria-labelledby="hero-brand">
+          <canvas class="ocean-canvas" aria-hidden="true"></canvas>
           <div class="hero-copy">
             <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md" data-i18n="hero.releaseBadge">v0.13.0 is here</a>
             <h1 id="hero-brand">MemoryWhale</h1>
@@ -894,56 +909,20 @@
           </div>
 
           <div class="hero-visual">
-            <div class="whale-scene" aria-hidden="true">
-            <div class="whale-wrap">
-              <svg class="whale-svg" viewBox="0 0 550 280" role="img" aria-label="MemoryWhale whale mascot" data-i18n-aria-label="hero.whaleAlt">
-                <defs>
-                  <linearGradient id="whaleBody" x1="70" x2="430" y1="70" y2="210" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stop-color="#92fff2" />
-                    <stop offset="0.44" stop-color="#2fe3cc" />
-                    <stop offset="1" stop-color="#16647c" />
-                  </linearGradient>
-                  <radialGradient id="whaleShine" cx="36%" cy="32%" r="72%">
-                    <stop offset="0" stop-color="#f4fffd" stop-opacity="0.92" />
-                    <stop offset="0.35" stop-color="#8dfbf0" stop-opacity="0.32" />
-                    <stop offset="1" stop-color="#2fe3cc" stop-opacity="0" />
-                  </radialGradient>
-                </defs>
-                <path
-                  class="whale-glow"
-                  d="M94 154C118 82 207 46 319 70c53 11 97 38 127 77 20-22 44-37 74-42-13 34-34 59-62 74 16 25 36 45 62 60-42 4-77-7-104-31-42 31-100 45-170 37-93-11-164-48-152-91Z"
-                  fill="#2fe3cc"
-                  opacity="0.18"
-                />
-                <path
-                  d="M44 148c39-74 128-116 241-100 77 11 136 48 171 108 19-31 46-52 81-60-9 41-30 73-64 95 15 24 36 43 64 58-43 7-80-4-110-31-45 31-106 44-184 35C123 239 13 207 44 148Z"
-                  fill="url(#whaleBody)"
-                />
-                <path
-                  d="M74 139c41-51 114-77 208-63 60 9 108 34 143 74-39 19-88 28-147 23-89-8-157-20-204-34Z"
-                  fill="url(#whaleShine)"
-                />
-                <path d="M149 199c31 24 75 38 132 43-42 23-89 22-142-4-12-6-10-24 10-39Z" fill="#145973" opacity="0.62" />
-                <path d="M157 86c-13-35 4-61 47-76-3 34-17 61-47 76Z" fill="#1b7d90" />
-                <path d="M229 74c31-25 67-27 107-5-32 18-67 20-107 5Z" fill="#63f0dc" opacity="0.82" />
-                <circle cx="96" cy="139" r="6" fill="#031114" />
-                <path d="M105 166c61 26 157 38 266 27" fill="none" stroke="#d9fffb" stroke-linecap="round" stroke-width="5" opacity="0.44" />
-                <path d="M118 187c51 20 124 30 219 24" fill="none" stroke="#031114" stroke-linecap="round" stroke-width="3" opacity="0.2" />
-              </svg>
-            </div>
-            </div>
-            <figure class="terminal hero-terminal">
+            <figure class="terminal hero-terminal device">
+              <span class="device-grille" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
               <figcaption class="terminal-bar">
                 <span class="terminal-lights" aria-hidden="true"><span class="light"></span><span class="light"></span><span class="light"></span></span>
-                <span data-i18n="hero.terminalTitle">Connect your coding agent</span>
+                <span data-i18n="hero.terminalTitle">Recall a fix you already found</span>
               </figcaption>
-              <pre><span class="prompt">$</span> cargo install memorywhale-cli --version 0.13.0 --locked
-
-<span class="prompt">$</span> mw integrate claude
-<span class="ok">MemoryWhale installed for Claude Code.</span>
-  mcp:      memorywhale registered (user scope)
-Restart Claude Code to pick up hook and skill changes.</pre>
-              <p class="terminal-note" data-i18n="hero.terminalNote">Setup example with Cargo and Claude Code; output shortened.</p>
+              <pre class="recall-demo"><span class="prompt">$</span> cargo build
+<span class="error">error: linker `cc` not found</span>
+<span class="prompt">$</span> mw context --last-error
+## This error
+<span class="warn">You've hit this 2 times — a later run succeeded 1 of 2 times.</span> [e6750e65]
+<span class="prompt">$</span> mw search linker cc not found
+<span class="ok"> 36%  [note · terminal] linker cc not found -&gt; run: xcode-select --install</span></pre>
+              <p class="terminal-note" data-i18n="hero.terminalNote">Real MemoryWhale 0.13 output, shortened.</p>
             </figure>
           </div>
         </section>
