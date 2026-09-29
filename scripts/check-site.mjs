@@ -107,7 +107,7 @@ for (const tool of ["recent_errors", "search_memory", "get_context", "remember",
 // The hero recall excerpt must match actual CLI messages, not invented output.
 const cliSource = await readFile(resolve(root, "crates/mw-cli/src/lib.rs"), "utf8");
 for (const [shown, source] of [
-  ["You've hit this 2 times — a later run succeeded 1 of 2 times.", "You've hit this {times} — {outcome}{now}. [{}]"],
+  ["You've hit this 2 times: a later run succeeded 1 of 2 times.", "You've hit this {times}: {outcome}{now}. [{}]"],
   ["a later run succeeded 1 of 2 times", "a later run succeeded {} of {} times"],
 ]) {
   expect(html.includes(shown) && cliSource.includes(source), `unverified recall output: ${shown}`);

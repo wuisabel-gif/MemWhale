@@ -746,7 +746,7 @@ impl ErrorInsight {
             ""
         };
         format!(
-            "You've hit this {times} — {outcome}{now}. [{}]",
+            "You've hit this {times}: {outcome}{now}. [{}]",
             self.fingerprint
         )
     }

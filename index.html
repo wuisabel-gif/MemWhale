@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MemoryWhale — terminal memory for you and your AI agent</title>
+    <title>MemoryWhale: terminal memory for you and your AI agent</title>
     <meta
       name="description"
       content="MemoryWhale captures development evidence into local SQLite so people and trusted tools can retrieve past failures and lessons. Local-first, with explicit export and transfer."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="MemoryWhale — terminal memory for you and your AI agent" />
+    <meta property="og:title" content="MemoryWhale: terminal memory for you and your AI agent" />
     <meta
       property="og:description"
       content="Captures development evidence into local SQLite so people and trusted tools can retrieve past failures and lessons. Local-first, with explicit export and transfer."
@@ -17,7 +17,7 @@
     <meta property="og:url" content="https://wuisabel-gif.github.io/MemWhale/" />
     <meta property="og:image" content="https://wuisabel-gif.github.io/MemWhale/assets/memorywhale-logo.png" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="MemoryWhale — terminal memory for you and your AI agent" />
+    <meta name="twitter:title" content="MemoryWhale: terminal memory for you and your AI agent" />
     <meta
       name="twitter:description"
       content="Captures development evidence into local SQLite so people and trusted tools can retrieve past failures and lessons."
@@ -920,7 +920,7 @@
 <span class="error">error: linker `cc` not found</span>
 <span class="prompt">$</span> mw context --last-error
 ## This error
-<span class="warn">You've hit this 2 times — a later run succeeded 1 of 2 times.</span> [e6750e65]
+<span class="warn">You've hit this 2 times: a later run succeeded 1 of 2 times.</span> [e6750e65]
 <span class="prompt">$</span> mw search linker cc not found
 <span class="ok"> 36%  [note · terminal] linker cc not found -&gt; run: xcode-select --install</span></pre>
               <p class="terminal-note" data-i18n="hero.terminalNote">Real MemoryWhale 0.13 output, shortened.</p>
@@ -992,7 +992,7 @@
               <strong data-i18n="who.shellTitle">🔍 The shell-centric debugger</strong>
               <p data-i18n="who.shellBody">
                 You hit the same build, linker, or dependency error twice.
-                Shell history remembers the command — not the output, the error
+                Shell history remembers the command but not the output, the error
                 tail, or the fix. <code>mw search</code> returns the old failing
                 run <em>and</em> the lesson linked to it.
               </p>
@@ -1000,7 +1000,7 @@
             <article class="card">
               <strong data-i18n="who.multiTitle">🛰️ The multi-machine worker</strong>
               <p data-i18n="who.multiBody">
-                Jetson, lab server, laptop — sessions drop and each machine
+                Jetson, lab server, laptop: sessions drop and each machine
                 keeps a private, incomplete history. <code>mw --live</code>
                 autosaves through disconnects; <code>mw push</code> /
                 <code>mw pull</code> move memory between machines explicitly.
@@ -1009,7 +1009,7 @@
             <article class="card">
               <strong data-i18n="who.agentTitle">🤖 The coding-agent user</strong>
               <p data-i18n="who.agentBody">
-                Claude Code, Codex, Cursor — every session starts with
+                Claude Code, Codex, Cursor: every session starts with
                 re-explaining your environment. With <code>mw-mcp</code>, the
                 agent can query prior evidence and explicitly save a lesson
                 with <code>remember</code>. You still need to verify that a fix works.
@@ -1052,7 +1052,7 @@
             <p class="section-copy" data-i18n="agents.copy">
               Coding-agent sessions can lose context and repeat debugging you
               already did. <code>mw-mcp</code> is a Model Context Protocol
-              server over your local memory — register it once and Claude Code,
+              server over your local memory. Register it once and Claude Code,
               Rho, Codex, or Cursor can query past failures directly. Anything the
               client retrieves can reach the model provider it sends context
               to, so connect only clients you trust.
@@ -1074,8 +1074,8 @@
               <span class="client-chip" data-i18n="agents.matrix">More in the matrix</span>
             </div>
             <p class="section-copy" data-i18n="agents.guides">
-              <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" style="color:var(--azure);text-decoration:underline;">Setup guides for clients and tools</a>
-              — the capability matrix documents MCP support, auto-capture, and
+              <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md" style="color:var(--azure);text-decoration:underline;">Setup guides for clients and tools</a>:
+              the capability matrix documents MCP support, auto-capture, and
               verification status per client, including model gateways like
               OpenRouter and CLIProxyAPI.
             </p>
@@ -1163,7 +1163,7 @@
             <div class="stat"><span data-i18n="data.sizeLabel">Size limit</span><strong data-i18n="data.sizeValue">Captured text fields default to 1 MiB with truncation</strong></div>
             <div class="stat"><span data-i18n="data.inspectLabel">Inspect / delete</span><strong data-i18n="data.inspectValue"><code>mw audit</code> · <code>mw rm</code> · <code>mw prune</code></strong></div>
             <div class="stat"><span data-i18n="data.transferLabel">Transfer</span><strong data-i18n="data.transferValue"><code>mw export</code> / <code>mw import</code> or explicit SSH transfer</strong></div>
-            <div class="stat"><span data-i18n="data.stewardshipLabel">Stewardship</span><strong data-i18n="data.stewardshipValue"><code>mw memory compact</code> — dry-run first, rows preserved</strong></div>
+            <div class="stat"><span data-i18n="data.stewardshipLabel">Stewardship</span><strong data-i18n="data.stewardshipValue"><code>mw memory compact</code>: dry-run first, rows preserved</strong></div>
           </div>
         </section>
 
@@ -1195,7 +1195,7 @@
               use the Linux build.
             </p>
             <div class="stat-list">
-              <div class="stat"><span data-i18n="run.tryLabel">Try first</span><strong data-i18n="run.tryValue"><code>mw demo</code> — writes sample data to the selected store</strong></div>
+              <div class="stat"><span data-i18n="run.tryLabel">Try first</span><strong data-i18n="run.tryValue"><code>mw demo</code>: writes sample data to the selected store</strong></div>
               <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
               <div class="stat">
                 <span data-i18n="run.cargoLabel">Cargo</span>
