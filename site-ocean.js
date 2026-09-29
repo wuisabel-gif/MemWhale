@@ -272,7 +272,7 @@ function start() {
     const time = reduce ? 14 : clock.getElapsedTime();
     // Depth follows how far the hero has scrolled away: 0 in view, 1 gone.
     const rect = hero.getBoundingClientRect();
-    const depth = THREE.MathUtils.clamp(-rect.top / Math.max(rect.height, 1), 0, 1);
+    const depth = reduce ? 0 : THREE.MathUtils.clamp(-rect.top / Math.max(rect.height, 1), 0, 1);
     camY += (-depth * 14 - camY) * (reduce ? 1 : 0.06);
 
     // Whale: swims past the camera on arrival, then cruises; leans toward the pointer.
@@ -373,8 +373,7 @@ function start() {
 
   if (reduce) {
     ready = true;
-    frame();
-    addEventListener("scroll", frame, { passive: true });
+    frame(); // one still frame; nothing moves with scroll or time
     return;
   }
   // Only animate while the hero is visible.
