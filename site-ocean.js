@@ -15,7 +15,15 @@ const demo = document.querySelector(".recall-demo");
 if (demo && !reduce) {
   const PROMPT = '<span class="prompt">$</span> ';
   const lines = demo.innerHTML.split("\n");
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // Pause while the device is off screen or the tab is hidden.
+  let visible = true, wake = null;
+  const resume = () => { if (visible && !document.hidden && wake) { wake(); wake = null; } };
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; resume(); }).observe(demo);
+  document.addEventListener("visibilitychange", resume);
+  const sleep = async (ms) => {
+    await new Promise((r) => setTimeout(r, ms));
+    if (!visible || document.hidden) await new Promise((r) => { wake = r; });
+  };
   (async () => {
     for (;;) {
       let shown = "";
