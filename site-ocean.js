@@ -73,7 +73,7 @@ function start() {
     new THREE.SphereGeometry(100, 32, 16),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color("#1a7a8c") }, bot: { value: new THREE.Color("#03101c") }, time: { value: 0 } },
+      uniforms: { top: { value: new THREE.Color("#1f8fa3") }, bot: { value: new THREE.Color("#03101c") }, time: { value: 0 } },
       vertexShader: "varying float h; varying vec3 vp; void main(){ vp = position; h = normalize(position).y; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }",
       fragmentShader: "uniform vec3 top; uniform vec3 bot; uniform float time; varying float h; varying vec3 vp; void main(){ vec3 c = mix(bot, top, smoothstep(-0.25, 0.75, h)); float k = sin(vp.x*.18+time*.5)*sin(vp.z*.21-time*.4)+sin((vp.x+vp.z)*.11+time*.7); c += vec3(.35,.9,.85)*pow(max(k*.5,0.),3.)*smoothstep(.25,.8,h)*.35; gl_FragColor = vec4(c, 1.); }",
     })
@@ -101,7 +101,7 @@ function start() {
   lathe.translate(L * 0.5, 0, 0);
   {
     const p = lathe.attributes.position, colors = [];
-    const back = new THREE.Color("#1f5f7a"), belly = new THREE.Color("#cfeee9");
+    const back = new THREE.Color("#2f86a6"), belly = new THREE.Color("#eafffb");
     for (let i = 0; i < p.count; i++) {
       let y = p.getY(i);
       if (y < 0) y *= 0.78; // flatter belly
@@ -114,7 +114,7 @@ function start() {
   }
   const bodyGeo = lathe.toNonIndexed();
   bodyGeo.computeVertexNormals();
-  const body = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.05 }));
+  const body = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.5, metalness: 0.05, emissive: "#16566b" }));
   const basePos = bodyGeo.attributes.position.array.slice();
 
   const finMat = new THREE.MeshStandardMaterial({ color: "#1c5670", flatShading: true, roughness: 0.6, side: THREE.DoubleSide });
@@ -138,7 +138,7 @@ function start() {
   eyeR.position.set(4.35, -0.15, -1.2);
   const whale = new THREE.Group();
   whale.add(body, fluke, finL, finR, dorsal, eyeL, eyeR);
-  whale.scale.setScalar(0.85);
+  whale.scale.setScalar(1.05);
   scene.add(whale);
   // Whales beat their tails up and down; the wave grows toward the tail.
   const wave = (x, t) => { const u = THREE.MathUtils.clamp((L / 2 - x) / L, 0, 1); return 0.55 * u * u * Math.sin(t * 1.6 - u * 3.2); };
@@ -148,7 +148,7 @@ function start() {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     uniforms: { time: { value: 0 } },
     vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }",
-    fragmentShader: "uniform float time; varying vec2 vUv; void main(){ float edge = smoothstep(0.,.5,vUv.x)*smoothstep(1.,.5,vUv.x); float a = edge*pow(vUv.y,1.6)*(0.55+0.45*sin(time*.7+vUv.x*6.)); gl_FragColor = vec4(0.6,1.,0.95, a*0.07); }",
+    fragmentShader: "uniform float time; varying vec2 vUv; void main(){ float edge = smoothstep(0.,.5,vUv.x)*smoothstep(1.,.5,vUv.x); float a = edge*pow(vUv.y,1.6)*(0.55+0.45*sin(time*.7+vUv.x*6.)); gl_FragColor = vec4(0.6,1.,0.95, a*0.12); }",
   });
   for (let i = 0; i < 9; i++) {
     const r = new THREE.Mesh(new THREE.PlaneGeometry(2 + Math.random() * 3, 40), rayMat);
@@ -262,14 +262,15 @@ function start() {
 
   const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 9), hit = new THREE.Vector3();
   const whalePos = new THREE.Vector3(-30, 1, 6), prev = whalePos.clone(), heading = new THREE.Vector3(1, 0, 0);
-  const topShallow = new THREE.Color("#1a7a8c"), topDeep = new THREE.Color("#0a2f47");
+  const topShallow = new THREE.Color("#1f8fa3"), topDeep = new THREE.Color("#0a2f47");
   const fogShallow = new THREE.Color(0x062437), fogDeep = new THREE.Color(0x020b14);
-  const cruise = (t, base) => new THREE.Vector3(Math.sin(t * 0.09) * 13, base + 4.6 + Math.sin(t * 0.21) * 0.9, Math.cos(t * 0.09) * 3 - 9);
+  // Cruise a slow loop around the terminal (right of centre) so the whale stays in view.
+  const cruise = (t, base) => new THREE.Vector3(9.5 + Math.sin(t * 0.16) * 9.5, base + 1.5 + Math.cos(t * 0.16) * 7.5, -3 + Math.sin(t * 0.32) * 1.5);
   const intro = (t) => new THREE.Vector3(-30 + t * 6.5, 0.5 + Math.sin(t * 0.8) * 0.8, 7 - t * 1.2);
   let camY = 0, frameNo = 0, running = false;
 
   function frame() {
-    const time = reduce ? 14 : clock.getElapsedTime();
+    const time = reduce ? 3 : clock.getElapsedTime(); // the still frame shows the whale above the terminal
     // Depth follows how far the hero has scrolled away: 0 in view, 1 gone.
     const rect = hero.getBoundingClientRect();
     const depth = reduce ? 0 : THREE.MathUtils.clamp(-rect.top / Math.max(rect.height, 1), 0, 1);
