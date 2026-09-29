@@ -368,7 +368,6 @@ function start() {
 
     renderer.render(scene, camera);
     frameNo++;
-    if (running && !reduce) requestAnimationFrame(frame);
   }
 
   if (reduce) {
@@ -376,10 +375,12 @@ function start() {
     frame(); // one still frame; nothing moves with scroll or time
     return;
   }
-  // Only animate while the hero is visible.
+  // Only animate while the hero is visible; a single rAF id means at most one loop.
+  let rafId = 0;
+  const tick = () => { rafId = 0; frame(); if (running) rafId = requestAnimationFrame(tick); };
   new IntersectionObserver(([entry]) => {
-    const wasRunning = running;
     running = entry.isIntersecting;
-    if (running && !wasRunning) requestAnimationFrame(frame);
+    if (running && !rafId) rafId = requestAnimationFrame(tick);
+    if (!running && rafId) { cancelAnimationFrame(rafId); rafId = 0; }
   }).observe(hero);
 }
