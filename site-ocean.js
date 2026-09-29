@@ -247,7 +247,9 @@ function start() {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   };
-  new ResizeObserver(resize).observe(canvas);
+  // Resizing clears the canvas; redraw the still frame when nothing is animating.
+  let ready = false;
+  new ResizeObserver(() => { resize(); if (reduce && ready) frame(); }).observe(canvas);
   resize();
 
   const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 9), hit = new THREE.Vector3();
@@ -362,6 +364,7 @@ function start() {
   }
 
   if (reduce) {
+    ready = true;
     frame();
     addEventListener("scroll", frame, { passive: true });
     return;
