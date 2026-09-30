@@ -228,6 +228,17 @@ fn main() -> anyhow::Result<()> {
             excluded += 1;
             continue;
         }
+        // Sessions, dates, and ids are parallel arrays; reject a malformed
+        // item instead of silently mis-aligning labels and scoring it.
+        let n = item.haystack_sessions.len();
+        anyhow::ensure!(
+            item.haystack_dates.len() == n && item.haystack_session_ids.len() == n,
+            "{}: {} sessions, {} dates, {} session ids",
+            item.question_id,
+            n,
+            item.haystack_dates.len(),
+            item.haystack_session_ids.len()
+        );
         let memories: Vec<Memory> = item
             .haystack_sessions
             .iter()
@@ -261,9 +272,11 @@ fn main() -> anyhow::Result<()> {
             .filter(|(_, sid)| answers.contains(sid.as_str()))
             .map(|(i, _)| i as i64 + 1)
             .collect();
-        if rel.is_empty() {
-            continue; // no labelled answer session in this haystack
-        }
+        anyhow::ensure!(
+            rel.len() == answers.len(),
+            "{}: answer session ids missing from the haystack",
+            item.question_id
+        );
         let now = parse_date(&item.question_date);
         let rankings = [
             rank_builtin(
