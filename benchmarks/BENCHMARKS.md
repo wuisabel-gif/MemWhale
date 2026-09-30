@@ -136,7 +136,11 @@ match — `i03` *"the most recent compiler error I hit"* (tag `compiler-error`),
 most times"* (tag `flaky`) all resolve to rank 1.
 
 It is **not** perfect, and the misses are reported here rather than hidden.
-`builtin` still trips (recall@1 miss) on 2 of 18:
+`builtin` still trips (recall@1 miss) on 3 of 18:
+
+- **`i09` "the most reinforced lesson overall"**: new with query-aware recency.
+  The target used to win partly because it was also the newest memory; with no
+  time word in the query, reinforcement (weight 0.10) alone ranks it third.
 
 - **`i11` "the highest priority lesson"** — the intended item loses to a
   neighbour that is more recent / more reinforced; with importance weighted only

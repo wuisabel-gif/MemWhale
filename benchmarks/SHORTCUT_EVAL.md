@@ -64,8 +64,10 @@ resolution counts, and the top-5 retrieved note ids — is in
   different file size (`214.00 MB` → `231.40 MB`); the fingerprint normalizer
   masks integers but not the decimal fraction, so `.00` vs `.40` fingerprints
   differently. A real limitation, left in.
-- `t14-tokio-version-select` — **search_memory miss @5.** The fix note (#21) is
-  out-ranked by sibling tokio/cargo notes for that query.
+- `t01-e0308-camera`: **search_memory miss @1.** The fix note is in the top 5
+  but not first. (Before query-aware recency, `t14-tokio-version-select` also
+  missed search_memory@5 because newer tokio/cargo notes out-ranked its fix;
+  it now ranks the fix first.)
 - `t22-no-fix-in-memory` — **control**, no fix in the corpus. Missed by both
   tools (no resolution recorded; no fix note to retrieve). It exists so the eval
   cannot be trivially all-hits and drags the all-task denominator honestly.

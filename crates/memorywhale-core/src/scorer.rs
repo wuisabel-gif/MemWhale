@@ -194,6 +194,9 @@ const PERIODS: &[&str] = &[
     "year",
     "hour",
     "hours",
+    "minute",
+    "minutes",
+    "seconds",
 ];
 
 fn is_quantity(word: &str) -> bool {
@@ -509,6 +512,7 @@ mod tests {
             "what failed in the last 3 days",
             "flaky tests over the past two weeks",
             "errors from the last couple days",
+            "what crashed in the last 5 minutes",
         ] {
             assert!(asks_about_recency(timely), "{timely}");
         }
