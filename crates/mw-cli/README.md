@@ -1,6 +1,6 @@
 # memorywhale-cli
 
-**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · September 27, 2026.**
+**MemoryWhale 0.14.0: Relevance-First Recall · September 30, 2026.**
 
 Local-first terminal memory. Records commands, arguments, output, errors, and
 whole sessions into local SQLite, so what already failed stays searchable —

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
+<!-- README-SOURCE-SHA256: 1eb822103375ff9f6bbc95c6be9047a9cedf0d425e40ba3b1274aef3c02a21a0 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -30,13 +30,17 @@ traces sont stockées dans une base SQLite locale, pour que vous et vos agents d
 code puissiez les retrouver une fois le terminal fermé, la connexion SSH coupée
 ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via MCP, sans compte et sans que rien ne soit envoyé.
 
+> Sur [LongMemEval](benchmarks/longmemeval/README.md), un benchmark public de mémoire à long terme, la
+> recherche place une session contenant la réponse dans ses 5 premiers résultats
+> pour **97%** des 470 questions (recherche seule, sans modèle).
+>
 > Lors d’une évaluation contrôlée sur des bugs propres à un projet, un agent en a résolu
 > **25%** sans mémoire et **96%** avec. Il s’agit de tâches synthétiques qui démontrent le
 > mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](benchmarks/README.md).
 
-**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 27 septembre 2026.**
+**MemoryWhale 0.14.0: Relevance-First Recall · 30 septembre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit
-0.13.0 ; le cœur Rust réutilisable est en version 0.7.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)
+0.14.0 ; le cœur Rust réutilisable est en version 0.8.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.14.0/docs/releases/0.14.0.md)
 pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 13.
 
 **Envie de contribuer ?** Commencez par l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).

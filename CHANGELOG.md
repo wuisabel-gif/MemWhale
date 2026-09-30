@@ -3,15 +3,25 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.14.0] — Relevance-First Recall — September 30, 2026
+
+Product `0.14.0`; `memorywhale-core` `0.8.0`; SQLite schema `13`.
+
+See [release notes](docs/releases/0.14.0.md).
 
 ### Changed
 
-- **Query-aware recency.** Recency counts at full weight only when a query asks about time ("most recent", "3 days ago", "last week"; "last"/"this"/"past" count only before a period word); otherwise it only breaks near-ties, and `--explain` says so. LongMemEval NDCG@10 0.802 → 0.883, term-overlap recall@1 0.522 → 0.822, intent recall@1 0.833 → 0.778. See `benchmarks/longmemeval/`.
+- **Query-aware recency.** Recency counts at full weight only when a query asks about time ("most recent", "3 days ago", "last week"; "last"/"this"/"past" count only before a period word); otherwise it only breaks near-ties, and `--explain` says so. (#359) LongMemEval NDCG@10 0.802 → 0.883, term-overlap recall@1 0.522 → 0.822, intent recall@1 0.833 → 0.778. See `benchmarks/longmemeval/`.
 
 ### Fixed
 
 - `mw context --last-error` summary uses a colon instead of an em dash. (#357)
+
+### Added
+
+- **LongMemEval retrieval study**: public, offline, deterministic benchmark. (#358)
+- **Terminal-Bench harness**: with/without-memory runs through Harbor; not yet run. (#354)
+- **Website**: 3D ocean hero with a live recall demo. (#355, #356)
 
 ## [0.13.0] — Feedback-Aware, Portable Memory — September 27, 2026
 

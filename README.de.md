@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
+<!-- README-SOURCE-SHA256: 1eb822103375ff9f6bbc95c6be9047a9cedf0d425e40ba3b1274aef3c02a21a0 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -29,15 +29,19 @@ Ausgaben, Fehlschläge und die Fixes, die funktioniert haben. Diese Belege lande
 lokal in SQLite, sodass du und deine Coding-Agenten sie auch dann noch finden,
 wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. Über MCP arbeitet es mit 19 Coding-Agenten zusammen, ganz ohne Konto und ohne Upload.
 
+> Auf [LongMemEval](benchmarks/longmemeval/README.md), einem öffentlichen Benchmark für Langzeitgedächtnis,
+> landet eine Sitzung mit der Antwort bei **97%** von 470 Fragen unter den
+> ersten 5 Suchtreffern (nur Retrieval, kein Modell).
+>
 > In einer kontrollierten Evaluation mit projektspezifischen Bugs löste ein Agent ohne
 > Gedächtnis **25%** der Aufgaben, mit Gedächtnis **96%**. Es handelt sich um
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](benchmarks/README.md).
 
-**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 27. September 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.13.0; der
-wiederverwendbare Rust-Kern hat die Version 0.7.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md).
+**MemoryWhale 0.14.0: Relevance-First Recall · 30. September 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.14.0; der
+wiederverwendbare Rust-Kern hat die Version 0.8.0. Hinweise zum Upgrade findest
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.14.0/docs/releases/0.14.0.md).
 Beim Öffnen wird ein Speicher von Schema 10 auf 13 migriert.
 
 **Du willst mitmachen?** Fang mit dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) an.

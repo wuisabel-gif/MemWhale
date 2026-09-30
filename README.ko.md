@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 7c682fb3f49feb23c3eaa6aa9dd95d1da7bc558a965444264c1be93b69833c3a -->
+<!-- README-SOURCE-SHA256: 1eb822103375ff9f6bbc95c6be9047a9cedf0d425e40ba3b1274aef3c02a21a0 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -29,12 +29,14 @@ MemoryWhale은 디버깅하면서 실제로 일어난 일, 즉 실행한 명령�
 여러분과 코딩 에이전트가 다시 찾아볼 수 있습니다.
 MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계정이 필요 없고 아무것도 업로드하지 않습니다.
 
+> 공개 장기 메모리 벤치마크 [LongMemEval](benchmarks/longmemeval/README.md)에서 검색은 470개 질문의 **97%**에서 정답이 담긴 세션을 상위 5개 안에 올렸습니다(검색만 평가, 모델 없음).
+>
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
 > 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](benchmarks/README.md)을 참고하세요.
 
-**MemoryWhale 0.13.0 — Feedback-Aware, Portable Memory · 2026년 9월 27일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.13.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.7.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md)를 참고하세요.
+**MemoryWhale 0.14.0: Relevance-First Recall · 2026년 9월 30일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.14.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.8.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.14.0/docs/releases/0.14.0.md)를 참고하세요.
 스토어를 열면 스키마가 10에서 13으로 마이그레이션됩니다.
 
 **기여하고 싶으신가요?** [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)부터 시작해 보세요.
