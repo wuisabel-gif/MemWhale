@@ -143,6 +143,45 @@ function start() {
   // Whales beat their tails up and down; the wave grows toward the tail.
   const wave = (x, t) => { const u = THREE.MathUtils.clamp((L / 2 - x) / L, 0, 1); return 0.55 * u * u * Math.sin(t * 1.6 - u * 3.2); };
 
+  // ---- dolphin: Delphin, the companion project; click it to visit
+  const DL = 4.6;
+  // A short beak, a rounded melon rising into the body, then a long taper to the tail.
+  const dProfile = (t) => {
+    if (t < 0.12) return 0.07 + 0.6 * t;
+    const u = Math.min((t - 0.12) / 0.26, 1);
+    const taper = Math.pow(Math.cos(Math.max(t - 0.38, 0) / 0.62 * Math.PI / 2), 1.1);
+    return Math.max((0.142 + 0.28 * Math.pow(Math.sin(u * Math.PI / 2), 0.7)) * taper, 0.05);
+  };
+  const dPts = [];
+  for (let i = 0; i <= 30; i++) dPts.push(new THREE.Vector2(dProfile(i / 30), (i / 30) * DL));
+  const dLathe = new THREE.LatheGeometry(dPts, 14);
+  dLathe.rotateZ(Math.PI / 2);
+  dLathe.translate(DL * 0.5, 0, 0);
+  {
+    const p = dLathe.attributes.position, colors = [];
+    const back = new THREE.Color("#6f8ea6"), belly = new THREE.Color("#eef6f8");
+    for (let i = 0; i < p.count; i++) {
+      const c = back.clone().lerp(belly, THREE.MathUtils.smoothstep(-p.getY(i), 0.0, 0.35));
+      colors.push(c.r, c.g, c.b);
+    }
+    dLathe.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  }
+  const dBodyGeo = dLathe.toNonIndexed();
+  dBodyGeo.computeVertexNormals();
+  const dFinMat = new THREE.MeshStandardMaterial({ color: "#4f6f86", flatShading: true, roughness: 0.5, side: THREE.DoubleSide });
+  const dFluke = new THREE.Mesh(flukeGeo, dFinMat);
+  dFluke.scale.setScalar(0.32);
+  dFluke.position.set(-DL / 2 + 0.05, 0, 0);
+  const dDorsal = new THREE.Mesh(new THREE.ExtrudeGeometry(shape([[0, 0], [-0.25, 0.55], [-0.75, 0.62], [-0.55, 0.4], [-0.7, 0]]), { ...extrude, depth: 0.05, bevelSize: 0.02, bevelThickness: 0.02 }), dFinMat);
+  dDorsal.position.set(0.1, 0.36, -0.03);
+  const dEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), eyeMat), dEye2 = dEye.clone();
+  dEye.position.set(1.3, 0.04, 0.22);
+  dEye2.position.set(1.3, 0.04, -0.22);
+  const dolphin = new THREE.Group();
+  dolphin.add(new THREE.Mesh(dBodyGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.35, metalness: 0.05, emissive: "#24506a" })), dFluke, dDorsal, dEye, dEye2);
+  scene.add(dolphin);
+  const DELPHIN_URL = "https://github.com/wuisabel-gif/Delphin";
+
   // ---- light rays
   const rayMat = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
@@ -238,14 +277,23 @@ function start() {
   // ---- input: the whale leans toward the pointer; a click on open water makes it spout
   const clock = new THREE.Clock();
   let mx = 0, my = 0, lastMove = -99, spoutAt = -99;
+  const pick = new THREE.Raycaster();
+  const onDolphin = (e) => {
+    if (e.target.closest("a, button, input, select, pre, figure")) return false;
+    const r = canvas.getBoundingClientRect();
+    pick.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    return pick.intersectObject(dolphin, true).length > 0;
+  };
   hero.addEventListener("pointermove", (e) => {
     const r = canvas.getBoundingClientRect();
     mx = (e.clientX - r.left) / r.width - 0.5;
     my = (e.clientY - r.top) / r.height - 0.5;
     lastMove = clock.getElapsedTime();
+    hero.style.cursor = onDolphin(e) ? "pointer" : "";
   });
   hero.addEventListener("click", (e) => {
-    if (!e.target.closest("a, button, input, select, pre, figure")) spoutAt = clock.getElapsedTime();
+    if (onDolphin(e)) window.open(DELPHIN_URL, "_blank", "noopener");
+    else if (!e.target.closest("a, button, input, select, pre, figure")) spoutAt = clock.getElapsedTime();
   });
 
   const resize = () => {
@@ -267,6 +315,7 @@ function start() {
   // Cruise a slow loop around the terminal (right of centre) so the whale stays in view.
   const cruise = (t, base) => new THREE.Vector3(9.5 + Math.sin(t * 0.16) * 9.5, base + 1.5 + Math.cos(t * 0.16) * 7.5, -3 + Math.sin(t * 0.32) * 1.5);
   const intro = (t) => new THREE.Vector3(-30 + t * 6.5, 0.5 + Math.sin(t * 0.8) * 0.8, 7 - t * 1.2);
+  const dolphinPos = new THREE.Vector3(-34, 3, 6), dPrev = dolphinPos.clone(), dHeading = new THREE.Vector3(1, 0, 0);
   let camY = 0, frameNo = 0, running = false;
 
   function frame() {
@@ -306,6 +355,19 @@ function start() {
     finL.rotation.x = -0.9 + Math.sin(time * 1.6) * 0.15;
     finR.rotation.x = 0.9 + Math.PI - Math.sin(time * 1.6) * 0.15;
     whale.updateMatrixWorld();
+
+    // Dolphin: loops through the open water below the terminal, arcing like it is porpoising.
+    const dWant = new THREE.Vector3(5 + Math.sin(time * 0.3) * 8, camY - 6 + Math.sin(time * 1.3) * 0.9, 1 + Math.cos(time * 0.3) * 2);
+    dPrev.copy(dolphinPos);
+    dolphinPos.lerp(dWant, reduce ? 1 : 0.05);
+    const dVel = dolphinPos.clone().sub(dPrev);
+    if (reduce) dVel.set(Math.cos(time * 0.3), 0, -Math.sin(time * 0.3));
+    dVel.y *= 0.4; // a gentle arc, not a nose-dive
+    if (dVel.lengthSq() > 1e-6) dHeading.lerp(dVel.normalize(), 0.12).normalize();
+    dolphin.position.copy(dolphinPos);
+    dolphin.lookAt(dolphinPos.clone().add(dHeading));
+    dolphin.rotateY(-Math.PI / 2);
+    dFluke.rotation.z = Math.sin(time * 5) * 0.35;
 
     const blowhole = new THREE.Vector3(3.2, 1.3, 0).applyMatrix4(whale.matrixWorld);
     if (frameNo % 9 === 0) emit(blowhole, 0.05, 0.02);
