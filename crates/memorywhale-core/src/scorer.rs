@@ -159,7 +159,9 @@ fn similarity_signal(
 pub const RECENCY_TIEBREAK: f32 = 0.1;
 
 /// Words that on their own mark a query as time-sensitive ("the most recent
-/// sqlite problem", "what did I fix yesterday", "3 days ago").
+/// sqlite problem", "what did I fix yesterday", "3 days ago"). Deliberately
+/// short: a false positive lets recency outrank relevance, so ambiguous words
+/// ("now", "current", bare "last") are left out.
 const RECENCY_WORDS: &[&str] = &[
     "recent",
     "recently",
@@ -170,7 +172,6 @@ const RECENCY_WORDS: &[&str] = &[
     "today",
     "tonight",
     "ago",
-    "now",
     "currently",
 ];
 
@@ -525,6 +526,7 @@ mod tests {
             "known issue with tokio",
             "the last 3 lines of the log",
             "the last few lines of output",
+            "it now fails with a linker error",
             "past couple of builds",
         ] {
             assert!(!asks_about_recency(plain), "{plain}");
