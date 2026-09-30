@@ -30,6 +30,7 @@ from harbor.models.task.config import MCPServerConfig
 
 DATA_DIR = "/opt/memorywhale-data"
 STORE = f"{DATA_DIR}/memorywhale.sqlite3"
+STORE_FILES = ("memorywhale.sqlite3", "memorywhale.sqlite3-wal", "memorywhale.sqlite3-shm")
 RELEASES = "https://github.com/wuisabel-gif/MemWhale/releases/download"
 
 MEMORY_PROMPT = (
@@ -104,17 +105,34 @@ class MemoryWhaleClaudeCode(ClaudeCode):
         if not self.options.append_system_prompt:
             self.options.append_system_prompt = MEMORY_PROMPT
 
-        # The whole data dir travels, so SQLite's -wal/-shm sidecars come along.
-        if (self._host_store / "memorywhale.sqlite3").exists():
-            await environment.upload_dir(self._host_store, DATA_DIR)
-            await self.exec_as_root(environment, command=f"chmod -R a+rw {DATA_DIR}")
+        # Copy the store file by file (not upload_dir, whose semantics differ by
+        # environment and can nest the directory), SQLite sidecars included.
+        for name in STORE_FILES:
+            src = self._host_store / name
+            if src.exists():
+                await environment.upload_file(src, f"{DATA_DIR}/{name}")
+        await self.exec_as_root(environment, command=f"chmod -R a+rw {DATA_DIR}")
         try:
             await super().run(instruction, environment, context)
         finally:
-            # Carry whatever this trial learned into the next one, even on failure.
+            # Carry whatever this trial learned into the next one, even when the
+            # agent failed. A failure here must not hide the agent's own error.
             try:
-                await self.exec_as_root(environment, command=f"test -f {STORE}")
+                await self._save_store(environment)
+            except Exception as err:  # noqa: BLE001
+                self.logger.warning("could not carry the MemoryWhale store: %s", err)
+
+    async def _save_store(self, environment: BaseEnvironment) -> None:
+        try:
+            await self.exec_as_root(environment, command=f"test -f {STORE}")
+        except RuntimeError:
+            return  # nothing was recorded; keep the previous store as-is
+        self._host_store.mkdir(parents=True, exist_ok=True)
+        for name in STORE_FILES:
+            dest = self._host_store / name
+            dest.unlink(missing_ok=True)  # never pair a new db with a stale -wal
+            try:
+                await self.exec_as_root(environment, command=f"test -f {DATA_DIR}/{name}")
             except RuntimeError:
-                return  # nothing was recorded; keep the previous store as-is
-            self._host_store.mkdir(parents=True, exist_ok=True)
-            await environment.download_dir(DATA_DIR, self._host_store)
+                continue
+            await environment.download_file(f"{DATA_DIR}/{name}", dest)
