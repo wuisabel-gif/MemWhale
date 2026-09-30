@@ -194,8 +194,6 @@ const PERIODS: &[&str] = &[
     "year",
     "hour",
     "hours",
-    "few",
-    "couple",
 ];
 
 fn is_quantity(word: &str) -> bool {
@@ -522,6 +520,8 @@ mod tests {
             "this file fails to compile",
             "known issue with tokio",
             "the last 3 lines of the log",
+            "the last few lines of output",
+            "past couple of builds",
         ] {
             assert!(!asks_about_recency(plain), "{plain}");
         }
