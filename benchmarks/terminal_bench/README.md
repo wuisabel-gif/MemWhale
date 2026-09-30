@@ -67,15 +67,18 @@ estimate cost before a full run. From the repository root:
 export PYTHONPATH="$PWD"
 MODEL=anthropic/claude-sonnet-5
 DATASET=terminal-bench/terminal-bench@4.0.0
+# Pin one Claude Code version for both runs (your local one here) and record it.
+CLAUDE_CODE="$(claude --version | cut -d' ' -f1)"
 
-# A — baseline
-harbor run -d "$DATASET" -a claude-code -m "$MODEL" -e docker -n 1 -k 1 -l 10 \
+# A: baseline
+harbor run -d "$DATASET" -a claude-code -m "$MODEL" --ak version="$CLAUDE_CODE" -e docker -n 1 -k 1 -l 10 \
   --job-name tb-pilot-baseline
 
-# B — with MemoryWhale (fresh store)
+# B: with MemoryWhale (fresh store)
 rm -rf benchmarks/terminal_bench/store
 harbor run -d "$DATASET" -a benchmarks.terminal_bench.memorywhale_agent:MemoryWhaleClaudeCode \
-  -m "$MODEL" -e docker -n 1 -k 1 -l 10 --job-name tb-pilot-memorywhale
+  -m "$MODEL" --ak version="$CLAUDE_CODE" -e docker -n 1 -k 1 -l 10 \
+  --job-name tb-pilot-memorywhale
 
 harbor view jobs
 ```
