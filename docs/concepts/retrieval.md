@@ -14,8 +14,9 @@ views, and the MCP interface.
 
 ## Recency
 
-Recency counts at full weight only when a query asks about time, with words
-such as "recent", "latest", "last", "today", or "now". For any other query it
+Recency counts at full weight only when a query asks about time: words such as
+"recent", "latest", "today", "ago", or "now", or "last", "this", and "past"
+before a period ("last week", "this morning", "past few days"). For any other query it
 keeps a tenth of its weight, so it orders equally relevant memories without
 outranking a better match. Explain output marks the second case as
 "tie-breaker only". The measurement behind this is in

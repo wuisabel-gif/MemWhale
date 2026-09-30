@@ -7,7 +7,7 @@ All notable changes to MemoryWhale are documented here. This project follows
 
 ### Changed
 
-- **Query-aware recency.** Recency counts at full weight only when a query asks about time ("most recent", "latest", "last week"); otherwise it only breaks near-ties, and `--explain` says so. LongMemEval NDCG@10 0.802 → 0.877, term-overlap recall@1 0.522 → 0.822, intent recall@1 0.833 → 0.778. See `benchmarks/longmemeval/`.
+- **Query-aware recency.** Recency counts at full weight only when a query asks about time ("most recent", "3 days ago", "last week"; "last"/"this"/"past" count only before a period word); otherwise it only breaks near-ties, and `--explain` says so. LongMemEval NDCG@10 0.802 → 0.883, term-overlap recall@1 0.522 → 0.822, intent recall@1 0.833 → 0.778. See `benchmarks/longmemeval/`.
 
 ### Fixed
 

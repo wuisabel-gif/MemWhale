@@ -158,27 +158,61 @@ fn similarity_signal(
 /// Small enough that recency only reorders near-ties in relevance.
 pub const RECENCY_TIEBREAK: f32 = 0.1;
 
-/// Words that mark a query as time-sensitive ("the most recent sqlite
-/// problem", "what was I doing last week").
-const RECENCY_CUES: &[&str] = &[
+/// Words that on their own mark a query as time-sensitive ("the most recent
+/// sqlite problem", "what did I fix yesterday", "3 days ago").
+const RECENCY_WORDS: &[&str] = &[
     "recent",
     "recently",
     "latest",
     "lately",
     "newest",
-    "last",
     "yesterday",
     "today",
     "tonight",
+    "ago",
     "now",
-    "current",
     "currently",
 ];
 
+/// Words that mark time only before a period: "last week", "this morning",
+/// "past few days". Alone they are too ambiguous ("last resort", "this file").
+const PERIOD_LEADS: &[&str] = &["last", "this", "past", "previous"];
+const PERIODS: &[&str] = &[
+    "time",
+    "session",
+    "run",
+    "night",
+    "morning",
+    "afternoon",
+    "evening",
+    "day",
+    "days",
+    "week",
+    "weeks",
+    "month",
+    "months",
+    "year",
+    "hour",
+    "hours",
+    "few",
+    "couple",
+];
+
 /// Whether the query asks about time, which gives recency its full weight.
+/// Whole words only; "last"/"this"/"past" count only before a period word.
 pub fn asks_about_recency(text: &str) -> bool {
-    text.split(|c: char| !c.is_alphanumeric())
-        .any(|w| RECENCY_CUES.contains(&w.to_lowercase().as_str()))
+    let words: Vec<String> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    words.iter().enumerate().any(|(i, w)| {
+        RECENCY_WORDS.contains(&w.as_str())
+            || (PERIOD_LEADS.contains(&w.as_str())
+                && words
+                    .get(i + 1)
+                    .is_some_and(|next| PERIODS.contains(&next.as_str())))
+    })
 }
 
 /// Exponential recency from `last_used`, halving every `half_life_days`.
@@ -446,8 +480,26 @@ mod tests {
         };
         assert_eq!(weight(&timely), w.recency);
         assert_eq!(weight(&plain), w.recency * RECENCY_TIEBREAK);
-        assert!(asks_about_recency("what was I doing LAST week"));
-        assert!(!asks_about_recency("lastly, the flaky test")); // whole words only
+        for timely in [
+            "what was I doing LAST week",
+            "the most recent sqlite problem",
+            "errors from this morning",
+            "what broke 3 days ago",
+            "failures over the past few days",
+            "the last time the build failed",
+        ] {
+            assert!(asks_about_recency(timely), "{timely}");
+        }
+        for plain in [
+            "lastly, the flaky test",
+            "git reset as a last resort",
+            "print the last line of the log",
+            "current directory is not writable",
+            "this file fails to compile",
+            "known issue with tokio",
+        ] {
+            assert!(!asks_about_recency(plain), "{plain}");
+        }
     }
 
     #[test]
