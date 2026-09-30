@@ -23,3 +23,6 @@ __pycache__/
 
 # Terminal-Bench carried memory store (published with results, not committed)
 benchmarks/terminal_bench/store/
+
+# Local site smoke-test screenshots
+artifacts/site-smoke/
