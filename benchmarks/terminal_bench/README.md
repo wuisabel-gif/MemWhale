@@ -39,8 +39,11 @@ every task starts cold). We report it as such.
 - `-k 1`: one attempt per task, so no task can recall its own earlier attempt.
 - Same task order for A and B (Harbor's dataset order), and the same `-l` limit.
 - Pin the model (`-m`) and Claude Code version (`--ak version=...`) for both runs.
-- Delete `store/` before starting run B. Keep the final store with the results
-  so anyone can inspect exactly what was remembered.
+- Delete `store/` before starting run B. Keep the raw store private: it holds
+  every captured command and output from the run, which can include tokens or
+  paths. To show what was remembered, publish only a redacted export
+  (`MEMORYWHALE_DATA_DIR=benchmarks/terminal_bench/store mw export`, which
+  applies capture redaction) after reading it through yourself.
 - Publish both scores, per-task pass/fail for both, cost, and every failure,
   including tasks where memory made things worse.
 
