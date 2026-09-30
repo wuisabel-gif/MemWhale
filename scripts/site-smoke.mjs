@@ -82,12 +82,12 @@ async function checkLanguage(page, language, label) {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
     const separate = (a, b) => a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1;
     const copy = box(".hero-copy"), visual = box(".hero-visual"), headline = box(".hero-headline");
-    const whale = box(".whale-svg"), terminal = box(".hero-terminal");
+    const terminal = box(".hero-terminal");
     const navBrand = box(".nav .brand"), actions = box(".nav-actions");
     const searchButton = box("#site-search-button");
     const wide = innerWidth > 960;
     return {
-      separated: separate(copy, visual) && separate(headline, whale) && separate(headline, terminal) && separate(whale, terminal),
+      separated: separate(copy, visual) && separate(headline, terminal),
       columns: !wide || copy.right <= visual.left + 1 || visual.right <= copy.left + 1,
       header: navBrand.right <= actions.left + 1 && searchButton.width >= 32
         && searchButton.left >= actions.left - 1,
@@ -97,7 +97,7 @@ async function checkLanguage(page, language, label) {
         && document.querySelector(".integration-strip").nextElementSibling.id === "terminal-memory",
     };
   });
-  expect(layout.separated && layout.columns, `${label}: hero columns, headline, whale, or terminal overlap`);
+  expect(layout.separated && layout.columns, `${label}: hero columns, headline, or terminal overlap`);
   expect(layout.header, `${label}: compact header controls exceed their available space`);
   expect(layout.hierarchy, `${label}: headline competes with the product name`);
   expect(layout.sectionOrder, `${label}: integrations and feature cards are out of order`);
@@ -180,13 +180,13 @@ try {
         }
         // Exercise RTL -> LTR -> original selection on mobile as well as desktop.
         if (language === "ar") {
-          const examples = await page.locator("pre").allTextContents();
+          const examples = await page.locator("pre:not(.recall-demo)").allTextContents();
           for (const next of ["de", "en", "ar"]) {
             await page.locator("#language-select").selectOption(next);
             await checkLanguage(page, next, `${label}/switch-${next}`);
             await checkSearch(page, next, `${label}/switch-${next}`);
             expect(new URL(page.url()).searchParams.get("lang") === next, `${label}: selected locale missing from URL`);
-            expect(JSON.stringify(await page.locator("pre").allTextContents()) === JSON.stringify(examples), `${label}: translated executable examples`);
+            expect(JSON.stringify(await page.locator("pre:not(.recall-demo)").allTextContents()) === JSON.stringify(examples), `${label}: translated executable examples`);
           }
           expect(await page.evaluate(() => localStorage.getItem("memorywhale.language")) === "ar", `${label}: selection not saved`);
           await page.goto(languageUrl(null), { waitUntil: "networkidle" });
@@ -283,7 +283,8 @@ try {
     expect(await page.locator("h1").innerText() === "MemoryWhale", "no-js: brand heading missing");
     expect(await page.locator(".hero-headline").innerText() === "Make your terminal remember.", "no-js: English headline missing");
     expect(await page.locator(".nav-links a[href='#terminal-memory']").innerText() === translations.en["nav.terminal"], "no-js: English navigation missing");
-    expect((await page.locator("pre").first().innerText()).includes("cargo install memorywhale-cli --version 0.13.0 --locked"), "no-js: command example missing");
+    expect((await page.locator(".recall-demo").innerText()).includes("mw context --last-error"), "no-js: recall example missing");
+    expect((await page.locator("body").innerText()).includes("cargo install memorywhale-cli --version 0.13.0 --locked"), "no-js: install command missing");
     expect(!await page.locator("#site-search-button").isVisible(), "no-js: nonfunctional search control is visible");
   } finally {
     await noScriptContext.close();

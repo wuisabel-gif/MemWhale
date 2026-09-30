@@ -12,6 +12,18 @@ past fix still applies.
 The same retrieval capabilities appear through the CLI, TUI, web and desktop
 views, and the MCP interface.
 
+## Recency
+
+Recency counts at full weight only when a query asks about time: words such as
+"recent", "latest", "today", or "ago", or "last", "this", and "past" before a
+period ("last week", "last 3 days", "this morning"). For any other query it
+keeps a tenth of its weight, so it orders equally relevant memories without
+outranking a better match. Explain output marks the second case as
+"tie-breaker only". Detection is a short word list, so it misses some
+phrasings on purpose rather than guess: a missed time question falls back to
+relevance ranking. The measurement behind this is in
+[`benchmarks/longmemeval/`](../../benchmarks/longmemeval/README.md).
+
 ## Explain mode
 
 `mw search <query> --explain` keeps the normal ranked result lines and adds the

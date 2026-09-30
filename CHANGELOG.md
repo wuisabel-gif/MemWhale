@@ -3,6 +3,16 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Query-aware recency.** Recency counts at full weight only when a query asks about time ("most recent", "3 days ago", "last week"; "last"/"this"/"past" count only before a period word); otherwise it only breaks near-ties, and `--explain` says so. LongMemEval NDCG@10 0.802 → 0.883, term-overlap recall@1 0.522 → 0.822, intent recall@1 0.833 → 0.778. See `benchmarks/longmemeval/`.
+
+### Fixed
+
+- `mw context --last-error` summary uses a colon instead of an em dash. (#357)
+
 ## [0.13.0] — Feedback-Aware, Portable Memory — September 27, 2026
 
 Product `0.13.0`; `memorywhale-core` `0.7.0`; SQLite schema `13`.

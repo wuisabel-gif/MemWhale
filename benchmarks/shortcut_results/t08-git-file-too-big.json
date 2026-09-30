@@ -11,13 +11,13 @@
   "similar_failures_recognized": false,
   "similar_failures_shortcut": false,
   "search_top5_notes": [
-    7,
     11,
+    7,
     33,
     3
   ],
-  "search_shortcut_at_1": false,
+  "search_shortcut_at_1": true,
   "search_shortcut_at_5": true,
-  "combined_at_1": false,
+  "combined_at_1": true,
   "combined_at_5": true
 }

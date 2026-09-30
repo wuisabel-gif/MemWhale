@@ -17,7 +17,10 @@
 //!   embeddings when available, else FTS5 BM25 keyword relevance, else a
 //!   term-overlap fallback.
 //! - **recency** — exponential decay from `last_used`, halving every
-//!   `query.half_life_days`.
+//!   `query.half_life_days`. Full weight only when the query asks about time
+//!   ("most recent", "latest", "last week"); otherwise it is scaled down to a
+//!   tie-breaker, so it orders equally relevant memories without outranking
+//!   a better match. See `benchmarks/longmemeval/` for the measurement.
 //! - **importance** — the memory's stored importance weight, used directly.
 //! - **reinforcement** — mention count, log-scaled and capped.
 //! - **task-relevance** — overlap between the memory's tags and the query's task
@@ -151,18 +154,112 @@ fn similarity_signal(
     }
 }
 
+/// Share of the recency weight kept when the query does not ask about time.
+/// Small enough that recency only reorders near-ties in relevance.
+pub const RECENCY_TIEBREAK: f32 = 0.1;
+
+/// Words that on their own mark a query as time-sensitive ("the most recent
+/// sqlite problem", "what did I fix yesterday", "3 days ago"). Deliberately
+/// short: a false positive lets recency outrank relevance, so ambiguous words
+/// ("now", "current", bare "last") are left out.
+const RECENCY_WORDS: &[&str] = &[
+    "recent",
+    "recently",
+    "latest",
+    "lately",
+    "newest",
+    "yesterday",
+    "today",
+    "tonight",
+    "ago",
+    "currently",
+];
+
+/// Words that mark time only before a period: "last week", "this morning",
+/// "past few days". Alone they are too ambiguous ("last resort", "this file").
+const PERIOD_LEADS: &[&str] = &["last", "this", "past", "previous"];
+const PERIODS: &[&str] = &[
+    "time",
+    "session",
+    "run",
+    "night",
+    "morning",
+    "afternoon",
+    "evening",
+    "day",
+    "days",
+    "week",
+    "weeks",
+    "month",
+    "months",
+    "year",
+    "hour",
+    "hours",
+    "minute",
+    "minutes",
+    "seconds",
+];
+
+fn is_quantity(word: &str) -> bool {
+    word.chars().all(|c| c.is_ascii_digit())
+        || matches!(
+            word,
+            "a" | "one"
+                | "two"
+                | "three"
+                | "four"
+                | "five"
+                | "six"
+                | "seven"
+                | "eight"
+                | "nine"
+                | "ten"
+                | "several"
+                | "few"
+                | "couple"
+        )
+}
+
+/// Whether the query asks about time, which gives recency its full weight.
+/// Whole words only; "last"/"this"/"past" count only before a period word,
+/// optionally with one quantity between ("last 3 days", "past two weeks").
+pub fn asks_about_recency(text: &str) -> bool {
+    let words: Vec<String> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    let at = |k: usize| words.get(k).map(String::as_str);
+    let is_period = |k: usize| at(k).is_some_and(|x| PERIODS.contains(&x));
+    words.iter().enumerate().any(|(i, w)| {
+        RECENCY_WORDS.contains(&w.as_str())
+            || (PERIOD_LEADS.contains(&w.as_str())
+                && (is_period(i + 1) || (at(i + 1).is_some_and(is_quantity) && is_period(i + 2))))
+    })
+}
+
 /// Exponential recency from `last_used`, halving every `half_life_days`.
+/// Full weight for time-sensitive queries, a tie-breaker share otherwise.
 fn recency_signal(memory: &Memory, query: &Query, weight: f32) -> Signal {
     let age_days = (query.now - memory.last_used).num_seconds() as f32 / 86_400.0;
     let age_days = age_days.max(0.0);
     let hl = query.half_life_days.max(0.1);
     let score = 0.5f32.powf(age_days / hl).clamp(0.0, 1.0);
+    let timely = asks_about_recency(&query.text);
     Signal {
         name: "recency".into(),
-        weight,
+        weight: if timely {
+            weight
+        } else {
+            weight * RECENCY_TIEBREAK
+        },
         score,
         applicable: true,
-        detail: format!("last used {}", human_ago(age_days)),
+        detail: if timely {
+            format!("last used {}", human_ago(age_days))
+        } else {
+            format!("last used {} (tie-breaker only)", human_ago(age_days))
+        },
     }
 }
 
@@ -384,6 +481,80 @@ mod tests {
             pizza.score
         );
         assert!(rust.percent() > 50);
+    }
+
+    #[test]
+    fn recency_is_full_weight_only_when_the_query_asks_about_time() {
+        let w = Weights::default();
+        let m = mem(1, "sqlite locked", 3, 5, 0.5, &[]);
+        let timely = score(
+            &m,
+            &Query::new("the most recent sqlite problem", now()),
+            &w,
+            None,
+        );
+        let plain = score(&m, &Query::new("sqlite problem", now()), &w, None);
+        let weight = |s: &ScoredMemory| {
+            s.signals
+                .iter()
+                .find(|x| x.name == "recency")
+                .unwrap()
+                .weight
+        };
+        assert_eq!(weight(&timely), w.recency);
+        assert_eq!(weight(&plain), w.recency * RECENCY_TIEBREAK);
+        for timely in [
+            "what was I doing LAST week",
+            "the most recent sqlite problem",
+            "errors from this morning",
+            "what broke 3 days ago",
+            "failures over the past few days",
+            "the last time the build failed",
+            "what failed in the last 3 days",
+            "flaky tests over the past two weeks",
+            "errors from the last couple days",
+            "what crashed in the last 5 minutes",
+        ] {
+            assert!(asks_about_recency(timely), "{timely}");
+        }
+        for plain in [
+            "lastly, the flaky test",
+            "git reset as a last resort",
+            "print the last line of the log",
+            "current directory is not writable",
+            "this file fails to compile",
+            "known issue with tokio",
+            "the last 3 lines of the log",
+            "the last few lines of output",
+            "it now fails with a linker error",
+            "past couple of builds",
+        ] {
+            assert!(!asks_about_recency(plain), "{plain}");
+        }
+    }
+
+    #[test]
+    fn recency_breaks_ties_but_does_not_outrank_a_better_match() {
+        let w = Weights::default();
+        let q = Query::new("sqlite database locked error", now());
+        let old_exact = mem(
+            1,
+            "sqlite database locked error fixed by wal mode",
+            60,
+            0,
+            0.5,
+            &[],
+        );
+        let new_vague = mem(2, "database notes", 0, 0, 0.5, &[]);
+        let lex = |m: &Memory| if m.id == 1 { Some(0.9) } else { Some(0.3) };
+        let a = score_with_lexical(&old_exact, &q, &w, None, lex(&old_exact));
+        let b = score_with_lexical(&new_vague, &q, &w, None, lex(&new_vague));
+        assert!(
+            a.score > b.score,
+            "better match {} should beat newer {}",
+            a.score,
+            b.score
+        );
     }
 
     #[test]

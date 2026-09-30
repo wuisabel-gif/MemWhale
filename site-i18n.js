@@ -1,6 +1,6 @@
 const EN = {
   meta: {
-    title: "MemoryWhale — terminal memory for you and your AI agent",
+    title: "MemoryWhale: terminal memory for you and your AI agent",
     description:
       "MemoryWhale captures development evidence into local SQLite so people and trusted tools can retrieve past failures and lessons. Local-first, with explicit export and transfer.",
     jsonLdDescription:
@@ -49,8 +49,8 @@ const EN = {
   "hero.privateBody": "No cloud required",
   "hero.agentTitle": "Built for coding agents",
   "hero.agentBody": "Debugging knowledge survives sessions",
-  "hero.terminalTitle": "Connect your coding agent",
-  "hero.terminalNote": "Setup example with Cargo and Claude Code; output shortened.",
+  "hero.terminalTitle": "Recall a fix you already found",
+  "hero.terminalNote": "Real MemoryWhale 0.13 output, shortened.",
   "hero.whaleAlt": "MemoryWhale whale mascot",
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
@@ -74,13 +74,13 @@ const EN = {
     "MemoryWhale serves developers whose debugging context is scattered across terminal scrollback, shell history, machines, and temporary agent sessions. See the full <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md\" style=\"color:var(--azure);text-decoration:underline;\">use-case walkthroughs</a> with real command transcripts.",
   "who.shellTitle": "🔍 The shell-centric debugger",
   "who.shellBody":
-    "You hit the same build, linker, or dependency error twice. Shell history remembers the command — not the output, the error tail, or the fix. <code>mw search</code> returns the old failing run <em>and</em> the lesson linked to it.",
+    "You hit the same build, linker, or dependency error twice. Shell history remembers the command but not the output, the error tail, or the fix. <code>mw search</code> returns the old failing run <em>and</em> the lesson linked to it.",
   "who.multiTitle": "🛰️ The multi-machine worker",
   "who.multiBody":
-    "Jetson, lab server, laptop — sessions drop and each machine keeps a private, incomplete history. <code>mw --live</code> autosaves through disconnects; <code>mw push</code> / <code>mw pull</code> move memory between machines explicitly.",
+    "Jetson, lab server, laptop: sessions drop and each machine keeps a private, incomplete history. <code>mw --live</code> autosaves through disconnects; <code>mw push</code> / <code>mw pull</code> move memory between machines explicitly.",
   "who.agentTitle": "🤖 The coding-agent user",
   "who.agentBody":
-    "Claude Code, Codex, Cursor — every session starts with re-explaining your environment. With <code>mw-mcp</code>, the agent can query prior evidence and explicitly save a lesson with <code>remember</code>. You still need to verify that a fix works.",
+    "Claude Code, Codex, Cursor: every session starts with re-explaining your environment. With <code>mw-mcp</code>, the agent can query prior evidence and explicitly save a lesson with <code>remember</code>. You still need to verify that a fix works.",
   "features.label": "A memory layer for terminal work",
   "features.terminalTitle": "Terminal Memory",
   "features.terminalBody": "Capture useful debugging context while you work.",
@@ -101,11 +101,11 @@ const EN = {
   "agents.eyebrow": "AI agents",
   "agents.title": "Give your agent memory of what already failed.",
   "agents.copy":
-    "Coding-agent sessions can lose context and repeat debugging you already did. <code>mw-mcp</code> is a Model Context Protocol server over your local memory — register it once and Claude Code, Rho, Codex, or Cursor can query past failures directly. Anything the client retrieves can reach the model provider it sends context to, so connect only clients you trust.",
+    "Coding-agent sessions can lose context and repeat debugging you already did. <code>mw-mcp</code> is a Model Context Protocol server over your local memory. Register it once and Claude Code, Rho, Codex, or Cursor can query past failures directly. Anything the client retrieves can reach the model provider it sends context to, so connect only clients you trust.",
   "agents.clientsLabel": "Clients with integration guides",
   "agents.matrix": "More in the matrix",
   "agents.guides":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">Setup guides for clients and tools</a> — the capability matrix documents MCP support, auto-capture, and verification status per client, including model gateways like OpenRouter and CLIProxyAPI.",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">Setup guides for clients and tools</a>: the capability matrix documents MCP support, auto-capture, and verification status per client, including model gateways like OpenRouter and CLIProxyAPI.",
   "agents.setupLabel": "Setup",
   "agents.setupValue": "One command",
   "agents.toolsLabel": "Tools",
@@ -134,7 +134,7 @@ const EN = {
   "data.transferLabel": "Transfer",
   "data.transferValue": "<code>mw export</code> / <code>mw import</code> or explicit SSH transfer",
   "data.stewardshipLabel": "Stewardship",
-  "data.stewardshipValue": "<code>mw memory compact</code> — dry-run first, rows preserved",
+  "data.stewardshipValue": "<code>mw memory compact</code>: dry-run first, rows preserved",
   "security.eyebrow": "Security model",
   "security.title": "Local by default, explicit when shared.",
   "security.copy":
@@ -144,7 +144,7 @@ const EN = {
   "run.copy":
     "Prebuilt binaries are available for Linux x86_64/aarch64 and macOS. The installer verifies published SHA256 files when a release provides them; older releases may not have a checksum. Start with one explicit capture, inspect it, and only then consider <code>mw global on</code>. Windows is not a native target; WSL can use the Linux build.",
   "run.tryLabel": "Try first",
-  "run.tryValue": "<code>mw demo</code> — writes sample data to the selected store",
+  "run.tryValue": "<code>mw demo</code>: writes sample data to the selected store",
   "run.prebuiltLabel": "Prebuilt install",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
@@ -166,7 +166,7 @@ const EN = {
 
 const AR = {
   meta: {
-    title: "MemoryWhale — ذاكرة الطرفية لك ولوكيل الذكاء الاصطناعي الخاص بك",
+    title: "MemoryWhale: ذاكرة الطرفية لك ولوكيل الذكاء الاصطناعي الخاص بك",
     description:
       "يلتقط MemoryWhale شواهد العمل التطويري في قاعدة SQLite محلية، لتمكين الأشخاص والأدوات الموثوقة من استرجاع الإخفاقات السابقة والدروس المستفادة. يعطي الأولوية للتخزين المحلي، مع تصدير ونقل بطلب صريح.",
     jsonLdDescription:
@@ -215,8 +215,8 @@ const AR = {
   "hero.privateBody": "لا حاجة إلى السحابة",
   "hero.agentTitle": "مصمّم لوكلاء البرمجة",
   "hero.agentBody": "خبرة تصحيح الأخطاء لا تضيع بانتهاء الجلسة",
-  "hero.terminalTitle": "اربط وكيل البرمجة لديك",
-  "hero.terminalNote": "مثال إعداد باستخدام Cargo وClaude Code؛ المخرجات مختصرة.",
+  "hero.terminalTitle": "استرجِع حلًّا توصّلت إليه من قبل",
+  "hero.terminalNote": "مخرجات حقيقية من MemoryWhale 0.13، مختصرة.",
   "hero.whaleAlt": "حوت MemoryWhale، تميمة المشروع",
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
@@ -240,13 +240,13 @@ const AR = {
     "يخدم MemoryWhale المطورين الذين يتوزّع سياق تصحيح الأخطاء لديهم بين سجل مخرجات الطرفية، وسجل الصدفة، والأجهزة، وجلسات الوكلاء المؤقتة. اطّلع على <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/docs/concepts/use-cases.md\" style=\"color:var(--azure);text-decoration:underline;\">الشروحات التفصيلية لحالات الاستخدام</a> مع سجلات أوامر حقيقية.",
   "who.shellTitle": "🔍 من يصحّح الأخطاء عبر سطر الأوامر",
   "who.shellBody":
-    "واجهت خطأ البناء أو الربط أو الاعتماديات نفسه مرتين. يحتفظ سجل الصدفة بالأمر — لا بالمخرجات، أو نهاية رسالة الخطأ، أو الحل. أما <code>mw search</code> فيعيد التنفيذ السابق الذي أخفق، <em>ومعه</em> الدرس المرتبط به.",
+    "واجهت خطأ البناء أو الربط أو الاعتماديات نفسه مرتين. يحتفظ سجل الصدفة بالأمر، لا بالمخرجات، أو نهاية رسالة الخطأ، أو الحل. أما <code>mw search</code> فيعيد التنفيذ السابق الذي أخفق، <em>ومعه</em> الدرس المرتبط به.",
   "who.multiTitle": "🛰️ من يعمل على أجهزة متعددة",
   "who.multiBody":
-    "Jetson، وخادم المختبر، والحاسوب المحمول — تنقطع الجلسات ويحتفظ كل جهاز بسجل خاص وغير مكتمل. يواصل <code>mw --live</code> الحفظ التلقائي رغم انقطاع الاتصال؛ وينقل <code>mw push</code> / <code>mw pull</code> الذاكرة بين الأجهزة بطلب صريح.",
+    "Jetson، وخادم المختبر، والحاسوب المحمول: تنقطع الجلسات ويحتفظ كل جهاز بسجل خاص وغير مكتمل. يواصل <code>mw --live</code> الحفظ التلقائي رغم انقطاع الاتصال؛ وينقل <code>mw push</code> / <code>mw pull</code> الذاكرة بين الأجهزة بطلب صريح.",
   "who.agentTitle": "🤖 مستخدم وكلاء البرمجة",
   "who.agentBody":
-    "<bdi dir=\"ltr\">Claude Code, Codex, Cursor</bdi> — تبدأ كل جلسة بشرح بيئتك من جديد. مع <code>mw-mcp</code>، يستطيع الوكيل الاستعلام عن الشواهد السابقة وحفظ درس صراحةً باستخدام <code>remember</code>. لا يزال عليك التحقق من نجاح أي إصلاح.",
+    "<bdi dir=\"ltr\">Claude Code, Codex, Cursor</bdi>: تبدأ كل جلسة بشرح بيئتك من جديد. مع <code>mw-mcp</code>، يستطيع الوكيل الاستعلام عن الشواهد السابقة وحفظ درس صراحةً باستخدام <code>remember</code>. لا يزال عليك التحقق من نجاح أي إصلاح.",
   "features.label": "طبقة ذاكرة للعمل في الطرفية",
   "features.terminalTitle": "ذاكرة الطرفية",
   "features.terminalBody": "التقط سياق تصحيح الأخطاء المفيد أثناء عملك.",
@@ -267,11 +267,11 @@ const AR = {
   "agents.eyebrow": "وكلاء الذكاء الاصطناعي",
   "agents.title": "امنح وكيلك ذاكرة لما أخفق من قبل.",
   "agents.copy":
-    "قد تفقد جلسات وكلاء البرمجة السياق وتكرّر تصحيح أخطاء سبق أن عالجتها. <code>mw-mcp</code> خادم Model Context Protocol يتيح الوصول إلى ذاكرتك المحلية — سجّله مرة واحدة ليتمكن <bdi dir=\"ltr\">Claude Code, Rho, Codex, Cursor</bdi> من الاستعلام مباشرةً عن الإخفاقات السابقة. وتذكّر أنك تأتمن العميل على الشواهد التي يسترجعها، وكذلك أي مزوّد نماذج يرسل إليه هذا العميل السياق.",
+    "قد تفقد جلسات وكلاء البرمجة السياق وتكرّر تصحيح أخطاء سبق أن عالجتها. <code>mw-mcp</code> خادم Model Context Protocol يتيح الوصول إلى ذاكرتك المحلية. سجّله مرة واحدة ليتمكن <bdi dir=\"ltr\">Claude Code, Rho, Codex, Cursor</bdi> من الاستعلام مباشرةً عن الإخفاقات السابقة. وتذكّر أنك تأتمن العميل على الشواهد التي يسترجعها، وكذلك أي مزوّد نماذج يرسل إليه هذا العميل السياق.",
   "agents.clientsLabel": "عملاء تتوفر لهم أدلة تكامل",
   "agents.matrix": "المزيد في جدول الإمكانات",
   "agents.guides":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">أدلة إعداد العملاء والأدوات</a> — يوضّح جدول الإمكانات دعم MCP والالتقاط التلقائي وحالة التحقق لكل عميل، بما في ذلك بوابات النماذج مثل OpenRouter وCLIProxyAPI.",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">أدلة إعداد العملاء والأدوات</a>: يوضّح جدول الإمكانات دعم MCP والالتقاط التلقائي وحالة التحقق لكل عميل، بما في ذلك بوابات النماذج مثل OpenRouter وCLIProxyAPI.",
   "agents.setupLabel": "الإعداد",
   "agents.setupValue": "أمر واحد",
   "agents.toolsLabel": "الأدوات",
@@ -300,7 +300,7 @@ const AR = {
   "data.transferLabel": "النقل",
   "data.transferValue": "<code>mw export</code> / <code>mw import</code> أو نقل صريح عبر SSH",
   "data.stewardshipLabel": "إدارة الذاكرة",
-  "data.stewardshipValue": "<code>mw memory compact</code> — تشغيل تجريبي (dry-run) أولًا، دون حذف أي صفوف",
+  "data.stewardshipValue": "<code>mw memory compact</code>: تشغيل تجريبي (dry-run) أولًا، دون حذف أي صفوف",
   "security.eyebrow": "نموذج الأمان",
   "security.title": "محلي افتراضيًا، وبقرار صريح عند المشاركة.",
   "security.copy":
@@ -310,7 +310,7 @@ const AR = {
   "run.copy":
     "تتوفر ملفات تنفيذية جاهزة لأنظمة Linux x86_64/aarch64 وmacOS. يتحقق برنامج التثبيت من ملفات SHA256 المنشورة عندما يوفّرها الإصدار؛ وقد لا يتوفر مجموع اختباري (checksum) للإصدارات الأقدم. ابدأ بالتقاط أمر واحد صراحةً وافحص نتيجته، ولا تفكّر في <code>mw global on</code> إلا بعد ذلك. لا يُدعم Windows دعمًا أصليًا، لكن يمكن تشغيل نسخة Linux داخل WSL.",
   "run.tryLabel": "جرّب أولًا",
-  "run.tryValue": "<code>mw demo</code> — يكتب بيانات نموذجية في المخزن المحدد",
+  "run.tryValue": "<code>mw demo</code>: يكتب بيانات نموذجية في المخزن المحدد",
   "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
@@ -332,7 +332,7 @@ const AR = {
 
 const DE = {
   meta: {
-    title: "MemoryWhale — Terminal-Gedächtnis für dich und deinen KI-Agenten",
+    title: "MemoryWhale: Terminal-Gedächtnis für dich und deinen KI-Agenten",
     description:
       "MemoryWhale speichert Belege aus der Entwicklungsarbeit in einer lokalen SQLite-Datenbank, damit Menschen und vertrauenswürdige Tools frühere Fehlschläge und Erkenntnisse wiederfinden. Local-first – Export und Übertragung nur auf ausdrücklichen Wunsch.",
     jsonLdDescription:
@@ -381,8 +381,8 @@ const DE = {
   "hero.privateBody": "Keine Cloud nötig",
   "hero.agentTitle": "Für Coding-Agenten gebaut",
   "hero.agentBody": "Debugging-Wissen überdauert Sitzungen",
-  "hero.terminalTitle": "Coding-Agenten anbinden",
-  "hero.terminalNote": "Beispiel-Setup mit Cargo und Claude Code; Ausgabe gekürzt.",
+  "hero.terminalTitle": "Eine schon gefundene Lösung abrufen",
+  "hero.terminalNote": "Echte Ausgabe von MemoryWhale 0.13, gekürzt.",
   "hero.whaleAlt": "Wal-Maskottchen von MemoryWhale",
   "integrations.label": "Funktioniert mit",
   "integrations.via": "über MCP",
@@ -476,7 +476,7 @@ const DE = {
   "run.copy":
     "Vorkompilierte Binaries gibt es für Linux x86_64/aarch64 und macOS. Der Installer prüft die veröffentlichten SHA256-Dateien, sofern ein Release sie mitliefert; bei älteren Releases fehlt unter Umständen eine Prüfsumme. Starte mit einer einzelnen, gezielten Aufzeichnung, sieh sie dir an und zieh erst dann <code>mw global on</code> in Betracht. Windows wird nicht nativ unterstützt; unter WSL lässt sich der Linux-Build verwenden.",
   "run.tryLabel": "Zuerst ausprobieren",
-  "run.tryValue": "<code>mw demo</code> — schreibt Beispieldaten in den ausgewählten Speicher",
+  "run.tryValue": "<code>mw demo</code>: schreibt Beispieldaten in den ausgewählten Speicher",
   "run.prebuiltLabel": "Vorkompilierte Binaries",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
@@ -498,7 +498,7 @@ const DE = {
 
 const FR = {
   meta: {
-    title: "MemoryWhale — la mémoire du terminal, pour vous et votre agent IA",
+    title: "MemoryWhale : la mémoire du terminal, pour vous et votre agent IA",
     description:
       "MemoryWhale enregistre les traces de votre travail de développement dans une base SQLite locale, pour que vous et les outils de confiance puissiez retrouver les échecs passés et les leçons qui en ont été tirées. Local par défaut, avec export et transfert explicites.",
     jsonLdDescription:
@@ -547,8 +547,8 @@ const FR = {
   "hero.privateBody": "Aucun cloud nécessaire",
   "hero.agentTitle": "Pensé pour les agents de code",
   "hero.agentBody": "Les acquis du débogage survivent aux sessions",
-  "hero.terminalTitle": "Connectez votre agent de code",
-  "hero.terminalNote": "Exemple de configuration avec Cargo et Claude Code ; sortie abrégée.",
+  "hero.terminalTitle": "Retrouvez un correctif déjà trouvé",
+  "hero.terminalNote": "Sortie réelle de MemoryWhale 0.13, abrégée.",
   "hero.whaleAlt": "La baleine, mascotte de MemoryWhale",
   "integrations.label": "Compatible avec",
   "integrations.via": "via MCP",
@@ -603,7 +603,7 @@ const FR = {
   "agents.clientsLabel": "Clients disposant d’un guide d’intégration",
   "agents.matrix": "Plus dans la matrice",
   "agents.guides":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">Guides de configuration des clients et outils</a> — la matrice des capacités indique, pour chaque client, la prise en charge de MCP, la capture automatique et l’état de vérification, y compris pour les passerelles de modèles comme OpenRouter et CLIProxyAPI.",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">Guides de configuration des clients et outils</a> : la matrice des capacités indique, pour chaque client, la prise en charge de MCP, la capture automatique et l’état de vérification, y compris pour les passerelles de modèles comme OpenRouter et CLIProxyAPI.",
   "agents.setupLabel": "Configuration",
   "agents.setupValue": "Une seule commande",
   "agents.toolsLabel": "Outils",
@@ -632,7 +632,7 @@ const FR = {
   "data.transferLabel": "Transfert",
   "data.transferValue": "<code>mw export</code> / <code>mw import</code> ou transfert SSH explicite",
   "data.stewardshipLabel": "Maintenance",
-  "data.stewardshipValue": "<code>mw memory compact</code> — dry-run d’abord, lignes conservées",
+  "data.stewardshipValue": "<code>mw memory compact</code> : dry-run d’abord, lignes conservées",
   "security.eyebrow": "Modèle de sécurité",
   "security.title": "Local par défaut, explicite dès qu’il y a partage.",
   "security.copy":
@@ -642,7 +642,7 @@ const FR = {
   "run.copy":
     "Des binaires précompilés sont disponibles pour Linux x86_64/aarch64 et macOS. L’installateur vérifie les fichiers SHA256 publiés lorsque la version en fournit ; les versions plus anciennes n’ont pas forcément de somme de contrôle. Commencez par une capture explicite, examinez-la, et seulement ensuite envisagez <code>mw global on</code>. Windows n’est pas pris en charge nativement ; WSL permet d’utiliser la version Linux.",
   "run.tryLabel": "Pour commencer",
-  "run.tryValue": "<code>mw demo</code> — écrit des données d’exemple dans le stockage sélectionné",
+  "run.tryValue": "<code>mw demo</code> : écrit des données d’exemple dans le stockage sélectionné",
   "run.prebuiltLabel": "Binaires précompilés",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
@@ -654,7 +654,7 @@ const FR = {
   "run.securityValue": "<a href=\"#security\">Lire le modèle</a>",
   "run.verifyLabel": "Vérifier",
   "run.verifyValue": "<code>mw --version</code> · <code>mw doctor</code>",
-  "footer.copyright": "Copyright (c) 2026 wuisabel-gif. MemoryWhale — mémoire du terminal et graphe de connaissances, en Rust/Tauri.",
+  "footer.copyright": "Copyright (c) 2026 wuisabel-gif. MemoryWhale : mémoire du terminal et graphe de connaissances, en Rust/Tauri.",
   "footer.docs": "Documentation",
   "footer.useCases": "Cas d’usage",
   "footer.cli": "Référence du CLI",
@@ -664,7 +664,7 @@ const FR = {
 
 const ZH_CN = {
   meta: {
-    title: "MemoryWhale — 你和 AI 智能体共用的终端记忆",
+    title: "MemoryWhale：你和 AI 智能体共用的终端记忆",
     description:
       "MemoryWhale 把开发过程中的证据采集到本地 SQLite，方便你和受信任的工具找回以往的失败记录与经验。本地优先，导出和传输都需要你主动操作。",
     jsonLdDescription:
@@ -713,8 +713,8 @@ const ZH_CN = {
   "hero.privateBody": "无需云服务",
   "hero.agentTitle": "为编程智能体打造",
   "hero.agentBody": "换个会话，经验不丢",
-  "hero.terminalTitle": "接入你的编程智能体",
-  "hero.terminalNote": "使用 Cargo 和 Claude Code 的配置示例；输出已精简。",
+  "hero.terminalTitle": "找回你已经解决过的问题",
+  "hero.terminalNote": "MemoryWhale 0.13 的真实输出，已精简。",
   "hero.whaleAlt": "MemoryWhale 鲸鱼吉祥物",
   "integrations.label": "已支持",
   "integrations.via": "通过 MCP",
@@ -741,10 +741,10 @@ const ZH_CN = {
     "又遇到相同的构建、链接器或依赖错误？Shell 历史只有命令，没有当时的输出、末尾报错和解决方法。<code>mw search</code> 能找回上次失败的执行记录，<em>以及</em>关联的调试经验。",
   "who.multiTitle": "🛰️ 在多台机器之间切换",
   "who.multiBody":
-    "Jetson、实验室服务器、笔记本——会话说断就断，每台机器上只留着一份不完整的私有历史。<code>mw --live</code> 在断连时也会持续自动保存；<code>mw push</code> / <code>mw pull</code> 由你显式地在机器之间迁移记忆。",
+    "Jetson、实验室服务器、笔记本：会话说断就断，每台机器上只留着一份不完整的私有历史。<code>mw --live</code> 在断连时也会持续自动保存；<code>mw push</code> / <code>mw pull</code> 由你显式地在机器之间迁移记忆。",
   "who.agentTitle": "🤖 编程智能体用户",
   "who.agentBody":
-    "Claude Code、Codex、Cursor——每开一个会话都得重新介绍一遍环境。接入 <code>mw-mcp</code> 后，智能体可以查询以往的证据，并通过 <code>remember</code> 显式保存经验。修复是否真的有效，仍然需要你自己验证。",
+    "Claude Code、Codex、Cursor：每开一个会话都得重新介绍一遍环境。接入 <code>mw-mcp</code> 后，智能体可以查询以往的证据，并通过 <code>remember</code> 显式保存经验。修复是否真的有效，仍然需要你自己验证。",
   "features.label": "为终端工作保留记忆",
   "features.terminalTitle": "终端记忆",
   "features.terminalBody": "在开发过程中记录有用的命令、输出和调试背景。",
@@ -765,7 +765,7 @@ const ZH_CN = {
   "agents.eyebrow": "AI 智能体",
   "agents.title": "踩过的坑，让智能体也记住。",
   "agents.copy":
-    "编程智能体换个会话就可能丢失上下文，把你调过的问题再调一遍。<code>mw-mcp</code> 是基于本地记忆的 Model Context Protocol 服务器——注册一次，Claude Code、Rho、Codex 或 Cursor 就能直接查询以往的失败记录。客户端取到的证据由它自行处理，因此你需要信任该客户端，以及它会把上下文发送给的任何模型提供商。",
+    "编程智能体换个会话就可能丢失上下文，把你调过的问题再调一遍。<code>mw-mcp</code> 是基于本地记忆的 Model Context Protocol 服务器。注册一次，Claude Code、Rho、Codex 或 Cursor 就能直接查询以往的失败记录。客户端取到的证据由它自行处理，因此你需要信任该客户端，以及它会把上下文发送给的任何模型提供商。",
   "agents.clientsLabel": "提供集成指南的客户端",
   "agents.matrix": "查看完整支持对照表",
   "agents.guides":
@@ -798,7 +798,7 @@ const ZH_CN = {
   "data.transferLabel": "传输",
   "data.transferValue": "<code>mw export</code> / <code>mw import</code>，或由你主动发起 SSH 传输",
   "data.stewardshipLabel": "维护",
-  "data.stewardshipValue": "<code>mw memory compact</code>——先 dry-run 预览，原有记录保留",
+  "data.stewardshipValue": "<code>mw memory compact</code>：先 dry-run 预览，原有记录保留",
   "security.eyebrow": "安全模型",
   "security.title": "默认本地，共享需显式操作。",
   "security.copy":
@@ -808,7 +808,7 @@ const ZH_CN = {
   "run.copy":
     "提供适用于 Linux x86_64/aarch64 和 macOS 的预编译二进制文件。如果发布版本附带 SHA256 校验文件，安装程序会据此校验下载内容；旧版本可能没有校验和。建议先手动采集一次并检查结果，再考虑开启 <code>mw global on</code>。目前不提供 Windows 原生版本；在 WSL 中可使用 Linux 版本。",
   "run.tryLabel": "先试试",
-  "run.tryValue": "<code>mw demo</code>——向当前选定的存储写入示例数据",
+  "run.tryValue": "<code>mw demo</code>：向当前选定的存储写入示例数据",
   "run.prebuiltLabel": "预编译安装",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
@@ -830,7 +830,7 @@ const ZH_CN = {
 
 const ZH_TW = {
   meta: {
-    title: "MemoryWhale — 你與 AI 程式助理的終端機記憶",
+    title: "MemoryWhale：你與 AI 程式助理的終端機記憶",
     description:
       "MemoryWhale 將開發過程中的指令、輸出等記錄保存在本機 SQLite，讓你與你信任的工具找回過去的失敗與除錯經驗。資料以本機為主，匯出與傳輸都由你明確操作。",
     jsonLdDescription:
@@ -879,8 +879,8 @@ const ZH_TW = {
   "hero.privateBody": "不需要雲端服務",
   "hero.agentTitle": "為 AI 程式助理打造",
   "hero.agentBody": "除錯知識不隨工作階段消失",
-  "hero.terminalTitle": "接上你的 AI 程式助理",
-  "hero.terminalNote": "使用 Cargo 與 Claude Code 的設定範例；輸出已精簡。",
+  "hero.terminalTitle": "找回你已經解決過的問題",
+  "hero.terminalNote": "MemoryWhale 0.13 的實際輸出，已精簡。",
   "hero.whaleAlt": "MemoryWhale 鯨魚吉祥物",
   "integrations.label": "可搭配使用",
   "integrations.via": "透過 MCP",
@@ -907,10 +907,10 @@ const ZH_TW = {
     "同一個建置、連結器或相依套件錯誤，你已經遇過兩次。Shell 歷史只記得指令，記不得輸出、錯誤訊息的最後幾行和修法。<code>mw search</code> 會找回當時失敗的執行紀錄，<em>以及</em>與它連結的經驗。",
   "who.multiTitle": "🛰️ 在多台機器間工作的人",
   "who.multiBody":
-    "Jetson、實驗室伺服器、筆電——工作階段常常斷線，每台機器各自保有一份不完整的歷史。<code>mw --live</code> 在斷線時也會持續自動儲存；<code>mw push</code> / <code>mw pull</code> 則由你明確地在機器之間搬移記憶。",
+    "Jetson、實驗室伺服器、筆電：工作階段常常斷線，每台機器各自保有一份不完整的歷史。<code>mw --live</code> 在斷線時也會持續自動儲存；<code>mw push</code> / <code>mw pull</code> 則由你明確地在機器之間搬移記憶。",
   "who.agentTitle": "🤖 AI 程式助理的使用者",
   "who.agentBody":
-    "Claude Code、Codex、Cursor——每開一個工作階段，都得重新解釋一次你的環境。接上 <code>mw-mcp</code> 後，程式助理可以查詢先前的證據，並用 <code>remember</code> 明確保存經驗。修正是否真的有效，仍需要你自己驗證。",
+    "Claude Code、Codex、Cursor：每開一個工作階段，都得重新解釋一次你的環境。接上 <code>mw-mcp</code> 後，程式助理可以查詢先前的證據，並用 <code>remember</code> 明確保存經驗。修正是否真的有效，仍需要你自己驗證。",
   "features.label": "終端機工作的記憶層",
   "features.terminalTitle": "終端機記憶",
   "features.terminalBody": "在工作時擷取有用的除錯脈絡。",
@@ -931,11 +931,11 @@ const ZH_TW = {
   "agents.eyebrow": "AI 程式助理",
   "agents.title": "讓程式助理記得哪些做法已經失敗過。",
   "agents.copy":
-    "AI 程式助理的工作階段可能遺失脈絡，把你做過的除錯再做一遍。<code>mw-mcp</code> 是架在本機記憶上的 Model Context Protocol 伺服器——註冊一次，Claude Code、Rho、Codex 或 Cursor 就能直接查詢過去的失敗。用戶端取回的證據交由它處理，因此你必須信任這個用戶端，也包括它會把脈絡傳送過去的任何模型供應商。",
+    "AI 程式助理的工作階段可能遺失脈絡，把你做過的除錯再做一遍。<code>mw-mcp</code> 是架在本機記憶上的 Model Context Protocol 伺服器。註冊一次，Claude Code、Rho、Codex 或 Cursor 就能直接查詢過去的失敗。用戶端取回的證據交由它處理，因此你必須信任這個用戶端，也包括它會把脈絡傳送過去的任何模型供應商。",
   "agents.clientsLabel": "提供整合指南的用戶端",
   "agents.matrix": "對照表中還有更多",
   "agents.guides":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">用戶端與工具設定指南</a>——功能對照表逐一列出每個用戶端的 MCP 支援、自動擷取與驗證狀態，也包括 OpenRouter、CLIProxyAPI 等模型閘道。",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">用戶端與工具設定指南</a>：功能對照表逐一列出每個用戶端的 MCP 支援、自動擷取與驗證狀態，也包括 OpenRouter、CLIProxyAPI 等模型閘道。",
   "agents.setupLabel": "設定",
   "agents.setupValue": "一個指令",
   "agents.toolsLabel": "工具",
@@ -964,7 +964,7 @@ const ZH_TW = {
   "data.transferLabel": "傳輸",
   "data.transferValue": "<code>mw export</code> / <code>mw import</code>，或明確透過 SSH 傳輸",
   "data.stewardshipLabel": "維護",
-  "data.stewardshipValue": "<code>mw memory compact</code>——先用 dry-run 預覽，資料列都會保留",
+  "data.stewardshipValue": "<code>mw memory compact</code>：先用 dry-run 預覽，資料列都會保留",
   "security.eyebrow": "安全模型",
   "security.title": "預設在本機，分享時由你明確決定。",
   "security.copy":
@@ -974,7 +974,7 @@ const ZH_TW = {
   "run.copy":
     "提供 Linux x86_64/aarch64 與 macOS 的預先編譯二進位檔。若發行版本有提供 SHA256 檔案，安裝程式會加以驗證；較舊的版本可能沒有檢查碼。建議先明確擷取一次、檢查結果，之後再考慮 <code>mw global on</code>。Windows 並非原生支援的平台；可以在 WSL 中使用 Linux 版本。",
   "run.tryLabel": "先試試",
-  "run.tryValue": "<code>mw demo</code>——將範例資料寫入目前選定的資料庫",
+  "run.tryValue": "<code>mw demo</code>：將範例資料寫入目前選定的資料庫",
   "run.prebuiltLabel": "預編譯版安裝",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
@@ -996,7 +996,7 @@ const ZH_TW = {
 
 const KO = {
   meta: {
-    title: "MemoryWhale — 나와 AI 에이전트를 위한 터미널 메모리",
+    title: "MemoryWhale: 나와 AI 에이전트를 위한 터미널 메모리",
     description:
       "MemoryWhale은 개발 과정의 증거를 로컬 SQLite에 저장해, 사람과 신뢰하는 도구가 지난 실패와 교훈을 다시 찾을 수 있게 합니다. 로컬 우선이며, 내보내기와 전송은 명시적으로만 이루어집니다.",
     jsonLdDescription:
@@ -1045,8 +1045,8 @@ const KO = {
   "hero.privateBody": "클라우드 불필요",
   "hero.agentTitle": "코딩 에이전트용 설계",
   "hero.agentBody": "세션이 끝나도 남는 디버깅 지식",
-  "hero.terminalTitle": "코딩 에이전트 연결하기",
-  "hero.terminalNote": "Cargo와 Claude Code 설정 예시입니다. 출력은 일부 생략했습니다.",
+  "hero.terminalTitle": "이미 찾은 해결책 다시 불러오기",
+  "hero.terminalNote": "MemoryWhale 0.13의 실제 출력이며, 일부 생략했습니다.",
   "hero.whaleAlt": "MemoryWhale 고래 마스코트",
   "integrations.label": "함께 쓸 수 있는 도구",
   "integrations.via": "MCP 연동",
@@ -1073,10 +1073,10 @@ const KO = {
     "같은 빌드, 링커, 의존성 오류를 또 만납니다. 셸 히스토리에는 명령만 남을 뿐 출력도, 오류 마지막 부분도, 해결책도 남지 않습니다. <code>mw search</code>는 예전의 실패 실행<em>과</em> 거기에 연결된 교훈을 함께 찾아 줍니다.",
   "who.multiTitle": "🛰️ 여러 머신을 오가는 개발자",
   "who.multiBody":
-    "Jetson, 연구실 서버, 노트북 — 세션은 수시로 끊기고, 머신마다 따로 떨어진 불완전한 기록만 남습니다. <code>mw --live</code>는 연결이 끊겨도 계속 자동 저장하고, <code>mw push</code> / <code>mw pull</code>로 머신 간에 메모리를 명시적으로 옮길 수 있습니다.",
+    "Jetson, 연구실 서버, 노트북: 세션은 수시로 끊기고, 머신마다 따로 떨어진 불완전한 기록만 남습니다. <code>mw --live</code>는 연결이 끊겨도 계속 자동 저장하고, <code>mw push</code> / <code>mw pull</code>로 머신 간에 메모리를 명시적으로 옮길 수 있습니다.",
   "who.agentTitle": "🤖 코딩 에이전트 사용자",
   "who.agentBody":
-    "Claude Code, Codex, Cursor — 세션을 열 때마다 개발 환경부터 다시 설명해야 합니다. <code>mw-mcp</code>를 쓰면 에이전트가 이전 증거를 조회하고 <code>remember</code>로 교훈을 명시적으로 저장할 수 있습니다. 다만 수정이 실제로 통하는지는 여전히 직접 확인해야 합니다.",
+    "Claude Code, Codex, Cursor: 세션을 열 때마다 개발 환경부터 다시 설명해야 합니다. <code>mw-mcp</code>를 쓰면 에이전트가 이전 증거를 조회하고 <code>remember</code>로 교훈을 명시적으로 저장할 수 있습니다. 다만 수정이 실제로 통하는지는 여전히 직접 확인해야 합니다.",
   "features.label": "터미널 작업을 위한 메모리 계층",
   "features.terminalTitle": "터미널 메모리",
   "features.terminalBody": "작업하는 동안 유용한 디버깅 맥락을 캡처합니다.",
@@ -1101,7 +1101,7 @@ const KO = {
   "agents.clientsLabel": "통합 가이드가 있는 클라이언트",
   "agents.matrix": "매트릭스에서 더 보기",
   "agents.guides":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">클라이언트·도구별 설정 가이드</a> — 기능 매트릭스에 클라이언트별 MCP 지원, 자동 캡처, 검증 상태가 정리되어 있으며, OpenRouter나 CLIProxyAPI 같은 모델 게이트웨이도 포함됩니다.",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">클라이언트·도구별 설정 가이드</a>: 기능 매트릭스에 클라이언트별 MCP 지원, 자동 캡처, 검증 상태가 정리되어 있으며, OpenRouter나 CLIProxyAPI 같은 모델 게이트웨이도 포함됩니다.",
   "agents.setupLabel": "설정",
   "agents.setupValue": "명령 하나",
   "agents.toolsLabel": "도구",
@@ -1130,7 +1130,7 @@ const KO = {
   "data.transferLabel": "전송",
   "data.transferValue": "<code>mw export</code> / <code>mw import</code> 또는 명시적인 SSH 전송",
   "data.stewardshipLabel": "관리",
-  "data.stewardshipValue": "<code>mw memory compact</code> — 먼저 dry-run으로 확인, 행은 보존",
+  "data.stewardshipValue": "<code>mw memory compact</code>: 먼저 dry-run으로 확인, 행은 보존",
   "security.eyebrow": "보안 모델",
   "security.title": "기본은 로컬, 공유는 명시적으로.",
   "security.copy":
@@ -1140,7 +1140,7 @@ const KO = {
   "run.copy":
     "Linux x86_64/aarch64와 macOS용 사전 빌드 바이너리를 제공합니다. 설치 스크립트는 릴리스에 게시된 SHA256 파일이 있으면 이를 검증하며, 이전 릴리스에는 체크섬이 없을 수 있습니다. 먼저 명시적으로 캡처를 하나 해 보고 결과를 확인한 다음에 <code>mw global on</code>을 고려하세요. Windows는 네이티브로 지원하지 않으며, WSL에서는 Linux 빌드를 쓸 수 있습니다.",
   "run.tryLabel": "먼저 체험",
-  "run.tryValue": "<code>mw demo</code> — 선택한 저장소에 샘플 데이터를 기록합니다",
+  "run.tryValue": "<code>mw demo</code>: 선택한 저장소에 샘플 데이터를 기록합니다",
   "run.prebuiltLabel": "사전 빌드 설치",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
@@ -1162,7 +1162,7 @@ const KO = {
 
 const JA = {
   meta: {
-    title: "MemoryWhale — あなたと AI エージェントのためのターミナルメモリ",
+    title: "MemoryWhale：あなたと AI エージェントのためのターミナルメモリ",
     description:
       "MemoryWhale は開発中の証拠をローカルの SQLite に記録し、あなたや信頼できるツールが過去の失敗や教訓を取り出せるようにします。ローカルファーストで、エクスポートや転送は明示的に行います。",
     jsonLdDescription:
@@ -1211,8 +1211,8 @@ const JA = {
   "hero.privateBody": "クラウド不要",
   "hero.agentTitle": "コーディングエージェント向け",
   "hero.agentBody": "デバッグの知見がセッションをまたいで残る",
-  "hero.terminalTitle": "コーディングエージェントを接続",
-  "hero.terminalNote": "Cargo と Claude Code を使ったセットアップ例（出力は一部省略）",
+  "hero.terminalTitle": "一度見つけた解決策を呼び出す",
+  "hero.terminalNote": "MemoryWhale 0.13 の実際の出力（一部省略）",
   "hero.whaleAlt": "MemoryWhale のクジラのマスコット",
   "integrations.label": "対応ツール",
   "integrations.via": "MCP 経由",
@@ -1267,7 +1267,7 @@ const JA = {
   "agents.clientsLabel": "連携ガイドがあるクライアント",
   "agents.matrix": "マトリクスで詳しく見る",
   "agents.guides":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">クライアント・ツール別のセットアップガイド</a> — 機能マトリクスには、クライアントごとの MCP 対応、自動キャプチャ、検証状況がまとめられています。OpenRouter や CLIProxyAPI などのモデルゲートウェイも対象です。",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/main/integrations/README.md\" style=\"color:var(--azure);text-decoration:underline;\">クライアント・ツール別のセットアップガイド</a>：機能マトリクスには、クライアントごとの MCP 対応、自動キャプチャ、検証状況がまとめられています。OpenRouter や CLIProxyAPI などのモデルゲートウェイも対象です。",
   "agents.setupLabel": "セットアップ",
   "agents.setupValue": "コマンド 1 つ",
   "agents.toolsLabel": "ツール",
@@ -1296,7 +1296,7 @@ const JA = {
   "data.transferLabel": "転送",
   "data.transferValue": "<code>mw export</code> / <code>mw import</code>、または明示的な SSH 転送",
   "data.stewardshipLabel": "メンテナンス",
-  "data.stewardshipValue": "<code>mw memory compact</code> — まず dry-run で確認、行は保持",
+  "data.stewardshipValue": "<code>mw memory compact</code>：まず dry-run で確認、行は保持",
   "security.eyebrow": "セキュリティモデル",
   "security.title": "デフォルトはローカル、共有するときは明示的に。",
   "security.copy":
@@ -1306,7 +1306,7 @@ const JA = {
   "run.copy":
     "Linux x86_64/aarch64 と macOS 向けにビルド済みバイナリを提供しています。リリースで SHA256 ファイルが公開されている場合、インストーラーはそれを使って検証します。古いリリースにはチェックサムがない場合があります。まずは明示的に 1 回キャプチャして中身を確認し、そのうえで <code>mw global on</code> を検討してください。Windows はネイティブではサポートしていませんが、WSL では Linux 版のビルドを使えます。",
   "run.tryLabel": "まずはお試し",
-  "run.tryValue": "<code>mw demo</code> — 選択中のストアにサンプルデータを書き込みます",
+  "run.tryValue": "<code>mw demo</code>：選択中のストアにサンプルデータを書き込みます",
   "run.prebuiltLabel": "ビルド済みバイナリ",
   "run.prebuiltValue":
     "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.13.0/docs/releases/0.13.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",

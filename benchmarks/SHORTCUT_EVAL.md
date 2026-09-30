@@ -51,8 +51,8 @@ exact code paths `mw-mcp` uses.
 | path              | shortcut@1 | shortcut@5 |
 |-------------------|-----------:|-----------:|
 | similar_failures  |      0.909 |      0.909 |
-| search_memory     |      0.727 |      0.909 |
-| combined          |      0.909 |      0.955 |
+| search_memory     |      0.909 |      0.955 |
+| combined          |      0.955 |      0.955 |
 
 22 tasks (21 with a fix in corpus). Per-task detail — fingerprint, occurrence and
 resolution counts, and the top-5 retrieved note ids — is in
@@ -64,8 +64,10 @@ resolution counts, and the top-5 retrieved note ids — is in
   different file size (`214.00 MB` → `231.40 MB`); the fingerprint normalizer
   masks integers but not the decimal fraction, so `.00` vs `.40` fingerprints
   differently. A real limitation, left in.
-- `t14-tokio-version-select` — **search_memory miss @5.** The fix note (#21) is
-  out-ranked by sibling tokio/cargo notes for that query.
+- `t01-e0308-camera`: **search_memory miss @1.** The fix note is in the top 5
+  but not first. (Before query-aware recency, `t14-tokio-version-select` also
+  missed search_memory@5 because newer tokio/cargo notes out-ranked its fix;
+  it now ranks the fix first.)
 - `t22-no-fix-in-memory` — **control**, no fix in the corpus. Missed by both
   tools (no resolution recorded; no fix note to retrieve). It exists so the eval
   cannot be trivially all-hits and drags the all-task denominator honestly.
@@ -83,7 +85,7 @@ resolution counts, and the top-5 retrieved note ids — is in
    collide; `query` is a plain question, not reverse-engineered from the scorer's
    output.
 3. **Unimpressive numbers reported as-is.** The misses above are kept, and the
-   `search_memory@1` rate (0.727) is reported alongside the flattering combined
+   `search_memory@1` rate (0.727 before query-aware recency, 0.909 after) is reported alongside the flattering combined
    number.
 4. **Ceiling, not solve-rate.** Because the corpus contains each fix by
    construction, a high combined rate is *expected* — that is what a retrieval
