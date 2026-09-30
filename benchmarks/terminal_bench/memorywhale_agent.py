@@ -19,7 +19,10 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import shlex
+import shutil
+import tempfile
 from pathlib import Path
 
 from pydantic import Field
@@ -122,14 +125,21 @@ class MemoryWhaleClaudeCode(ClaudeCode):
             if src.exists():
                 await environment.upload_file(src, f"{DATA_DIR}/{name}")
         await self.exec_as_root(environment, command=f"chmod -R a+rw {DATA_DIR}")
+        agent_failed = False
         try:
             await super().run(instruction, environment, context)
+        except BaseException:
+            agent_failed = True
+            raise
         finally:
             # Carry whatever this trial learned into the next one, even when the
-            # agent failed. A failure here must not hide the agent's own error.
+            # agent failed. If saving fails after a successful trial, stop: later
+            # trials would run on a stale store and the results would be invalid.
             try:
                 await self._save_store(environment)
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
+                if not agent_failed:
+                    raise RuntimeError("could not carry the MemoryWhale store; stop the run") from err
                 self.logger.warning("could not carry the MemoryWhale store: %s", err)
 
     async def _save_store(self, environment: BaseEnvironment) -> None:
@@ -137,12 +147,21 @@ class MemoryWhaleClaudeCode(ClaudeCode):
             await self.exec_as_root(environment, command=f"test -f {STORE}")
         except RuntimeError:
             return  # nothing was recorded; keep the previous store as-is
-        self._host_store.mkdir(parents=True, exist_ok=True)
-        for name in STORE_FILES:
-            dest = self._host_store / name
-            dest.unlink(missing_ok=True)  # never pair a new db with a stale -wal
-            try:
-                await self.exec_as_root(environment, command=f"test -f {DATA_DIR}/{name}")
-            except RuntimeError:
-                continue
-            await environment.download_file(f"{DATA_DIR}/{name}", dest)
+        # Download into a scratch dir, then swap it in, so a failed download
+        # leaves the last good store untouched.
+        self._host_store.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix="store-", dir=self._host_store.parent))
+        try:
+            for name in STORE_FILES:
+                try:
+                    await self.exec_as_root(environment, command=f"test -f {DATA_DIR}/{name}")
+                except RuntimeError:
+                    continue
+                await environment.download_file(f"{DATA_DIR}/{name}", staging / name)
+            self._host_store.mkdir(exist_ok=True)
+            for name in STORE_FILES:  # never pair a new db with a stale -wal
+                (self._host_store / name).unlink(missing_ok=True)
+            for f in staging.iterdir():
+                os.replace(f, self._host_store / f.name)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
