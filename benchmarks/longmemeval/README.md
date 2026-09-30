@@ -37,8 +37,8 @@ question type, are in [`results.json`](results.json).
 |---|---|---|---|---|---|
 | MemoryWhale default, 0.13 | 0.945 | 0.740 | 0.985 | 0.879 | 0.802 |
 | MemoryWhale Bayesian, 0.13 | 0.962 | 0.751 | 0.983 | 0.864 | 0.817 |
-| MemoryWhale default, query-aware recency | 0.966 | 0.813 | 0.985 | 0.898 | 0.883 |
-| MemoryWhale Bayesian, query-aware recency | 0.966 | 0.813 | 0.983 | 0.898 | 0.888 |
+| MemoryWhale default, query-aware recency | 0.966 | 0.811 | 0.985 | 0.896 | 0.882 |
+| MemoryWhale Bayesian, query-aware recency | 0.968 | 0.811 | 0.983 | 0.894 | 0.887 |
 | Default without recency | **0.970** | **0.834** | **0.987** | **0.904** | **0.901** |
 | Similarity signal only | **0.970** | **0.834** | **0.987** | **0.904** | **0.901** |
 | Plain BM25 (FTS5) | **0.970** | **0.834** | **0.987** | **0.904** | **0.901** |
@@ -73,13 +73,13 @@ In real debugging, "the fix from last week" often is the right answer.
 What this study showed is that a fixed recency weight treats every query as
 time-sensitive. The follow-up, **query-aware recency**, gives recency full weight
 only when the query asks about time ("most recent", "latest", "3 days ago", or
-"last"/"this"/"past" before a period such as "last week") and a tie-breaker
+"last"/"this"/"past" before a period such as "last week" or "last 3 days") and a tie-breaker
 share otherwise:
 
 | | LongMemEval NDCG@10 | LongMemEval all@5 | Term-overlap recall@1 | Intent recall@1 |
 |---|---|---|---|---|
 | 0.13 default | 0.802 | 0.740 | 0.522 | **0.833** |
-| Query-aware recency | **0.883** | **0.813** | **0.822** | 0.778 |
+| Query-aware recency | **0.882** | **0.811** | **0.822** | 0.778 |
 
 It recovers most of the LongMemEval gap and most of the term-overlap set, and
 costs one intent question (`i09`, see [BENCHMARKS.md](../BENCHMARKS.md)). The

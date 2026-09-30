@@ -61,5 +61,5 @@ the ranking honest whenever the scorer changes.
 [LongMemEval](https://github.com/xiaowu0162/LongMemEval) `_s` set (470
 questions), deterministic and offline. Plain BM25 ranks better than the default
 blend in 0.13 (NDCG@10 0.901 vs 0.802), all of it from the recency signal.
-Query-aware recency (unreleased) raises the default to 0.883.
+Query-aware recency (unreleased) raises the default to 0.882.
 

@@ -198,20 +198,41 @@ const PERIODS: &[&str] = &[
     "couple",
 ];
 
+fn is_quantity(word: &str) -> bool {
+    word.chars().all(|c| c.is_ascii_digit())
+        || matches!(
+            word,
+            "a" | "one"
+                | "two"
+                | "three"
+                | "four"
+                | "five"
+                | "six"
+                | "seven"
+                | "eight"
+                | "nine"
+                | "ten"
+                | "several"
+                | "few"
+                | "couple"
+        )
+}
+
 /// Whether the query asks about time, which gives recency its full weight.
-/// Whole words only; "last"/"this"/"past" count only before a period word.
+/// Whole words only; "last"/"this"/"past" count only before a period word,
+/// optionally with one quantity between ("last 3 days", "past two weeks").
 pub fn asks_about_recency(text: &str) -> bool {
     let words: Vec<String> = text
         .split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())
         .map(str::to_lowercase)
         .collect();
+    let at = |k: usize| words.get(k).map(String::as_str);
+    let is_period = |k: usize| at(k).is_some_and(|x| PERIODS.contains(&x));
     words.iter().enumerate().any(|(i, w)| {
         RECENCY_WORDS.contains(&w.as_str())
             || (PERIOD_LEADS.contains(&w.as_str())
-                && words
-                    .get(i + 1)
-                    .is_some_and(|next| PERIODS.contains(&next.as_str())))
+                && (is_period(i + 1) || (at(i + 1).is_some_and(is_quantity) && is_period(i + 2))))
     })
 }
 
@@ -487,6 +508,9 @@ mod tests {
             "what broke 3 days ago",
             "failures over the past few days",
             "the last time the build failed",
+            "what failed in the last 3 days",
+            "flaky tests over the past two weeks",
+            "errors from the last couple days",
         ] {
             assert!(asks_about_recency(timely), "{timely}");
         }
@@ -497,6 +521,7 @@ mod tests {
             "current directory is not writable",
             "this file fails to compile",
             "known issue with tokio",
+            "the last 3 lines of the log",
         ] {
             assert!(!asks_about_recency(plain), "{plain}");
         }
