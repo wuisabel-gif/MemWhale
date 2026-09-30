@@ -54,3 +54,12 @@ Evals 2 and 3 compose into the end-to-end story: the fix is *retrievable* ~95% o
 the time, and once retrieved the agent *applies* it (96% vs 25% cold on
 project-specific failures). Eval 1 is the regression guard underneath — it keeps
 the ranking honest whenever the scorer changes.
+
+## 4. LongMemEval retrieval: [`longmemeval/`](longmemeval/README.md)
+
+**Public questions and labels.** Session-level retrieval on the
+[LongMemEval](https://github.com/xiaowu0162/LongMemEval) `_s` set (470
+questions), deterministic and offline. Plain BM25 ranks better than the default
+blend (NDCG@10 0.901 vs 0.802); the recency signal accounts for the whole gap.
+The write-up covers the trade-off against our intent set.
+
