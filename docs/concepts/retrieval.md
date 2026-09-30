@@ -12,6 +12,15 @@ past fix still applies.
 The same retrieval capabilities appear through the CLI, TUI, web and desktop
 views, and the MCP interface.
 
+## Recency
+
+Recency counts at full weight only when a query asks about time, with words
+such as "recent", "latest", "last", "today", or "now". For any other query it
+keeps a tenth of its weight, so it orders equally relevant memories without
+outranking a better match. Explain output marks the second case as
+"tie-breaker only". The measurement behind this is in
+[`benchmarks/longmemeval/`](../../benchmarks/longmemeval/README.md).
+
 ## Explain mode
 
 `mw search <query> --explain` keeps the normal ranked result lines and adds the

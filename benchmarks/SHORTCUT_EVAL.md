@@ -51,8 +51,8 @@ exact code paths `mw-mcp` uses.
 | path              | shortcut@1 | shortcut@5 |
 |-------------------|-----------:|-----------:|
 | similar_failures  |      0.909 |      0.909 |
-| search_memory     |      0.727 |      0.909 |
-| combined          |      0.909 |      0.955 |
+| search_memory     |      0.909 |      0.955 |
+| combined          |      0.955 |      0.955 |
 
 22 tasks (21 with a fix in corpus). Per-task detail — fingerprint, occurrence and
 resolution counts, and the top-5 retrieved note ids — is in
@@ -83,7 +83,7 @@ resolution counts, and the top-5 retrieved note ids — is in
    collide; `query` is a plain question, not reverse-engineered from the scorer's
    output.
 3. **Unimpressive numbers reported as-is.** The misses above are kept, and the
-   `search_memory@1` rate (0.727) is reported alongside the flattering combined
+   `search_memory@1` rate (0.727 before query-aware recency, 0.909 after) is reported alongside the flattering combined
    number.
 4. **Ceiling, not solve-rate.** Because the corpus contains each fix by
    construction, a high combined rate is *expected* — that is what a retrieval

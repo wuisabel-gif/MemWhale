@@ -12,12 +12,12 @@
     },
     {
       "path": "search_memory",
-      "shortcut_at_1": 0.7272727272727273,
-      "shortcut_at_5": 0.9090909090909091
+      "shortcut_at_1": 0.9090909090909091,
+      "shortcut_at_5": 0.9545454545454546
     },
     {
       "path": "combined",
-      "shortcut_at_1": 0.9090909090909091,
+      "shortcut_at_1": 0.9545454545454546,
       "shortcut_at_5": 0.9545454545454546
     }
   ]

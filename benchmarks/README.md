@@ -6,7 +6,7 @@ most rigorous (deterministic, reproducible) to most illustrative (LLM-driven):
 
 | Eval | Question | Deterministic? | Headline |
 |---|---|---|---|
-| [Retrieval quality](BENCHMARKS.md) | Does the scorer rank the right memory? | ✅ yes | Wins the intent set 0.83 vs 0.44 (keyword) |
+| [Retrieval quality](BENCHMARKS.md) | Does the scorer rank the right memory? | ✅ yes | Wins the intent set 0.78 vs 0.44 (keyword) |
 | [Memory shortcut](SHORTCUT_EVAL.md) | Is a recurring failure's fix retrievable? | ✅ yes | Fix surfaced for ~95% of recurring failures |
 | [Agent eval](agent_eval/AGENT_EVAL.md) | Does having the memory help an agent solve it? | ❌ LLM-driven | Project-specific fixes: 25% cold → 96% with memory |
 
@@ -22,7 +22,7 @@ cargo run -p memorywhale-core --example benchmark -- benchmarks/
 ```
 
 Each system wins the set it's built for: lexical baselines win pure text-match;
-the blended engine wins intent (**recall@1 0.83 vs 0.44 keyword / 0.42 fts5**).
+the blended engine wins intent (**recall@1 0.78 vs 0.44 keyword / 0.42 fts5**).
 Full tables and the honest misses are in the file.
 
 ## 2. Memory shortcut — [`SHORTCUT_EVAL.md`](SHORTCUT_EVAL.md)
@@ -60,6 +60,6 @@ the ranking honest whenever the scorer changes.
 **Public questions and labels.** Session-level retrieval on the
 [LongMemEval](https://github.com/xiaowu0162/LongMemEval) `_s` set (470
 questions), deterministic and offline. Plain BM25 ranks better than the default
-blend (NDCG@10 0.901 vs 0.802); the recency signal accounts for the whole gap.
-The write-up covers the trade-off against our intent set.
+blend in 0.13 (NDCG@10 0.901 vs 0.802), all of it from the recency signal.
+Query-aware recency (unreleased) raises the default to 0.877.
 

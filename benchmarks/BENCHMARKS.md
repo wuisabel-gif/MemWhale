@@ -67,14 +67,34 @@ There is **no local-embedding row**: `embed.rs` only ships an Ollama-backed
 embedder, which needs a running local server and so is neither offline nor
 deterministic. It is intentionally excluded from the committed numbers.
 
+## Query-aware recency (unreleased, after 0.13.0)
+
+Recency now counts at full weight only when the query asks about time ("most
+recent", "latest", "last week"); otherwise it keeps a tenth of its weight and
+only breaks near-ties. The [LongMemEval study](longmemeval/README.md) showed a
+fixed recency weight outranking better matches. Before and after, default
+ranking:
+
+| Set | recall@1 before | recall@1 after | MRR before | MRR after |
+|---|---|---|---|---|
+| term-overlap (30) | 0.522 | **0.822** | 0.747 | **0.950** |
+| intent (18) | **0.833** | 0.778 | **0.935** | 0.898 |
+
+Nine term-overlap queries that had lost rank 1 to a newer neighbour now resolve.
+The intent set loses one query: `i09` "the most reinforced lesson overall"
+used to win partly because its target was also the newest memory; without a
+time word, reinforcement alone (weight 0.10) no longer lifts it past two
+neighbours. The tables below are the current numbers; the paragraphs keep the
+earlier history.
+
 ## Results — term-overlap set (`questions.json`, 30 queries)
 
 | system  | recall@1 | recall@5 | MRR   |
 |---------|----------|----------|-------|
-| builtin | 0.522    | 0.961    | 0.747 |
+| builtin | 0.822    | 0.994    | 0.950 |
 | keyword | 0.889    | 0.983    | 0.983 |
 | fts5    | 0.889    | 0.989    | 0.983 |
-| bayesian | 0.789   | 0.994    | 0.933 |
+| bayesian | 0.856   | 0.994    | 0.967 |
 
 **Honest read.** On a pure *text-match* gold set the lexical baselines still win,
 and that is expected, not a bug: recall here rewards nothing but term overlap,
@@ -95,10 +115,10 @@ keyword/FTS5 here, and it isn't supposed to.
 
 | system  | recall@1 | recall@5 | MRR   |
 |---------|----------|----------|-------|
-| builtin | **0.833**| **1.000**| **0.935** |
+| builtin | **0.778**| **1.000**| **0.898** |
 | keyword | 0.444    | 0.806    | 0.630 |
 | fts5    | 0.417    | 0.694    | 0.580 |
-| bayesian | 0.778   | 1.000    | 0.907 |
+| bayesian | 0.722   | 1.000    | 0.870 |
 
 `bayesian` is the same engine with the opt-in `--ranking bayesian`. It trades a
 little intent recall@1 (0.833 → 0.778) for much better term-overlap ranking

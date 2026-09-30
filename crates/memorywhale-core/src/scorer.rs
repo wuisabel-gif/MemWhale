@@ -17,7 +17,10 @@
 //!   embeddings when available, else FTS5 BM25 keyword relevance, else a
 //!   term-overlap fallback.
 //! - **recency** — exponential decay from `last_used`, halving every
-//!   `query.half_life_days`.
+//!   `query.half_life_days`. Full weight only when the query asks about time
+//!   ("most recent", "latest", "last week"); otherwise it is scaled down to a
+//!   tie-breaker, so it orders equally relevant memories without outranking
+//!   a better match. See `benchmarks/longmemeval/` for the measurement.
 //! - **importance** — the memory's stored importance weight, used directly.
 //! - **reinforcement** — mention count, log-scaled and capped.
 //! - **task-relevance** — overlap between the memory's tags and the query's task
@@ -151,18 +154,55 @@ fn similarity_signal(
     }
 }
 
+/// Share of the recency weight kept when the query does not ask about time.
+/// Small enough that recency only reorders near-ties in relevance.
+pub const RECENCY_TIEBREAK: f32 = 0.1;
+
+/// Words that mark a query as time-sensitive ("the most recent sqlite
+/// problem", "what was I doing last week").
+const RECENCY_CUES: &[&str] = &[
+    "recent",
+    "recently",
+    "latest",
+    "lately",
+    "newest",
+    "last",
+    "yesterday",
+    "today",
+    "tonight",
+    "now",
+    "current",
+    "currently",
+];
+
+/// Whether the query asks about time, which gives recency its full weight.
+pub fn asks_about_recency(text: &str) -> bool {
+    text.split(|c: char| !c.is_alphanumeric())
+        .any(|w| RECENCY_CUES.contains(&w.to_lowercase().as_str()))
+}
+
 /// Exponential recency from `last_used`, halving every `half_life_days`.
+/// Full weight for time-sensitive queries, a tie-breaker share otherwise.
 fn recency_signal(memory: &Memory, query: &Query, weight: f32) -> Signal {
     let age_days = (query.now - memory.last_used).num_seconds() as f32 / 86_400.0;
     let age_days = age_days.max(0.0);
     let hl = query.half_life_days.max(0.1);
     let score = 0.5f32.powf(age_days / hl).clamp(0.0, 1.0);
+    let timely = asks_about_recency(&query.text);
     Signal {
         name: "recency".into(),
-        weight,
+        weight: if timely {
+            weight
+        } else {
+            weight * RECENCY_TIEBREAK
+        },
         score,
         applicable: true,
-        detail: format!("last used {}", human_ago(age_days)),
+        detail: if timely {
+            format!("last used {}", human_ago(age_days))
+        } else {
+            format!("last used {} (tie-breaker only)", human_ago(age_days))
+        },
     }
 }
 
@@ -384,6 +424,54 @@ mod tests {
             pizza.score
         );
         assert!(rust.percent() > 50);
+    }
+
+    #[test]
+    fn recency_is_full_weight_only_when_the_query_asks_about_time() {
+        let w = Weights::default();
+        let m = mem(1, "sqlite locked", 3, 5, 0.5, &[]);
+        let timely = score(
+            &m,
+            &Query::new("the most recent sqlite problem", now()),
+            &w,
+            None,
+        );
+        let plain = score(&m, &Query::new("sqlite problem", now()), &w, None);
+        let weight = |s: &ScoredMemory| {
+            s.signals
+                .iter()
+                .find(|x| x.name == "recency")
+                .unwrap()
+                .weight
+        };
+        assert_eq!(weight(&timely), w.recency);
+        assert_eq!(weight(&plain), w.recency * RECENCY_TIEBREAK);
+        assert!(asks_about_recency("what was I doing LAST week"));
+        assert!(!asks_about_recency("lastly, the flaky test")); // whole words only
+    }
+
+    #[test]
+    fn recency_breaks_ties_but_does_not_outrank_a_better_match() {
+        let w = Weights::default();
+        let q = Query::new("sqlite database locked error", now());
+        let old_exact = mem(
+            1,
+            "sqlite database locked error fixed by wal mode",
+            60,
+            0,
+            0.5,
+            &[],
+        );
+        let new_vague = mem(2, "database notes", 0, 0, 0.5, &[]);
+        let lex = |m: &Memory| if m.id == 1 { Some(0.9) } else { Some(0.3) };
+        let a = score_with_lexical(&old_exact, &q, &w, None, lex(&old_exact));
+        let b = score_with_lexical(&new_vague, &q, &w, None, lex(&new_vague));
+        assert!(
+            a.score > b.score,
+            "better match {} should beat newer {}",
+            a.score,
+            b.score
+        );
     }
 
     #[test]
