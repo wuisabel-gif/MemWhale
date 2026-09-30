@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 1eb822103375ff9f6bbc95c6be9047a9cedf0d425e40ba3b1274aef3c02a21a0 -->
+<!-- README-SOURCE-SHA256: e3b7f584e28b6b8411a6df648f8edf445a313ec760bbedaa83b3caed36622bfe -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -34,9 +34,9 @@ MCP 経由で 19 種類のコーディングエージェントと連携でき、
 > プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで **25%**、メモリありで **96%** の課題を解決しました。
 > これはメカニズムを示すための合成タスクであり、実環境での調査ではありません。詳しくは[測定方法](benchmarks/README.md)をご覧ください。
 
-**MemoryWhale 0.14.0: Relevance-First Recall · 2026 年 9 月 30 日**
-CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.14.0 で、再利用可能な Rust コアのバージョンは 0.8.0 です。
-アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.14.0/docs/releases/0.14.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 13 に移行されます。
+**MemoryWhale 0.15.0: Delphin Bridge · 2026 年 9 月 30 日**
+CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.15.0 で、再利用可能な Rust コアのバージョンは 0.8.0 です。
+アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 13 に移行されます。
 
 **コントリビュートしてみませんか？** まずは[「Start here」Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) をご覧ください。
 翻訳のレビューやドキュメントの修正など、Rust の知識がなくても取り組めるタスクがたくさんあります。

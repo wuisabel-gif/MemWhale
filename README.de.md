@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 1eb822103375ff9f6bbc95c6be9047a9cedf0d425e40ba3b1274aef3c02a21a0 -->
+<!-- README-SOURCE-SHA256: e3b7f584e28b6b8411a6df648f8edf445a313ec760bbedaa83b3caed36622bfe -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -38,10 +38,10 @@ wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. �
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](benchmarks/README.md).
 
-**MemoryWhale 0.14.0: Relevance-First Recall · 30. September 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.14.0; der
+**MemoryWhale 0.15.0: Delphin Bridge · 30. September 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.15.0; der
 wiederverwendbare Rust-Kern hat die Version 0.8.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.14.0/docs/releases/0.14.0.md).
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md).
 Beim Öffnen wird ein Speicher von Schema 10 auf 13 migriert.
 
 **Du willst mitmachen?** Fang mit dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) an.

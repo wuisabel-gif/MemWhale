@@ -37,9 +37,9 @@ account and nothing uploaded.
 > demonstrate the mechanism, not a field study; see
 > [how it was measured](benchmarks/README.md).
 
-**MemoryWhale 0.14.0: Relevance-First Recall · September 30, 2026.**
-The CLI, web UI, and desktop app share product version 0.14.0; the reusable
-Rust core is version 0.8.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.14.0/docs/releases/0.14.0.md)
+**MemoryWhale 0.15.0: Delphin Bridge · September 30, 2026.**
+The CLI, web UI, and desktop app share product version 0.15.0; the reusable
+Rust core is version 0.8.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md)
 for the upgrade guide. Opening a store migrates it from schema 10 to 13.
 
 **Want to contribute?** Start with the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).

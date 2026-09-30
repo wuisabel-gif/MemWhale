@@ -3,11 +3,16 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.15.0] — Delphin Bridge — September 30, 2026
+
+Product `0.15.0`; `memorywhale-core` `0.8.0` (unchanged); SQLite schema `13`.
+
+See [release notes](docs/releases/0.15.0.md).
 
 ### Added
 
-- **Delphin bridge.** `mw integrate delphin` checks Delphin and prints `delphin --memorywhale -- claude`. `mw turns` records Delphin's conversation turns through MemoryWhale's redaction and capture rules, so Delphin no longer writes the database itself. `mw hint` answers "have we seen this error?" in one line, which Delphin shows live while the agent works.
+- **Delphin bridge.** `mw integrate delphin` checks Delphin and prints `delphin --memorywhale -- claude`. `mw turns` records Delphin's conversation turns through MemoryWhale's redaction and capture rules, so Delphin no longer writes the database itself. `mw hint` answers "have we seen this error?" in one line, which Delphin shows live while the agent works. (#362)
+- **Website dolphin.** A dolphin swims in the hero ocean; clicking it opens Delphin. (#363)
 
 ## [0.14.0] — Relevance-First Recall — September 30, 2026
 
