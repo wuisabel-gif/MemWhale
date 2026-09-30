@@ -20,6 +20,7 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import re
 import shlex
 import shutil
 import tempfile
@@ -78,6 +79,9 @@ class MemoryWhaleClaudeCode(ClaudeCode):
     async def install(self, environment: BaseEnvironment) -> None:
         await super().install(environment)
         v = self.options.mw_version
+        # It goes into a root shell command and a URL; accept only x.y.z.
+        if not re.fullmatch(r"\d+\.\d+\.\d+", v):
+            raise ValueError(f"mw_version must look like 0.13.0, got {v!r}")
         # Install the published release, checksum-verified, and wrap the two
         # binaries Claude Code calls so both always use the carried store.
         await self.exec_as_root(
