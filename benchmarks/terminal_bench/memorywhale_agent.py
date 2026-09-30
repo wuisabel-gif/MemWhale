@@ -17,6 +17,7 @@ The carried store is a host file, so trials must run one at a time
 
 from __future__ import annotations
 
+import inspect
 import json
 import shlex
 from pathlib import Path
@@ -32,6 +33,15 @@ DATA_DIR = "/opt/memorywhale-data"
 STORE = f"{DATA_DIR}/memorywhale.sqlite3"
 STORE_FILES = ("memorywhale.sqlite3", "memorywhale.sqlite3-wal", "memorywhale.sqlite3-shm")
 RELEASES = "https://github.com/wuisabel-gif/MemWhale/releases/download"
+
+# Capture hooks ride on ClaudeCode._build_register_mcp_servers_command, which
+# ClaudeCode.run calls in Harbor 0.23.0. Fail loudly if a Harbor upgrade stops
+# calling it: a "with memory" run without capture would be invalid.
+if "_build_register_mcp_servers_command" not in inspect.getsource(ClaudeCode.run):
+    raise RuntimeError(
+        "Harbor's ClaudeCode.run no longer registers MCP servers through "
+        "_build_register_mcp_servers_command; pin harbor==0.23.0 (see README.md)."
+    )
 
 MEMORY_PROMPT = (
     "You have a local debugging memory, MemoryWhale, available through the "

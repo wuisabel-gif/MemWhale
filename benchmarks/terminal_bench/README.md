@@ -51,7 +51,9 @@ Only the maintainer can set these up:
 - Docker (local runs) or a [Modal](https://modal.com) account (full runs).
 - `ANTHROPIC_API_KEY` in your environment. Costs are real: every task is a
   full Claude Code session, twice (A and B).
-- Harbor: `uv tool install 'harbor[modal]'`
+- Harbor 0.23.0, pinned because the agent builds on its Claude Code agent:
+  `uv tool install 'harbor[modal]==0.23.0'`. The agent refuses to load if a
+  newer Harbor stops calling the hook it relies on.
 
 ## Run it
 
