@@ -176,9 +176,22 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY(command_run_id) REFERENCES command_runs(id) ON DELETE SET NULL
         );
 
+        -- Conversation turns from duplex wrappers such as Delphin (`mw turns`).
+        CREATE TABLE IF NOT EXISTS agent_turns (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            ts TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            verdict TEXT,
+            text TEXT NOT NULL,
+            cwd TEXT,
+            turn_group_id INTEGER
+        );
         ",
     )
     .map_err(|e| format!("failed to initialize database: {e}"))?;
+    // The desktop app creates agent_turns without the grouping column.
+    crate::add_column_if_missing(conn, "agent_turns", "turn_group_id", "INTEGER")?;
     crate::migrate(conn)?;
     conn.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
@@ -192,7 +205,8 @@ pub fn initialize(conn: &Connection) -> Result<(), String> {
          CREATE INDEX IF NOT EXISTS idx_command_arguments_value ON command_arguments(value);
          CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
          CREATE INDEX IF NOT EXISTS idx_screenshots_command_run_id ON screenshots(command_run_id);
-         CREATE INDEX IF NOT EXISTS idx_screenshots_captured_at ON screenshots(captured_at);",
+         CREATE INDEX IF NOT EXISTS idx_screenshots_captured_at ON screenshots(captured_at);
+         CREATE INDEX IF NOT EXISTS idx_agent_turns_session ON agent_turns(session_id);",
     )
     .map_err(|e| format!("failed to initialize database indexes: {e}"))?;
 

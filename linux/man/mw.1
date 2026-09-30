@@ -27,6 +27,16 @@ mw \- record whole terminal sessions into local MemoryWhale storage
 .br
 .B mw integrate hermes
 .br
+.B mw integrate delphin
+.br
+.B mw hint
+.I error-line
+.br
+.B mw turns --session
+.I id
+.RB [ --cwd
+.IR dir ]
+.br
 .B mw integrate codex|cursor
 .RB [ --config
 .IR file ]
@@ -207,6 +217,19 @@ task-start recall, failure lookup, or pre-compaction saving.
 .TP
 .B mw integrate hermes
 Register the MCP server in Hermes Agent's config.
+.TP
+.B mw integrate delphin
+Check that Delphin 0.4.0 or newer is installed and print the command that records
+its conversation turns in MemoryWhale and shows live error hints.
+.TP
+.B mw hint error-line
+Print one line when a recorded failure matches the error text: how often it was
+seen and the command that fixed it. Prints nothing for an unseen error.
+.TP
+.B mw turns --session id [--cwd dir]
+Read conversation turns as JSON lines from standard input and store them after
+redaction. Used by Delphin's
+.BR --memorywhale .
 .TP
 .B mw integrate codex|cursor [--config file] [--dry-run|--check|--revert]
 Configure local MCP memory access only. This does not enable capture or install

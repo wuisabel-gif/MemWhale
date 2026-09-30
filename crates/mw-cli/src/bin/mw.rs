@@ -67,6 +67,8 @@ fn run() -> Result<(), String> {
         Some("push") => return push_memory(&raw_args[1..]),
         Some("pull") => return pull_memory(&raw_args[1..]),
         Some("context") => return context_cmd(&raw_args[1..]),
+        Some("hint") => return hint_cmd(&raw_args[1..]),
+        Some("turns") => return turns_cmd(&raw_args[1..]),
         Some("agent") => return agent_cmd(&raw_args[1..]),
         Some("ask") => return ask_cmd(&raw_args[1..]),
         Some("search") => return search_memory(&raw_args[1..]),
@@ -462,7 +464,10 @@ fn print_help() {
          mw integrate codex|cursor [--config <file>] [--dry-run|--check|--revert]  configure local MCP memory access\n\
          mw integrate cursor --capture [--hooks-file <file>] [--dry-run|--check|--revert]  opt-in local Shell capture only\n\
          mw integrate <rho|codex|cursor> --skill <SKILL.md> [--skills-dir <dir>] [--revert|--check|--dry-run]  optional local skill only\n\
-         mw integrate hermes       register mw-mcp in Hermes Agent's config\n         mw github context <pr>  fetch bounded, redacted GitHub PR context through your `gh` login\n\
+         mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
+         mw integrate delphin      check Delphin and print the command that records its turns here\n\
+         mw hint <error line>      one line: seen this before, and what fixed it (used by Delphin)\n\
+         mw turns --session <id> [--cwd <dir>]  record JSON-line conversation turns from stdin\n         mw github context <pr>  fetch bounded, redacted GitHub PR context through your `gh` login\n\
          \n\
          Records every command + output, stored locally and never uploaded.\n\
          Raw transcript: <data_local>/MemoryWhale/sessions/\n\
@@ -495,6 +500,7 @@ fn integrate_cmd(args: &[String]) -> Result<(), String> {
         Some("codex" | "cursor") => memorywhale_cli::integrate::mcp_client::cli(args),
         Some("claude" | "claude-code") => memorywhale_cli::integrate::claude::cli(&args[1..]),
         Some("rho") => memorywhale_cli::integrate::rho::cli(&args[1..]),
+        Some("delphin") if args.len() == 1 => integrate_delphin(),
         Some("hermes") if args.len() == 1 => {
             let config_path = memorywhale_cli::integrate::hermes::install()?;
             println!(
@@ -504,10 +510,10 @@ fn integrate_cmd(args: &[String]) -> Result<(), String> {
             Ok(())
         }
         Some(other) => Err(format!(
-            "unsupported integration {other:?}; usage: mw integrate claude|rho|codex|cursor|hermes (see mw --help)"
+            "unsupported integration {other:?}; usage: mw integrate claude|rho|codex|cursor|hermes|delphin (see mw --help)"
         )),
         None => Err(
-            "usage: mw integrate claude|rho|codex|cursor|hermes (see mw --help)".to_string(),
+            "usage: mw integrate claude|rho|codex|cursor|hermes|delphin (see mw --help)".to_string(),
         ),
     }
 }
@@ -4817,6 +4823,128 @@ fn pet_cmd(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Delphin 0.4.0 added `--memorywhale` (turns through `mw turns`, live hints).
+const DELPHIN_MIN: (u64, u64, u64) = (0, 4, 0);
+
+fn integrate_delphin() -> Result<(), String> {
+    let out = std::process::Command::new("delphin")
+        .arg("--version")
+        .output();
+    let version = match out {
+        Err(_) => {
+            return Err("delphin is not on PATH; install it with \
+                 `brew install wuisabel-gif/delphin/delphin` or `cargo install delphin`"
+                .into())
+        }
+        Ok(out) => parse_version(&String::from_utf8_lossy(&out.stdout)),
+    };
+    match version {
+        Some(v) if v >= DELPHIN_MIN => {
+            println!("Delphin {}.{}.{} found.", v.0, v.1, v.2);
+            println!(
+                "Run your agent through it to record the conversation here and get live hints:"
+            );
+            println!("  delphin --memorywhale -- claude");
+            println!("To make it the default, add `memorywhale = true` to Delphin's config.toml.");
+            Ok(())
+        }
+        _ => Err(format!(
+            "Delphin {}.{}.{} or newer is needed for --memorywhale; upgrade with \
+             `brew upgrade delphin` or `cargo install delphin`",
+            DELPHIN_MIN.0, DELPHIN_MIN.1, DELPHIN_MIN.2
+        )),
+    }
+}
+
+/// First `x.y.z` in `text`, e.g. from "delphin 0.4.0".
+fn parse_version(text: &str) -> Option<(u64, u64, u64)> {
+    text.split_whitespace().find_map(|word| {
+        let mut parts = word.trim_start_matches('v').split('.');
+        let v = (
+            parts.next()?.parse().ok()?,
+            parts.next()?.parse().ok()?,
+            parts.next()?.parse().ok()?,
+        );
+        Some(v)
+    })
+}
+
+fn hint_cmd(args: &[String]) -> Result<(), String> {
+    let line = args
+        .iter()
+        .filter(|a| *a != "--")
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if line.trim().is_empty() {
+        return Err("usage: mw hint <error line>".into());
+    }
+    if !database_path()?.exists() {
+        return Ok(());
+    }
+    if let Some(hint) = memorywhale_cli::error_hint(&open_session_db()?, &line)? {
+        println!("{hint}");
+    }
+    Ok(())
+}
+
+/// Read JSON lines `{"direction","text","verdict"?,"group"?}` from stdin until
+/// EOF. A bad line is reported and skipped so one glitch never ends a session.
+fn turns_cmd(args: &[String]) -> Result<(), String> {
+    let mut session: Option<String> = None;
+    let mut cwd: Option<String> = None;
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--session" => session = iter.next().cloned(),
+            "--cwd" => cwd = iter.next().cloned(),
+            other => return Err(format!("unexpected argument {other:?}; run mw --help")),
+        }
+    }
+    let session = session.ok_or("mw turns requires --session <id>")?;
+    let gate = memorywhale_cli::capture_rule_for(cwd.as_deref());
+    let conn = if gate.mode.stores_anything() {
+        Some(open_session_db()?)
+    } else {
+        eprintln!(
+            "mw turns: capture is off here ({}); not recording",
+            gate.source
+        );
+        None
+    };
+    #[derive(serde::Deserialize)]
+    struct Turn {
+        direction: String,
+        text: String,
+        verdict: Option<String>,
+        group: Option<i64>,
+    }
+    for line in std::io::stdin().lock().lines() {
+        let line = line.map_err(|e| format!("reading turns: {e}"))?;
+        let Some(conn) = &conn else { continue };
+        if line.trim().is_empty() {
+            continue;
+        }
+        let result = serde_json::from_str::<Turn>(&line)
+            .map_err(|e| format!("bad turn: {e}"))
+            .and_then(|t| {
+                memorywhale_cli::record_turn(
+                    conn,
+                    &session,
+                    cwd.as_deref(),
+                    &t.direction,
+                    t.verdict.as_deref(),
+                    &t.text,
+                    t.group,
+                )
+            });
+        if let Err(e) = result {
+            eprintln!("mw turns: {e}");
+        }
+    }
+    Ok(())
+}
+
 fn context_cmd(args: &[String]) -> Result<(), String> {
     let mut project: Option<String> = None;
     let mut last_error = false;
@@ -5552,6 +5680,14 @@ fn database_path() -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn parse_version_reads_delphin_output() {
+        assert_eq!(super::parse_version("delphin 0.4.0\n"), Some((0, 4, 0)));
+        assert_eq!(super::parse_version("delphin v1.10.2"), Some((1, 10, 2)));
+        assert_eq!(super::parse_version("usage: delphin"), None);
+        assert!(super::parse_version("delphin 0.3.0").unwrap() < super::DELPHIN_MIN);
+    }
+
     use super::*;
     use std::io::Cursor;
     use std::time::{SystemTime, UNIX_EPOCH};

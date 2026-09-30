@@ -77,9 +77,12 @@ mw audit                              # inspect capture policy and retained volu
 mw integrate claude [--revert]           # install or remove Claude Code hook, skill, and MCP server
 mw integrate rho [--revert] [--http [url]] [--token secret]  # Rho hook, skill, and MCP (stdio default; --http for mw-serve POST /mcp)
 mw integrate hermes                   # register mw-mcp in Hermes Agent's config
+mw integrate delphin                  # check Delphin, print `delphin --memorywhale -- claude`
 mw share 5 [-o file.html]             # write a self-contained HTML page of one item to send someone
 mw discard                            # inside a recording: throw the current session away
 mw context [project:name] [--last-error] [--limit N]   # compact failures digest for agents
+mw hint <error line>                  # one line: seen before? what fixed it (Delphin live hints)
+mw turns --session ID [--cwd DIR]     # record JSON-line conversation turns from stdin (Delphin)
 mw agent [session-id]                 # export a full session as text to paste into an agent
 mw ask [question] [--chat gemini]     # package the last failure for your chat AI → clipboard
 mw pet [--watch]                      # show the whale whose mood reflects the memory store

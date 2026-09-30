@@ -813,6 +813,117 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
     })
 }
 
+/// One-line "seen this before" hint for an error line seen live (e.g. by Delphin
+/// watching an agent's output). The line has no command attached, so it matches
+/// on normalized error text: a recorded failure matches when one of its
+/// error-ish stderr lines and `line` contain each other after normalizing (the
+/// live line often carries a UI prefix). The fix is the first later
+/// successful, different command in the same directory. `None` when unseen.
+pub fn error_hint(conn: &Connection, line: &str) -> Result<Option<String>, String> {
+    const MIN_LEN: usize = 12;
+    let target = normalize_error_line(line).to_lowercase();
+    if target.len() < MIN_LEN {
+        return Ok(None);
+    }
+    // ponytail: linear scan of the newest 2000 failures; index normalized
+    // lines if hint latency ever shows up.
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, command, cwd, stderr FROM command_runs
+             WHERE exit_code IS NOT NULL AND exit_code != 0
+             ORDER BY id DESC LIMIT 2000",
+        )
+        .map_err(|e| format!("hint query: {e}"))?;
+    let failures = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, String>(3)?,
+            ))
+        })
+        .map_err(|e| format!("hint query: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("hint row: {e}"))?;
+    let matches: Vec<_> = failures
+        .into_iter()
+        .filter(|(_, _, _, stderr)| {
+            stderr.lines().any(|l| {
+                let l = normalize_error_line(l).to_lowercase();
+                l.len() >= MIN_LEN && (target.contains(&l) || l.contains(&target))
+            })
+        })
+        .collect();
+    if matches.is_empty() {
+        return Ok(None);
+    }
+    let mut fix = None;
+    for (id, command, cwd, _) in &matches {
+        fix = conn
+            .query_row(
+                "SELECT argv_json FROM command_runs
+                 WHERE id > ?1 AND exit_code = 0 AND command != ?2 AND cwd IS ?3
+                   AND id <= ?1 + 5
+                 ORDER BY id LIMIT 1",
+                params![id, command, cwd],
+                |r| r.get::<_, String>(0),
+            )
+            .ok()
+            .and_then(|argv| serde_json::from_str::<Vec<String>>(&argv).ok())
+            .filter(|argv| !argv.is_empty())
+            .map(|argv| argv.join(" "));
+        if fix.is_some() {
+            break;
+        }
+    }
+    let times = match matches.len() {
+        1 => "once".to_string(),
+        n => format!("{n} times"),
+    };
+    Ok(Some(match fix {
+        Some(fix) => format!("seen {times}, the fix was: {fix}"),
+        None => format!("seen {times}, no fix recorded yet"),
+    }))
+}
+
+/// Append one conversation turn (from Delphin or another duplex wrapper) to
+/// `agent_turns`. Text goes through the same sanitizer as every other capture.
+pub fn record_turn(
+    conn: &Connection,
+    session_id: &str,
+    cwd: Option<&str>,
+    direction: &str,
+    verdict: Option<&str>,
+    text: &str,
+    group: Option<i64>,
+) -> Result<(), String> {
+    if !matches!(direction, "user" | "agent" | "system") {
+        return Err(format!(
+            "unknown turn direction {direction:?}; use user, agent, or system"
+        ));
+    }
+    let text = sanitize_capture(&strip_terminal_controls(text));
+    if text.trim().is_empty() {
+        return Ok(());
+    }
+    conn.execute(
+        "INSERT INTO agent_turns (session_id, ts, direction, verdict, text, cwd, turn_group_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            session_id,
+            Utc::now().to_rfc3339(),
+            direction,
+            verdict,
+            text,
+            cwd,
+            group
+        ],
+    )
+    .map_err(|e| format!("failed to record turn: {e}"))?;
+    Ok(())
+}
+
 /// Scoring predicate for the memory-shortcut eval: is any blind-labelled `fix`
 /// among the top-`k` retrieved note ids? `ranked_note_ids` are the *decoded*
 /// bookmark ids (see [`memorywhale_core::sqlite::decode_id`]) in engine rank order.
@@ -2521,6 +2632,64 @@ mod tests {
     fn fingerprint_none_when_no_error_text() {
         assert!(error_fingerprint("ls", "").is_none());
         assert!(error_fingerprint("ls", "   \n  \n").is_none());
+    }
+
+    #[test]
+    fn hint_matches_prefixed_live_line_and_names_the_fix() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let run = |cmd: &str, argv: &str, exit: i64, stderr: &str| {
+            conn.execute(
+                "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
+                 VALUES (?1, ?2, '/p', ?3, ?4, '2026-01-01T00:00:00Z')",
+                params![cmd, argv, exit, stderr],
+            )
+            .unwrap();
+        };
+        let err =
+            "xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools)";
+        run("make", r#"["make"]"#, 2, err);
+        run("xcode-select", r#"["xcode-select","--install"]"#, 0, "");
+        run("make", r#"["make"]"#, 0, "");
+        run("make", r#"["make"]"#, 2, err);
+        let live = "  ⎿  Error: xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools)";
+        assert_eq!(
+            error_hint(&conn, live).unwrap().as_deref(),
+            Some("seen 2 times, the fix was: xcode-select --install")
+        );
+        assert_eq!(
+            error_hint(&conn, "error: something else entirely").unwrap(),
+            None
+        );
+        assert_eq!(
+            error_hint(&conn, "error").unwrap(),
+            None,
+            "too short to match"
+        );
+    }
+
+    #[test]
+    fn record_turn_redacts_and_rejects_unknown_direction() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        record_turn(
+            &conn,
+            "s",
+            None,
+            "user",
+            Some("send_now"),
+            "token=ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+            Some(3),
+        )
+        .unwrap();
+        let (text, group): (String, i64) = conn
+            .query_row("SELECT text, turn_group_id FROM agent_turns", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert!(!text.contains("ghp_abcdef"), "secret stored: {text}");
+        assert_eq!(group, 3);
+        assert!(record_turn(&conn, "s", None, "robot", None, "hi", None).is_err());
     }
 
     #[test]
