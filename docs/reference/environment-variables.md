@@ -34,6 +34,15 @@ command writes to `~/.hermes/config.yaml`.
 Used by `mw integrate claude` and `mw doctor` to locate Claude Code
 configuration. Without it, those commands use `~/.claude/`.
 
+## `MEMORYWHALE_HOOK_FEEDBACK`
+
+The Claude Code capture hook (`mw integrate claude`) adds a one-line note to
+the agent's context at two moments: when a command fails with an error that a
+later command fixed before (it names that fix), and when a command passes
+right after the same command failed with no note saved since (it asks the agent
+to save the cause and fix with `remember`). Set `MEMORYWHALE_HOOK_FEEDBACK=0`
+to record silently.
+
 ## `RHO_HOME`
 
 Used by `mw integrate rho` and `mw doctor` to locate Rho configuration. Without

@@ -3,6 +3,12 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Hook feedback for Claude Code.** The capture hook now tells the agent, in one line, the fix that worked last time when a command fails with an error seen before, and asks it to save a lesson when a command passes right after failing. The Terminal-Bench pilot showed an agent recording 91 commands without saving a single lesson or ever searching. Set `MEMORYWHALE_HOOK_FEEDBACK=0` to turn it off.
+
 ## [0.15.0] — Delphin Bridge — September 30, 2026
 
 Product `0.15.0`; `memorywhale-core` `0.8.0` (unchanged); SQLite schema `13`.

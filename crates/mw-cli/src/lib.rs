@@ -820,6 +820,11 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
 /// live line often carries a UI prefix). The fix is the first later
 /// successful, different command in the same directory. `None` when unseen.
 pub fn error_hint(conn: &Connection, line: &str) -> Result<Option<String>, String> {
+    error_hint_before(conn, line, i64::MAX)
+}
+
+/// [`error_hint`] over runs older than `before` (a run's own id excludes it).
+fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Option<String>, String> {
     const MIN_LEN: usize = 12;
     let target = normalize_error_line(line).to_lowercase();
     if target.len() < MIN_LEN {
@@ -830,12 +835,12 @@ pub fn error_hint(conn: &Connection, line: &str) -> Result<Option<String>, Strin
     let mut stmt = conn
         .prepare(
             "SELECT id, command, cwd, stderr FROM command_runs
-             WHERE exit_code IS NOT NULL AND exit_code != 0
+             WHERE exit_code IS NOT NULL AND exit_code != 0 AND id < ?1
              ORDER BY id DESC LIMIT 2000",
         )
         .map_err(|e| format!("hint query: {e}"))?;
     let failures = stmt
-        .query_map([], |r| {
+        .query_map([before], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,
@@ -885,6 +890,81 @@ pub fn error_hint(conn: &Connection, line: &str) -> Result<Option<String>, Strin
         Some(fix) => format!("seen {times}, the fix was: {fix}"),
         None => format!("seen {times}, no fix recorded yet"),
     }))
+}
+
+/// A note for the agent right after a captured command, or `None`:
+///
+/// - the command failed with an error recorded before, and a later command
+///   fixed it then: name that fix, so the agent need not think to search;
+/// - the command passed right after the same command failed in the same
+///   directory, with no note saved since: ask for the cause and fix, which a
+///   raw command log does not capture.
+pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, String> {
+    let (argv, cwd, exit, stderr, at): (String, Option<String>, Option<i64>, String, String) = conn
+        .query_row(
+            "SELECT argv_json, cwd, exit_code, stderr, created_at FROM command_runs WHERE id = ?1",
+            [run_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .map_err(|e| format!("hook feedback: {e}"))?;
+    match exit {
+        Some(0) => {
+            let previous: Option<(Option<i64>, String)> = conn
+                .query_row(
+                    "SELECT exit_code, created_at FROM command_runs
+                     WHERE id < ?1 AND argv_json = ?2 AND cwd IS ?3
+                     ORDER BY id DESC LIMIT 1",
+                    params![run_id, argv, cwd],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .ok();
+            let Some((Some(code), failed_at)) = previous else {
+                return Ok(None);
+            };
+            let noted: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE created_at >= ?1 AND created_at <= ?2)",
+                    params![failed_at, at],
+                    |r| r.get(0),
+                )
+                .unwrap_or(true);
+            if code == 0 || noted {
+                return Ok(None);
+            }
+            let command = serde_json::from_str::<Vec<String>>(&argv)
+                .unwrap_or_default()
+                .join(" ");
+            Ok(Some(format!(
+                "MemoryWhale: `{command}` passed after failing earlier. If you know what fixed it, \
+                 save the cause and the fix in one sentence with the MemoryWhale remember tool \
+                 (or `mw remember \"...\"`) so the next session gets it directly."
+            )))
+        }
+        Some(_) => {
+            let line = stderr.lines().find(|l| {
+                let l = l.to_lowercase();
+                [
+                    "error",
+                    "failed",
+                    "fatal",
+                    "cannot",
+                    "no such",
+                    "not found",
+                    "panic",
+                    "exception",
+                ]
+                .iter()
+                .any(|kw| l.contains(kw))
+            });
+            let Some(line) = line else { return Ok(None) };
+            Ok(error_hint_before(conn, line, run_id)?
+                .filter(|hint| hint.contains("the fix was"))
+                .map(|hint| {
+                    format!("MemoryWhale: this error was {hint}. Check whether it applies here.")
+                }))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Append one conversation turn (from Delphin or another duplex wrapper) to
@@ -2666,6 +2746,62 @@ mod tests {
             None,
             "too short to match"
         );
+    }
+
+    #[test]
+    fn hook_feedback_names_past_fix_and_asks_for_lesson() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let run = |argv: &str, exit: i64, stderr: &str, at: &str| -> i64 {
+            conn.execute(
+                "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
+                 VALUES (json_extract(?1, '$[0]'), ?1, '/p', ?2, ?3, ?4)",
+                params![argv, exit, stderr, at],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
+        let err = "error: linker `cc` not found";
+        run(r#"["cargo","build"]"#, 101, err, "2026-01-01T00:00:00Z");
+        run(
+            r#"["xcode-select","--install"]"#,
+            0,
+            "",
+            "2026-01-01T00:01:00Z",
+        );
+        run(r#"["cargo","build"]"#, 0, "", "2026-01-01T00:02:00Z");
+        // Same error again: the note names the fix from last time.
+        let again = run(r#"["cargo","build"]"#, 101, err, "2026-01-02T00:00:00Z");
+        let note = hook_feedback(&conn, again).unwrap().unwrap();
+        assert!(
+            note.contains("the fix was: xcode-select --install"),
+            "{note}"
+        );
+        // It passes right after failing, nothing saved since: ask for the lesson.
+        let pass = run(r#"["cargo","build"]"#, 0, "", "2026-01-02T00:05:00Z");
+        let note = hook_feedback(&conn, pass).unwrap().unwrap();
+        assert!(
+            note.contains("passed after failing") && note.contains("remember"),
+            "{note}"
+        );
+        // Once a note is saved in between, no reminder.
+        let fail = run(r#"["cargo","build"]"#, 101, err, "2026-01-03T00:00:00Z");
+        conn.execute(
+            "INSERT INTO bookmarks (label, created_at) VALUES ('cc missing: install CLT', '2026-01-03T00:01:00Z')",
+            [],
+        )
+        .unwrap();
+        let pass = run(r#"["cargo","build"]"#, 0, "", "2026-01-03T00:02:00Z");
+        assert_eq!(hook_feedback(&conn, pass).unwrap(), None);
+        // A first-time error and a plain success say nothing.
+        let new = run(
+            r#"["make"]"#,
+            2,
+            "fatal: something brand new happened",
+            "2026-01-04T00:00:00Z",
+        );
+        assert_eq!(hook_feedback(&conn, new).unwrap(), None);
+        let _ = fail;
     }
 
     #[test]

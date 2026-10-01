@@ -116,7 +116,35 @@ fn run_from_hook(agent: Agent) {
     let Some(record) = memorywhale_cli::agent_hook::record_from_slice(&buf, agent) else {
         return;
     };
-    let _ = memorywhale_cli::remember::remember_command(record);
+    let Ok(Some(run_id)) = memorywhale_cli::remember::remember_command(record) else {
+        return;
+    };
+    if agent == Agent::Claude {
+        claude_feedback(&buf, run_id);
+    }
+}
+
+/// Hand Claude Code a short note about the command it just ran (see
+/// `memorywhale_cli::hook_feedback`). `MEMORYWHALE_HOOK_FEEDBACK=0` turns it off.
+fn claude_feedback(payload: &[u8], run_id: i64) {
+    if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
+        return;
+    }
+    let event = serde_json::from_slice::<serde_json::Value>(payload)
+        .ok()
+        .and_then(|v| v.get("hook_event_name")?.as_str().map(str::to_owned));
+    let Some(event) = event else { return };
+    let note = memorywhale_cli::database_path()
+        .and_then(|path| memorywhale_cli::storage::open_path(&path))
+        .and_then(|conn| memorywhale_cli::hook_feedback(&conn, run_id));
+    if let Ok(Some(note)) = note {
+        println!(
+            "{}",
+            serde_json::json!({
+                "hookSpecificOutput": { "hookEventName": event, "additionalContext": note }
+            })
+        );
+    }
 }
 
 fn run_codewhale_hook() {
