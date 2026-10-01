@@ -51,12 +51,21 @@ struct ConnectionGuard;
 
 impl ConnectionGuard {
     fn acquire() -> Option<Self> {
-        ACTIVE_CONNECTIONS
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
-                (n < MAX_CONNECTIONS).then_some(n + 1)
-            })
-            .ok()
-            .map(|_| Self)
+        // The loop `fetch_update` runs, spelled out: newer Rust deprecates that
+        // name for `try_update`, which older toolchains do not have yet.
+        let mut n = ACTIVE_CONNECTIONS.load(Ordering::Acquire);
+        while n < MAX_CONNECTIONS {
+            match ACTIVE_CONNECTIONS.compare_exchange_weak(
+                n,
+                n + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Some(Self),
+                Err(current) => n = current,
+            }
+        }
+        None
     }
 }
 
