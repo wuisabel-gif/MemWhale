@@ -26,3 +26,6 @@ benchmarks/terminal_bench/store/
 
 # Local site smoke-test screenshots
 artifacts/site-smoke/
+
+# Harbor run output (Terminal-Bench); private transcripts
+jobs/

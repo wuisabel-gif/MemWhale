@@ -68,4 +68,4 @@ Query-aware recency (unreleased) raises the default to 0.883.
 **Public tasks, public grading.** Runs Claude Code on
 [Terminal-Bench](https://www.tbench.ai) through its official Harbor harness,
 once alone and once with MemoryWhale carried across tasks. We did not write the
-tasks or the verifiers. Harness ready; no results yet.
+tasks or the verifiers. Harness verified in small pilots ([report](terminal_bench/PILOT.md)); no score yet.

@@ -6,8 +6,8 @@ real terminal tasks (builds, installs, debugging) with its own verifiers, run
 through its official harness, [Harbor](https://github.com/laude-institute/harbor).
 We did not write the tasks or the grading.
 
-**Status: harness ready, not yet run.** No numbers are published until both
-runs below finish.
+**Status: harness verified in small pilots, no score yet.** See the
+[pilot report](PILOT.md). No numbers are published until both runs below finish.
 
 ## The comparison
 
@@ -52,16 +52,25 @@ every task starts cold). We report it as such.
 Only the maintainer can set these up:
 
 - Docker (local runs) or a [Modal](https://modal.com) account (full runs).
-- `ANTHROPIC_API_KEY` in your environment. Costs are real: every task is a
-  full Claude Code session, twice (A and B).
+- Claude access, one of:
+  - `ANTHROPIC_API_KEY` in your environment; or
+  - a Claude subscription: run `claude setup-token`, then export
+    `CLAUDE_CODE_OAUTH_TOKEN=<token>` and `CLAUDE_FORCE_OAUTH=1` (Harbor then
+    drops any API key). Subscription usage limits apply, so a long run may
+    pause or stop partway; size `-l` to your plan.
+
+  Costs are real: every task is a full Claude Code session, twice (A and B).
+  The pilots saw $0.30 to $4.83 per task ([pilot report](PILOT.md)).
 - Harbor 0.23.0, pinned because the agent builds on its Claude Code agent:
   `uv tool install 'harbor[modal]==0.23.0'`. The agent refuses to load if a
   newer Harbor stops calling the hook it relies on.
 
 ## Run it
 
-Start with a small pilot (10 tasks, local Docker) to check the plumbing and
-estimate cost before a full run. From the repository root:
+Check the setup with `-l 1` first (one task each, a few dollars), then a
+small pilot (10 tasks, local Docker) to estimate cost before a full run.
+Harbor writes run output to `jobs/`, which is git-ignored; it can contain your
+endpoint and full transcripts, so keep it private. From the repository root:
 
 ```bash
 export PYTHONPATH="$PWD"
@@ -72,13 +81,13 @@ CLAUDE_CODE="$(claude --version | cut -d' ' -f1)"
 
 # A: baseline
 harbor run -d "$DATASET" -a claude-code -m "$MODEL" --ak version="$CLAUDE_CODE" -e docker -n 1 -k 1 -l 10 \
-  --job-name tb-pilot-baseline
+  --agent-setup-timeout-multiplier 3 --job-name tb-pilot-baseline
 
 # B: with MemoryWhale (fresh store)
 rm -rf benchmarks/terminal_bench/store
 harbor run -d "$DATASET" -a benchmarks.terminal_bench.memorywhale_agent:MemoryWhaleClaudeCode \
   -m "$MODEL" --ak version="$CLAUDE_CODE" -e docker -n 1 -k 1 -l 10 \
-  --job-name tb-pilot-memorywhale
+  --agent-setup-timeout-multiplier 3 --job-name tb-pilot-memorywhale
 
 harbor view jobs
 ```
