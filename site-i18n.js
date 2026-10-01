@@ -65,19 +65,19 @@ const EN = {
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
   "integrations.more": "All integrations",
-  "release.eyebrow": "New in 0.12.0",
-  "release.title": "Retrieval you can trust.",
+  "release.eyebrow": "New in 0.15.0",
+  "release.title": "Memory that joins the conversation.",
   "release.copy":
-    "Product 0.12.0 spans the CLI, web UI, and desktop app. The reusable Rust core is 0.6.0, and opening a store migrates it to SQLite schema 13. Choose what a search returns, review memories that disagree, and keep debugging evidence as case files and recipes.",
-  "release.connectTitle": "Search the way you mean",
+    "Product 0.15.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.8.0 and stores stay on SQLite schema 13. MemoryWhale now works with Delphin: it records your agent conversations safely and answers \"have we seen this error?\" while the agent is still working. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">release notes</a>.",
+  "release.connectTitle": "One command to connect",
   "release.connectBody":
-    "<code>mw search --mode evidence|lessons|recipes|failures</code> narrows results to one kind of memory. Opt-in <code>--ranking bayesian</code> combines the existing signals as log-odds; the default ranking is unchanged.",
-  "release.provenanceTitle": "Review before you trust",
+    "<code>mw integrate delphin</code> checks that Delphin is installed and prints the command to run: <code>delphin --memorywhale -- claude</code>. No database path to type.",
+  "release.provenanceTitle": "Hints while the agent works",
   "release.provenanceBody":
-    "<code>mw feedback</code> records local helpful, irrelevant, outdated, or contradicted marks. <code>mw contradictions</code> flags memories that may disagree for you to confirm or reject. Neither changes a memory, and feedback does not affect ranking yet.",
-  "release.interfaceTitle": "Keep the whole story",
+    "<code>mw hint</code> matches an error against past failures and names what fixed it: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin shows that line live, while the agent is still going.",
+  "release.interfaceTitle": "Conversations, redacted",
   "release.interfaceBody":
-    "<code>mw case</code> groups ordered command runs with observations and a conclusion, exportable as JSON or Markdown. <code>mw recipe</code> saves a reusable command from verified runs. Both stay local and redacted, and nothing runs automatically.",
+    "<code>mw turns</code> stores Delphin's conversation turns through the same redaction and capture rules as every other capture, so a secret the agent prints is stored as <code>[REDACTED]</code>.",
   "who.eyebrow": "Who it's for",
   "who.title": "Built for three ways of working.",
   "who.copy":
@@ -241,19 +241,19 @@ const AR = {
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
   "integrations.more": "جميع التكاملات",
-  "release.eyebrow": "الجديد في 0.12.0",
-  "release.title": "استرجاع يمكنك الوثوق به.",
+  "release.eyebrow": "الجديد في 0.15.0",
+  "release.title": "ذاكرة تنضم إلى المحادثة.",
   "release.copy":
-    "يشمل إصدار المنتج 0.12.0 واجهة سطر الأوامر (CLI)، وواجهة الويب، وتطبيق سطح المكتب؛ أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.6.0، وعند فتح مخزن البيانات يُرحَّل إلى مخطط SQLite رقم 13. اختر ما يعيده البحث، وراجع الذكريات المتعارضة، واحفظ شواهد تصحيح الأخطاء في ملفات حالات ووصفات.",
-  "release.connectTitle": "ابحث بما تقصده",
+    "يشمل الإصدار 0.15.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ وتبقى نواة Rust على 0.8.0 والمخازن على مخطط SQLite رقم 13. يعمل MemoryWhale الآن مع Delphin: يسجّل محادثاتك مع الوكيل بأمان ويجيب عن سؤال \"هل رأينا هذا الخطأ من قبل؟\" بينما لا يزال الوكيل يعمل. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">ملاحظات الإصدار</a>.",
+  "release.connectTitle": "أمر واحد للربط",
   "release.connectBody":
-    "يحصر <code>mw search --mode evidence|lessons|recipes|failures</code> النتائج في نوع واحد من الذكريات. ويجمع <code>--ranking bayesian</code>، عند تفعيله صراحةً، الإشارات الحالية على هيئة لوغاريتم الأرجحية (log-odds)؛ ويبقى الترتيب الافتراضي دون تغيير.",
-  "release.provenanceTitle": "راجِع قبل أن تثق",
+    "يتحقق <code>mw integrate delphin</code> من تثبيت Delphin ويطبع الأمر المطلوب تشغيله: <code>delphin --memorywhale -- claude</code>. لا حاجة لكتابة مسار قاعدة البيانات.",
+  "release.provenanceTitle": "تلميحات أثناء عمل الوكيل",
   "release.provenanceBody":
-    "يسجّل <code>mw feedback</code> محليًا تقييماتك للذكريات: مفيدة، أو غير ذات صلة، أو قديمة، أو متناقضة. ويُبرز <code>mw contradictions</code> الذكريات التي قد تتعارض لتؤكد التعارض أو ترفضه بنفسك. لا يغيّر أيٌّ منهما الذكريات نفسها، ولا تؤثر التقييمات في الترتيب حتى الآن.",
-  "release.interfaceTitle": "احتفظ بالقصة كاملة",
+    "يطابق <code>mw hint</code> الخطأ مع الإخفاقات السابقة ويذكر ما أصلحه: <code>seen 2 times, the fix was: xcode-select --install</code>. ويعرض Delphin هذا السطر مباشرة بينما يواصل الوكيل عمله.",
+  "release.interfaceTitle": "محادثات منقّحة",
   "release.interfaceBody":
-    "يجمع <code>mw case</code> عمليات تنفيذ الأوامر بترتيبها مع الملاحظات والاستنتاج، ويمكن تصديرها بصيغة JSON أو Markdown. ويحفظ <code>mw recipe</code> أمرًا قابلًا لإعادة الاستخدام من عمليات تنفيذ جرى التحقق منها. يبقى كلاهما محليًا مع حجب البيانات الحساسة، ولا يُنفَّذ أي شيء تلقائيًا.",
+    "يخزّن <code>mw turns</code> أدوار محادثة Delphin عبر قواعد التنقيح والالتقاط نفسها المطبّقة على كل التقاط آخر، فيُخزَّن أي سرّ يطبعه الوكيل على شكل <code>[REDACTED]</code>.",
   "who.eyebrow": "لمن صُمّم",
   "who.title": "صُمّم لثلاثة أنماط من العمل.",
   "who.copy":
@@ -417,19 +417,19 @@ const DE = {
   "integrations.label": "Funktioniert mit",
   "integrations.via": "über MCP",
   "integrations.more": "Alle Integrationen",
-  "release.eyebrow": "Neu in 0.12.0",
-  "release.title": "Treffer, denen du vertrauen kannst.",
+  "release.eyebrow": "Neu in 0.15.0",
+  "release.title": "Gedächtnis, das mitredet.",
   "release.copy":
-    "Die Produktversion 0.12.0 umfasst CLI, Weboberfläche und Desktop-App. Der wiederverwendbare Rust-Kern steht bei 0.6.0; beim Öffnen wird ein Speicher auf SQLite-Schema 13 migriert. Leg fest, was eine Suche liefert, prüfe widersprüchliche Erinnerungen und bewahre Debugging-Belege als Fallakten und Rezepte auf.",
-  "release.connectTitle": "Suchen, wie du es meinst",
+    "Version 0.15.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern bleibt bei 0.8.0 und Speicher bleiben auf SQLite-Schema 13. MemoryWhale arbeitet jetzt mit Delphin zusammen: Es speichert deine Gespräche mit dem Agenten sicher und beantwortet \"Hatten wir diesen Fehler schon?\", während der Agent noch arbeitet. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">Release Notes</a>.",
+  "release.connectTitle": "Ein Befehl zum Verbinden",
   "release.connectBody":
-    "<code>mw search --mode evidence|lessons|recipes|failures</code> beschränkt die Ergebnisse auf eine Art von Erinnerung. Das optionale <code>--ranking bayesian</code> verrechnet die vorhandenen Signale als Log-Odds; das Standard-Ranking bleibt unverändert.",
-  "release.provenanceTitle": "Erst prüfen, dann vertrauen",
+    "<code>mw integrate delphin</code> prüft, ob Delphin installiert ist, und gibt den Befehl aus: <code>delphin --memorywhale -- claude</code>. Kein Datenbankpfad zum Abtippen.",
+  "release.provenanceTitle": "Hinweise, während der Agent arbeitet",
   "release.provenanceBody":
-    "<code>mw feedback</code> speichert lokale Markierungen: hilfreich, irrelevant, veraltet oder widersprüchlich. <code>mw contradictions</code> kennzeichnet Erinnerungen, die sich möglicherweise widersprechen, damit du sie bestätigen oder verwerfen kannst. Keins von beiden verändert eine Erinnerung, und Feedback wirkt sich noch nicht auf das Ranking aus.",
-  "release.interfaceTitle": "Die ganze Geschichte festhalten",
+    "<code>mw hint</code> gleicht einen Fehler mit früheren Fehlschlägen ab und nennt, was ihn behoben hat: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin zeigt diese Zeile live an, während der Agent weiterarbeitet.",
+  "release.interfaceTitle": "Gespräche, geschwärzt",
   "release.interfaceBody":
-    "<code>mw case</code> bündelt Befehlsläufe in ihrer Reihenfolge mit Beobachtungen und einem Fazit und lässt sich als JSON oder Markdown exportieren. <code>mw recipe</code> speichert einen wiederverwendbaren Befehl aus verifizierten Läufen. Beides bleibt lokal und maskiert, und nichts wird automatisch ausgeführt.",
+    "<code>mw turns</code> speichert Delphins Gesprächsbeiträge mit denselben Schwärzungs- und Erfassungsregeln wie jede andere Erfassung, sodass ein Geheimnis, das der Agent ausgibt, als <code>[REDACTED]</code> gespeichert wird.",
   "who.eyebrow": "Für wen?",
   "who.title": "Gemacht für drei Arbeitsweisen.",
   "who.copy":
@@ -593,19 +593,19 @@ const FR = {
   "integrations.label": "Compatible avec",
   "integrations.via": "via MCP",
   "integrations.more": "Toutes les intégrations",
-  "release.eyebrow": "Nouveautés de la 0.12.0",
-  "release.title": "Une recherche digne de confiance.",
+  "release.eyebrow": "Nouveau dans 0.15.0",
+  "release.title": "Une mémoire qui se joint à la conversation.",
   "release.copy":
-    "La version produit 0.12.0 couvre le CLI, l’interface web et l’application de bureau. Le cœur Rust réutilisable passe en 0.6.0, et l’ouverture d’une base la migre vers le schéma SQLite 13. Choisissez ce que renvoie une recherche, examinez les mémoires qui se contredisent et conservez vos preuves de débogage sous forme de dossiers et de recettes.",
-  "release.connectTitle": "Cherchez ce que vous voulez dire",
+    "La version 0.15.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust reste en 0.8.0 et les stockages restent au schéma SQLite 13. MemoryWhale fonctionne désormais avec Delphin : il enregistre vos conversations avec l'agent en toute sécurité et répond à « avons-nous déjà vu cette erreur ? » pendant que l'agent travaille encore. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">notes de version</a>.",
+  "release.connectTitle": "Une commande pour connecter",
   "release.connectBody":
-    "<code>mw search --mode evidence|lessons|recipes|failures</code> limite les résultats à un seul type de mémoire. L’option facultative <code>--ranking bayesian</code> combine les signaux existants en log-odds ; le classement par défaut reste inchangé.",
-  "release.provenanceTitle": "Vérifiez avant de vous fier",
+    "<code>mw integrate delphin</code> vérifie que Delphin est installé et affiche la commande à lancer : <code>delphin --memorywhale -- claude</code>. Aucun chemin de base de données à taper.",
+  "release.provenanceTitle": "Des indices pendant que l'agent travaille",
   "release.provenanceBody":
-    "<code>mw feedback</code> enregistre en local vos avis : utile, hors sujet, obsolète ou contredit. <code>mw contradictions</code> signale les mémoires susceptibles de se contredire, pour que vous les confirmiez ou les rejetiez. Aucune des deux commandes ne modifie une mémoire, et les avis n’influencent pas encore le classement.",
-  "release.interfaceTitle": "Gardez toute l’histoire",
+    "<code>mw hint</code> compare une erreur aux échecs passés et indique ce qui l'a corrigée : <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin affiche cette ligne en direct, pendant que l'agent continue.",
+  "release.interfaceTitle": "Des conversations expurgées",
   "release.interfaceBody":
-    "<code>mw case</code> regroupe des exécutions de commandes dans l’ordre, avec des observations et une conclusion, exportables en JSON ou en Markdown. <code>mw recipe</code> enregistre une commande réutilisable à partir d’exécutions vérifiées. Tout reste en local, avec masquage des secrets, et rien ne s’exécute automatiquement.",
+    "<code>mw turns</code> enregistre les échanges de Delphin avec les mêmes règles d'expurgation et de capture que toute autre capture : un secret affiché par l'agent est stocké sous la forme <code>[REDACTED]</code>.",
   "who.eyebrow": "Pour qui ?",
   "who.title": "Pensé pour trois façons de travailler.",
   "who.copy":
@@ -769,19 +769,19 @@ const ZH_CN = {
   "integrations.label": "已支持",
   "integrations.via": "通过 MCP",
   "integrations.more": "所有集成",
-  "release.eyebrow": "0.12.0 新功能",
-  "release.title": "检索结果，值得信赖。",
+  "release.eyebrow": "0.15.0 新功能",
+  "release.title": "加入对话的记忆。",
   "release.copy":
-    "产品版本 0.12.0 覆盖 CLI、Web UI 和桌面应用；可复用的 Rust 核心为 0.6.0，打开存储库时会自动迁移到 SQLite schema 13。现在可以指定搜索返回哪类结果、审查相互矛盾的记忆，并把调试证据保存为案例档案和命令配方。",
-  "release.connectTitle": "按你的意图搜索",
+    "0.15.0 版本涵盖 CLI、Web 界面和桌面应用；Rust 核心仍为 0.8.0，存储仍使用 SQLite 架构 13。MemoryWhale 现在可以与 Delphin 配合：安全地记录你与智能体的对话，并在智能体仍在工作时回答“这个错误以前见过吗？”。参见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">发布说明</a>。",
+  "release.connectTitle": "一条命令完成连接",
   "release.connectBody":
-    "<code>mw search --mode evidence|lessons|recipes|failures</code> 可把结果限定为某一类记忆。<code>--ranking bayesian</code> 需手动开启，它会把现有信号按对数几率（log-odds）合并；默认排序保持不变。",
-  "release.provenanceTitle": "先审查，再信任",
+    "<code>mw integrate delphin</code> 检查 Delphin 是否已安装，并打印要运行的命令：<code>delphin --memorywhale -- claude</code>。无需手动输入数据库路径。",
+  "release.provenanceTitle": "智能体工作时的提示",
   "release.provenanceBody":
-    "<code>mw feedback</code> 在本地记录“有用”“无关”“过时”或“有矛盾”等标记。<code>mw contradictions</code> 会标出可能相互矛盾的记忆，由你确认或驳回。两者都不会修改记忆，反馈目前也还不影响排序。",
-  "release.interfaceTitle": "保留完整来龙去脉",
+    "<code>mw hint</code> 将错误与过去的失败记录比对，并说明当时的修复方法：<code>seen 2 times, the fix was: xcode-select --install</code>。Delphin 会在智能体继续工作时实时显示这一行。",
+  "release.interfaceTitle": "对话经过脱敏",
   "release.interfaceBody":
-    "<code>mw case</code> 把按顺序执行的命令连同观察记录和结论整理在一起，可导出为 JSON 或 Markdown。<code>mw recipe</code> 从已验证的运行中保存可复用的命令。两者都只保存在本地并经过脱敏，也不会自动执行任何操作。",
+    "<code>mw turns</code> 按与其他所有采集相同的脱敏和采集规则保存 Delphin 的对话内容，因此智能体打印出的密钥会被保存为 <code>[REDACTED]</code>。",
   "who.eyebrow": "适合谁",
   "who.title": "三种开发日常，都用得上。",
   "who.copy":
@@ -945,19 +945,19 @@ const ZH_TW = {
   "integrations.label": "可搭配使用",
   "integrations.via": "透過 MCP",
   "integrations.more": "所有整合",
-  "release.eyebrow": "0.12.0 新功能",
-  "release.title": "值得信賴的檢索結果。",
+  "release.eyebrow": "0.15.0 新功能",
+  "release.title": "加入對話的記憶。",
   "release.copy":
-    "產品版本 0.12.0 涵蓋 CLI、Web UI 與桌面應用程式；可重複使用的 Rust 核心為 0.6.0，開啟資料儲存區時會自動遷移到 SQLite schema 13。你可以指定搜尋要回傳哪類結果、檢視彼此矛盾的記憶，並將除錯證據保存為案例檔與指令配方。",
-  "release.connectTitle": "照你的意思搜尋",
+    "0.15.0 版涵蓋 CLI、網頁介面與桌面應用程式；Rust 核心維持 0.8.0，儲存庫維持 SQLite 結構描述 13。MemoryWhale 現在可以與 Delphin 搭配：安全地記錄你與代理的對話，並在代理仍在工作時回答「這個錯誤以前見過嗎？」。請參閱<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">版本說明</a>。",
+  "release.connectTitle": "一個指令完成連接",
   "release.connectBody":
-    "<code>mw search --mode evidence|lessons|recipes|failures</code> 可將結果限縮為單一類型的記憶。<code>--ranking bayesian</code> 需自行啟用，會以對數勝算（log-odds）結合現有訊號；預設排序維持不變。",
-  "release.provenanceTitle": "先檢視，再信任",
+    "<code>mw integrate delphin</code> 會檢查 Delphin 是否已安裝，並印出要執行的指令：<code>delphin --memorywhale -- claude</code>。不必手動輸入資料庫路徑。",
+  "release.provenanceTitle": "代理工作時的提示",
   "release.provenanceBody":
-    "<code>mw feedback</code> 會在本機記錄「有幫助」、「不相關」、「已過時」或「有矛盾」等標記。<code>mw contradictions</code> 會標出可能彼此矛盾的記憶，交由你確認或駁回。兩者都不會修改記憶，回饋目前也還不會影響排序。",
-  "release.interfaceTitle": "保留完整脈絡",
+    "<code>mw hint</code> 會將錯誤與過去的失敗紀錄比對，並說明當時的修正方法：<code>seen 2 times, the fix was: xcode-select --install</code>。Delphin 會在代理繼續工作時即時顯示這一行。",
+  "release.interfaceTitle": "對話經過遮蔽",
   "release.interfaceBody":
-    "<code>mw case</code> 會將依序執行的指令連同觀察紀錄與結論整理在一起，可匯出為 JSON 或 Markdown。<code>mw recipe</code> 會從已驗證的執行中儲存可重複使用的指令。兩者都只保存在本機，敏感資訊會經過遮蔽，也不會自動執行任何東西。",
+    "<code>mw turns</code> 以與其他所有擷取相同的遮蔽與擷取規則儲存 Delphin 的對話內容，因此代理印出的密鑰會被儲存為 <code>[REDACTED]</code>。",
   "who.eyebrow": "適合誰",
   "who.title": "為三種工作方式而設計。",
   "who.copy":
@@ -1121,19 +1121,19 @@ const KO = {
   "integrations.label": "함께 쓸 수 있는 도구",
   "integrations.via": "MCP 연동",
   "integrations.more": "전체 통합 보기",
-  "release.eyebrow": "0.12.0 새 기능",
-  "release.title": "믿고 쓰는 검색.",
+  "release.eyebrow": "0.15.0의 새 기능",
+  "release.title": "대화에 참여하는 기억.",
   "release.copy":
-    "제품 버전 0.12.0은 CLI, 웹 UI, 데스크톱 앱에 공통으로 적용됩니다. 재사용 가능한 Rust 코어는 0.6.0이며, 스토어를 열면 SQLite 스키마 13으로 마이그레이션됩니다. 검색 결과의 종류를 고르고, 서로 어긋나는 메모리를 검토하고, 디버깅 증거를 케이스 파일과 레시피로 남길 수 있습니다.",
-  "release.connectTitle": "의도대로 검색",
+    "0.15.0 버전은 CLI, 웹 UI, 데스크톱 앱에 모두 적용됩니다. Rust 코어는 0.8.0, 저장소는 SQLite 스키마 13을 그대로 유지합니다. 이제 MemoryWhale은 Delphin과 함께 작동합니다. 에이전트와의 대화를 안전하게 기록하고, 에이전트가 아직 작업하는 동안 \"이 오류를 전에 본 적이 있나?\"에 답합니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">릴리스 노트</a>를 참고하세요.",
+  "release.connectTitle": "명령 하나로 연결",
   "release.connectBody":
-    "<code>mw search --mode evidence|lessons|recipes|failures</code>는 결과를 한 종류의 메모리로 좁힙니다. 직접 켜야 하는 <code>--ranking bayesian</code>은 기존 신호를 로그 오즈로 결합하며, 기본 순위는 그대로입니다.",
-  "release.provenanceTitle": "믿기 전에 검토",
+    "<code>mw integrate delphin</code>는 Delphin이 설치되어 있는지 확인하고 실행할 명령을 출력합니다: <code>delphin --memorywhale -- claude</code>. 데이터베이스 경로를 직접 입력할 필요가 없습니다.",
+  "release.provenanceTitle": "에이전트가 일하는 동안 힌트",
   "release.provenanceBody":
-    "<code>mw feedback</code>은 유용함, 무관함, 오래됨, 모순됨 표시를 로컬에 기록합니다. <code>mw contradictions</code>는 서로 어긋날 수 있는 메모리를 표시하고, 확인할지 기각할지는 사용자가 정합니다. 둘 다 메모리를 변경하지 않으며, 피드백은 아직 순위에 영향을 주지 않습니다.",
-  "release.interfaceTitle": "전체 맥락 보존",
+    "<code>mw hint</code>는 오류를 과거 실패와 대조하고 무엇으로 해결했는지 알려 줍니다: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin은 에이전트가 계속 작업하는 동안 이 줄을 실시간으로 보여 줍니다.",
+  "release.interfaceTitle": "가려진 대화",
   "release.interfaceBody":
-    "<code>mw case</code>는 순서대로 실행한 명령을 관찰 내용 및 결론과 함께 묶으며, JSON이나 Markdown으로 내보낼 수 있습니다. <code>mw recipe</code>는 검증된 실행에서 재사용 가능한 명령을 저장합니다. 둘 다 로컬에만 저장되고 민감한 정보는 가려지며, 자동으로 실행되는 것은 없습니다.",
+    "<code>mw turns</code>는 다른 모든 캡처와 같은 가림 및 캡처 규칙으로 Delphin의 대화를 저장하므로, 에이전트가 출력한 비밀 값은 <code>[REDACTED]</code>로 저장됩니다.",
   "who.eyebrow": "사용 대상",
   "who.title": "세 가지 작업 방식을 위해 만들었습니다.",
   "who.copy":
@@ -1297,19 +1297,19 @@ const JA = {
   "integrations.label": "対応ツール",
   "integrations.via": "MCP 経由",
   "integrations.more": "すべての連携を見る",
-  "release.eyebrow": "0.12.0 の新機能",
-  "release.title": "信頼できる検索を。",
+  "release.eyebrow": "0.15.0 の新機能",
+  "release.title": "会話に加わる記憶。",
   "release.copy":
-    "製品バージョン 0.12.0 は CLI、Web UI、デスクトップアプリに共通です。再利用可能な Rust コアは 0.6.0 で、ストアを開くと SQLite スキーマ 13 に移行されます。検索で返す内容を選び、食い違うメモリを確認し、デバッグの証拠をケースファイルやレシピとして残せます。",
-  "release.connectTitle": "意図どおりに検索",
+    "0.15.0 は CLI、Web UI、デスクトップアプリに共通です。Rust コアは 0.8.0 のまま、ストアも SQLite スキーマ 13 のままです。MemoryWhale は Delphin と連携するようになりました。エージェントとの会話を安全に記録し、エージェントが作業している間に「このエラーは前にも見た？」に答えます。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">リリースノート</a>をご覧ください。",
+  "release.connectTitle": "コマンド 1 つで接続",
   "release.connectBody":
-    "<code>mw search --mode evidence|lessons|recipes|failures</code> は、結果を 1 種類のメモリに絞り込みます。オプトインの <code>--ranking bayesian</code> は、既存のシグナルを対数オッズとして組み合わせます。デフォルトのランキングは変わりません。",
-  "release.provenanceTitle": "信頼する前に確認",
+    "<code>mw integrate delphin</code> は Delphin がインストールされているかを確認し、実行するコマンドを表示します：<code>delphin --memorywhale -- claude</code>。データベースのパスを手入力する必要はありません。",
+  "release.provenanceTitle": "エージェントの作業中にヒント",
   "release.provenanceBody":
-    "<code>mw feedback</code> は、「役に立った」「無関係」「古い」「矛盾している」といった評価をローカルに記録します。<code>mw contradictions</code> は食い違う可能性のあるメモリを示し、確定するか却下するかはあなたが判断します。どちらもメモリ自体は変更せず、フィードバックはまだランキングに影響しません。",
-  "release.interfaceTitle": "経緯をまるごと残す",
+    "<code>mw hint</code> はエラーを過去の失敗と照合し、何で直ったかを示します：<code>seen 2 times, the fix was: xcode-select --install</code>。Delphin はエージェントが作業を続けている間に、この行をその場で表示します。",
+  "release.interfaceTitle": "マスクされた会話",
   "release.interfaceBody":
-    "<code>mw case</code> は、順序どおりのコマンド実行を観察内容と結論とともにまとめ、JSON または Markdown でエクスポートできます。<code>mw recipe</code> は、検証済みの実行から再利用可能なコマンドを保存します。どちらもローカルに保存され、機密情報はマスクされます。自動で実行されるものはありません。",
+    "<code>mw turns</code> は、ほかのすべての記録と同じマスキングと記録ルールで Delphin の会話を保存します。エージェントが出力した秘密情報は <code>[REDACTED]</code> として保存されます。",
   "who.eyebrow": "対象ユーザー",
   "who.title": "3 つの働き方に合わせて。",
   "who.copy":

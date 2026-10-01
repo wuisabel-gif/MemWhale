@@ -670,6 +670,7 @@
         line-height: 1.52;
       }
 
+      .section-copy a { color: var(--azure); text-decoration: underline; text-underline-offset: 2px; }
       /* Inline emphasis and links inside card text (the card title is the block <strong>). */
       .card p strong { display: inline; margin: 0; font-size: inherit; }
       .card p a,
@@ -963,21 +964,21 @@
         </section>
 
         <section id="release" class="section">
-          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.12.0</p>
-          <h2 data-i18n="release.title">Retrieval you can trust.</h2>
-          <p class="section-copy" data-i18n="release.copy">Product 0.12.0 spans the CLI, web UI, and desktop app. The reusable Rust core is 0.6.0, and opening a store migrates it to SQLite schema 13. Choose what a search returns, review memories that disagree, and keep debugging evidence as case files and recipes.</p>
+          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.15.0</p>
+          <h2 data-i18n="release.title">Memory that joins the conversation.</h2>
+          <p class="section-copy" data-i18n="release.copy">Product 0.15.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.8.0 and stores stay on SQLite schema 13. MemoryWhale now works with Delphin: it records your agent conversations safely and answers "have we seen this error?" while the agent is still working. See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md">release notes</a>.</p>
           <div class="grid">
             <article class="card">
-              <strong data-i18n="release.connectTitle">Search the way you mean</strong>
-              <p data-i18n="release.connectBody"><code>mw search --mode evidence|lessons|recipes|failures</code> narrows results to one kind of memory. Opt-in <code>--ranking bayesian</code> combines the existing signals as log-odds; the default ranking is unchanged.</p>
+              <strong data-i18n="release.connectTitle">One command to connect</strong>
+              <p data-i18n="release.connectBody"><code>mw integrate delphin</code> checks that Delphin is installed and prints the command to run: <code>delphin --memorywhale -- claude</code>. No database path to type.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.provenanceTitle">Review before you trust</strong>
-              <p data-i18n="release.provenanceBody"><code>mw feedback</code> records local helpful, irrelevant, outdated, or contradicted marks. <code>mw contradictions</code> flags memories that may disagree for you to confirm or reject. Neither changes a memory, and feedback does not affect ranking yet.</p>
+              <strong data-i18n="release.provenanceTitle">Hints while the agent works</strong>
+              <p data-i18n="release.provenanceBody"><code>mw hint</code> matches an error against past failures and names what fixed it: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin shows that line live, while the agent is still going.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.interfaceTitle">Keep the whole story</strong>
-              <p data-i18n="release.interfaceBody"><code>mw case</code> groups ordered command runs with observations and a conclusion, exportable as JSON or Markdown. <code>mw recipe</code> saves a reusable command from verified runs. Both stay local and redacted, and nothing runs automatically.</p>
+              <strong data-i18n="release.interfaceTitle">Conversations, redacted</strong>
+              <p data-i18n="release.interfaceBody"><code>mw turns</code> stores Delphin's conversation turns through the same redaction and capture rules as every other capture, so a secret the agent prints is stored as <code>[REDACTED]</code>.</p>
             </article>
           </div>
         </section>
