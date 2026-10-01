@@ -1,14 +1,14 @@
-<!-- README-SOURCE-SHA256: 52a4d8d02740c4c46b124d11e109d3fcd25a4164c7af33326048ed22b453ae99 -->
+<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
 
 <p align="center">
-  <img src="assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
+  <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
 </p>
 
 <h1 align="center">MemoryWhale</h1>
 
 <p align="center"><strong>Une mémoire de débogage locale et persistante, pour les développeurs et les agents de code.</strong></p>
 
-<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a> · <a href="README.es.md" lang="es">Español</a> · <a href="README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
+<p align="center" dir="ltr"><a href="../../README.md">English README</a> · <a href="../../docs/i18n/README.ar.md" lang="ar">العربية</a> · <a href="../../docs/i18n/README.de.md" lang="de">Deutsch</a> · <a href="../../docs/i18n/README.fr.md">README français</a> · <a href="../../docs/i18n/README.zh-CN.md">简体中文 README</a> · <a href="../../docs/i18n/README.zh-TW.md">繁體中文 README</a> · <a href="../../docs/i18n/README.ko.md">한국어 README</a> · <a href="../../docs/i18n/README.ja.md">日本語 README</a> · <a href="../../docs/i18n/README.es.md" lang="es">Español</a> · <a href="../../docs/i18n/README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/recall-demo.gif" alt="Une erreur de build réapparaît ; mw context indique qu’elle s’est déjà produite deux fois et mw search renvoie le correctif enregistré." width="820" />
+  <img src="../../assets/recall-demo.gif" alt="Une erreur de build réapparaît ; mw context indique qu’elle s’est déjà produite deux fois et mw search renvoie le correctif enregistré." width="820" />
 </p>
 
 **Vous tombez sur une erreur. MemoryWhale se souvient que vous l’avez déjà rencontrée et vous redonne le correctif.**
@@ -30,13 +30,13 @@ traces sont stockées dans une base SQLite locale, pour que vous et vos agents d
 code puissiez les retrouver une fois le terminal fermé, la connexion SSH coupée
 ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via MCP, sans compte et sans que rien ne soit envoyé.
 
-> Sur [LongMemEval](benchmarks/longmemeval/README.md), un benchmark public de mémoire à long terme, la
+> Sur [LongMemEval](../../benchmarks/longmemeval/README.md), un benchmark public de mémoire à long terme, la
 > recherche place une session contenant la réponse dans ses 5 premiers résultats
 > pour **97%** des 470 questions (recherche seule, sans modèle).
 >
 > Lors d’une évaluation contrôlée sur des bugs propres à un projet, un agent en a résolu
 > **25%** sans mémoire et **96%** avec. Il s’agit de tâches synthétiques qui démontrent le
-> mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](benchmarks/README.md).
+> mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](../../benchmarks/README.md).
 
 **MemoryWhale 0.15.0: Delphin Bridge · 30 septembre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit
@@ -122,7 +122,7 @@ mw doctor
 
 Sous Windows, vous pouvez utiliser MemoryWhale dans
 [WSL](https://learn.microsoft.com/windows/wsl/). Le
-[guide de démarrage](docs/guides/getting-started.md) détaille l’installation des
+[guide de démarrage](../../docs/guides/getting-started.md) détaille l’installation des
 paquets, la configuration du PATH et les particularités de chaque plateforme.
 
 ## Exemple en soixante secondes
@@ -136,7 +136,7 @@ mw context --last-error              # compact context for any agent or chat
 mw pet                               # check your memory store's mood
 ```
 
-![Démonstration des humeurs de mw pet](assets/pet-demo.gif)
+![Démonstration des humeurs de mw pet](../../assets/pet-demo.gif)
 
 Pour les sessions plus longues, `mw --live` enregistre une session shell qui
 résiste aux plantages. `mw tui` ouvre un navigateur interactif dans le terminal,
@@ -155,8 +155,8 @@ agent hooks ─────────► evidence + lessons ──► similar 
 
 La capture et la recherche sont indépendantes. MCP donne à un agent l’accès à la
 mémoire existante ; il n’enregistre pas automatiquement l’activité normale du
-terminal. Le modèle complet est décrit dans [l’architecture](docs/architecture.md)
-et dans le [concept de capture](docs/concepts/capture.md).
+terminal. Le modèle complet est décrit dans [l’architecture](../../docs/architecture.md)
+et dans le [concept de capture](../../docs/concepts/capture.md).
 
 ## Compatible avec votre agent de code
 
@@ -174,14 +174,14 @@ mw doctor
 
 Les clients n’offrent pas tous les mêmes capacités. MCP permet d’accéder à la
 mémoire ; la capture automatique des exécutions nécessite un hook propre à
-chaque client. La [matrice d’intégration](integrations/README.md) distingue
+chaque client. La [matrice d’intégration](../../integrations/README.md) distingue
 l’accès, la capture et les consignes d’utilisation de la mémoire, et renvoie
 vers chaque guide de configuration vérifié.
 
 Le payload actuel des hooks de Rho ne contient ni le texte de la commande ni
 stdout : les échecs peuvent être enregistrés sous forme de métadonnées avec une
 commande sentinelle, et les appels réussis sans texte de commande sont ignorés.
-La [démo de passage de relais entre agents](docs/guides/cross-agent-handoff.md)
+La [démo de passage de relais entre agents](../../docs/guides/cross-agent-handoff.md)
 utilise des fixtures et un client Rho simulé face à un vrai serveur MCP ; il ne
 s’agit ni d’agents réels en fonctionnement, ni d’un correctif Cargo vérifié.
 
@@ -203,28 +203,28 @@ des sessions d’agent éphémères. Il est particulièrement utile si vous :
 - voulez pouvoir retrouver par une recherche les échecs récurrents et leurs correctifs ;
 - préférez un stockage local à un service de mémoire hébergé.
 
-Les [cas d’usage](docs/concepts/use-cases.md) décrivent chacun de ces scénarios de
+Les [cas d’usage](../../docs/concepts/use-cases.md) décrivent chacun de ces scénarios de
 bout en bout, avec de vraies commandes.
 
 ## Documentation
 
-- [Plan de la documentation](docs/README.md)
-- [Bien démarrer](docs/guides/getting-started.md)
-- [Référence de `mw pet`](docs/reference/pet.md)
-- [Capture du terminal](docs/guides/terminal-capture.md)
-- [Mémoire des agents](docs/guides/agent-memory.md)
-- [Référence du CLI](docs/reference/cli.md)
-- [API JSON locale](docs/reference/api.md)
-- [Référence MCP](docs/reference/mcp.md)
-- [Sécurité et modèle de menace local](docs/SECURITY.md)
-- [Écosystème](ECOSYSTEM.md) — Delphin, ContextGC et MemoryWhale réunis
-- [Guides d’intégration et matrice des capacités](integrations/README.md)
+- [Plan de la documentation](../../docs/README.md)
+- [Bien démarrer](../../docs/guides/getting-started.md)
+- [Référence de `mw pet`](../../docs/reference/pet.md)
+- [Capture du terminal](../../docs/guides/terminal-capture.md)
+- [Mémoire des agents](../../docs/guides/agent-memory.md)
+- [Référence du CLI](../../docs/reference/cli.md)
+- [API JSON locale](../../docs/reference/api.md)
+- [Référence MCP](../../docs/reference/mcp.md)
+- [Sécurité et modèle de menace local](../../docs/SECURITY.md)
+- [Écosystème](../../ECOSYSTEM.md) — Delphin, ContextGC et MemoryWhale réunis
+- [Guides d’intégration et matrice des capacités](../../integrations/README.md)
 
 ## Contribuer
 
 MemoryWhale accepte les modifications qui améliorent la capture, la
 conservation, la recherche ou le partage de l’expérience de développement.
-Lisez [CONTRIBUTING.md](CONTRIBUTING.md) pour connaître la règle de périmètre,
+Lisez [CONTRIBUTING.md](../../CONTRIBUTING.md) pour connaître la règle de périmètre,
 les commandes de développement et la checklist des pull requests. Si vous
 débutez sur le projet, choisissez une tâche dans l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).
 
@@ -232,6 +232,6 @@ Chaque pull request reçoit aussi une revue automatique de
 [Second-Opinion](https://github.com/wuisabel-gif/second-opinion), une GitHub Action issue d’un
 projet frère de MemoryWhale. Ses commentaires restent des suggestions ; la
 décision de les appliquer revient toujours à un humain. La configuration et les
-limites sont décrites dans le [guide Second-Opinion](integrations/second-opinion/README.md).
+limites sont décrites dans le [guide Second-Opinion](../../integrations/second-opinion/README.md).
 
-Distribué sous [licence MIT](LICENSE).
+Distribué sous [licence MIT](../../LICENSE).

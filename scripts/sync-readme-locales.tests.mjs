@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
   LOCALES,
+  relocateForFile,
   formatLocalizedBody,
   hashContent,
   parseLocalizedReadme,
@@ -242,6 +243,7 @@ test("stale locale files are translated and stamped with the current hash", asyn
   t.after(() => rm(directory, { recursive: true, force: true }));
   await writeFile(join(directory, "README.md"), source);
   for (const locale of LOCALES) {
+    await mkdir(dirname(join(directory, locale.file)), { recursive: true });
     await writeFile(
       join(directory, locale.file),
       `<!-- README-SOURCE-SHA256: ${"0".repeat(64)} -->\n\n${source}`,
@@ -273,4 +275,18 @@ test("stale locale files are translated and stamped with the current hash", asyn
       assert.ok(localized.body.includes('<div dir="ltr">'));
     }
   }
+});
+
+test("translations below the root store relative links one level up per directory", () => {
+  const file = "docs/i18n/README.xx.md";
+  const stored = relocateForFile(source, file);
+  assert.ok(stored.includes('src="../../assets/logo.png"'));
+  assert.ok(stored.includes("[guide](../../docs/guide.md)"));
+  assert.ok(stored.includes("[guide-ref]: ../../docs/reference.md"));
+  assert.ok(stored.includes('mw search "linker error"'), "code is untouched");
+  assert.doesNotThrow(() => validateTranslation(source, stored, { file }));
+  // Root-form links in a nested file would be broken, so they must fail.
+  assert.throws(() => validateTranslation(source, source, { file }), /link|HTML/);
+  // Absolute URLs and anchors are left alone.
+  assert.equal(relocateForFile("[a](https://x.dev) [b](#top)", file), "[a](https://x.dev) [b](#top)");
 });

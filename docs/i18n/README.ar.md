@@ -1,16 +1,16 @@
-<!-- README-SOURCE-SHA256: 52a4d8d02740c4c46b124d11e109d3fcd25a4164c7af33326048ed22b453ae99 -->
+<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
 
 <div dir="rtl">
 
 <p align="center">
-  <img src="assets/memorywhale-logo-sm.png" alt="شعار MemoryWhale" width="160" />
+  <img src="../../assets/memorywhale-logo-sm.png" alt="شعار MemoryWhale" width="160" />
 </p>
 
 <h1 align="center">MemoryWhale</h1>
 
 <p align="center"><strong>ذاكرة محلية ودائمة لتصحيح الأخطاء، للمطورين ووكلاء البرمجة.</strong></p>
 
-<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a> · <a href="README.es.md" lang="es">Español</a> · <a href="README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
+<p align="center" dir="ltr"><a href="../../README.md">English README</a> · <a href="../../docs/i18n/README.ar.md" lang="ar">العربية</a> · <a href="../../docs/i18n/README.de.md" lang="de">Deutsch</a> · <a href="../../docs/i18n/README.fr.md">README français</a> · <a href="../../docs/i18n/README.zh-CN.md">简体中文 README</a> · <a href="../../docs/i18n/README.zh-TW.md">繁體中文 README</a> · <a href="../../docs/i18n/README.ko.md">한국어 README</a> · <a href="../../docs/i18n/README.ja.md">日本語 README</a> · <a href="../../docs/i18n/README.es.md" lang="es">Español</a> · <a href="../../docs/i18n/README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="التكامل المستمر"/></a>
@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/recall-demo.gif" alt="يظهر خطأ البناء من جديد؛ فيُفيد mw context بأنه تكرّر مرتين، ويُعيد mw search الإصلاح المحفوظ." width="820" />
+  <img src="../../assets/recall-demo.gif" alt="يظهر خطأ البناء من جديد؛ فيُفيد mw context بأنه تكرّر مرتين، ويُعيد mw search الإصلاح المحفوظ." width="820" />
 </p>
 
 **تواجه خطأً، فيتذكّر MemoryWhale أنك رأيته من قبل، ويُعيد إليك الإصلاح.**
@@ -31,13 +31,13 @@
 لتتمكن أنت ووكلاء البرمجة من استرجاعها بعد إغلاق الطرفية أو انقطاع اتصال SSH
 أو انتهاء جلسة الوكيل. ويعمل مع 19 وكيلاً برمجياً عبر MCP، دون الحاجة إلى حساب ودون رفع أي شيء.
 
-> على [LongMemEval](benchmarks/longmemeval/README.md)، وهو معيار عام لتقييم الذاكرة طويلة الأمد، يضع البحث
+> على [LongMemEval](../../benchmarks/longmemeval/README.md)، وهو معيار عام لتقييم الذاكرة طويلة الأمد، يضع البحث
 > جلسةً تحتوي على الإجابة ضمن أول 5 نتائج في **97%** من 470 سؤالًا
 > (الاسترجاع فقط، دون نموذج).
 >
 > في تقييم مضبوط على أخطاء خاصة بالمشروع، حلّ الوكيل **25%** من المهام دون ذاكرة،
 > و**96%** منها مع الذاكرة. هذه مهام اصطناعية توضّح آلية العمل، وليست دراسة ميدانية؛
-> راجع [كيف أُجري القياس](benchmarks/README.md).
+> راجع [كيف أُجري القياس](../../benchmarks/README.md).
 
 **MemoryWhale 0.15.0: Delphin Bridge · 30 سبتمبر 2026.**
 تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.15.0،
@@ -127,7 +127,7 @@ mw doctor
 
 يمكن لمستخدمي Windows تشغيل MemoryWhale داخل
 [WSL](https://learn.microsoft.com/windows/wsl/). راجع
-[دليل البدء](docs/guides/getting-started.md) لمعرفة كيفية تثبيت الحزم وإعداد
+[دليل البدء](../../docs/guides/getting-started.md) لمعرفة كيفية تثبيت الحزم وإعداد
 PATH والملاحظات الخاصة بكل منصة.
 
 ## مثال في ستين ثانية
@@ -145,7 +145,7 @@ mw pet                               # check your memory store's mood
 
 </div>
 
-![عرض توضيحي لحالات mw pet](assets/pet-demo.gif)
+![عرض توضيحي لحالات mw pet](../../assets/pet-demo.gif)
 
 للعمل لفترات أطول، يسجّل `mw --live` جلسة الصدفة مع الحفظ المستمر لتقليل
 فقدان البيانات عند التعطّل. ويفتح `mw tui` متصفحاً تفاعلياً داخل الطرفية،
@@ -168,7 +168,7 @@ agent hooks ─────────► evidence + lessons ──► similar 
 
 التسجيل والاسترجاع وظيفتان مستقلتان. يمنح MCP الوكيل وصولاً إلى الذاكرة
 الموجودة؛ لكنه لا يسجّل نشاط الطرفية المعتاد تلقائياً. راجع
-[البنية المعمارية](docs/architecture.md) و[مفهوم التسجيل](docs/concepts/capture.md)
+[البنية المعمارية](../../docs/architecture.md) و[مفهوم التسجيل](../../docs/concepts/capture.md)
 لفهم النموذج كاملاً.
 
 ## يعمل مع وكيل البرمجة الذي تستخدمه
@@ -191,13 +191,13 @@ mw doctor
 
 لا يوفّر جميع العملاء الإمكانات نفسها. يتيح MCP الوصول إلى الذاكرة، أما
 التسجيل التلقائي للأوامر المنفّذة فيحتاج إلى خطاف خاص بالعميل. تميّز
-[مصفوفة التكامل](integrations/README.md) بين الوصول والتسجيل وإرشادات استخدام
+[مصفوفة التكامل](../../integrations/README.md) بين الوصول والتسجيل وإرشادات استخدام
 الذاكرة، وتربط بكل دليل إعداد تم التحقق منه.
 
 لا تتضمن حمولة خطافات Rho الحالية نص الأمر أو stdout: يمكن تسجيل الإخفاقات
 كبيانات وصفية مع أمر بديل يدل على غياب النص، بينما تُتجاوز الاستدعاءات الناجحة
 التي لا تحتوي على نص الأمر. يستخدم
-[عرض تسليم الذاكرة بين الوكلاء](docs/guides/cross-agent-handoff.md)
+[عرض تسليم الذاكرة بين الوكلاء](../../docs/guides/cross-agent-handoff.md)
 بيانات اختبار وعميل Rho محاكياً مع خادم MCP فعلي، لا وكلاء يعملون فعلياً
 ولا إصلاح Cargo تم تنفيذه والتحقق منه.
 
@@ -217,35 +217,35 @@ MemoryWhale مخصص للمطورين الذين يتوزع سياق تصحيح 
 - تريد إبقاء الإخفاقات المتكررة وإصلاحاتها قابلة للبحث؛
 - تفضّل التخزين المحلي على خدمة ذاكرة مستضافة.
 
-راجع [حالات الاستخدام](docs/concepts/use-cases.md) لتجد كل حالة منها مشروحة
+راجع [حالات الاستخدام](../../docs/concepts/use-cases.md) لتجد كل حالة منها مشروحة
 سيناريو كاملاً من البداية إلى النهاية بأوامر حقيقية.
 
 ## التوثيق
 
-- [خريطة التوثيق](docs/README.md)
-- [البدء](docs/guides/getting-started.md)
-- [مرجع `mw pet`](docs/reference/pet.md)
-- [تسجيل الطرفية](docs/guides/terminal-capture.md)
-- [ذاكرة الوكلاء](docs/guides/agent-memory.md)
-- [مرجع واجهة سطر الأوامر](docs/reference/cli.md)
-- [واجهة JSON المحلية](docs/reference/api.md)
-- [مرجع MCP](docs/reference/mcp.md)
-- [الأمان ونموذج التهديدات المحلي](docs/SECURITY.md)
-- [منظومة الأدوات](ECOSYSTEM.md) — Delphin وContextGC وMemoryWhale معاً
-- [أدلة التكامل ومصفوفة الإمكانات](integrations/README.md)
+- [خريطة التوثيق](../../docs/README.md)
+- [البدء](../../docs/guides/getting-started.md)
+- [مرجع `mw pet`](../../docs/reference/pet.md)
+- [تسجيل الطرفية](../../docs/guides/terminal-capture.md)
+- [ذاكرة الوكلاء](../../docs/guides/agent-memory.md)
+- [مرجع واجهة سطر الأوامر](../../docs/reference/cli.md)
+- [واجهة JSON المحلية](../../docs/reference/api.md)
+- [مرجع MCP](../../docs/reference/mcp.md)
+- [الأمان ونموذج التهديدات المحلي](../../docs/SECURITY.md)
+- [منظومة الأدوات](../../ECOSYSTEM.md) — Delphin وContextGC وMemoryWhale معاً
+- [أدلة التكامل ومصفوفة الإمكانات](../../integrations/README.md)
 
 ## المساهمة
 
 يرحّب MemoryWhale بالتغييرات التي تحسّن تسجيل خبرات التطوير أو حفظها أو
-استرجاعها أو مشاركتها. اقرأ [CONTRIBUTING.md](CONTRIBUTING.md) لمعرفة نطاق
+استرجاعها أو مشاركتها. اقرأ [CONTRIBUTING.md](../../CONTRIBUTING.md) لمعرفة نطاق
 المشروع وأوامر التطوير وقائمة التحقق الخاصة بطلبات الدمج. ويمكن للمساهمين
 الجدد اختيار مهمة من [تذكرة «ابدأ من هنا»](https://github.com/wuisabel-gif/MemWhale/issues/317).
 
 يحصل كل طلب دمج أيضًا على مراجعة تلقائية من [Second-Opinion](https://github.com/wuisabel-gif/second-opinion)،
 وهو GitHub Action من مشروع شقيق لـ MemoryWhale يديره المشرف نفسه. تعليقاته
 مجرد اقتراحات، والقرار فيما يُنفَّذ منها يعود إلى شخص. تجد طريقة الإعداد
-والقيود في [دليل Second-Opinion](integrations/second-opinion/README.md).
+والقيود في [دليل Second-Opinion](../../integrations/second-opinion/README.md).
 
-متاح بموجب [رخصة MIT](LICENSE).
+متاح بموجب [رخصة MIT](../../LICENSE).
 
 </div>

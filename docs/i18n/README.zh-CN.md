@@ -1,14 +1,14 @@
-<!-- README-SOURCE-SHA256: 52a4d8d02740c4c46b124d11e109d3fcd25a4164c7af33326048ed22b453ae99 -->
+<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
 
 <p align="center">
-  <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
+  <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
 </p>
 
 <h1 align="center">MemoryWhale</h1>
 
 <p align="center"><strong>为开发者和编程智能体提供持久化的本地调试记忆。</strong></p>
 
-<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a> · <a href="README.es.md" lang="es">Español</a> · <a href="README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
+<p align="center" dir="ltr"><a href="../../README.md">English README</a> · <a href="../../docs/i18n/README.ar.md" lang="ar">العربية</a> · <a href="../../docs/i18n/README.de.md" lang="de">Deutsch</a> · <a href="../../docs/i18n/README.fr.md">README français</a> · <a href="../../docs/i18n/README.zh-CN.md">简体中文 README</a> · <a href="../../docs/i18n/README.zh-TW.md">繁體中文 README</a> · <a href="../../docs/i18n/README.ko.md">한국어 README</a> · <a href="../../docs/i18n/README.ja.md">日本語 README</a> · <a href="../../docs/i18n/README.es.md" lang="es">Español</a> · <a href="../../docs/i18n/README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/recall-demo.gif" alt="构建错误再次出现：mw context 显示它已出现过两次，mw search 返回之前保存的修复方法。" width="820" />
+  <img src="../../assets/recall-demo.gif" alt="构建错误再次出现：mw context 显示它已出现过两次，mw search 返回之前保存的修复方法。" width="820" />
 </p>
 
 **遇到报错时，MemoryWhale 记得你以前见过它，并直接把当时的修复方法交还给你。**
@@ -29,10 +29,10 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 你和编程智能体仍然可以找回它们。
 它通过 MCP 支持 19 种编程智能体，无需注册账号，也不会上传任何数据。
 
-> 在公开的长期记忆基准 [LongMemEval](benchmarks/longmemeval/README.md) 上，470 个问题中有 **97%**，搜索把包含答案的会话排进了前 5（仅评测检索，不调用模型）。
+> 在公开的长期记忆基准 [LongMemEval](../../benchmarks/longmemeval/README.md) 上，470 个问题中有 **97%**，搜索把包含答案的会话排进了前 5（仅评测检索，不调用模型）。
 >
 > 在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 **25%** 的问题，有记忆时解决了 **96%**。
-> 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](benchmarks/README.md)。
+> 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](../../benchmarks/README.md)。
 
 **MemoryWhale 0.15.0: Delphin Bridge · 2026 年 9 月 30 日。**
 CLI、Web 界面和桌面应用共用产品版本号 0.15.0；可复用的 Rust 核心版本为 0.8.0。
@@ -96,7 +96,7 @@ mw doctor
 ```
 
 Windows 用户可以在 [WSL](https://learn.microsoft.com/windows/wsl/) 中运行 MemoryWhale。
-包管理器安装、PATH 设置和各平台注意事项见[入门指南](docs/guides/getting-started.md)。
+包管理器安装、PATH 设置和各平台注意事项见[入门指南](../../docs/guides/getting-started.md)。
 
 ## 60 秒示例
 
@@ -109,7 +109,7 @@ mw context --last-error              # compact context for any agent or chat
 mw pet                               # check your memory store's mood
 ```
 
-![mw pet 状态演示](assets/pet-demo.gif)
+![mw pet 状态演示](../../assets/pet-demo.gif)
 
 时间较长的工作可以用 `mw --live` 录制 Shell 会话，即使进程崩溃也不易丢失。
 `mw tui` 会打开交互式终端浏览界面，`mw-serve` 则启动本地 Web 仪表盘。
@@ -126,7 +126,7 @@ agent hooks ─────────► evidence + lessons ──► similar 
 ```
 
 采集和检索相互独立。MCP 让智能体能够访问已有记忆，但不会自动记录日常的终端操作。
-完整模型见[架构](docs/architecture.md)和[采集概念](docs/concepts/capture.md)。
+完整模型见[架构](../../docs/architecture.md)和[采集概念](../../docs/concepts/capture.md)。
 
 ## 与编程智能体配合使用
 
@@ -142,10 +142,10 @@ mw doctor
 ```
 
 各客户端的能力并不相同。MCP 负责记忆访问；要自动采集执行记录，还需要针对该客户端的钩子。
-[集成矩阵](integrations/README.md)分别列出访问、采集和记忆使用指引三项能力，并附有每份已验证配置指南的链接。
+[集成矩阵](../../integrations/README.md)分别列出访问、采集和记忆使用指引三项能力，并附有每份已验证配置指南的链接。
 
 Rho 目前的钩子载荷不含命令文本和 stdout：失败可以用占位命令、以元数据形式记录；
-不含命令文本的成功调用则直接跳过。[跨智能体交接演示](docs/guides/cross-agent-handoff.md)
+不含命令文本的成功调用则直接跳过。[跨智能体交接演示](../../docs/guides/cross-agent-handoff.md)
 使用测试数据和模拟的 Rho 客户端对接真实的 MCP，既没有运行真实的智能体，也不代表 Cargo 修复已经过验证。
 
 内置技能只是指导如何使用记忆，并没有实现任务开始时自动回忆、出错时自动查找或上下文压缩前自动保存。
@@ -162,29 +162,29 @@ Rho 目前的钩子载荷不含命令文本和 stdout：失败可以用占位命
 - 希望反复出现的失败和对应的修复始终能搜到；
 - 更愿意把数据存在本地，而不是交给托管的记忆服务。
 
-[使用场景](docs/concepts/use-cases.md)用真实命令把上面每种情况完整演示了一遍。
+[使用场景](../../docs/concepts/use-cases.md)用真实命令把上面每种情况完整演示了一遍。
 
 ## 文档
 
-- [文档地图](docs/README.md)
-- [入门指南](docs/guides/getting-started.md)
-- [`mw pet` 参考](docs/reference/pet.md)
-- [终端采集](docs/guides/terminal-capture.md)
-- [智能体记忆](docs/guides/agent-memory.md)
-- [CLI 参考](docs/reference/cli.md)
-- [本地 JSON API](docs/reference/api.md)
-- [MCP 参考](docs/reference/mcp.md)
-- [安全与本地威胁模型](docs/SECURITY.md)
-- [生态系统](ECOSYSTEM.md) — Delphin、ContextGC 与 MemoryWhale 协作
-- [集成指南与能力矩阵](integrations/README.md)
+- [文档地图](../../docs/README.md)
+- [入门指南](../../docs/guides/getting-started.md)
+- [`mw pet` 参考](../../docs/reference/pet.md)
+- [终端采集](../../docs/guides/terminal-capture.md)
+- [智能体记忆](../../docs/guides/agent-memory.md)
+- [CLI 参考](../../docs/reference/cli.md)
+- [本地 JSON API](../../docs/reference/api.md)
+- [MCP 参考](../../docs/reference/mcp.md)
+- [安全与本地威胁模型](../../docs/SECURITY.md)
+- [生态系统](../../ECOSYSTEM.md) — Delphin、ContextGC 与 MemoryWhale 协作
+- [集成指南与能力矩阵](../../integrations/README.md)
 
 ## 参与贡献
 
 凡是能改进开发经验的采集、保存、检索或共享的改动，MemoryWhale 都欢迎。
-范围约定、开发命令和 PR 检查清单见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+范围约定、开发命令和 PR 检查清单见 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 新贡献者可以从 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 中挑选任务。
 
 每个 PR 还会收到 [Second-Opinion](https://github.com/wuisabel-gif/second-opinion) 的自动评审。它是同一位维护者的姊妹项目，一个 GitHub Action。
-评审意见仅供参考，是否采纳由人来决定。配置方法和局限见 [Second-Opinion 指南](integrations/second-opinion/README.md)。
+评审意见仅供参考，是否采纳由人来决定。配置方法和局限见 [Second-Opinion 指南](../../integrations/second-opinion/README.md)。
 
-基于 [MIT 许可证](LICENSE) 开源。
+基于 [MIT 许可证](../../LICENSE) 开源。

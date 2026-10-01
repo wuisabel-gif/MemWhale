@@ -1,22 +1,67 @@
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const SOURCE_MARKER = "README-SOURCE-SHA256";
 export const LOCALES = [
-  { file: "README.ar.md", language: "Arabic (ar)", direction: "rtl" },
-  { file: "README.de.md", language: "German (de)" },
-  { file: "README.fr.md", language: "French (fr)" },
-  { file: "README.zh-CN.md", language: "Simplified Chinese (zh-CN)" },
-  { file: "README.zh-TW.md", language: "Traditional Chinese (zh-TW)" },
-  { file: "README.ko.md", language: "Korean (ko)" },
-  { file: "README.ja.md", language: "Japanese (ja)" },
-  { file: "README.es.md", language: "Spanish (es)" },
-  { file: "README.pt-BR.md", language: "Brazilian Portuguese (pt-BR)" },
+  { file: "docs/i18n/README.ar.md", language: "Arabic (ar)", direction: "rtl" },
+  { file: "docs/i18n/README.de.md", language: "German (de)" },
+  { file: "docs/i18n/README.fr.md", language: "French (fr)" },
+  { file: "docs/i18n/README.zh-CN.md", language: "Simplified Chinese (zh-CN)" },
+  { file: "docs/i18n/README.zh-TW.md", language: "Traditional Chinese (zh-TW)" },
+  { file: "docs/i18n/README.ko.md", language: "Korean (ko)" },
+  { file: "docs/i18n/README.ja.md", language: "Japanese (ja)" },
+  { file: "docs/i18n/README.es.md", language: "Spanish (es)" },
+  { file: "docs/i18n/README.pt-BR.md", language: "Brazilian Portuguese (pt-BR)" },
 ];
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+// Translations live below the repository root (docs/i18n/), so each relative
+// link carries a "../" per directory level to resolve from there. They are
+// compared in root form: the prefix is removed before validation.
+const isRelativeTarget = (target) => !/^(?:[a-z][a-z\d+.-]*:|#|\/)/i.test(target);
+const upPrefix = (file = "") => "../".repeat(file.split("/").length - 1);
+
+// Rewrite link and image targets outside fenced code: Markdown links, HTML
+// href/src attributes, and reference-style definitions.
+function mapTargets(markdown, map) {
+  let fence = null;
+  return markdown
+    .split("\n")
+    .map((line) => {
+      const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      if (opening) {
+        if (!fence) fence = opening[1];
+        else if (opening[1][0] === fence[0] && opening[1].length >= fence.length) fence = null;
+        return line;
+      }
+      if (fence) return line;
+      return line
+        .replace(/(\]\()([^)\s]+)/g, (_, lead, target) => lead + map(target))
+        .replace(/\b((?:href|src)=["'])([^"']+)/gi, (_, lead, target) => lead + map(target))
+        .replace(/^([ \t]{0,3}\[[^\]\n]+\]:[ \t]*<?)([^\s>]+)/, (_, lead, target) => lead + map(target));
+    })
+    .join("\n");
+}
+
+/** Root-form Markdown -> the form stored at `file`. */
+export function relocateForFile(markdown, file) {
+  const prefix = upPrefix(file);
+  return prefix ? mapTargets(markdown, (t) => (isRelativeTarget(t) ? prefix + t : t)) : markdown;
+}
+
+function rootFormFor(markdown, file) {
+  const prefix = upPrefix(file);
+  if (!prefix) return markdown;
+  // A relative link without the prefix would be broken where the file lives, so
+  // mark it to fail the link comparison instead of passing as root form.
+  return mapTargets(markdown, (t) => {
+    if (!isRelativeTarget(t)) return t;
+    return t.startsWith(prefix) ? t.slice(prefix.length) : `unrelocated:${t}`;
+  });
+}
 const markerPattern = new RegExp(`^<!-- ${SOURCE_MARKER}: ([a-f0-9]{64}) -->$`);
 
 export function hashContent(content) {
@@ -252,7 +297,7 @@ export function validateTranslation(source, translated, options = {}) {
   if (translated.includes(`<!-- ${SOURCE_MARKER}:`)) {
     throw new Error("translation must not include the source hash marker");
   }
-  translated = unwrapDirectionalBody(translated, options);
+  translated = rootFormFor(unwrapDirectionalBody(translated, options), options.file);
   validateReadmeShape(source, "README.md");
   validateReadmeShape(translated, "translated README");
 
@@ -384,7 +429,9 @@ export async function translateStaleLocales(directory = root, options = {}) {
       fetchImpl: options.fetchImpl,
     });
     validateTranslation(source, translated);
-    const content = `<!-- ${SOURCE_MARKER}: ${currentHash} -->\n\n${formatLocalizedBody(translated, locale)}\n`;
+    const body = formatLocalizedBody(relocateForFile(translated, locale.file), locale);
+    const content = `<!-- ${SOURCE_MARKER}: ${currentHash} -->\n\n${body}\n`;
+    await mkdir(dirname(resolve(directory, locale.file)), { recursive: true });
     await writeFile(resolve(directory, locale.file), content);
   }
 

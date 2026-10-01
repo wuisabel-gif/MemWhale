@@ -1,14 +1,14 @@
-<!-- README-SOURCE-SHA256: 52a4d8d02740c4c46b124d11e109d3fcd25a4164c7af33326048ed22b453ae99 -->
+<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
 
 <p align="center">
-  <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
+  <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
 </p>
 
 <h1 align="center">MemoryWhale</h1>
 
 <p align="center"><strong>개발자와 코딩 에이전트를 위한 영구 로컬 디버깅 메모리</strong></p>
 
-<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a> · <a href="README.es.md" lang="es">Español</a> · <a href="README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
+<p align="center" dir="ltr"><a href="../../README.md">English README</a> · <a href="../../docs/i18n/README.ar.md" lang="ar">العربية</a> · <a href="../../docs/i18n/README.de.md" lang="de">Deutsch</a> · <a href="../../docs/i18n/README.fr.md">README français</a> · <a href="../../docs/i18n/README.zh-CN.md">简体中文 README</a> · <a href="../../docs/i18n/README.zh-TW.md">繁體中文 README</a> · <a href="../../docs/i18n/README.ko.md">한국어 README</a> · <a href="../../docs/i18n/README.ja.md">日本語 README</a> · <a href="../../docs/i18n/README.es.md" lang="es">Español</a> · <a href="../../docs/i18n/README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/recall-demo.gif" alt="빌드 오류가 다시 발생하자 mw context는 이 오류가 이미 두 번 발생했다고 알려 주고, mw search는 저장해 둔 해결책을 찾아 줍니다." width="820" />
+  <img src="../../assets/recall-demo.gif" alt="빌드 오류가 다시 발생하자 mw context는 이 오류가 이미 두 번 발생했다고 알려 주고, mw search는 저장해 둔 해결책을 찾아 줍니다." width="820" />
 </p>
 
 **오류가 발생하면 MemoryWhale은 전에 겪은 오류라는 것을 기억해 두었다가 해결책을 바로 건네줍니다.**
@@ -29,10 +29,10 @@ MemoryWhale은 디버깅하면서 실제로 일어난 일, 즉 실행한 명령�
 여러분과 코딩 에이전트가 다시 찾아볼 수 있습니다.
 MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계정이 필요 없고 아무것도 업로드하지 않습니다.
 
-> 공개 장기 메모리 벤치마크 [LongMemEval](benchmarks/longmemeval/README.md)에서 검색은 470개 질문의 **97%**에서 정답이 담긴 세션을 상위 5개 안에 올렸습니다(검색만 평가, 모델 없음).
+> 공개 장기 메모리 벤치마크 [LongMemEval](../../benchmarks/longmemeval/README.md)에서 검색은 470개 질문의 **97%**에서 정답이 담긴 세션을 상위 5개 안에 올렸습니다(검색만 평가, 모델 없음).
 >
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
-> 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](benchmarks/README.md)을 참고하세요.
+> 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](../../benchmarks/README.md)을 참고하세요.
 
 **MemoryWhale 0.15.0: Delphin Bridge · 2026년 9월 30일**
 CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.15.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.8.0입니다.
@@ -97,7 +97,7 @@ mw doctor
 ```
 
 Windows에서는 [WSL](https://learn.microsoft.com/windows/wsl/)에서 MemoryWhale을 실행하면 됩니다.
-패키지 설치, PATH 설정, 플랫폼별 참고 사항은 [시작 가이드](docs/guides/getting-started.md)에 정리되어 있습니다.
+패키지 설치, PATH 설정, 플랫폼별 참고 사항은 [시작 가이드](../../docs/guides/getting-started.md)에 정리되어 있습니다.
 
 ## 60초 만에 살펴보기
 
@@ -110,7 +110,7 @@ mw context --last-error              # compact context for any agent or chat
 mw pet                               # check your memory store's mood
 ```
 
-![mw pet 기분 데모](assets/pet-demo.gif)
+![mw pet 기분 데모](../../assets/pet-demo.gif)
 
 오래 걸리는 작업이라면 `mw --live`로 비정상 종료에도 살아남는 셸 세션을 기록할 수 있습니다.
 `mw tui`는 대화형 터미널 브라우저를 열고, `mw-serve`는 로컬 웹 대시보드를 띄웁니다.
@@ -127,7 +127,7 @@ agent hooks ─────────► evidence + lessons ──► similar 
 ```
 
 캡처와 검색은 서로 독립적입니다. MCP는 에이전트가 이미 저장된 메모리에 접근하게 해 줄 뿐, 평소의 터미널 활동을 자동으로 기록하지는 않습니다.
-전체 구조는 [아키텍처](docs/architecture.md)와 [캡처 개념](docs/concepts/capture.md) 문서를 참고하세요.
+전체 구조는 [아키텍처](../../docs/architecture.md)와 [캡처 개념](../../docs/concepts/capture.md) 문서를 참고하세요.
 
 ## 코딩 에이전트와 함께 쓰기
 
@@ -143,10 +143,10 @@ mw doctor
 ```
 
 클라이언트마다 지원 범위가 다릅니다. MCP로는 메모리에 접근만 할 수 있고, 실행 내용을 자동으로 캡처하려면 클라이언트별 훅이 있어야 합니다.
-[통합 매트릭스](integrations/README.md)에서 접근, 캡처, 메모리 사용 가이드 지원 여부를 구분해 보여 주며, 검증된 설정 가이드도 모두 링크해 두었습니다.
+[통합 매트릭스](../../integrations/README.md)에서 접근, 캡처, 메모리 사용 가이드 지원 여부를 구분해 보여 주며, 검증된 설정 가이드도 모두 링크해 두었습니다.
 
 현재 Rho 훅 페이로드에는 명령 텍스트와 stdout이 들어 있지 않습니다. 그래서 실패는 센티널 명령과 함께 메타데이터로 기록되고,
-명령 텍스트가 없는 성공 호출은 기록하지 않고 건너뜁니다. [에이전트 간 인계 데모](docs/guides/cross-agent-handoff.md)는
+명령 텍스트가 없는 성공 호출은 기록하지 않고 건너뜁니다. [에이전트 간 인계 데모](../../docs/guides/cross-agent-handoff.md)는
 실제 에이전트가 아니라 픽스처와 시뮬레이션한 Rho 클라이언트로 실제 MCP를 호출하며, 여기 나오는 Cargo 수정도 검증된 것은 아닙니다.
 
 번들 스킬은 메모리를 어떻게 쓸지 안내할 뿐, 작업 시작 시 자동 회상, 실패 조회, 컨텍스트 압축 전 저장을 직접 구현하지는 않습니다.
@@ -163,30 +163,30 @@ MemoryWhale은 디버깅 맥락이 터미널 스크롤백, 셸 히스토리, 여
 - 반복되는 실패와 해결책을 나중에도 검색할 수 있게 남겨 두고 싶을 때
 - 호스팅 메모리 서비스보다 로컬 저장소를 선호할 때
 
-[사용 사례](docs/concepts/use-cases.md)에서 각 경우를 실제 명령과 함께 처음부터 끝까지 따라가 볼 수 있습니다.
+[사용 사례](../../docs/concepts/use-cases.md)에서 각 경우를 실제 명령과 함께 처음부터 끝까지 따라가 볼 수 있습니다.
 
 ## 문서
 
-- [문서 안내](docs/README.md)
-- [시작하기](docs/guides/getting-started.md)
-- [`mw pet` 레퍼런스](docs/reference/pet.md)
-- [터미널 캡처](docs/guides/terminal-capture.md)
-- [에이전트 메모리](docs/guides/agent-memory.md)
-- [CLI 레퍼런스](docs/reference/cli.md)
-- [로컬 JSON API](docs/reference/api.md)
-- [MCP 레퍼런스](docs/reference/mcp.md)
-- [보안 및 로컬 위협 모델](docs/SECURITY.md)
-- [에코시스템](ECOSYSTEM.md) — Delphin, ContextGC, MemoryWhale을 함께 쓰는 방법
-- [통합 가이드와 기능 매트릭스](integrations/README.md)
+- [문서 안내](../../docs/README.md)
+- [시작하기](../../docs/guides/getting-started.md)
+- [`mw pet` 레퍼런스](../../docs/reference/pet.md)
+- [터미널 캡처](../../docs/guides/terminal-capture.md)
+- [에이전트 메모리](../../docs/guides/agent-memory.md)
+- [CLI 레퍼런스](../../docs/reference/cli.md)
+- [로컬 JSON API](../../docs/reference/api.md)
+- [MCP 레퍼런스](../../docs/reference/mcp.md)
+- [보안 및 로컬 위협 모델](../../docs/SECURITY.md)
+- [에코시스템](../../ECOSYSTEM.md) — Delphin, ContextGC, MemoryWhale을 함께 쓰는 방법
+- [통합 가이드와 기능 매트릭스](../../integrations/README.md)
 
 ## 기여하기
 
 개발 경험을 캡처하고, 보존하고, 검색하고, 공유하는 기능을 개선하는 변경을 받습니다.
-기여 범위 규칙, 개발용 명령, 풀 리퀘스트 체크리스트는 [CONTRIBUTING.md](CONTRIBUTING.md)를 읽어 주세요.
+기여 범위 규칙, 개발용 명령, 풀 리퀘스트 체크리스트는 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 읽어 주세요.
 처음 기여하신다면 [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)에서 작업을 골라 보세요.
 
 모든 풀 리퀘스트에는 같은 메인테이너의 자매 프로젝트인 GitHub Action [Second-Opinion](https://github.com/wuisabel-gif/second-opinion)의 자동 리뷰도 달립니다.
 리뷰 코멘트는 제안일 뿐이며, 반영 여부는 사람이 결정합니다.
-설정 방법과 한계는 [Second-Opinion 가이드](integrations/second-opinion/README.md)를 참고하세요.
+설정 방법과 한계는 [Second-Opinion 가이드](../../integrations/second-opinion/README.md)를 참고하세요.
 
-[MIT 라이선스](LICENSE)로 배포됩니다.
+[MIT 라이선스](../../LICENSE)로 배포됩니다.

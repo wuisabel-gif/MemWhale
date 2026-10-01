@@ -1,14 +1,14 @@
-<!-- README-SOURCE-SHA256: 52a4d8d02740c4c46b124d11e109d3fcd25a4164c7af33326048ed22b453ae99 -->
+<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
 
 <p align="center">
-  <img src="assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
+  <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
 </p>
 
 <h1 align="center">MemoryWhale</h1>
 
 <p align="center"><strong>給開發者與程式開發代理使用、可長期保存的本機除錯記憶。</strong></p>
 
-<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a> · <a href="README.es.md" lang="es">Español</a> · <a href="README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
+<p align="center" dir="ltr"><a href="../../README.md">English README</a> · <a href="../../docs/i18n/README.ar.md" lang="ar">العربية</a> · <a href="../../docs/i18n/README.de.md" lang="de">Deutsch</a> · <a href="../../docs/i18n/README.fr.md">README français</a> · <a href="../../docs/i18n/README.zh-CN.md">简体中文 README</a> · <a href="../../docs/i18n/README.zh-TW.md">繁體中文 README</a> · <a href="../../docs/i18n/README.ko.md">한국어 README</a> · <a href="../../docs/i18n/README.ja.md">日本語 README</a> · <a href="../../docs/i18n/README.es.md" lang="es">Español</a> · <a href="../../docs/i18n/README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/recall-demo.gif" alt="建置錯誤再次出現：mw context 顯示它已經發生過兩次，mw search 則找回先前儲存的修正方法。" width="820" />
+  <img src="../../assets/recall-demo.gif" alt="建置錯誤再次出現：mw context 顯示它已經發生過兩次，mw search 則找回先前儲存的修正方法。" width="820" />
 </p>
 
 **遇到錯誤時，MemoryWhale 記得你以前碰過，並直接把當時的修正方法交還給你。**
@@ -29,10 +29,10 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 你和你的程式開發代理之後都還找得到。
 它透過 MCP 支援 19 種程式開發代理，不需要帳號，也不會上傳任何資料。
 
-> 在公開的長期記憶基準 [LongMemEval](benchmarks/longmemeval/README.md) 上，470 個問題中有 **97%**，搜尋把包含答案的工作階段排進了前 5 名（僅評估檢索，不呼叫模型）。
+> 在公開的長期記憶基準 [LongMemEval](../../benchmarks/longmemeval/README.md) 上，470 個問題中有 **97%**，搜尋把包含答案的工作階段排進了前 5 名（僅評估檢索，不呼叫模型）。
 >
 > 在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 **25%** 的問題，有記憶時則解決了 **96%**。
-> 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](benchmarks/README.md)。
+> 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](../../benchmarks/README.md)。
 
 **MemoryWhale 0.15.0: Delphin Bridge · 2026 年 9 月 30 日。**
 CLI、Web 介面與桌面應用程式共用同一個產品版本 0.15.0；可重複使用的 Rust 核心則是 0.8.0。
@@ -97,7 +97,7 @@ mw doctor
 ```
 
 Windows 使用者可以在 [WSL](https://learn.microsoft.com/windows/wsl/) 裡執行 MemoryWhale。
-套件安裝、PATH 設定與各平台注意事項，請見[入門指南](docs/guides/getting-started.md)。
+套件安裝、PATH 設定與各平台注意事項，請見[入門指南](../../docs/guides/getting-started.md)。
 
 ## 60 秒上手範例
 
@@ -110,7 +110,7 @@ mw context --last-error              # compact context for any agent or chat
 mw pet                               # check your memory store's mood
 ```
 
-![mw pet 心情示範](assets/pet-demo.gif)
+![mw pet 心情示範](../../assets/pet-demo.gif)
 
 需要長時間工作時，`mw --live` 會錄下不怕當機中斷的 Shell 工作階段。`mw tui`
 會開啟互動式的終端機瀏覽介面，`mw-serve` 則會啟動本機 Web 儀表板。
@@ -127,7 +127,7 @@ agent hooks ─────────► evidence + lessons ──► similar 
 ```
 
 擷取與檢索是各自獨立的。MCP 讓代理能存取既有的記憶，但不會自動記錄一般的終端機操作。
-完整架構請見[架構說明](docs/architecture.md)與[擷取概念](docs/concepts/capture.md)。
+完整架構請見[架構說明](../../docs/architecture.md)與[擷取概念](../../docs/concepts/capture.md)。
 
 ## 搭配你的程式開發代理
 
@@ -143,10 +143,10 @@ mw doctor
 ```
 
 每個用戶端能做到的事不盡相同。MCP 提供的是記憶存取；要自動擷取指令執行，需要該用戶端專屬的 hook。
-[整合對照表](integrations/README.md)分別列出存取、擷取與記憶使用指引的支援情況，並附上每份已驗證設定指南的連結。
+[整合對照表](../../integrations/README.md)分別列出存取、擷取與記憶使用指引的支援情況，並附上每份已驗證設定指南的連結。
 
 Rho 目前的 hook payload 不含指令文字與 stdout：失敗會以中繼資料加上一個佔位指令的方式記錄；
-沒有指令文字的成功呼叫則會略過。[跨代理交接示範](docs/guides/cross-agent-handoff.md)
+沒有指令文字的成功呼叫則會略過。[跨代理交接示範](../../docs/guides/cross-agent-handoff.md)
 使用 fixture 與模擬的 Rho 用戶端連接真實的 MCP，並不是實際運作中的代理，也不是經過驗證的 Cargo 修正。
 
 內附的 skill 會引導代理如何使用記憶，但並未實作任務開始時自動回想、失敗時自動查詢，或在壓縮前自動儲存。
@@ -163,28 +163,28 @@ MemoryWhale 正是為你這樣的開發者而做。以下情況特別適用：
 - 希望反覆出現的失敗和對應的修正都能搜尋得到；
 - 比起託管的記憶服務，更偏好存在本機。
 
-[使用情境](docs/concepts/use-cases.md)把上面每一種情況都寫成完整的端對端情境，並附上實際指令。
+[使用情境](../../docs/concepts/use-cases.md)把上面每一種情況都寫成完整的端對端情境，並附上實際指令。
 
 ## 文件
 
-- [文件總覽](docs/README.md)
-- [入門指南](docs/guides/getting-started.md)
-- [`mw pet` 參考文件](docs/reference/pet.md)
-- [終端機擷取](docs/guides/terminal-capture.md)
-- [代理記憶](docs/guides/agent-memory.md)
-- [CLI 參考文件](docs/reference/cli.md)
-- [本機 JSON API](docs/reference/api.md)
-- [MCP 參考文件](docs/reference/mcp.md)
-- [安全性與本機威脅模型](docs/SECURITY.md)
-- [生態系](ECOSYSTEM.md) — Delphin、ContextGC 與 MemoryWhale 如何搭配使用
-- [整合指南與功能對照表](integrations/README.md)
+- [文件總覽](../../docs/README.md)
+- [入門指南](../../docs/guides/getting-started.md)
+- [`mw pet` 參考文件](../../docs/reference/pet.md)
+- [終端機擷取](../../docs/guides/terminal-capture.md)
+- [代理記憶](../../docs/guides/agent-memory.md)
+- [CLI 參考文件](../../docs/reference/cli.md)
+- [本機 JSON API](../../docs/reference/api.md)
+- [MCP 參考文件](../../docs/reference/mcp.md)
+- [安全性與本機威脅模型](../../docs/SECURITY.md)
+- [生態系](../../ECOSYSTEM.md) — Delphin、ContextGC 與 MemoryWhale 如何搭配使用
+- [整合指南與功能對照表](../../integrations/README.md)
 
 ## 參與貢獻
 
 MemoryWhale 接受能改善開發經驗的擷取、保存、檢索或分享的變更。範圍規則、開發指令與 pull request 檢查清單，
-請見 [CONTRIBUTING.md](CONTRIBUTING.md)。新的貢獻者可以從 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 挑一個任務開始。
+請見 [CONTRIBUTING.md](../../CONTRIBUTING.md)。新的貢獻者可以從 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 挑一個任務開始。
 
 每個 pull request 也會收到 [Second-Opinion](https://github.com/wuisabel-gif/second-opinion) 的自動審查。它是同一位維護者的姊妹專案，一個 GitHub Action。
-審查意見僅供參考，是否採納由人決定。設定方式與限制請見 [Second-Opinion 指南](integrations/second-opinion/README.md)。
+審查意見僅供參考，是否採納由人決定。設定方式與限制請見 [Second-Opinion 指南](../../integrations/second-opinion/README.md)。
 
-以 [MIT 授權](LICENSE)釋出。
+以 [MIT 授權](../../LICENSE)釋出。

@@ -36,7 +36,7 @@ expect(html.includes('<script defer src="site-search.js"></script>'), "local hom
 expect(!/<script\b[^>]*\bsrc=["'](?:https?:)?\/\//i.test(html), "landing page loads a remote script");
 expect(!/(?:fonts\.(?:googleapis|gstatic)\.com|unpkg\.com|jsdelivr\.net)/i.test(`${html}\n${i18nSource}`), "landing page loads a third-party resource");
 
-const supportedLanguages = ["en", ...LOCALES.map(({ file }) => file.slice("README.".length, -".md".length))];
+const supportedLanguages = ["en", ...LOCALES.map(({ file }) => file.slice(file.lastIndexOf("README.") + "README.".length, -".md".length))];
 const selector = html.match(/<select\b[^>]*id="language-select"[\s\S]*?<\/select>/i)?.[0] ?? "";
 expect(selector.includes('name="language"'), "language selector is missing a name");
 expect(selector.includes('aria-label="Language"'), "language selector is missing an accessible label");
