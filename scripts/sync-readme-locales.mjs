@@ -12,6 +12,8 @@ export const LOCALES = [
   { file: "README.zh-TW.md", language: "Traditional Chinese (zh-TW)" },
   { file: "README.ko.md", language: "Korean (ko)" },
   { file: "README.ja.md", language: "Japanese (ja)" },
+  { file: "README.es.md", language: "Spanish (es)" },
+  { file: "README.pt-BR.md", language: "Brazilian Portuguese (pt-BR)" },
 ];
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");

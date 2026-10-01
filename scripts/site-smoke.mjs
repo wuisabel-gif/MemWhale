@@ -215,6 +215,9 @@ try {
     { locale: "zh-CN", query: "unsupported", expected: "en" },
     { locale: "de-DE", languages: ["zh-CN", "ar"], expected: "en" },
     { locale: "es-ES", expected: "en" },
+    { locale: "en-US", query: "es-MX", expected: "es" },
+    { locale: "en-US", query: "pt-PT", expected: "pt-BR" },
+    { locale: "en-US", query: "pt", expected: "pt-BR" },
   ];
   for (const [index, settings] of preferenceCases.entries()) {
     const label = `preference-${index}/${settings.locale}`;

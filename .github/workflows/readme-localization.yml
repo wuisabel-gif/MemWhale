@@ -12,6 +12,8 @@ on:
       - README.zh-TW.md
       - README.ko.md
       - README.ja.md
+      - README.es.md
+      - README.pt-BR.md
       - scripts/sync-readme-locales.mjs
       - scripts/sync-readme-locales.tests.mjs
       - .github/workflows/readme-localization.yml
@@ -25,6 +27,8 @@ on:
       - README.zh-TW.md
       - README.ko.md
       - README.ja.md
+      - README.es.md
+      - README.pt-BR.md
       - scripts/sync-readme-locales.mjs
       - scripts/sync-readme-locales.tests.mjs
       - .github/workflows/readme-localization.yml
@@ -99,7 +103,7 @@ jobs:
         id: changes
         shell: bash
         run: |
-          if git diff --quiet -- README.ar.md README.de.md README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md; then
+          if git diff --quiet -- README.ar.md README.de.md README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md README.es.md README.pt-BR.md; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -120,7 +124,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch"
-          git add README.ar.md README.de.md README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md
+          git add README.ar.md README.de.md README.fr.md README.zh-CN.md README.zh-TW.md README.ko.md README.ja.md README.es.md README.pt-BR.md
           git commit -m "$title"
 
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then

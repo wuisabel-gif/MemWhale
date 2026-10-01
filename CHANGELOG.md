@@ -8,6 +8,7 @@ All notable changes to MemoryWhale are documented here. This project follows
 ### Added
 
 - **Hook feedback for Claude Code.** The capture hook now tells the agent, in one line, the fix that worked last time when a command fails with an error seen before, and asks it to save a lesson when a command passes right after failing. The Terminal-Bench pilot showed an agent recording 91 commands without saving a single lesson or ever searching. Set `MEMORYWHALE_HOOK_FEEDBACK=0` to turn it off.
+- **Spanish and Brazilian Portuguese.** The README (`README.es.md`, `README.pt-BR.md`) and the website now come in Spanish and Brazilian Portuguese, for 10 languages in all. `?lang=pt-PT` and other Portuguese variants open Brazilian Portuguese.
 
 ## [0.15.0] — Delphin Bridge — September 30, 2026
 

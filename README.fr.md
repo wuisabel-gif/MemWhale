@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e3b7f584e28b6b8411a6df648f8edf445a313ec760bbedaa83b3caed36622bfe -->
+<!-- README-SOURCE-SHA256: 52a4d8d02740c4c46b124d11e109d3fcd25a4164c7af33326048ed22b453ae99 -->
 
 <p align="center">
   <img src="assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -8,7 +8,7 @@
 
 <p align="center"><strong>Une mémoire de débogage locale et persistante, pour les développeurs et les agents de code.</strong></p>
 
-<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a></p>
+<p align="center" dir="ltr"><a href="README.md">English README</a> · <a href="README.ar.md" lang="ar">العربية</a> · <a href="README.de.md" lang="de">Deutsch</a> · <a href="README.fr.md">README français</a> · <a href="README.zh-CN.md">简体中文 README</a> · <a href="README.zh-TW.md">繁體中文 README</a> · <a href="README.ko.md">한국어 README</a> · <a href="README.ja.md">日本語 README</a> · <a href="README.es.md" lang="es">Español</a> · <a href="README.pt-BR.md" lang="pt-BR">Português (Brasil)</a></p>
 
 <p align="center">
   <a href="https://github.com/wuisabel-gif/MemWhale/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuisabel-gif/MemWhale/ci.yml?branch=main&label=CI&logo=github" alt="CI"/></a>
