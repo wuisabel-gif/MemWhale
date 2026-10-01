@@ -670,6 +670,11 @@
         line-height: 1.52;
       }
 
+      /* Inline emphasis and links inside card text (the card title is the block <strong>). */
+      .card p strong { display: inline; margin: 0; font-size: inherit; }
+      .card p a,
+      .card strong a { color: var(--azure); text-decoration: underline; text-underline-offset: 2px; }
+
       .flow {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -977,6 +982,26 @@
           </div>
         </section>
 
+        <section id="family" class="section">
+          <p class="eyebrow" data-i18n="family.eyebrow">The family</p>
+          <h2 data-i18n="family.title">Three tools, one memory.</h2>
+          <p class="section-copy" data-i18n="family.copy">MemoryWhale remembers. Delphin lets you keep talking to your agent while it works. Joule sends a model only the history it needs. Each works on its own and does more together.</p>
+          <div class="grid">
+            <article class="card">
+              <strong data-i18n="family.whaleTitle">🐋 MemoryWhale</strong>
+              <p data-i18n="family.whaleBody">Local memory of commands, errors, and fixes. On <a href="https://github.com/wuisabel-gif/MemWhale/blob/main/benchmarks/longmemeval/README.md">LongMemEval</a>, a public memory benchmark, search puts the right past session in the top 5 for <strong>97%</strong> of 470 questions.</p>
+            </article>
+            <article class="card">
+              <strong data-i18n="family.delphinTitle">🐬 <a href="https://github.com/wuisabel-gif/Delphin">Delphin ↗</a></strong>
+              <p data-i18n="family.delphinBody">Keep typing while your agent thinks. With <code>delphin --memorywhale -- claude</code>, an error that scrolls past gets a live hint from memory: <code>seen 2 times, the fix was: xcode-select --install</code>.</p>
+            </article>
+            <article class="card">
+              <strong data-i18n="family.jouleTitle">⚡ <a href="https://github.com/wuisabel-gif/Joule">Joule ↗</a></strong>
+              <p data-i18n="family.jouleBody">An energy-aware LLM proxy. Its history trimming ranks old turns with MemoryWhale. On <a href="https://github.com/wuisabel-gif/Joule/blob/main/bench/longmemeval/README.md">LongMemEval</a> it cuts <strong>91%</strong> of the prompt and keeps all of the answer's evidence for <strong>81%</strong> of questions, against <strong>5%</strong> for plain truncation.</p>
+            </article>
+          </div>
+        </section>
+
         <section id="who" class="section">
           <p class="eyebrow" data-i18n="who.eyebrow">Who it's for</p>
           <h2 data-i18n="who.title">Built for three ways of working.</h2>
@@ -1239,7 +1264,8 @@
         <span>
           <a href="https://github.com/wuisabel-gif/MemWhale" target="_blank" rel="noopener">GitHub: wuisabel-gif/MemWhale</a> ·
           <a href="https://github.com/wuisabel-gif/Delphin" target="_blank" rel="noopener" data-i18n="nav.delphin">Delphin ↗</a> ·
-          <a href="https://github.com/wuisabel-gif/ContextGC" target="_blank" rel="noopener" data-i18n="nav.contextgc">ContextGC ↗</a>
+          <a href="https://github.com/wuisabel-gif/ContextGC" target="_blank" rel="noopener" data-i18n="nav.contextgc">ContextGC ↗</a> ·
+          <a href="https://github.com/wuisabel-gif/Joule" target="_blank" rel="noopener" data-i18n="nav.joule">Joule ↗</a>
         </span>
       </footer>
     </div>
