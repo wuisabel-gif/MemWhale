@@ -206,7 +206,7 @@ end-to-end scenario with real commands.
 - [Local JSON API](docs/reference/api.md)
 - [MCP reference](docs/reference/mcp.md)
 - [Security and local threat model](docs/SECURITY.md)
-- [Ecosystem](ECOSYSTEM.md) — Delphin, ContextGC, and MemoryWhale together
+- [Ecosystem](docs/ECOSYSTEM.md) — Delphin, ContextGC, and MemoryWhale together
 - [Integration guides and capability matrix](integrations/README.md)
 
 ## Contributing

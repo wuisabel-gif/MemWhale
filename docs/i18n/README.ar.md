@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
+<!-- README-SOURCE-SHA256: d6e21f3c8b93136c1d44496b5f34e9a2475dd6d2bafdb3748bb7795bc9f07755 -->
 
 <div dir="rtl">
 
@@ -235,7 +235,7 @@ MemoryWhale مخصص للمطورين الذين يتوزع سياق تصحيح 
 - [واجهة JSON المحلية](../../docs/reference/api.md)
 - [مرجع MCP](../../docs/reference/mcp.md)
 - [الأمان ونموذج التهديدات المحلي](../../docs/SECURITY.md)
-- [منظومة الأدوات](../../ECOSYSTEM.md) — Delphin وContextGC وMemoryWhale معاً
+- [منظومة الأدوات](../../docs/ECOSYSTEM.md) — Delphin وContextGC وMemoryWhale معاً
 - [أدلة التكامل ومصفوفة الإمكانات](../../integrations/README.md)
 
 ## المساهمة

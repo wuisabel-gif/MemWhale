@@ -64,7 +64,7 @@ Tag related work across terminals with the same `project:<name>` to group it.
   `mw-remember`, `mw-run`, `mw-screenshot`, `mw-serve`, `mw-view`,
   `mw-recover`, and `mw-mcp`.
 - macOS only: after copying a built binary, re-sign it (`codesign --force --sign -
-  <path>`) or it gets `Killed: 9`. See `DEBUG.md`.
-- Full usage: `docs/reference/cli.md`. Setup/troubleshooting: `DEBUG.md`.
+  <path>`) or it gets `Killed: 9`. See `docs/project/DEBUG.md`.
+- Full usage: `docs/reference/cli.md`. Setup/troubleshooting: `docs/project/DEBUG.md`.
 
 The agent form of this guidance lives in `crates/mw-cli/integrate/SKILL.md`.

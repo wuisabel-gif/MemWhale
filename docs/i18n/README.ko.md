@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
+<!-- README-SOURCE-SHA256: d6e21f3c8b93136c1d44496b5f34e9a2475dd6d2bafdb3748bb7795bc9f07755 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -180,7 +180,7 @@ MemoryWhale은 디버깅 맥락이 터미널 스크롤백, 셸 히스토리, 여
 - [로컬 JSON API](../../docs/reference/api.md)
 - [MCP 레퍼런스](../../docs/reference/mcp.md)
 - [보안 및 로컬 위협 모델](../../docs/SECURITY.md)
-- [에코시스템](../../ECOSYSTEM.md) — Delphin, ContextGC, MemoryWhale을 함께 쓰는 방법
+- [에코시스템](../../docs/ECOSYSTEM.md) — Delphin, ContextGC, MemoryWhale을 함께 쓰는 방법
 - [통합 가이드와 기능 매트릭스](../../integrations/README.md)
 
 ## 기여하기

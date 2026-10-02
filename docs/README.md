@@ -45,6 +45,14 @@ The repository documentation is organized by the question a reader is asking.
 - [Second-Opinion PR review](../integrations/second-opinion/README.md) — GitHub Action only; does not read the local store
 - [Antigravity CLI compatibility research](research/antigravity-cli.md) — documentation assessment, not a verified integration
 
+## Project: principles and operations
+
+- [Ecosystem](ECOSYSTEM.md): how Delphin, ContextGC, Joule, and MemoryWhale fit together
+- [Constitution](project/CONSTITUTION.md), [Philosophy](project/PHILOSOPHY.md), and [Vision](project/VISION.md)
+- [Standard operating procedure](project/SOP.md), [Jetson testing](project/JETSON_TESTING.md), and [Setup and troubleshooting](project/DEBUG.md)
+- [Maintainer handoff notes](project/HANDOFF.md)
+- [Translated READMEs](i18n/): Arabic, German, Spanish, French, Japanese, Korean, Brazilian Portuguese, Simplified and Traditional Chinese
+
 The root README is the product landing page. `docs/` explains how MemoryWhale
 works, `integrations/` explains how external tools connect, `crates/` contains
 the Rust implementation, and `benchmarks/` records how retrieval is measured.

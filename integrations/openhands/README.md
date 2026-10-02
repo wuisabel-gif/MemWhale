@@ -24,7 +24,7 @@ runtimes are **not verified here** — see the deployment note in Setup.
 - MemoryWhale `mw-mcp` on an absolute path and an explicitly selected local store.
   Build the helpers from the MemoryWhale repository root:
   `cargo build --release -p memorywhale-cli --bins`. On macOS, re-sign a copied
-  binary (`codesign --force --sign - <path>`) or it is `Killed: 9` — see `DEBUG.md`.
+  binary (`codesign --force --sign - <path>`) or it is `Killed: 9` — see `docs/project/DEBUG.md`.
 - macOS or Linux for the documented local stdio path. Windows is not verified here.
 - The `mw-mcp` binary **and its store must be reachable from the process that
   actually runs the agent**, which is not necessarily your host — see Setup.

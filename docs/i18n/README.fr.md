@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
+<!-- README-SOURCE-SHA256: d6e21f3c8b93136c1d44496b5f34e9a2475dd6d2bafdb3748bb7795bc9f07755 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -221,7 +221,7 @@ bout en bout, avec de vraies commandes.
 - [API JSON locale](../../docs/reference/api.md)
 - [Référence MCP](../../docs/reference/mcp.md)
 - [Sécurité et modèle de menace local](../../docs/SECURITY.md)
-- [Écosystème](../../ECOSYSTEM.md) — Delphin, ContextGC et MemoryWhale réunis
+- [Écosystème](../../docs/ECOSYSTEM.md) — Delphin, ContextGC et MemoryWhale réunis
 - [Guides d’intégration et matrice des capacités](../../integrations/README.md)
 
 ## Contribuer

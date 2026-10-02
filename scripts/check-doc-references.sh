@@ -25,7 +25,7 @@ for binary in crates/mw-cli/src/bin/*.rs; do
 done
 
 if grep -Eq 'Binaries \\(`src-tauri/src/bin/`\\)|Build the helper binaries from `src-tauri`' \
-  AGENTS.md HANDOFF.md; then
+  AGENTS.md docs/project/HANDOFF.md; then
   echo "obsolete CLI source path remains in operational documentation" >&2
   exit 1
 fi
