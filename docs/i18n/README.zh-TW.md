@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -38,6 +38,10 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 CLI、Web 介面與桌面應用程式共用同一個產品版本 0.16.0；可重複使用的 Rust 核心則是 0.8.0。
 升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)。
 開啟資料儲存區時，其 schema 會從 10 遷移到 13。
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="代理的 make 因 xcrun 錯誤失敗；擷取掛鉤回覆說這個錯誤先前出現過一次，修正方法是 xcode-select --install。" width="820" />
+</p>
 
 **想參與貢獻嗎？** 可以先從 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 開始。
 很多工作完全不需要會 Rust，例如審閱翻譯、修正文件。

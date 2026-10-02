@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -37,6 +37,10 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 **MemoryWhale 0.16.0: Proactive Recall · 2026 年 10 月 2 日。**
 CLI、Web 界面和桌面应用共用产品版本号 0.16.0；可复用的 Rust 核心版本为 0.8.0。
 升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)。打开存储库时，其 schema 会从 10 迁移到 13。
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="智能体的 make 因 xcrun 错误失败；捕获钩子回复说这个错误以前出现过一次，修复方法是 xcode-select --install。" width="820" />
+</p>
 
 **想参与贡献？** 可以先看看 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317)。
 很多任务不需要会 Rust，比如审校翻译、修正文档。

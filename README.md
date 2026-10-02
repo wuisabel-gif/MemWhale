@@ -42,6 +42,10 @@ The CLI, web UI, and desktop app share product version 0.16.0; the reusable
 Rust core is version 0.8.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 for the upgrade guide. Opening a store migrates it from schema 10 to 13.
 
+<p align="center">
+  <img src="assets/proactive-recall.gif" alt="An agent's make fails with an xcrun error; the capture hook answers that this error was seen once and the fix was xcode-select --install." width="820" />
+</p>
+
 **Want to contribute?** Start with the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).
 Many tasks need no Rust, including translation reviews and documentation fixes.
 

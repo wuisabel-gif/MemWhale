@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -37,6 +37,10 @@ MCP 経由で 19 種類のコーディングエージェントと連携でき、
 **MemoryWhale 0.16.0: Proactive Recall · 2026 年 10 月 2 日**
 CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.16.0 で、再利用可能な Rust コアのバージョンは 0.8.0 です。
 アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 13 に移行されます。
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="エージェントの make が xcrun エラーで失敗すると、キャプチャフックがこのエラーは以前 1 回発生し、修正は xcode-select --install だったと返します。" width="820" />
+</p>
 
 **コントリビュートしてみませんか？** まずは[「Start here」Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) をご覧ください。
 翻訳のレビューやドキュメントの修正など、Rust の知識がなくても取り組めるタスクがたくさんあります。

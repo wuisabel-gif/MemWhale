@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -38,6 +38,10 @@ MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계�
 CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.16.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.8.0입니다.
 업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)를 참고하세요.
 스토어를 열면 스키마가 10에서 13으로 마이그레이션됩니다.
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="에이전트의 make가 xcrun 오류로 실패하자 캡처 훅이 이 오류를 전에 한 번 봤고 해결책은 xcode-select --install이었다고 알려 줍니다." width="820" />
+</p>
 
 **기여하고 싶으신가요?** [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)부터 시작해 보세요.
 번역 검토나 문서 수정처럼 Rust를 몰라도 할 수 있는 작업이 많습니다.

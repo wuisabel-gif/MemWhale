@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -43,6 +43,10 @@ CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.16.0; der
 wiederverwendbare Rust-Kern hat die Version 0.8.0. Hinweise zum Upgrade findest
 du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md).
 Beim Öffnen wird ein Speicher von Schema 10 auf 13 migriert.
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="Das make eines Agenten scheitert mit einem xcrun-Fehler; der Capture-Hook meldet, dass der Fehler schon einmal auftrat und der Fix xcode-select --install war." width="820" />
+</p>
 
 **Du willst mitmachen?** Fang mit dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) an.
 Für viele Aufgaben brauchst du kein Rust, etwa für das Prüfen von Übersetzungen

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -43,6 +43,10 @@ código a través de MCP, sin cuenta y sin subir nada.
 La CLI, la interfaz web y la aplicación de escritorio comparten la versión de
 producto 0.16.0; el núcleo reutilizable en Rust está en la versión 0.8.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 13.
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="El make de un agente falla con un error de xcrun; el hook de captura responde que el error ya apareció una vez y que la solución fue xcode-select --install." width="820" />
+</p>
 
 **¿Quieres contribuir?** Empieza por el [issue «Start here»](https://github.com/wuisabel-gif/MemWhale/issues/317).
 Muchas tareas no requieren Rust, como revisar traducciones o corregir la documentación.

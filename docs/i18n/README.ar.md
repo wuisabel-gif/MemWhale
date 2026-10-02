@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <div dir="rtl">
 
@@ -44,6 +44,10 @@
 أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.8.0. راجع
 [ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 13.
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="يفشل أمر make لدى الوكيل بخطأ xcrun؛ فيردّ خطاف الالتقاط بأن هذا الخطأ ظهر مرة من قبل وأن الإصلاح كان xcode-select --install." width="820" />
+</p>
 
 **هل تودّ المساهمة؟** ابدأ من [تذكرة «ابدأ من هنا»](https://github.com/wuisabel-gif/MemWhale/issues/317).
 كثير من المهام لا تتطلب معرفة بـ Rust، ومنها مراجعة الترجمات وتصحيح التوثيق.

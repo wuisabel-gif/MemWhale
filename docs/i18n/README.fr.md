@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -42,6 +42,10 @@ ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via M
 Le CLI, l’interface web et l’application de bureau partagent la version produit
 0.16.0 ; le cœur Rust réutilisable est en version 0.8.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 13.
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="Le make d’un agent échoue avec une erreur xcrun ; le hook de capture répond que cette erreur a déjà été vue une fois et que le correctif était xcode-select --install." width="820" />
+</p>
 
 **Envie de contribuer ?** Commencez par l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).
 Beaucoup de tâches ne demandent aucune connaissance de Rust, notamment la relecture

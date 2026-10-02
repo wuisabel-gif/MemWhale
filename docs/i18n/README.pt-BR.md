@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
+<!-- README-SOURCE-SHA256: 6d60247f5079cb8abf55ba8d3a3e7aac56a1e19926c4db97818637ad8b178d3f -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo do MemoryWhale" width="160" />
@@ -43,6 +43,10 @@ Funciona com 19 agentes de programação via MCP, sem conta e sem enviar nada.
 A CLI, a interface web e o app desktop compartilham a versão de produto 0.16.0;
 o núcleo Rust reutilizável está na versão 0.8.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 para o guia de atualização. Ao abrir uma base, ela é migrada do schema 10 para o 13.
+
+<p align="center">
+  <img src="../../assets/proactive-recall.gif" alt="O make de um agente falha com um erro do xcrun; o hook de captura responde que o erro já apareceu uma vez e que a correção foi xcode-select --install." width="820" />
+</p>
 
 **Quer contribuir?** Comece pela [issue Start here](https://github.com/wuisabel-gif/MemWhale/issues/317).
 Muitas tarefas não exigem Rust, incluindo revisões de tradução e correções na documentação.
