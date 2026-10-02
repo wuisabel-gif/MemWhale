@@ -5,6 +5,10 @@ name: Second-Opinion Review
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
+    # Skip reviews when every changed file is documentation.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
 
 permissions:
   contents: read
