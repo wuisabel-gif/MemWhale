@@ -3204,6 +3204,10 @@ mod tests {
         assert!(parse_request_line("GET / HTTP/1.1 extra\r\n").is_err());
     }
 
+    // Only stops a broken server from hanging the test. Rendering the dashboard
+    // can take over 2 s on a loaded CI runner, which made this flaky.
+    const CLIENT_READ_TIMEOUT: Duration = Duration::from_secs(30);
+
     fn raw_response(request: &[u8]) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
@@ -3212,9 +3216,7 @@ mod tests {
             handle(stream);
         });
         let mut client = TcpStream::connect(address).unwrap();
-        client
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .unwrap();
+        client.set_read_timeout(Some(CLIENT_READ_TIMEOUT)).unwrap();
         client.write_all(request).unwrap();
         client.shutdown(Shutdown::Write).unwrap();
         let mut response = String::new();
@@ -3233,9 +3235,7 @@ mod tests {
             handle(stream);
         });
         let mut client = TcpStream::connect(address).unwrap();
-        client
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .unwrap();
+        client.set_read_timeout(Some(CLIENT_READ_TIMEOUT)).unwrap();
         client.write_all(request).unwrap();
         let mut response = String::new();
         client.read_to_string(&mut response).unwrap();
