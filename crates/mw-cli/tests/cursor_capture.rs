@@ -429,3 +429,61 @@ fn fresh_cli_and_mcp_retrieve_with_agent_filters() {
         assert!(!text.contains(excluded), "{text}");
     }
 }
+
+#[test]
+fn feedback_names_a_known_fix_in_additional_context_and_can_be_turned_off() {
+    let s = Sandbox::new();
+    let shell = |command: &str, exit: i64, stderr: &str| {
+        let mut event = s.events()[0]["event"].clone();
+        event["tool_input"]["command"] = json!(command);
+        event["tool_output"] =
+            json!(json!({"exitCode":exit,"stdout":"","stderr":stderr}).to_string());
+        serde_json::to_vec(&event).unwrap()
+    };
+    let hook = |event: &[u8], feedback: Option<&str>| -> Option<Value> {
+        let mut command = s.command(env!("CARGO_BIN_EXE_mw-remember"));
+        if let Some(value) = feedback {
+            command.env("MEMORYWHALE_HOOK_FEEDBACK", value);
+        }
+        let mut child = command
+            .args(["--from-hook", "cursor"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(event).unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(
+            output.status.success() && output.stderr.is_empty(),
+            "{output:?}"
+        );
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        (!stdout.trim().is_empty()).then(|| serde_json::from_str(&stdout).unwrap())
+    };
+    let fail = shell("cargo build", 101, "error: linker `cc` not found");
+    // A first-time failure and an unrelated success: nothing to say.
+    assert_eq!(hook(&fail, None), None);
+    assert_eq!(hook(&shell("xcode-select --install", 0, ""), None), None);
+    // Passing right after failing asks for the lesson.
+    let lesson = hook(&shell("cargo build", 0, ""), None).expect("lesson note");
+    assert_eq!(lesson.as_object().unwrap().len(), 1, "{lesson}");
+    assert!(
+        lesson["additional_context"]
+            .as_str()
+            .unwrap()
+            .contains("passed after failing"),
+        "{lesson}"
+    );
+    // The same error again names the fix, unless feedback is off.
+    assert_eq!(hook(&fail, Some("0")), None);
+    let note = hook(&fail, None).expect("fix note");
+    assert!(
+        note["additional_context"]
+            .as_str()
+            .unwrap()
+            .contains("the fix was: xcode-select --install"),
+        "{note}"
+    );
+    assert_eq!(s.rows().len(), 5, "feedback never blocks capture");
+}

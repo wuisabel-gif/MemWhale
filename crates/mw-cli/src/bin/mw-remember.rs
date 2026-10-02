@@ -124,20 +124,27 @@ fn run_from_hook(agent: Agent) {
     }
 }
 
-/// Hand Claude Code a short note about the command it just ran (see
-/// `memorywhale_cli::hook_feedback`). `MEMORYWHALE_HOOK_FEEDBACK=0` turns it off.
-fn claude_feedback(payload: &[u8], run_id: i64) {
+/// The note for the agent about the command it just ran (see
+/// `memorywhale_cli::hook_feedback`). `None` when there is nothing to say, on
+/// any error, or when `MEMORYWHALE_HOOK_FEEDBACK=0` turns it off.
+fn feedback_note(run_id: i64) -> Option<String> {
     if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
-        return;
+        return None;
     }
+    memorywhale_cli::database_path()
+        .and_then(|path| memorywhale_cli::storage::open_path(&path))
+        .and_then(|conn| memorywhale_cli::hook_feedback(&conn, run_id))
+        .ok()
+        .flatten()
+}
+
+/// Claude Code reads the note from `hookSpecificOutput.additionalContext`.
+fn claude_feedback(payload: &[u8], run_id: i64) {
     let event = serde_json::from_slice::<serde_json::Value>(payload)
         .ok()
         .and_then(|v| v.get("hook_event_name")?.as_str().map(str::to_owned));
     let Some(event) = event else { return };
-    let note = memorywhale_cli::database_path()
-        .and_then(|path| memorywhale_cli::storage::open_path(&path))
-        .and_then(|conn| memorywhale_cli::hook_feedback(&conn, run_id));
-    if let Ok(Some(note)) = note {
+    if let Some(note) = feedback_note(run_id) {
         println!(
             "{}",
             serde_json::json!({
@@ -208,8 +215,16 @@ fn run_cursor_hook() {
                 );
                 return;
             }
-            if memorywhale_cli::remember::remember_command(record).is_err() {
-                cursor_diagnostic("Cursor event could not be recorded");
+            match memorywhale_cli::remember::remember_command(record) {
+                // postToolUse and postToolUseFailure both accept
+                // `additional_context`: https://cursor.com/docs/agent/hooks
+                Ok(Some(run_id)) => {
+                    if let Some(note) = feedback_note(run_id) {
+                        println!("{}", serde_json::json!({ "additional_context": note }));
+                    }
+                }
+                Ok(None) => (),
+                Err(_) => cursor_diagnostic("Cursor event could not be recorded"),
             }
         }
         Ok(None) => (),

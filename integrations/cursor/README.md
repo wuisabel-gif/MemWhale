@@ -168,8 +168,15 @@ the capture hooks, commands are recorded only through normal terminal capture,
   truncated. Output previews are UTF-8-safe and capped at 20,000 bytes before
   shared redaction, with explicit truncation markers. IDs are capped at 256 bytes.
 - Shared exclusions, `off` and `commands-only` capture policy, and redaction
-  still apply. Hook processing emits no decisions or stdout, returns normally
-  on malformed input/storage failure, and uses a five-second configured timeout.
+  still apply. Hook processing emits no decisions, returns normally on
+  malformed input/storage failure, and uses a five-second configured timeout.
+- Hook feedback: after a recorded Shell command, the hook may print one
+  `{"additional_context": "..."}` line, which Cursor adds to the conversation
+  ([hooks reference](https://cursor.com/docs/agent/hooks)). It names the fix
+  that worked last time when a command fails with an error seen before, and asks
+  for a one-sentence lesson when a command passes right after failing. Otherwise
+  stdout stays empty, and any lookup error is silent. Set
+  `MEMORYWHALE_HOOK_FEEDBACK=0` in the hook's environment to record silently.
 - Build/use matching helpers and readers. Older releases that reject unknown
   producing-agent values may not read stores containing `cursor` records.
 

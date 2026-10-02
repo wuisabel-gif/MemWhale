@@ -36,8 +36,9 @@ configuration. Without it, those commands use `~/.claude/`.
 
 ## `MEMORYWHALE_HOOK_FEEDBACK`
 
-The Claude Code capture hook (`mw integrate claude`) adds a one-line note to
-the agent's context at two moments: when a command fails with an error that a
+The Claude Code capture hook (`mw integrate claude`) and the Cursor capture
+hook (`mw integrate cursor --capture`, through Cursor's `additional_context`
+output) add a one-line note to the agent's context at two moments: when a command fails with an error that a
 later command fixed before (it names that fix), and when a command passes
 right after the same command failed with no note saved since (it asks the agent
 to save the cause and fix with `remember`). Set `MEMORYWHALE_HOOK_FEEDBACK=0`

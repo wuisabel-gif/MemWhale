@@ -3,6 +3,12 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Hook feedback for Cursor.** The Cursor capture hook (`mw integrate cursor --capture`) now returns the same one-line note as the Claude Code hook through Cursor's `additional_context` output: the fix that worked last time for a known error, or a request to save a lesson when a command passes right after failing. `MEMORYWHALE_HOOK_FEEDBACK=0` turns it off.
+
 ## [0.16.0] — Proactive Recall — October 2, 2026
 
 Product `0.16.0`; `memorywhale-core` `0.8.0` (unchanged); SQLite schema `13`.
