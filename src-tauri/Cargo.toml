@@ -34,7 +34,7 @@ tauri = { version = "2.1", features = [] }
 tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-opener = "2.0"
-thiserror = "1"
+thiserror = "2"
 
 # The CLI binaries (mw, mw-serve, …) and their Debian packaging now live in
 # crates/mw-cli so they build without Tauri/GTK. This package is the desktop app only.
