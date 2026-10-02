@@ -3216,9 +3216,7 @@ mod tests {
             handle(stream);
         });
         let mut client = TcpStream::connect(address).unwrap();
-        client
-            .set_read_timeout(Some(CLIENT_READ_TIMEOUT))
-            .unwrap();
+        client.set_read_timeout(Some(CLIENT_READ_TIMEOUT)).unwrap();
         client.write_all(request).unwrap();
         client.shutdown(Shutdown::Write).unwrap();
         let mut response = String::new();
@@ -3237,9 +3235,7 @@ mod tests {
             handle(stream);
         });
         let mut client = TcpStream::connect(address).unwrap();
-        client
-            .set_read_timeout(Some(CLIENT_READ_TIMEOUT))
-            .unwrap();
+        client.set_read_timeout(Some(CLIENT_READ_TIMEOUT)).unwrap();
         client.write_all(request).unwrap();
         let mut response = String::new();
         client.read_to_string(&mut response).unwrap();
