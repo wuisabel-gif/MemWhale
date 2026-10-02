@@ -84,7 +84,7 @@ impl Drop for Sandbox {
 #[test]
 fn normalized_live_events_replay_into_an_isolated_store_and_remain_searchable() {
     let mut random = [0u8; 16];
-    getrandom::getrandom(&mut random).unwrap();
+    getrandom::fill(&mut random).unwrap();
     let path = std::env::temp_dir().join(format!("mw-rho210-{:032x}", u128::from_ne_bytes(random)));
     fs::create_dir(&path).unwrap();
     let sandbox = Sandbox(fs::canonicalize(path).unwrap());

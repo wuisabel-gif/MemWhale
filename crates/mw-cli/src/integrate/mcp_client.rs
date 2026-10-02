@@ -94,7 +94,7 @@ pub(super) fn atomic_tracked(
         );
     }
     let mut random = [0u8; 16];
-    getrandom::getrandom(&mut random).map_err(|_| err())?;
+    getrandom::fill(&mut random).map_err(|_| err())?;
     let temp = sidecar(
         path,
         &format!(".mw-tmp-{:032x}", u128::from_ne_bytes(random)),
@@ -557,7 +557,7 @@ mod tests {
     #[test]
     fn source_changes_release_lock_but_postjournal_failures_retain_it() {
         let mut random = [0u8; 16];
-        getrandom::getrandom(&mut random).unwrap();
+        getrandom::fill(&mut random).unwrap();
         let root =
             std::env::temp_dir().join(format!("mw-lock-{:032x}", u128::from_ne_bytes(random)));
         fs::create_dir(&root).unwrap();

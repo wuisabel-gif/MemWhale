@@ -198,7 +198,7 @@ struct Sandbox {
 impl Sandbox {
     fn new() -> Self {
         let mut bytes = [0u8; 16];
-        getrandom::getrandom(&mut bytes).unwrap();
+        getrandom::fill(&mut bytes).unwrap();
         let root =
             std::env::temp_dir().join(format!("mw-codewhale-{:032x}", u128::from_ne_bytes(bytes)));
         fs::create_dir(&root).unwrap();

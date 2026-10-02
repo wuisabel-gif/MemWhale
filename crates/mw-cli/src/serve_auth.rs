@@ -120,7 +120,7 @@ pub fn remove_mcp_authorization() -> Result<bool, String> {
 
 fn mint_token() -> Result<String, String> {
     let mut bytes = [0u8; TOKEN_BYTES];
-    getrandom::getrandom(&mut bytes).map_err(|e| format!("failed to generate token: {e}"))?;
+    getrandom::fill(&mut bytes).map_err(|e| format!("failed to generate token: {e}"))?;
     Ok(bytes
         .iter()
         .fold(String::with_capacity(TOKEN_BYTES * 2), |mut hex, byte| {

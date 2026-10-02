@@ -59,7 +59,7 @@ fn staging(dir: &Path) -> Result<PathBuf, String> {
         let parent = dir.parent().ok_or("skill directory needs a parent")?;
         for _ in 0..16 {
             let mut random = [0u8; 16];
-            getrandom::getrandom(&mut random).map_err(|_| "cannot generate staging name")?;
+            getrandom::fill(&mut random).map_err(|_| "cannot generate staging name")?;
             let name: String = random.iter().map(|b| format!("{b:02x}")).collect();
             let path = parent.join(format!(".memorywhale-skill-stage-{name}"));
             let mut builder = fs::DirBuilder::new();

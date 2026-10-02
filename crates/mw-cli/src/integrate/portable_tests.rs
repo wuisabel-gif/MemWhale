@@ -4,7 +4,7 @@ struct TestRoot(PathBuf);
 impl TestRoot {
     fn new() -> Self {
         let mut random = [0u8; 16];
-        getrandom::getrandom(&mut random).unwrap();
+        getrandom::fill(&mut random).unwrap();
         let path = std::env::temp_dir().join(format!(
             "mw-skill-guard-{:032x}",
             u128::from_ne_bytes(random)
