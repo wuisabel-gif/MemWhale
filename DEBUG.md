@@ -63,13 +63,13 @@ sudo apt install -y nodejs npm
 ## Problem: `npm WARN EBADENGINE Unsupported engine`
 
 Ubuntu installed an old Node version, such as Node 12, while Vite and the React
-tooling require Node 20 or newer.
+tooling require Node 22 (22.12 or newer).
 
 Fix with NodeSource:
 
 ```bash
 sudo apt remove -y nodejs npm
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 node --version
 npm --version
@@ -82,7 +82,7 @@ rm -rf node_modules
 npm install
 ```
 
-## Problem: Node 20 Install Fails Because Of `libnode-dev`
+## Problem: Node 22 Install Fails Because Of `libnode-dev`
 
 Error:
 
@@ -91,7 +91,7 @@ trying to overwrite '/usr/include/node/common.gypi',
 which is also in package libnode-dev 12.22.9
 ```
 
-Old Ubuntu Node 12 development packages are blocking the NodeSource Node 20
+Old Ubuntu Node 12 development packages are blocking the NodeSource Node 22
 package.
 
 Fix:
