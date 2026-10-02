@@ -47,7 +47,7 @@ const EN = {
   "search.hint": "Search headings and content on this page.",
   "search.empty": "No matching sections.",
   "search.results": "Matching sections",
-  "hero.releaseBadge": "v0.15.0 is here",
+  "hero.releaseBadge": "v0.16.0 is here",
   "hero.title": "Make your terminal <span class=\"hero-accent\">remember</span>.",
   "hero.lead":
     "Hit an error you've seen before and MemoryWhale hands back the fix. It keeps debugging evidence on your machine, so your coding agents stop re-solving the same problems.",
@@ -67,19 +67,19 @@ const EN = {
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
   "integrations.more": "All integrations",
-  "release.eyebrow": "New in 0.15.0",
-  "release.title": "Memory that joins the conversation.",
+  "release.eyebrow": "New in 0.16.0",
+  "release.title": "Recall before you ask.",
   "release.copy":
-    "Product 0.15.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.8.0 and stores stay on SQLite schema 13. MemoryWhale now works with Delphin: it records your agent conversations safely and answers \"have we seen this error?\" while the agent is still working. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">release notes</a>.",
-  "release.connectTitle": "One command to connect",
+    "Product 0.16.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.8.0 and stores stay on SQLite schema 13. With Claude Code, MemoryWhale no longer waits to be searched: when an error comes back it says what fixed it last time, and when a fix works it asks the agent to save the lesson. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">release notes</a>.",
+  "release.connectTitle": "A past fix, right when it fails",
   "release.connectBody":
-    "<code>mw integrate delphin</code> checks that Delphin is installed and prints the command to run: <code>delphin --memorywhale -- claude</code>. No database path to type.",
-  "release.provenanceTitle": "Hints while the agent works",
+    "When a command fails with an error that a later command fixed before, the agent sees one line naming that fix: <code>the fix was: xcode-select --install</code>. It says nothing when no fix is known.",
+  "release.provenanceTitle": "Lessons that get saved",
   "release.provenanceBody":
-    "<code>mw hint</code> matches an error against past failures and names what fixed it: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin shows that line live, while the agent is still going.",
-  "release.interfaceTitle": "Conversations, redacted",
+    "When a command passes right after failing, the agent is asked to save the cause and the fix with <code>remember</code>, so the next session gets the conclusion, not just the command log. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> turns both notes off.",
+  "release.interfaceTitle": "Now in 10 languages",
   "release.interfaceBody":
-    "<code>mw turns</code> stores Delphin's conversation turns through the same redaction and capture rules as every other capture, so a secret the agent prints is stored as <code>[REDACTED]</code>.",
+    "The README and this site now come in Spanish and Brazilian Portuguese, alongside English, Arabic, German, French, Simplified and Traditional Chinese, Korean, and Japanese.",
   "who.eyebrow": "Who it's for",
   "who.title": "Built for three ways of working.",
   "who.copy":
@@ -159,9 +159,9 @@ const EN = {
   "run.tryValue": "<code>mw demo</code>: writes sample data to the selected store",
   "run.prebuiltLabel": "Prebuilt install",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb on the releases page",
   "run.securityLabel": "Security",
@@ -225,7 +225,7 @@ const AR = {
   "search.hint": "ابحث في عناوين هذه الصفحة ومحتواها.",
   "search.empty": "لا توجد أقسام مطابقة.",
   "search.results": "الأقسام المطابقة",
-  "hero.releaseBadge": "الإصدار v0.15.0 متاح الآن",
+  "hero.releaseBadge": "الإصدار v0.16.0 متاح الآن",
   "hero.title": "اجعل طرفيتك <span class=\"hero-accent\">تتذكّر</span>.",
   "hero.lead":
     "حين يتكرر خطأ سبق أن واجهته، يُعيد إليك MemoryWhale الإصلاح. ويحتفظ بأدلة تصحيح الأخطاء على جهازك، فلا يضطر وكلاء البرمجة إلى حل المشكلات نفسها مرة بعد مرة.",
@@ -245,19 +245,19 @@ const AR = {
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
   "integrations.more": "جميع التكاملات",
-  "release.eyebrow": "الجديد في 0.15.0",
-  "release.title": "ذاكرة تنضم إلى المحادثة.",
+  "release.eyebrow": "الجديد في 0.16.0",
+  "release.title": "استدعاء قبل أن تسأل.",
   "release.copy":
-    "يشمل الإصدار 0.15.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ وتبقى نواة Rust على 0.8.0 والمخازن على مخطط SQLite رقم 13. يعمل MemoryWhale الآن مع Delphin: يسجّل محادثاتك مع الوكيل بأمان ويجيب عن سؤال \"هل رأينا هذا الخطأ من قبل؟\" بينما لا يزال الوكيل يعمل. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">ملاحظات الإصدار</a>.",
-  "release.connectTitle": "أمر واحد للربط",
+    "يشمل الإصدار 0.16.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ وتبقى نواة Rust على 0.8.0 والمخازن على مخطط SQLite رقم 13. مع Claude Code لم يعد MemoryWhale ينتظر أن يُبحث فيه: عندما يتكرر خطأ يذكر ما أصلحه في المرة السابقة، وعندما ينجح إصلاح يطلب من الوكيل حفظ الدرس. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">ملاحظات الإصدار</a>.",
+  "release.connectTitle": "إصلاح سابق في لحظة الفشل",
   "release.connectBody":
-    "يتحقق <code>mw integrate delphin</code> من تثبيت Delphin ويطبع الأمر المطلوب تشغيله: <code>delphin --memorywhale -- claude</code>. لا حاجة لكتابة مسار قاعدة البيانات.",
-  "release.provenanceTitle": "تلميحات أثناء عمل الوكيل",
+    "عندما يفشل أمر بخطأ سبق أن أصلحه أمر لاحق، يرى الوكيل سطرًا واحدًا يذكر ذلك الإصلاح: <code>the fix was: xcode-select --install</code>. ولا يقول شيئًا إن لم يكن هناك إصلاح معروف.",
+  "release.provenanceTitle": "دروس تُحفظ فعلًا",
   "release.provenanceBody":
-    "يطابق <code>mw hint</code> الخطأ مع الإخفاقات السابقة ويذكر ما أصلحه: <code>seen 2 times, the fix was: xcode-select --install</code>. ويعرض Delphin هذا السطر مباشرة بينما يواصل الوكيل عمله.",
-  "release.interfaceTitle": "محادثات منقّحة",
+    "عندما ينجح أمر مباشرة بعد فشله، يُطلب من الوكيل حفظ السبب والإصلاح باستخدام <code>remember</code>، فتحصل الجلسة التالية على الخلاصة لا على سجل الأوامر فقط. ويُوقف <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> كلتا الملاحظتين.",
+  "release.interfaceTitle": "الآن بعشر لغات",
   "release.interfaceBody":
-    "يخزّن <code>mw turns</code> أدوار محادثة Delphin عبر قواعد التنقيح والالتقاط نفسها المطبّقة على كل التقاط آخر، فيُخزَّن أي سرّ يطبعه الوكيل على شكل <code>[REDACTED]</code>.",
+    "أصبح ملف README وهذا الموقع متاحين بالإسبانية والبرتغالية البرازيلية، إلى جانب الإنجليزية والعربية والألمانية والفرنسية والصينية المبسطة والتقليدية والكورية واليابانية.",
   "who.eyebrow": "لمن صُمّم",
   "who.title": "صُمّم لثلاثة أنماط من العمل.",
   "who.copy":
@@ -337,9 +337,9 @@ const AR = {
   "run.tryValue": "<code>mw demo</code>: يكتب بيانات نموذجية في المخزن المحدد",
   "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "حزمة .deb من صفحة الإصدارات",
   "run.securityLabel": "الأمان",
@@ -403,7 +403,7 @@ const DE = {
   "search.hint": "Durchsuche Überschriften und Inhalte dieser Seite.",
   "search.empty": "Keine passenden Abschnitte.",
   "search.results": "Passende Abschnitte",
-  "hero.releaseBadge": "v0.15.0 ist da",
+  "hero.releaseBadge": "v0.16.0 ist da",
   "hero.title": "Gib deinem Terminal ein <span class=\"hero-accent\">Gedächtnis</span>.",
   "hero.lead":
     "Taucht ein Fehler auf, den du schon kennst, liefert dir MemoryWhale den Fix. Die Debugging-Belege bleiben auf deinem Rechner, damit deine Coding-Agenten nicht immer wieder dieselben Probleme lösen.",
@@ -423,19 +423,19 @@ const DE = {
   "integrations.label": "Funktioniert mit",
   "integrations.via": "über MCP",
   "integrations.more": "Alle Integrationen",
-  "release.eyebrow": "Neu in 0.15.0",
-  "release.title": "Gedächtnis, das mitredet.",
+  "release.eyebrow": "Neu in 0.16.0",
+  "release.title": "Erinnerung, bevor du fragst.",
   "release.copy":
-    "Version 0.15.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern bleibt bei 0.8.0 und Speicher bleiben auf SQLite-Schema 13. MemoryWhale arbeitet jetzt mit Delphin zusammen: Es speichert deine Gespräche mit dem Agenten sicher und beantwortet \"Hatten wir diesen Fehler schon?\", während der Agent noch arbeitet. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">Release Notes</a>.",
-  "release.connectTitle": "Ein Befehl zum Verbinden",
+    "Version 0.16.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern bleibt bei 0.8.0 und Speicher bleiben auf SQLite-Schema 13. Mit Claude Code wartet MemoryWhale nicht mehr darauf, durchsucht zu werden: Kehrt ein Fehler zurück, nennt es die Lösung vom letzten Mal, und wenn eine Lösung funktioniert, bittet es den Agenten, die Lektion zu speichern. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">Release Notes</a>.",
+  "release.connectTitle": "Eine frühere Lösung, genau beim Fehlschlag",
   "release.connectBody":
-    "<code>mw integrate delphin</code> prüft, ob Delphin installiert ist, und gibt den Befehl aus: <code>delphin --memorywhale -- claude</code>. Kein Datenbankpfad zum Abtippen.",
-  "release.provenanceTitle": "Hinweise, während der Agent arbeitet",
+    "Schlägt ein Befehl mit einem Fehler fehl, den früher ein späterer Befehl behoben hat, sieht der Agent eine Zeile mit dieser Lösung: <code>the fix was: xcode-select --install</code>. Ist keine Lösung bekannt, bleibt es still.",
+  "release.provenanceTitle": "Lektionen, die gespeichert werden",
   "release.provenanceBody":
-    "<code>mw hint</code> gleicht einen Fehler mit früheren Fehlschlägen ab und nennt, was ihn behoben hat: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin zeigt diese Zeile live an, während der Agent weiterarbeitet.",
-  "release.interfaceTitle": "Gespräche, geschwärzt",
+    "Läuft ein Befehl direkt nach einem Fehlschlag durch, wird der Agent gebeten, Ursache und Lösung mit <code>remember</code> zu speichern, damit die nächste Sitzung die Erkenntnis bekommt und nicht nur das Befehlsprotokoll. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> schaltet beide Hinweise ab.",
+  "release.interfaceTitle": "Jetzt in 10 Sprachen",
   "release.interfaceBody":
-    "<code>mw turns</code> speichert Delphins Gesprächsbeiträge mit denselben Schwärzungs- und Erfassungsregeln wie jede andere Erfassung, sodass ein Geheimnis, das der Agent ausgibt, als <code>[REDACTED]</code> gespeichert wird.",
+    "README und diese Website gibt es jetzt auch auf Spanisch und brasilianischem Portugiesisch, neben Englisch, Arabisch, Deutsch, Französisch, vereinfachtem und traditionellem Chinesisch, Koreanisch und Japanisch.",
   "who.eyebrow": "Für wen?",
   "who.title": "Gemacht für drei Arbeitsweisen.",
   "who.copy":
@@ -515,9 +515,9 @@ const DE = {
   "run.tryValue": "<code>mw demo</code>: schreibt Beispieldaten in den ausgewählten Speicher",
   "run.prebuiltLabel": "Vorkompilierte Binaries",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb auf der Releases-Seite",
   "run.securityLabel": "Sicherheit",
@@ -581,7 +581,7 @@ const FR = {
   "search.hint": "Recherche dans les titres et le contenu de cette page.",
   "search.empty": "Aucune section ne correspond.",
   "search.results": "Sections correspondantes",
-  "hero.releaseBadge": "La v0.15.0 est disponible",
+  "hero.releaseBadge": "La v0.16.0 est disponible",
   "hero.title": "Donnez de la <span class=\"hero-accent\">mémoire</span> à votre terminal.",
   "hero.lead":
     "Vous retombez sur une erreur déjà vue ? MemoryWhale vous redonne le correctif. Les traces de débogage restent sur votre machine, et vos agents de code cessent de résoudre sans cesse les mêmes problèmes.",
@@ -601,19 +601,19 @@ const FR = {
   "integrations.label": "Compatible avec",
   "integrations.via": "via MCP",
   "integrations.more": "Toutes les intégrations",
-  "release.eyebrow": "Nouveau dans 0.15.0",
-  "release.title": "Une mémoire qui se joint à la conversation.",
+  "release.eyebrow": "Nouveau dans 0.16.0",
+  "release.title": "Le rappel avant même la question.",
   "release.copy":
-    "La version 0.15.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust reste en 0.8.0 et les stockages restent au schéma SQLite 13. MemoryWhale fonctionne désormais avec Delphin : il enregistre vos conversations avec l'agent en toute sécurité et répond à « avons-nous déjà vu cette erreur ? » pendant que l'agent travaille encore. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">notes de version</a>.",
-  "release.connectTitle": "Une commande pour connecter",
+    "La version 0.16.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust reste en 0.8.0 et les stockages restent au schéma SQLite 13. Avec Claude Code, MemoryWhale n'attend plus d'être interrogé : quand une erreur revient, il indique ce qui l'a corrigée la dernière fois, et quand un correctif fonctionne, il demande à l'agent d'enregistrer la leçon. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">notes de version</a>.",
+  "release.connectTitle": "Un correctif passé, au moment de l'échec",
   "release.connectBody":
-    "<code>mw integrate delphin</code> vérifie que Delphin est installé et affiche la commande à lancer : <code>delphin --memorywhale -- claude</code>. Aucun chemin de base de données à taper.",
-  "release.provenanceTitle": "Des indices pendant que l'agent travaille",
+    "Quand une commande échoue avec une erreur qu'une commande ultérieure a déjà corrigée, l'agent voit une ligne qui nomme ce correctif : <code>the fix was: xcode-select --install</code>. Rien ne s'affiche si aucun correctif n'est connu.",
+  "release.provenanceTitle": "Des leçons vraiment enregistrées",
   "release.provenanceBody":
-    "<code>mw hint</code> compare une erreur aux échecs passés et indique ce qui l'a corrigée : <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin affiche cette ligne en direct, pendant que l'agent continue.",
-  "release.interfaceTitle": "Des conversations expurgées",
+    "Quand une commande réussit juste après un échec, l'agent est invité à enregistrer la cause et le correctif avec <code>remember</code>, pour que la session suivante reçoive la conclusion et pas seulement le journal des commandes. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> désactive les deux messages.",
+  "release.interfaceTitle": "Désormais en 10 langues",
   "release.interfaceBody":
-    "<code>mw turns</code> enregistre les échanges de Delphin avec les mêmes règles d'expurgation et de capture que toute autre capture : un secret affiché par l'agent est stocké sous la forme <code>[REDACTED]</code>.",
+    "Le README et ce site existent désormais en espagnol et en portugais du Brésil, en plus de l'anglais, de l'arabe, de l'allemand, du français, du chinois simplifié et traditionnel, du coréen et du japonais.",
   "who.eyebrow": "Pour qui ?",
   "who.title": "Pensé pour trois façons de travailler.",
   "who.copy":
@@ -693,9 +693,9 @@ const FR = {
   "run.tryValue": "<code>mw demo</code> : écrit des données d’exemple dans le stockage sélectionné",
   "run.prebuiltLabel": "Binaires précompilés",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Paquet .deb sur la page des versions",
   "run.securityLabel": "Sécurité",
@@ -759,7 +759,7 @@ const ZH_CN = {
   "search.hint": "搜索本页的标题和内容。",
   "search.empty": "没有找到相关内容。",
   "search.results": "相关内容",
-  "hero.releaseBadge": "v0.15.0 现已发布",
+  "hero.releaseBadge": "v0.16.0 现已发布",
   "hero.title": "让终端<span class=\"hero-accent\">记住</span>调试经验。",
   "hero.lead":
     "再次遇到以前见过的报错时，MemoryWhale 会直接给出修复方法。调试证据都保存在你自己的机器上，编程智能体不必再一遍遍重新解决同样的问题。",
@@ -779,19 +779,19 @@ const ZH_CN = {
   "integrations.label": "已支持",
   "integrations.via": "通过 MCP",
   "integrations.more": "所有集成",
-  "release.eyebrow": "0.15.0 新功能",
-  "release.title": "加入对话的记忆。",
+  "release.eyebrow": "0.16.0 新功能",
+  "release.title": "不用问，记忆先开口。",
   "release.copy":
-    "0.15.0 版本涵盖 CLI、Web 界面和桌面应用；Rust 核心仍为 0.8.0，存储仍使用 SQLite 架构 13。MemoryWhale 现在可以与 Delphin 配合：安全地记录你与智能体的对话，并在智能体仍在工作时回答“这个错误以前见过吗？”。参见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">发布说明</a>。",
-  "release.connectTitle": "一条命令完成连接",
+    "0.16.0 版本涵盖 CLI、Web 界面和桌面应用；Rust 核心仍为 0.8.0，存储仍使用 SQLite 架构 13。在 Claude Code 中，MemoryWhale 不再等待被搜索：同一个错误再次出现时，它会说出上次的修复方法；修复成功时，它会请智能体保存这条经验。参见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">发布说明</a>。",
+  "release.connectTitle": "失败当下，给出过去的修复",
   "release.connectBody":
-    "<code>mw integrate delphin</code> 检查 Delphin 是否已安装，并打印要运行的命令：<code>delphin --memorywhale -- claude</code>。无需手动输入数据库路径。",
-  "release.provenanceTitle": "智能体工作时的提示",
+    "当命令因一个曾被后续命令修复过的错误而失败时，智能体会看到一行说明当时修复方法的提示：<code>the fix was: xcode-select --install</code>。没有已知修复时，它不会出声。",
+  "release.provenanceTitle": "真正被保存的经验",
   "release.provenanceBody":
-    "<code>mw hint</code> 将错误与过去的失败记录比对，并说明当时的修复方法：<code>seen 2 times, the fix was: xcode-select --install</code>。Delphin 会在智能体继续工作时实时显示这一行。",
-  "release.interfaceTitle": "对话经过脱敏",
+    "当命令在失败后紧接着成功时，智能体会被请求用 <code>remember</code> 保存原因和修复方法，让下一个会话得到结论，而不只是命令记录。<code>MEMORYWHALE_HOOK_FEEDBACK=0</code> 可以关闭这两种提示。",
+  "release.interfaceTitle": "现已支持 10 种语言",
   "release.interfaceBody":
-    "<code>mw turns</code> 按与其他所有采集相同的脱敏和采集规则保存 Delphin 的对话内容，因此智能体打印出的密钥会被保存为 <code>[REDACTED]</code>。",
+    "README 和本站现已提供西班牙语和巴西葡萄牙语版本，此外还有英语、阿拉伯语、德语、法语、简体中文、繁体中文、韩语和日语。",
   "who.eyebrow": "适合谁",
   "who.title": "三种开发日常，都用得上。",
   "who.copy":
@@ -871,9 +871,9 @@ const ZH_CN = {
   "run.tryValue": "<code>mw demo</code>：向当前选定的存储写入示例数据",
   "run.prebuiltLabel": "预编译安装",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "在发布页面下载 .deb 安装包",
   "run.securityLabel": "安全",
@@ -937,7 +937,7 @@ const ZH_TW = {
   "search.hint": "搜尋本頁的標題與內容。",
   "search.empty": "找不到相關內容。",
   "search.results": "相關內容",
-  "hero.releaseBadge": "v0.15.0 現已推出",
+  "hero.releaseBadge": "v0.16.0 現已推出",
   "hero.title": "讓終端機<span class=\"hero-accent\">記住</span>除錯經驗。",
   "hero.lead":
     "再次碰到以前遇過的錯誤時，MemoryWhale 會直接把修正方法交還給你。除錯證據都留在你自己的電腦上，AI 程式助理不必再一次次重新解決同樣的問題。",
@@ -957,19 +957,19 @@ const ZH_TW = {
   "integrations.label": "可搭配使用",
   "integrations.via": "透過 MCP",
   "integrations.more": "所有整合",
-  "release.eyebrow": "0.15.0 新功能",
-  "release.title": "加入對話的記憶。",
+  "release.eyebrow": "0.16.0 新功能",
+  "release.title": "不用問，記憶先開口。",
   "release.copy":
-    "0.15.0 版涵蓋 CLI、網頁介面與桌面應用程式；Rust 核心維持 0.8.0，儲存庫維持 SQLite 結構描述 13。MemoryWhale 現在可以與 Delphin 搭配：安全地記錄你與代理的對話，並在代理仍在工作時回答「這個錯誤以前見過嗎？」。請參閱<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">版本說明</a>。",
-  "release.connectTitle": "一個指令完成連接",
+    "0.16.0 版涵蓋 CLI、網頁介面與桌面應用程式；Rust 核心維持 0.8.0，儲存庫維持 SQLite 結構描述 13。在 Claude Code 中，MemoryWhale 不再等著被搜尋：同一個錯誤再次出現時，它會說出上次的修正方法；修正成功時，它會請代理儲存這條經驗。請參閱<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">版本說明</a>。",
+  "release.connectTitle": "失敗當下，給出過去的修正",
   "release.connectBody":
-    "<code>mw integrate delphin</code> 會檢查 Delphin 是否已安裝，並印出要執行的指令：<code>delphin --memorywhale -- claude</code>。不必手動輸入資料庫路徑。",
-  "release.provenanceTitle": "代理工作時的提示",
+    "當指令因一個曾被後續指令修正過的錯誤而失敗時，代理會看到一行說明當時修正方法的提示：<code>the fix was: xcode-select --install</code>。沒有已知修正時，它不會出聲。",
+  "release.provenanceTitle": "真正被儲存的經驗",
   "release.provenanceBody":
-    "<code>mw hint</code> 會將錯誤與過去的失敗紀錄比對，並說明當時的修正方法：<code>seen 2 times, the fix was: xcode-select --install</code>。Delphin 會在代理繼續工作時即時顯示這一行。",
-  "release.interfaceTitle": "對話經過遮蔽",
+    "當指令在失敗後緊接著成功時，代理會被要求用 <code>remember</code> 儲存原因與修正方法，讓下一個工作階段得到結論，而不只是指令紀錄。<code>MEMORYWHALE_HOOK_FEEDBACK=0</code> 可以關閉這兩種提示。",
+  "release.interfaceTitle": "現已支援 10 種語言",
   "release.interfaceBody":
-    "<code>mw turns</code> 以與其他所有擷取相同的遮蔽與擷取規則儲存 Delphin 的對話內容，因此代理印出的密鑰會被儲存為 <code>[REDACTED]</code>。",
+    "README 與本站現已提供西班牙文與巴西葡萄牙文版本，另有英文、阿拉伯文、德文、法文、簡體中文、繁體中文、韓文與日文。",
   "who.eyebrow": "適合誰",
   "who.title": "為三種工作方式而設計。",
   "who.copy":
@@ -1049,9 +1049,9 @@ const ZH_TW = {
   "run.tryValue": "<code>mw demo</code>：將範例資料寫入目前選定的資料庫",
   "run.prebuiltLabel": "預編譯版安裝",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "發行頁面提供 .deb",
   "run.securityLabel": "安全性",
@@ -1115,7 +1115,7 @@ const KO = {
   "search.hint": "이 페이지의 제목과 본문을 검색합니다.",
   "search.empty": "일치하는 섹션이 없습니다.",
   "search.results": "일치하는 섹션",
-  "hero.releaseBadge": "v0.15.0 출시",
+  "hero.releaseBadge": "v0.16.0 출시",
   "hero.title": "터미널이 <span class=\"hero-accent\">기억하게</span> 하세요.",
   "hero.lead":
     "전에 본 오류를 다시 만나면 MemoryWhale이 해결책을 바로 건네줍니다. 디버깅 기록을 내 컴퓨터에 보관하므로 코딩 에이전트가 같은 문제를 매번 처음부터 다시 풀지 않아도 됩니다.",
@@ -1135,19 +1135,19 @@ const KO = {
   "integrations.label": "함께 쓸 수 있는 도구",
   "integrations.via": "MCP 연동",
   "integrations.more": "전체 통합 보기",
-  "release.eyebrow": "0.15.0의 새 기능",
-  "release.title": "대화에 참여하는 기억.",
+  "release.eyebrow": "0.16.0의 새 기능",
+  "release.title": "묻기 전에 먼저 떠올리는 기억.",
   "release.copy":
-    "0.15.0 버전은 CLI, 웹 UI, 데스크톱 앱에 모두 적용됩니다. Rust 코어는 0.8.0, 저장소는 SQLite 스키마 13을 그대로 유지합니다. 이제 MemoryWhale은 Delphin과 함께 작동합니다. 에이전트와의 대화를 안전하게 기록하고, 에이전트가 아직 작업하는 동안 \"이 오류를 전에 본 적이 있나?\"에 답합니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">릴리스 노트</a>를 참고하세요.",
-  "release.connectTitle": "명령 하나로 연결",
+    "0.16.0 버전은 CLI, 웹 UI, 데스크톱 앱에 모두 적용됩니다. Rust 코어는 0.8.0, 저장소는 SQLite 스키마 13을 그대로 유지합니다. 이제 Claude Code에서 MemoryWhale은 검색되기를 기다리지 않습니다. 같은 오류가 다시 나오면 지난번 해결 방법을 알려 주고, 해결이 성공하면 에이전트에게 교훈을 저장하라고 요청합니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">릴리스 노트</a>를 참고하세요.",
+  "release.connectTitle": "실패하는 순간, 과거의 해결 방법",
   "release.connectBody":
-    "<code>mw integrate delphin</code>는 Delphin이 설치되어 있는지 확인하고 실행할 명령을 출력합니다: <code>delphin --memorywhale -- claude</code>. 데이터베이스 경로를 직접 입력할 필요가 없습니다.",
-  "release.provenanceTitle": "에이전트가 일하는 동안 힌트",
+    "이전에 나중 명령으로 해결된 오류로 명령이 실패하면, 에이전트는 그 해결 방법을 알려 주는 한 줄을 봅니다: <code>the fix was: xcode-select --install</code>. 알려진 해결 방법이 없으면 아무 말도 하지 않습니다.",
+  "release.provenanceTitle": "실제로 저장되는 교훈",
   "release.provenanceBody":
-    "<code>mw hint</code>는 오류를 과거 실패와 대조하고 무엇으로 해결했는지 알려 줍니다: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin은 에이전트가 계속 작업하는 동안 이 줄을 실시간으로 보여 줍니다.",
-  "release.interfaceTitle": "가려진 대화",
+    "실패 직후 명령이 성공하면 에이전트에게 원인과 해결 방법을 <code>remember</code>로 저장하라고 요청합니다. 그래서 다음 세션은 명령 기록만이 아니라 결론을 얻습니다. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code>로 두 알림을 모두 끌 수 있습니다.",
+  "release.interfaceTitle": "이제 10개 언어로",
   "release.interfaceBody":
-    "<code>mw turns</code>는 다른 모든 캡처와 같은 가림 및 캡처 규칙으로 Delphin의 대화를 저장하므로, 에이전트가 출력한 비밀 값은 <code>[REDACTED]</code>로 저장됩니다.",
+    "README와 이 사이트가 이제 스페인어와 브라질 포르투갈어로도 제공됩니다. 영어, 아랍어, 독일어, 프랑스어, 중국어 간체와 번체, 한국어, 일본어도 함께 제공됩니다.",
   "who.eyebrow": "사용 대상",
   "who.title": "세 가지 작업 방식을 위해 만들었습니다.",
   "who.copy":
@@ -1227,9 +1227,9 @@ const KO = {
   "run.tryValue": "<code>mw demo</code>: 선택한 저장소에 샘플 데이터를 기록합니다",
   "run.prebuiltLabel": "사전 빌드 설치",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "릴리스 페이지의 .deb 패키지",
   "run.securityLabel": "보안",
@@ -1293,7 +1293,7 @@ const JA = {
   "search.hint": "このページの見出しと本文を検索します。",
   "search.empty": "一致するセクションはありません。",
   "search.results": "一致したセクション",
-  "hero.releaseBadge": "v0.15.0 リリース",
+  "hero.releaseBadge": "v0.16.0 リリース",
   "hero.title": "ターミナルに<span class=\"hero-accent\">記憶</span>を。",
   "hero.lead":
     "以前に見たエラーにまた遭遇したら、MemoryWhale がそのときの修正を返します。デバッグの記録は手元のマシンに保存されるので、コーディングエージェントが同じ問題を何度も解き直す必要はありません。",
@@ -1313,19 +1313,19 @@ const JA = {
   "integrations.label": "対応ツール",
   "integrations.via": "MCP 経由",
   "integrations.more": "すべての連携を見る",
-  "release.eyebrow": "0.15.0 の新機能",
-  "release.title": "会話に加わる記憶。",
+  "release.eyebrow": "0.16.0 の新機能",
+  "release.title": "聞く前に思い出す。",
   "release.copy":
-    "0.15.0 は CLI、Web UI、デスクトップアプリに共通です。Rust コアは 0.8.0 のまま、ストアも SQLite スキーマ 13 のままです。MemoryWhale は Delphin と連携するようになりました。エージェントとの会話を安全に記録し、エージェントが作業している間に「このエラーは前にも見た？」に答えます。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">リリースノート</a>をご覧ください。",
-  "release.connectTitle": "コマンド 1 つで接続",
+    "0.16.0 は CLI、Web UI、デスクトップアプリに共通です。Rust コアは 0.8.0 のまま、ストアも SQLite スキーマ 13 のままです。Claude Code では、MemoryWhale はもう検索されるのを待ちません。同じエラーが再び起きると前回の修正を伝え、修正がうまくいくとエージェントに教訓の保存を求めます。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">リリースノート</a>をご覧ください。",
+  "release.connectTitle": "失敗したその場で、過去の修正を",
   "release.connectBody":
-    "<code>mw integrate delphin</code> は Delphin がインストールされているかを確認し、実行するコマンドを表示します：<code>delphin --memorywhale -- claude</code>。データベースのパスを手入力する必要はありません。",
-  "release.provenanceTitle": "エージェントの作業中にヒント",
+    "以前に後続のコマンドで直ったエラーでコマンドが失敗すると、エージェントにはその修正を示す 1 行が表示されます：<code>the fix was: xcode-select --install</code>。既知の修正がなければ何も表示しません。",
+  "release.provenanceTitle": "ちゃんと保存される教訓",
   "release.provenanceBody":
-    "<code>mw hint</code> はエラーを過去の失敗と照合し、何で直ったかを示します：<code>seen 2 times, the fix was: xcode-select --install</code>。Delphin はエージェントが作業を続けている間に、この行をその場で表示します。",
-  "release.interfaceTitle": "マスクされた会話",
+    "失敗の直後にコマンドが成功すると、原因と修正を <code>remember</code> で保存するようエージェントに求めます。次のセッションはコマンドの記録だけでなく結論を受け取れます。<code>MEMORYWHALE_HOOK_FEEDBACK=0</code> で両方の通知をオフにできます。",
+  "release.interfaceTitle": "10 言語に対応",
   "release.interfaceBody":
-    "<code>mw turns</code> は、ほかのすべての記録と同じマスキングと記録ルールで Delphin の会話を保存します。エージェントが出力した秘密情報は <code>[REDACTED]</code> として保存されます。",
+    "README とこのサイトが、英語、アラビア語、ドイツ語、フランス語、簡体字・繁体字中国語、韓国語、日本語に加えて、スペイン語とブラジルポルトガル語でも読めるようになりました。",
   "who.eyebrow": "対象ユーザー",
   "who.title": "3 つの働き方に合わせて。",
   "who.copy":
@@ -1405,9 +1405,9 @@ const JA = {
   "run.tryValue": "<code>mw demo</code>：選択中のストアにサンプルデータを書き込みます",
   "run.prebuiltLabel": "ビルド済みバイナリ",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "リリースページの .deb パッケージ",
   "run.securityLabel": "セキュリティ",
@@ -1472,7 +1472,7 @@ const ES = {
   "search.hint": "Busca en los títulos y el contenido de esta página.",
   "search.empty": "Ninguna sección coincide.",
   "search.results": "Secciones coincidentes",
-  "hero.releaseBadge": "Ya está aquí la v0.15.0",
+  "hero.releaseBadge": "Ya está aquí la v0.16.0",
   "hero.title": "Haz que tu terminal <span class=\"hero-accent\">recuerde</span>.",
   "hero.lead":
     "Si te topas con un error que ya viste, MemoryWhale te devuelve la solución. Guarda la evidencia de depuración en tu máquina para que tus agentes de código dejen de resolver una y otra vez los mismos problemas.",
@@ -1492,19 +1492,19 @@ const ES = {
   "integrations.label": "Funciona con",
   "integrations.via": "a través de MCP",
   "integrations.more": "Todas las integraciones",
-  "release.eyebrow": "Novedades de 0.15.0",
-  "release.title": "Memoria que se suma a la conversación.",
+  "release.eyebrow": "Novedades en 0.16.0",
+  "release.title": "Recuerda antes de que preguntes.",
   "release.copy":
-    "La versión de producto 0.15.0 abarca la CLI, la interfaz web y la aplicación de escritorio; el núcleo en Rust sigue en 0.8.0 y los almacenes siguen en el esquema 13 de SQLite. MemoryWhale ahora funciona con Delphin: registra de forma segura las conversaciones con tu agente y responde «¿ya vimos este error?» mientras el agente sigue trabajando. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">notas de la versión</a>.",
-  "release.connectTitle": "Un comando para conectar",
+    "La versión 0.16.0 abarca la CLI, la interfaz web y la aplicación de escritorio; el núcleo en Rust sigue en 0.8.0 y los almacenes siguen en el esquema SQLite 13. Con Claude Code, MemoryWhale ya no espera a que lo consulten: cuando un error vuelve, indica qué lo solucionó la última vez, y cuando una solución funciona, pide al agente que guarde la lección. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">notas de la versión</a>.",
+  "release.connectTitle": "Una solución pasada, justo cuando falla",
   "release.connectBody":
-    "<code>mw integrate delphin</code> comprueba que Delphin está instalado y muestra el comando que debes ejecutar: <code>delphin --memorywhale -- claude</code>. Sin rutas de base de datos que escribir.",
-  "release.provenanceTitle": "Pistas mientras el agente trabaja",
+    "Cuando un comando falla con un error que un comando posterior ya solucionó antes, el agente ve una línea con esa solución: <code>the fix was: xcode-select --install</code>. Si no se conoce ninguna solución, no dice nada.",
+  "release.provenanceTitle": "Lecciones que se guardan",
   "release.provenanceBody":
-    "<code>mw hint</code> compara un error con fallos anteriores e indica qué lo solucionó: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin muestra esa línea al instante, mientras el agente sigue en marcha.",
-  "release.interfaceTitle": "Conversaciones con datos sensibles ocultos",
+    "Cuando un comando funciona justo después de fallar, se pide al agente que guarde la causa y la solución con <code>remember</code>, para que la siguiente sesión reciba la conclusión y no solo el registro de comandos. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> desactiva ambos avisos.",
+  "release.interfaceTitle": "Ahora en 10 idiomas",
   "release.interfaceBody":
-    "<code>mw turns</code> guarda los turnos de conversación de Delphin con las mismas reglas de ocultación y captura que cualquier otra captura, así que un secreto que muestre el agente se guarda como <code>[REDACTED]</code>.",
+    "El README y este sitio ya están en español y portugués de Brasil, además de inglés, árabe, alemán, francés, chino simplificado y tradicional, coreano y japonés.",
   "who.eyebrow": "Para quién es",
   "who.title": "Pensado para tres formas de trabajar.",
   "who.copy":
@@ -1584,9 +1584,9 @@ const ES = {
   "run.tryValue": "<code>mw demo</code>: escribe datos de ejemplo en el almacén seleccionado",
   "run.prebuiltLabel": "Instalación precompilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb en la página de versiones",
   "run.securityLabel": "Seguridad",
@@ -1650,7 +1650,7 @@ const PT_BR = {
   "search.hint": "Pesquise nos títulos e no conteúdo desta página.",
   "search.empty": "Nenhuma seção corresponde.",
   "search.results": "Seções correspondentes",
-  "hero.releaseBadge": "A v0.15.0 chegou",
+  "hero.releaseBadge": "A v0.16.0 chegou",
   "hero.title": "Faça seu terminal <span class=\"hero-accent\">lembrar</span>.",
   "hero.lead":
     "Esbarrou em um erro que você já viu? O MemoryWhale devolve a correção. Ele guarda as evidências de depuração na sua máquina, para que seus agentes de programação parem de resolver os mesmos problemas de novo.",
@@ -1670,19 +1670,19 @@ const PT_BR = {
   "integrations.label": "Funciona com",
   "integrations.via": "via MCP",
   "integrations.more": "Todas as integrações",
-  "release.eyebrow": "Novidades da 0.15.0",
-  "release.title": "Memória que entra na conversa.",
+  "release.eyebrow": "Novidades na 0.16.0",
+  "release.title": "Lembra antes de você perguntar.",
   "release.copy":
-    "A versão de produto 0.15.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust continua na 0.8.0 e as bases continuam no schema 13 do SQLite. O MemoryWhale agora funciona com o Delphin: ele registra as conversas com seu agente com segurança e responde \"já vimos este erro?\" enquanto o agente ainda está trabalhando. Veja as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md\">notas de versão</a>.",
-  "release.connectTitle": "Um comando para conectar",
+    "A versão 0.16.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust continua na 0.8.0 e as bases continuam no schema SQLite 13. Com o Claude Code, o MemoryWhale não espera mais ser consultado: quando um erro volta, ele diz o que o corrigiu da última vez, e quando uma correção funciona, pede ao agente que salve a lição. Consulte as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">notas de versão</a>.",
+  "release.connectTitle": "Uma correção passada, na hora da falha",
   "release.connectBody":
-    "<code>mw integrate delphin</code> verifica se o Delphin está instalado e imprime o comando a executar: <code>delphin --memorywhale -- claude</code>. Nenhum caminho de banco de dados para digitar.",
-  "release.provenanceTitle": "Dicas enquanto o agente trabalha",
+    "Quando um comando falha com um erro que um comando posterior já corrigiu antes, o agente vê uma linha com essa correção: <code>the fix was: xcode-select --install</code>. Se nenhuma correção é conhecida, ele não diz nada.",
+  "release.provenanceTitle": "Lições que são salvas",
   "release.provenanceBody":
-    "<code>mw hint</code> compara um erro com falhas passadas e diz o que o corrigiu: <code>seen 2 times, the fix was: xcode-select --install</code>. O Delphin mostra essa linha ao vivo, enquanto o agente ainda está em ação.",
-  "release.interfaceTitle": "Conversas, com dados ocultados",
+    "Quando um comando passa logo depois de falhar, o agente é convidado a salvar a causa e a correção com <code>remember</code>, para que a próxima sessão receba a conclusão e não só o registro de comandos. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> desativa os dois avisos.",
+  "release.interfaceTitle": "Agora em 10 idiomas",
   "release.interfaceBody":
-    "<code>mw turns</code> armazena os turnos de conversa do Delphin com as mesmas regras de ocultação e captura de qualquer outra captura, então um segredo que o agente imprime é armazenado como <code>[REDACTED]</code>.",
+    "O README e este site agora estão em espanhol e português do Brasil, além de inglês, árabe, alemão, francês, chinês simplificado e tradicional, coreano e japonês.",
   "who.eyebrow": "Para quem é",
   "who.title": "Feito para três formas de trabalhar.",
   "who.copy":
@@ -1762,9 +1762,9 @@ const PT_BR = {
   "run.tryValue": "<code>mw demo</code>: grava dados de exemplo na base selecionada",
   "run.prebuiltLabel": "Instalação pré-compilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.15.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Pacote .deb na página de versões",
   "run.securityLabel": "Segurança",

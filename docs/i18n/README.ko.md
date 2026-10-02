@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
+<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -34,9 +34,9 @@ MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계�
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
 > 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](../../benchmarks/README.md)을 참고하세요.
 
-**MemoryWhale 0.15.0: Delphin Bridge · 2026년 9월 30일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.15.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.8.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md)를 참고하세요.
+**MemoryWhale 0.16.0: Proactive Recall · 2026년 10월 2일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.16.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.8.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)를 참고하세요.
 스토어를 열면 스키마가 10에서 13으로 마이그레이션됩니다.
 
 **기여하고 싶으신가요?** [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)부터 시작해 보세요.

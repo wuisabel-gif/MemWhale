@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
+<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -38,9 +38,9 @@ ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via M
 > **25%** sans mémoire et **96%** avec. Il s’agit de tâches synthétiques qui démontrent le
 > mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](../../benchmarks/README.md).
 
-**MemoryWhale 0.15.0: Delphin Bridge · 30 septembre 2026.**
+**MemoryWhale 0.16.0: Proactive Recall · 2 octobre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit
-0.15.0 ; le cœur Rust réutilisable est en version 0.8.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md)
+0.16.0 ; le cœur Rust réutilisable est en version 0.8.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 13.
 
 **Envie de contribuer ?** Commencez par l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).

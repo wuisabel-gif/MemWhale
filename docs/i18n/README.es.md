@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
+<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -39,9 +39,9 @@ código a través de MCP, sin cuenta y sin subir nada.
 > demuestran el mecanismo, no un estudio de campo; consulta
 > [cómo se midió](../../benchmarks/README.md).
 
-**MemoryWhale 0.15.0: Delphin Bridge · 30 de septiembre de 2026.**
+**MemoryWhale 0.16.0: Proactive Recall · 2 de octubre de 2026.**
 La CLI, la interfaz web y la aplicación de escritorio comparten la versión de
-producto 0.15.0; el núcleo reutilizable en Rust está en la versión 0.8.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md)
+producto 0.16.0; el núcleo reutilizable en Rust está en la versión 0.8.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 13.
 
 **¿Quieres contribuir?** Empieza por el [issue «Start here»](https://github.com/wuisabel-gif/MemWhale/issues/317).

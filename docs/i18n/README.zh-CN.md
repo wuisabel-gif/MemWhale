@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
+<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -34,9 +34,9 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 > 在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 **25%** 的问题，有记忆时解决了 **96%**。
 > 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](../../benchmarks/README.md)。
 
-**MemoryWhale 0.15.0: Delphin Bridge · 2026 年 9 月 30 日。**
-CLI、Web 界面和桌面应用共用产品版本号 0.15.0；可复用的 Rust 核心版本为 0.8.0。
-升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md)。打开存储库时，其 schema 会从 10 迁移到 13。
+**MemoryWhale 0.16.0: Proactive Recall · 2026 年 10 月 2 日。**
+CLI、Web 界面和桌面应用共用产品版本号 0.16.0；可复用的 Rust 核心版本为 0.8.0。
+升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)。打开存储库时，其 schema 会从 10 迁移到 13。
 
 **想参与贡献？** 可以先看看 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317)。
 很多任务不需要会 Rust，比如审校翻译、修正文档。

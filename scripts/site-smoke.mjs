@@ -287,7 +287,7 @@ try {
     expect(await page.locator(".hero-headline").innerText() === "Make your terminal remember.", "no-js: English headline missing");
     expect(await page.locator(".nav-links a[href='#terminal-memory']").innerText() === translations.en["nav.terminal"], "no-js: English navigation missing");
     expect((await page.locator(".recall-demo").innerText()).includes("mw context --last-error"), "no-js: recall example missing");
-    expect((await page.locator("body").innerText()).includes("cargo install memorywhale-cli --version 0.15.0 --locked"), "no-js: install command missing");
+    expect((await page.locator("body").innerText()).includes("cargo install memorywhale-cli --version 0.16.0 --locked"), "no-js: install command missing");
     expect(!await page.locator("#site-search-button").isVisible(), "no-js: nonfunctional search control is visible");
   } finally {
     await noScriptContext.close();

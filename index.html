@@ -36,8 +36,8 @@
         "inLanguage": "en",
         "description": "Persistent local debugging memory for developers and coding agents. Captures terminal evidence into local SQLite and serves it over MCP.",
         "url": "https://wuisabel-gif.github.io/MemWhale/",
-        "softwareVersion": "0.15.0",
-        "datePublished": "2026-09-30",
+        "softwareVersion": "0.16.0",
+        "datePublished": "2026-10-02",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "license": "https://github.com/wuisabel-gif/MemWhale/blob/main/LICENSE"
       }
@@ -890,7 +890,7 @@
         <section id="overview" class="hero" aria-labelledby="hero-brand">
           <canvas class="ocean-canvas" aria-hidden="true"></canvas>
           <div class="hero-copy">
-            <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md" data-i18n="hero.releaseBadge">v0.15.0 is here</a>
+            <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md" data-i18n="hero.releaseBadge">v0.16.0 is here</a>
             <h1 id="hero-brand">MemoryWhale</h1>
             <p class="hero-headline" data-i18n="hero.title">Make your terminal <span class="hero-accent">remember</span>.</p>
             <p class="lead" data-i18n="hero.lead">
@@ -966,21 +966,21 @@
         </section>
 
         <section id="release" class="section">
-          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.15.0</p>
-          <h2 data-i18n="release.title">Memory that joins the conversation.</h2>
-          <p class="section-copy" data-i18n="release.copy">Product 0.15.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.8.0 and stores stay on SQLite schema 13. MemoryWhale now works with Delphin: it records your agent conversations safely and answers "have we seen this error?" while the agent is still working. See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md">release notes</a>.</p>
+          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.16.0</p>
+          <h2 data-i18n="release.title">Recall before you ask.</h2>
+          <p class="section-copy" data-i18n="release.copy">Product 0.16.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.8.0 and stores stay on SQLite schema 13. With Claude Code, MemoryWhale no longer waits to be searched: when an error comes back it says what fixed it last time, and when a fix works it asks the agent to save the lesson. See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md">release notes</a>.</p>
           <div class="grid">
             <article class="card">
-              <strong data-i18n="release.connectTitle">One command to connect</strong>
-              <p data-i18n="release.connectBody"><code>mw integrate delphin</code> checks that Delphin is installed and prints the command to run: <code>delphin --memorywhale -- claude</code>. No database path to type.</p>
+              <strong data-i18n="release.connectTitle">A past fix, right when it fails</strong>
+              <p data-i18n="release.connectBody">When a command fails with an error that a later command fixed before, the agent sees one line naming that fix: <code>the fix was: xcode-select --install</code>. It says nothing when no fix is known.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.provenanceTitle">Hints while the agent works</strong>
-              <p data-i18n="release.provenanceBody"><code>mw hint</code> matches an error against past failures and names what fixed it: <code>seen 2 times, the fix was: xcode-select --install</code>. Delphin shows that line live, while the agent is still going.</p>
+              <strong data-i18n="release.provenanceTitle">Lessons that get saved</strong>
+              <p data-i18n="release.provenanceBody">When a command passes right after failing, the agent is asked to save the cause and the fix with <code>remember</code>, so the next session gets the conclusion, not just the command log. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> turns both notes off.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.interfaceTitle">Conversations, redacted</strong>
-              <p data-i18n="release.interfaceBody"><code>mw turns</code> stores Delphin's conversation turns through the same redaction and capture rules as every other capture, so a secret the agent prints is stored as <code>[REDACTED]</code>.</p>
+              <strong data-i18n="release.interfaceTitle">Now in 10 languages</strong>
+              <p data-i18n="release.interfaceBody">The README and this site now come in Spanish and Brazilian Portuguese, alongside English, Arabic, German, French, Simplified and Traditional Chinese, Korean, and Japanese.</p>
             </article>
           </div>
         </section>
@@ -1224,10 +1224,10 @@
             </p>
             <div class="stat-list">
               <div class="stat"><span data-i18n="run.tryLabel">Try first</span><strong data-i18n="run.tryValue"><code>mw demo</code>: writes sample data to the selected store</strong></div>
-              <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
+              <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
               <div class="stat">
                 <span data-i18n="run.cargoLabel">Cargo</span>
-                <strong data-i18n="run.cargoValue"><code>cargo install memorywhale-cli --version 0.15.0 --locked</code></strong>
+                <strong data-i18n="run.cargoValue"><code>cargo install memorywhale-cli --version 0.16.0 --locked</code></strong>
               </div>
               <div class="stat">
                 <span data-i18n="run.debianLabel">Debian / Jetson</span>

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: cce03749ff3281071505f0af14a7986401962470429619255ada57d2875ddc62 -->
+<!-- README-SOURCE-SHA256: ae8dd6510a35351cf2f36a3f9ee929801f298509bd78a84ceed1e14535da3640 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo do MemoryWhale" width="160" />
@@ -39,9 +39,9 @@ Funciona com 19 agentes de programação via MCP, sem conta e sem enviar nada.
 > mecanismo, não um estudo de campo. Veja
 > [como foi medido](../../benchmarks/README.md).
 
-**MemoryWhale 0.15.0: Delphin Bridge · 30 de setembro de 2026.**
-A CLI, a interface web e o app desktop compartilham a versão de produto 0.15.0;
-o núcleo Rust reutilizável está na versão 0.8.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.15.0/docs/releases/0.15.0.md)
+**MemoryWhale 0.16.0: Proactive Recall · 2 de outubro de 2026.**
+A CLI, a interface web e o app desktop compartilham a versão de produto 0.16.0;
+o núcleo Rust reutilizável está na versão 0.8.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
 para o guia de atualização. Ao abrir uma base, ela é migrada do schema 10 para o 13.
 
 **Quer contribuir?** Comece pela [issue Start here](https://github.com/wuisabel-gif/MemWhale/issues/317).
