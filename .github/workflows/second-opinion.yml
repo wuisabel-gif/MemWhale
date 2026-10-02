@@ -23,8 +23,9 @@ jobs:
         id: config
         env:
           REVIEW_API_KEY: ${{ secrets.REVIEW_API_KEY }}
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
         run: |
-          if [[ -n "$REVIEW_API_KEY" ]]; then
+          if [[ -n "$REVIEW_API_KEY" || -n "$CODEX_AUTH_JSON" ]]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
@@ -33,7 +34,7 @@ jobs:
       - name: Explain disabled review
         if: steps.config.outputs.configured != 'true'
         run: |
-          echo "::warning::REVIEW_API_KEY is not configured; Second-Opinion review was skipped."
+          echo "::warning::Neither REVIEW_API_KEY nor CODEX_AUTH_JSON is configured; Second-Opinion review was skipped."
           echo "Configure the repository secret to enable this reviewer."
 
       # Advisory reviewer: a provider failure (quota, outage, rate limit) must
@@ -45,6 +46,7 @@ jobs:
         uses: wuisabel-gif/second-opinion@bfaa581cb908813afa183dd4729c1571e4b93250 # v0.4.0
         with:
           api-key: ${{ secrets.REVIEW_API_KEY }}
+          codex-auth-json: ${{ secrets.CODEX_AUTH_JSON }}
           provider: ${{ vars.REVIEW_ENDPOINT != '' && 'webhook' || vars.REVIEW_PROVIDER || 'anthropic' }}
           model: ${{ vars.REVIEW_MODEL }}
           base-url: ${{ vars.REVIEW_BASE_URL }}
