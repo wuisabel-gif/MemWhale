@@ -174,6 +174,10 @@ fn rho(payload: &Value) -> Option<CommandRecord> {
     } else {
         cwd_from(payload, body)
     };
+    // Rho reports a finished process's exit code and output tails in
+    // `payload.process`. Older Rho sends only tool status and failure text,
+    // which is not a process exit status, so the exit stays unknown there.
+    let process = as_object(body.get("process"));
     let failure = as_object(body.get("failure"));
     let kind = if rho_field_truncated(&truncated, "payload.failure.kind") {
         String::new()
@@ -195,20 +199,6 @@ fn rho(payload: &Value) -> Option<CommandRecord> {
             .trim()
             .to_string()
     };
-    let mut stderr = truncate(if !kind.is_empty() && !message.is_empty() {
-        format!("{kind}: {message}")
-    } else if !kind.is_empty() {
-        kind.clone()
-    } else {
-        message.clone()
-    });
-    if rho_used_field_truncated(payload, &truncated) {
-        if !stderr.is_empty() {
-            stderr.push('\n');
-        }
-        stderr.push_str(RHO_TRUNCATION_NOTE);
-    }
-
     let mut notes = String::from("agent:rho");
     if !status.is_empty() {
         notes.push_str(" status:");
@@ -218,10 +208,47 @@ fn rho(payload: &Value) -> Option<CommandRecord> {
         notes.push_str(" command:unknown");
     }
 
+    let (exit_code, stdout, stderr) = match process {
+        Some(process) => {
+            // Shortened streams keep their last bytes, so they are still real
+            // evidence; say so in notes rather than inside the stored stderr.
+            if ["payload.process.stdout", "payload.process.stderr"]
+                .iter()
+                .any(|field| rho_field_truncated(&truncated, field))
+            {
+                notes.push_str(" output:tail");
+            }
+            if rho_used_field_truncated(payload, &truncated) {
+                notes.push_str(" rho:truncated");
+            }
+            (
+                parse_exit_code(process.get("exit_code")),
+                truncate(first_str(Some(process), &["stdout"])),
+                truncate(first_str(Some(process), &["stderr"])),
+            )
+        }
+        None => {
+            let mut stderr = truncate(if !kind.is_empty() && !message.is_empty() {
+                format!("{kind}: {message}")
+            } else if !kind.is_empty() {
+                kind.clone()
+            } else {
+                message.clone()
+            });
+            if rho_used_field_truncated(payload, &truncated) {
+                if !stderr.is_empty() {
+                    stderr.push('\n');
+                }
+                stderr.push_str(RHO_TRUNCATION_NOTE);
+            }
+            (None, String::new(), stderr)
+        }
+    };
+
     Some(CommandRecord {
         cwd,
-        exit_code: None,
-        stdout: String::new(),
+        exit_code,
+        stdout,
         stderr,
         notes,
         command_parts: if command.is_empty() {
@@ -571,6 +598,74 @@ mod tests {
         assert_eq!(record.command_parts, ["cargo test"]);
         assert_eq!(record.cwd.as_deref(), Some("/tmp"));
         assert!(record.exit_code.is_none());
+    }
+
+    #[test]
+    fn rho_process_result_supplies_exit_code_and_streams() {
+        let event = |status: &str, process: Value, truncated: &[&str]| {
+            json!({
+                "event": "after_tool_use",
+                "bounds": {"truncated": !truncated.is_empty(), "fields": truncated},
+                "payload": {
+                    "tool": {"name": "bash"},
+                    "capability": {"working_directory": "/w", "shell_command": "cargo test"},
+                    "process": process,
+                    "status": status,
+                    "failure": {"kind": "execution", "message": "stdout:\nout\n\ntime: 0.1s  exit code: 101"}
+                }
+            })
+        };
+        let cases = [
+            (
+                event(
+                    "failed",
+                    json!({"exit_code": 101, "stdout": "out", "stderr": "error[E0308]"}),
+                    &[],
+                ),
+                (Some(101), "out", "error[E0308]", "agent:rho status:failed"),
+            ),
+            (
+                event(
+                    "succeeded",
+                    json!({"exit_code": 0, "stdout": "ok", "stderr": ""}),
+                    &[],
+                ),
+                (Some(0), "ok", "", "agent:rho status:succeeded"),
+            ),
+            (
+                event(
+                    "failed",
+                    json!({"exit_code": null, "stdout": "", "stderr": ""}),
+                    &[],
+                ),
+                (None, "", "", "agent:rho status:failed"),
+            ),
+            (
+                event(
+                    "failed",
+                    json!({"exit_code": 1, "stdout": "", "stderr": "…tail error"}),
+                    &["payload.process.stderr"],
+                ),
+                (
+                    Some(1),
+                    "",
+                    "…tail error",
+                    "agent:rho status:failed output:tail",
+                ),
+            ),
+        ];
+        for (payload, (exit_code, stdout, stderr, notes)) in cases {
+            let record = rho(payload).unwrap();
+            assert_eq!(
+                (
+                    record.exit_code,
+                    record.stdout.as_str(),
+                    record.stderr.as_str(),
+                    record.notes.as_str()
+                ),
+                (exit_code, stdout, stderr, notes)
+            );
+        }
     }
 
     #[test]

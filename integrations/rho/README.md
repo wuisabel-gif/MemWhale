@@ -201,6 +201,24 @@ matches `after_tool_use` for `bash` and `powershell`, then records command
 text and working directory when the payload includes them. Tool-status notes
 are not numeric process exit status.
 
+Rho versions whose `after_tool_use` payload includes `payload.process`
+(added in [matthewyjiang/rho#1395](https://github.com/matthewyjiang/rho/pull/1395))
+report how the shell process exited:
+
+```json
+"process": { "exit_code": 101, "stdout": "…", "stderr": "error[E0308]: …" }
+```
+
+When it is present, the hook stores that exit code, stdout, and stderr as the
+command run, so `recent_errors`, failure fingerprints, and "a later run fixed
+it" resolution work the same as for terminal capture. Rho keeps the last bytes
+of each stream past its field bound; such rows are tagged `output:tail` in
+notes. `process` is `null` for a call that timed out, was cancelled, or never
+started, and its `exit_code` is `null` when a signal ended the process; those
+rows keep an unknown exit.
+
+Older Rho payloads have no `process` field and are handled as below.
+
 The observed Rho 2.10.0 schema-2 payload includes
 `payload.capability.shell_command` and `working_directory`, plus tool status,
 failure information, and duration. It does not provide a numeric process exit
@@ -213,9 +231,10 @@ with bare tool-name rows. Upstream truncation reported in `bounds` omits
 affected fields and adds a marker instead of presenting shortened text as
 complete evidence.
 
-Use `mw search ... agent:rho` to inspect these records. Numeric-exit-based
-`recent_errors` and error counts are not a complete inventory of failed Rho
-tool calls when the stored exit code is unknown.
+Use `mw search ... agent:rho` to inspect these records. On Rho versions
+without `payload.process`, numeric-exit-based `recent_errors` and error counts
+are not a complete inventory of failed Rho tool calls because the stored exit
+code is unknown.
 
 Commands run in an ordinary terminal are captured only through MemoryWhale's
 normal terminal capture paths. MCP access alone is not automatic capture.
@@ -243,7 +262,8 @@ is not deleted. Full `mw integrate rho --revert` removes the broader integration
 - `before_tool_use` is not used, because a crash or timeout there denies the
   tool call.
 - Rho 2.10.0 command text is available, but stdout and numeric exit-code fields
-  are not. Do not infer an exit code from a human-readable failure message.
+  are not. Do not infer an exit code from a human-readable failure message;
+  newer Rho reports it in `payload.process`.
 - A tested run timeout delivered `session_failed` without `after_tool_use` for
   the interrupted command. Do not assume all cancellation paths produce a row.
 - User-level hooks and skills are local to the machine where they are installed.
