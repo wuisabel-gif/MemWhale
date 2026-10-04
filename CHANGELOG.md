@@ -3,11 +3,21 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.17.0] — Recall in Cursor — October 3, 2026
+
+Product `0.17.0`; `memorywhale-core` `0.8.1` (dirs 7 only); SQLite schema `13`.
+
+See [release notes](docs/releases/0.17.0.md).
 
 ### Added
 
 - **Hook feedback for Cursor.** The Cursor capture hook (`mw integrate cursor --capture`) now returns the same one-line note as the Claude Code hook through Cursor's `additional_context` output: the fix that worked last time for a known error, or a request to save a lesson when a command passes right after failing. `MEMORYWHALE_HOOK_FEEDBACK=0` turns it off.
+
+### Changed
+
+- Dependencies: Tauri 2.12 (Rust and JavaScript), vite 8.3.1, lucide 1.48, vitest 5, thiserror 2, dirs 7 (database location unchanged), ratatui 0.30, getrandom 0.4. (#368, #373, #374, #369, #370, #372, #387)
+- CI runs on Node 22; building the frontend needs Node 22.12 or newer. (#386)
+- Project docs moved to `docs/project/` and the ecosystem page to `docs/ECOSYSTEM.md`; the README shows a proactive-recall demo GIF. (#389, #391)
 
 ## [0.16.0] — Proactive Recall — October 2, 2026
 

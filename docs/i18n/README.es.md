@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: d6e21f3c8b93136c1d44496b5f34e9a2475dd6d2bafdb3748bb7795bc9f07755 -->
+<!-- README-SOURCE-SHA256: bd6729a98944ef6c566b4abf77c306efe753f4349221dc60454cbbe052702e86 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -39,9 +39,9 @@ código a través de MCP, sin cuenta y sin subir nada.
 > demuestran el mecanismo, no un estudio de campo; consulta
 > [cómo se midió](../../benchmarks/README.md).
 
-**MemoryWhale 0.16.0: Proactive Recall · 2 de octubre de 2026.**
+**MemoryWhale 0.17.0: Recall in Cursor · 3 de octubre de 2026.**
 La CLI, la interfaz web y la aplicación de escritorio comparten la versión de
-producto 0.16.0; el núcleo reutilizable en Rust está en la versión 0.8.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md)
+producto 0.17.0; el núcleo reutilizable en Rust está en la versión 0.8.1. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md)
 para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 13.
 
 <p align="center">

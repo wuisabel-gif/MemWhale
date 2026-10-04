@@ -47,7 +47,7 @@ const EN = {
   "search.hint": "Search headings and content on this page.",
   "search.empty": "No matching sections.",
   "search.results": "Matching sections",
-  "hero.releaseBadge": "v0.16.0 is here",
+  "hero.releaseBadge": "v0.17.0 is here",
   "hero.title": "Make your terminal <span class=\"hero-accent\">remember</span>.",
   "hero.lead":
     "Hit an error you've seen before and MemoryWhale hands back the fix. It keeps debugging evidence on your machine, so your coding agents stop re-solving the same problems.",
@@ -67,19 +67,19 @@ const EN = {
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
   "integrations.more": "All integrations",
-  "release.eyebrow": "New in 0.16.0",
-  "release.title": "Recall before you ask.",
+  "release.eyebrow": "New in 0.17.0",
+  "release.title": "Recall in Cursor, too.",
   "release.copy":
-    "Product 0.16.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.8.0 and stores stay on SQLite schema 13. With Claude Code, MemoryWhale no longer waits to be searched: when an error comes back it says what fixed it last time, and when a fix works it asks the agent to save the lesson. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">release notes</a>.",
-  "release.connectTitle": "A past fix, right when it fails",
+    "Product 0.17.0 spans the CLI, web UI, and desktop app; the Rust core is 0.8.1 and stores stay on SQLite schema 13. The proactive notes from 0.16 now reach Cursor as well as Claude Code, and Delphin 0.5 can send a past fix to the agent with one command. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">release notes</a>.",
+  "release.connectTitle": "Cursor gets the past fix",
   "release.connectBody":
-    "When a command fails with an error that a later command fixed before, the agent sees one line naming that fix: <code>the fix was: xcode-select --install</code>. It says nothing when no fix is known.",
-  "release.provenanceTitle": "Lessons that get saved",
+    "With <code>mw integrate cursor --capture</code>, a failed shell command whose error was fixed before shows Cursor's agent one line naming that fix. A command that passes right after failing asks the agent to save the lesson.",
+  "release.provenanceTitle": "Send it with one command",
   "release.provenanceBody":
-    "When a command passes right after failing, the agent is asked to save the cause and the fix with <code>remember</code>, so the next session gets the conclusion, not just the command log. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> turns both notes off.",
-  "release.interfaceTitle": "Now in 10 languages",
+    "In Delphin 0.5, when the live hint names a past fix, typing <code>:fix</code> sends the agent a prompt to check whether it applies. The fix is only quoted, never run.",
+  "release.interfaceTitle": "Up to date underneath",
   "release.interfaceBody":
-    "The README and this site now come in Spanish and Brazilian Portuguese, alongside English, Arabic, German, French, Simplified and Traditional Chinese, Korean, and Japanese.",
+    "Tauri 2.12, vitest 5, ratatui 0.30, and other dependency updates, with CI on Node 22. Your database stays where it is.",
   "who.eyebrow": "Who it's for",
   "who.title": "Built for three ways of working.",
   "who.copy":
@@ -159,9 +159,9 @@ const EN = {
   "run.tryValue": "<code>mw demo</code>: writes sample data to the selected store",
   "run.prebuiltLabel": "Prebuilt install",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb on the releases page",
   "run.securityLabel": "Security",
@@ -225,7 +225,7 @@ const AR = {
   "search.hint": "ابحث في عناوين هذه الصفحة ومحتواها.",
   "search.empty": "لا توجد أقسام مطابقة.",
   "search.results": "الأقسام المطابقة",
-  "hero.releaseBadge": "الإصدار v0.16.0 متاح الآن",
+  "hero.releaseBadge": "الإصدار v0.17.0 متاح الآن",
   "hero.title": "اجعل طرفيتك <span class=\"hero-accent\">تتذكّر</span>.",
   "hero.lead":
     "حين يتكرر خطأ سبق أن واجهته، يُعيد إليك MemoryWhale الإصلاح. ويحتفظ بأدلة تصحيح الأخطاء على جهازك، فلا يضطر وكلاء البرمجة إلى حل المشكلات نفسها مرة بعد مرة.",
@@ -245,19 +245,19 @@ const AR = {
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
   "integrations.more": "جميع التكاملات",
-  "release.eyebrow": "الجديد في 0.16.0",
-  "release.title": "استدعاء قبل أن تسأل.",
+  "release.eyebrow": "الجديد في 0.17.0",
+  "release.title": "الاستدعاء في Cursor أيضًا.",
   "release.copy":
-    "يشمل الإصدار 0.16.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ وتبقى نواة Rust على 0.8.0 والمخازن على مخطط SQLite رقم 13. مع Claude Code لم يعد MemoryWhale ينتظر أن يُبحث فيه: عندما يتكرر خطأ يذكر ما أصلحه في المرة السابقة، وعندما ينجح إصلاح يطلب من الوكيل حفظ الدرس. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">ملاحظات الإصدار</a>.",
-  "release.connectTitle": "إصلاح سابق في لحظة الفشل",
+    "يشمل الإصدار 0.17.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ ونواة Rust في الإصدار 0.8.1 والمخازن باقية على مخطط SQLite رقم 13. أصبحت الملاحظات الاستباقية من 0.16 تصل إلى Cursor إلى جانب Claude Code، ويستطيع Delphin 0.5 إرسال إصلاح سابق إلى الوكيل بأمر واحد. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">ملاحظات الإصدار</a>.",
+  "release.connectTitle": "Cursor يحصل على الإصلاح السابق",
   "release.connectBody":
-    "عندما يفشل أمر بخطأ سبق أن أصلحه أمر لاحق، يرى الوكيل سطرًا واحدًا يذكر ذلك الإصلاح: <code>the fix was: xcode-select --install</code>. ولا يقول شيئًا إن لم يكن هناك إصلاح معروف.",
-  "release.provenanceTitle": "دروس تُحفظ فعلًا",
+    "مع <code>mw integrate cursor --capture</code>، عندما يفشل أمر shell بخطأ سبق إصلاحه، يرى وكيل Cursor سطرًا واحدًا يذكر ذلك الإصلاح. وعندما ينجح أمر بعد فشله مباشرة، يُطلب من الوكيل حفظ الدرس.",
+  "release.provenanceTitle": "أرسله بأمر واحد",
   "release.provenanceBody":
-    "عندما ينجح أمر مباشرة بعد فشله، يُطلب من الوكيل حفظ السبب والإصلاح باستخدام <code>remember</code>، فتحصل الجلسة التالية على الخلاصة لا على سجل الأوامر فقط. ويُوقف <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> كلتا الملاحظتين.",
-  "release.interfaceTitle": "الآن بعشر لغات",
+    "في Delphin 0.5، عندما يذكر التلميح المباشر إصلاحًا سابقًا، تكتب <code>:fix</code> فيُرسَل إلى الوكيل طلب للتحقق مما إذا كان ينطبق. يُقتبس الإصلاح فقط ولا يُنفَّذ أبدًا.",
+  "release.interfaceTitle": "محدَّث من الداخل",
   "release.interfaceBody":
-    "أصبح ملف README وهذا الموقع متاحين بالإسبانية والبرتغالية البرازيلية، إلى جانب الإنجليزية والعربية والألمانية والفرنسية والصينية المبسطة والتقليدية والكورية واليابانية.",
+    "Tauri 2.12 وvitest 5 وratatui 0.30 وتحديثات أخرى للتبعيات، مع تشغيل CI على Node 22. تبقى قاعدة بياناتك في مكانها.",
   "who.eyebrow": "لمن صُمّم",
   "who.title": "صُمّم لثلاثة أنماط من العمل.",
   "who.copy":
@@ -337,9 +337,9 @@ const AR = {
   "run.tryValue": "<code>mw demo</code>: يكتب بيانات نموذجية في المخزن المحدد",
   "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "حزمة .deb من صفحة الإصدارات",
   "run.securityLabel": "الأمان",
@@ -403,7 +403,7 @@ const DE = {
   "search.hint": "Durchsuche Überschriften und Inhalte dieser Seite.",
   "search.empty": "Keine passenden Abschnitte.",
   "search.results": "Passende Abschnitte",
-  "hero.releaseBadge": "v0.16.0 ist da",
+  "hero.releaseBadge": "v0.17.0 ist da",
   "hero.title": "Gib deinem Terminal ein <span class=\"hero-accent\">Gedächtnis</span>.",
   "hero.lead":
     "Taucht ein Fehler auf, den du schon kennst, liefert dir MemoryWhale den Fix. Die Debugging-Belege bleiben auf deinem Rechner, damit deine Coding-Agenten nicht immer wieder dieselben Probleme lösen.",
@@ -423,19 +423,19 @@ const DE = {
   "integrations.label": "Funktioniert mit",
   "integrations.via": "über MCP",
   "integrations.more": "Alle Integrationen",
-  "release.eyebrow": "Neu in 0.16.0",
-  "release.title": "Erinnerung, bevor du fragst.",
+  "release.eyebrow": "Neu in 0.17.0",
+  "release.title": "Erinnerung jetzt auch in Cursor.",
   "release.copy":
-    "Version 0.16.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern bleibt bei 0.8.0 und Speicher bleiben auf SQLite-Schema 13. Mit Claude Code wartet MemoryWhale nicht mehr darauf, durchsucht zu werden: Kehrt ein Fehler zurück, nennt es die Lösung vom letzten Mal, und wenn eine Lösung funktioniert, bittet es den Agenten, die Lektion zu speichern. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">Release Notes</a>.",
-  "release.connectTitle": "Eine frühere Lösung, genau beim Fehlschlag",
+    "Version 0.17.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern ist 0.8.1 und Speicher bleiben auf SQLite-Schema 13. Die proaktiven Hinweise aus 0.16 erreichen jetzt neben Claude Code auch Cursor, und Delphin 0.5 kann eine frühere Lösung mit einem Befehl an den Agenten schicken. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">Release Notes</a>.",
+  "release.connectTitle": "Cursor bekommt die frühere Lösung",
   "release.connectBody":
-    "Schlägt ein Befehl mit einem Fehler fehl, den früher ein späterer Befehl behoben hat, sieht der Agent eine Zeile mit dieser Lösung: <code>the fix was: xcode-select --install</code>. Ist keine Lösung bekannt, bleibt es still.",
-  "release.provenanceTitle": "Lektionen, die gespeichert werden",
+    "Mit <code>mw integrate cursor --capture</code> sieht der Agent in Cursor bei einem fehlgeschlagenen Shell-Befehl, dessen Fehler schon einmal behoben wurde, eine Zeile mit dieser Lösung. Läuft ein Befehl direkt nach einem Fehlschlag durch, wird der Agent gebeten, die Lektion zu speichern.",
+  "release.provenanceTitle": "Mit einem Befehl senden",
   "release.provenanceBody":
-    "Läuft ein Befehl direkt nach einem Fehlschlag durch, wird der Agent gebeten, Ursache und Lösung mit <code>remember</code> zu speichern, damit die nächste Sitzung die Erkenntnis bekommt und nicht nur das Befehlsprotokoll. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> schaltet beide Hinweise ab.",
-  "release.interfaceTitle": "Jetzt in 10 Sprachen",
+    "Nennt der Live-Hinweis in Delphin 0.5 eine frühere Lösung, schickt <code>:fix</code> dem Agenten eine Aufforderung zu prüfen, ob sie passt. Die Lösung wird nur zitiert, nie ausgeführt.",
+  "release.interfaceTitle": "Unter der Haube aktuell",
   "release.interfaceBody":
-    "README und diese Website gibt es jetzt auch auf Spanisch und brasilianischem Portugiesisch, neben Englisch, Arabisch, Deutsch, Französisch, vereinfachtem und traditionellem Chinesisch, Koreanisch und Japanisch.",
+    "Tauri 2.12, vitest 5, ratatui 0.30 und weitere Abhängigkeits-Updates, mit CI auf Node 22. Deine Datenbank bleibt, wo sie ist.",
   "who.eyebrow": "Für wen?",
   "who.title": "Gemacht für drei Arbeitsweisen.",
   "who.copy":
@@ -515,9 +515,9 @@ const DE = {
   "run.tryValue": "<code>mw demo</code>: schreibt Beispieldaten in den ausgewählten Speicher",
   "run.prebuiltLabel": "Vorkompilierte Binaries",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb auf der Releases-Seite",
   "run.securityLabel": "Sicherheit",
@@ -581,7 +581,7 @@ const FR = {
   "search.hint": "Recherche dans les titres et le contenu de cette page.",
   "search.empty": "Aucune section ne correspond.",
   "search.results": "Sections correspondantes",
-  "hero.releaseBadge": "La v0.16.0 est disponible",
+  "hero.releaseBadge": "La v0.17.0 est disponible",
   "hero.title": "Donnez de la <span class=\"hero-accent\">mémoire</span> à votre terminal.",
   "hero.lead":
     "Vous retombez sur une erreur déjà vue ? MemoryWhale vous redonne le correctif. Les traces de débogage restent sur votre machine, et vos agents de code cessent de résoudre sans cesse les mêmes problèmes.",
@@ -601,19 +601,19 @@ const FR = {
   "integrations.label": "Compatible avec",
   "integrations.via": "via MCP",
   "integrations.more": "Toutes les intégrations",
-  "release.eyebrow": "Nouveau dans 0.16.0",
-  "release.title": "Le rappel avant même la question.",
+  "release.eyebrow": "Nouveau dans 0.17.0",
+  "release.title": "Le rappel aussi dans Cursor.",
   "release.copy":
-    "La version 0.16.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust reste en 0.8.0 et les stockages restent au schéma SQLite 13. Avec Claude Code, MemoryWhale n'attend plus d'être interrogé : quand une erreur revient, il indique ce qui l'a corrigée la dernière fois, et quand un correctif fonctionne, il demande à l'agent d'enregistrer la leçon. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">notes de version</a>.",
-  "release.connectTitle": "Un correctif passé, au moment de l'échec",
+    "La version 0.17.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust est en 0.8.1 et les stockages restent au schéma SQLite 13. Les messages proactifs de 0.16 atteignent désormais Cursor en plus de Claude Code, et Delphin 0.5 peut envoyer un correctif passé à l'agent en une commande. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">notes de version</a>.",
+  "release.connectTitle": "Cursor reçoit le correctif passé",
   "release.connectBody":
-    "Quand une commande échoue avec une erreur qu'une commande ultérieure a déjà corrigée, l'agent voit une ligne qui nomme ce correctif : <code>the fix was: xcode-select --install</code>. Rien ne s'affiche si aucun correctif n'est connu.",
-  "release.provenanceTitle": "Des leçons vraiment enregistrées",
+    "Avec <code>mw integrate cursor --capture</code>, quand une commande shell échoue sur une erreur déjà corrigée, l'agent de Cursor voit une ligne qui nomme ce correctif. Quand une commande réussit juste après un échec, l'agent est invité à enregistrer la leçon.",
+  "release.provenanceTitle": "L'envoyer en une commande",
   "release.provenanceBody":
-    "Quand une commande réussit juste après un échec, l'agent est invité à enregistrer la cause et le correctif avec <code>remember</code>, pour que la session suivante reçoive la conclusion et pas seulement le journal des commandes. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> désactive les deux messages.",
-  "release.interfaceTitle": "Désormais en 10 langues",
+    "Dans Delphin 0.5, quand l'indice en direct nomme un correctif passé, taper <code>:fix</code> envoie à l'agent une demande de vérifier s'il s'applique. Le correctif est seulement cité, jamais exécuté.",
+  "release.interfaceTitle": "À jour sous le capot",
   "release.interfaceBody":
-    "Le README et ce site existent désormais en espagnol et en portugais du Brésil, en plus de l'anglais, de l'arabe, de l'allemand, du français, du chinois simplifié et traditionnel, du coréen et du japonais.",
+    "Tauri 2.12, vitest 5, ratatui 0.30 et d'autres mises à jour de dépendances, avec la CI sur Node 22. Votre base de données reste à sa place.",
   "who.eyebrow": "Pour qui ?",
   "who.title": "Pensé pour trois façons de travailler.",
   "who.copy":
@@ -693,9 +693,9 @@ const FR = {
   "run.tryValue": "<code>mw demo</code> : écrit des données d’exemple dans le stockage sélectionné",
   "run.prebuiltLabel": "Binaires précompilés",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Paquet .deb sur la page des versions",
   "run.securityLabel": "Sécurité",
@@ -759,7 +759,7 @@ const ZH_CN = {
   "search.hint": "搜索本页的标题和内容。",
   "search.empty": "没有找到相关内容。",
   "search.results": "相关内容",
-  "hero.releaseBadge": "v0.16.0 现已发布",
+  "hero.releaseBadge": "v0.17.0 现已发布",
   "hero.title": "让终端<span class=\"hero-accent\">记住</span>调试经验。",
   "hero.lead":
     "再次遇到以前见过的报错时，MemoryWhale 会直接给出修复方法。调试证据都保存在你自己的机器上，编程智能体不必再一遍遍重新解决同样的问题。",
@@ -779,19 +779,19 @@ const ZH_CN = {
   "integrations.label": "已支持",
   "integrations.via": "通过 MCP",
   "integrations.more": "所有集成",
-  "release.eyebrow": "0.16.0 新功能",
-  "release.title": "不用问，记忆先开口。",
+  "release.eyebrow": "0.17.0 新功能",
+  "release.title": "Cursor 里也能主动回忆。",
   "release.copy":
-    "0.16.0 版本涵盖 CLI、Web 界面和桌面应用；Rust 核心仍为 0.8.0，存储仍使用 SQLite 架构 13。在 Claude Code 中，MemoryWhale 不再等待被搜索：同一个错误再次出现时，它会说出上次的修复方法；修复成功时，它会请智能体保存这条经验。参见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">发布说明</a>。",
-  "release.connectTitle": "失败当下，给出过去的修复",
+    "0.17.0 版本涵盖 CLI、Web 界面和桌面应用；Rust 核心为 0.8.1，存储仍使用 SQLite 架构 13。0.16 的主动提示现在除了 Claude Code，也会发给 Cursor；Delphin 0.5 还能用一条命令把过去的修复发给智能体。参见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">发布说明</a>。",
+  "release.connectTitle": "Cursor 也能拿到过去的修复",
   "release.connectBody":
-    "当命令因一个曾被后续命令修复过的错误而失败时，智能体会看到一行说明当时修复方法的提示：<code>the fix was: xcode-select --install</code>。没有已知修复时，它不会出声。",
-  "release.provenanceTitle": "真正被保存的经验",
+    "使用 <code>mw integrate cursor --capture</code> 后，当 shell 命令因曾被修复过的错误而失败时，Cursor 的智能体会看到一行说明当时修复方法的提示。命令在失败后紧接着成功时，会请智能体保存这条经验。",
+  "release.provenanceTitle": "一条命令发送",
   "release.provenanceBody":
-    "当命令在失败后紧接着成功时，智能体会被请求用 <code>remember</code> 保存原因和修复方法，让下一个会话得到结论，而不只是命令记录。<code>MEMORYWHALE_HOOK_FEEDBACK=0</code> 可以关闭这两种提示。",
-  "release.interfaceTitle": "现已支持 10 种语言",
+    "在 Delphin 0.5 中，当实时提示给出过去的修复时，输入 <code>:fix</code> 会向智能体发送一条请求，让它检查这个修复是否适用。修复只会被引用，绝不会被执行。",
+  "release.interfaceTitle": "底层保持最新",
   "release.interfaceBody":
-    "README 和本站现已提供西班牙语和巴西葡萄牙语版本，此外还有英语、阿拉伯语、德语、法语、简体中文、繁体中文、韩语和日语。",
+    "Tauri 2.12、vitest 5、ratatui 0.30 等依赖更新，CI 改用 Node 22。你的数据库位置不变。",
   "who.eyebrow": "适合谁",
   "who.title": "三种开发日常，都用得上。",
   "who.copy":
@@ -871,9 +871,9 @@ const ZH_CN = {
   "run.tryValue": "<code>mw demo</code>：向当前选定的存储写入示例数据",
   "run.prebuiltLabel": "预编译安装",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "在发布页面下载 .deb 安装包",
   "run.securityLabel": "安全",
@@ -937,7 +937,7 @@ const ZH_TW = {
   "search.hint": "搜尋本頁的標題與內容。",
   "search.empty": "找不到相關內容。",
   "search.results": "相關內容",
-  "hero.releaseBadge": "v0.16.0 現已推出",
+  "hero.releaseBadge": "v0.17.0 現已推出",
   "hero.title": "讓終端機<span class=\"hero-accent\">記住</span>除錯經驗。",
   "hero.lead":
     "再次碰到以前遇過的錯誤時，MemoryWhale 會直接把修正方法交還給你。除錯證據都留在你自己的電腦上，AI 程式助理不必再一次次重新解決同樣的問題。",
@@ -957,19 +957,19 @@ const ZH_TW = {
   "integrations.label": "可搭配使用",
   "integrations.via": "透過 MCP",
   "integrations.more": "所有整合",
-  "release.eyebrow": "0.16.0 新功能",
-  "release.title": "不用問，記憶先開口。",
+  "release.eyebrow": "0.17.0 新功能",
+  "release.title": "Cursor 裡也能主動回憶。",
   "release.copy":
-    "0.16.0 版涵蓋 CLI、網頁介面與桌面應用程式；Rust 核心維持 0.8.0，儲存庫維持 SQLite 結構描述 13。在 Claude Code 中，MemoryWhale 不再等著被搜尋：同一個錯誤再次出現時，它會說出上次的修正方法；修正成功時，它會請代理儲存這條經驗。請參閱<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">版本說明</a>。",
-  "release.connectTitle": "失敗當下，給出過去的修正",
+    "0.17.0 版涵蓋 CLI、網頁介面與桌面應用程式；Rust 核心為 0.8.1，儲存庫維持 SQLite 結構描述 13。0.16 的主動提示現在除了 Claude Code，也會送到 Cursor；Delphin 0.5 還能用一個指令把過去的修正傳給代理。請參閱<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">版本說明</a>。",
+  "release.connectTitle": "Cursor 也能拿到過去的修正",
   "release.connectBody":
-    "當指令因一個曾被後續指令修正過的錯誤而失敗時，代理會看到一行說明當時修正方法的提示：<code>the fix was: xcode-select --install</code>。沒有已知修正時，它不會出聲。",
-  "release.provenanceTitle": "真正被儲存的經驗",
+    "使用 <code>mw integrate cursor --capture</code> 後，當 shell 指令因曾被修正過的錯誤而失敗時，Cursor 的代理會看到一行說明當時修正方法的提示。指令在失敗後緊接著成功時，會請代理儲存這條經驗。",
+  "release.provenanceTitle": "一個指令就送出",
   "release.provenanceBody":
-    "當指令在失敗後緊接著成功時，代理會被要求用 <code>remember</code> 儲存原因與修正方法，讓下一個工作階段得到結論，而不只是指令紀錄。<code>MEMORYWHALE_HOOK_FEEDBACK=0</code> 可以關閉這兩種提示。",
-  "release.interfaceTitle": "現已支援 10 種語言",
+    "在 Delphin 0.5 中，當即時提示給出過去的修正時，輸入 <code>:fix</code> 會向代理送出一個請求，讓它檢查這個修正是否適用。修正只會被引用，絕不會被執行。",
+  "release.interfaceTitle": "底層保持最新",
   "release.interfaceBody":
-    "README 與本站現已提供西班牙文與巴西葡萄牙文版本，另有英文、阿拉伯文、德文、法文、簡體中文、繁體中文、韓文與日文。",
+    "Tauri 2.12、vitest 5、ratatui 0.30 等相依套件更新，CI 改用 Node 22。你的資料庫位置不變。",
   "who.eyebrow": "適合誰",
   "who.title": "為三種工作方式而設計。",
   "who.copy":
@@ -1049,9 +1049,9 @@ const ZH_TW = {
   "run.tryValue": "<code>mw demo</code>：將範例資料寫入目前選定的資料庫",
   "run.prebuiltLabel": "預編譯版安裝",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "發行頁面提供 .deb",
   "run.securityLabel": "安全性",
@@ -1115,7 +1115,7 @@ const KO = {
   "search.hint": "이 페이지의 제목과 본문을 검색합니다.",
   "search.empty": "일치하는 섹션이 없습니다.",
   "search.results": "일치하는 섹션",
-  "hero.releaseBadge": "v0.16.0 출시",
+  "hero.releaseBadge": "v0.17.0 출시",
   "hero.title": "터미널이 <span class=\"hero-accent\">기억하게</span> 하세요.",
   "hero.lead":
     "전에 본 오류를 다시 만나면 MemoryWhale이 해결책을 바로 건네줍니다. 디버깅 기록을 내 컴퓨터에 보관하므로 코딩 에이전트가 같은 문제를 매번 처음부터 다시 풀지 않아도 됩니다.",
@@ -1135,19 +1135,19 @@ const KO = {
   "integrations.label": "함께 쓸 수 있는 도구",
   "integrations.via": "MCP 연동",
   "integrations.more": "전체 통합 보기",
-  "release.eyebrow": "0.16.0의 새 기능",
-  "release.title": "묻기 전에 먼저 떠올리는 기억.",
+  "release.eyebrow": "0.17.0의 새 기능",
+  "release.title": "이제 Cursor에서도 떠올립니다.",
   "release.copy":
-    "0.16.0 버전은 CLI, 웹 UI, 데스크톱 앱에 모두 적용됩니다. Rust 코어는 0.8.0, 저장소는 SQLite 스키마 13을 그대로 유지합니다. 이제 Claude Code에서 MemoryWhale은 검색되기를 기다리지 않습니다. 같은 오류가 다시 나오면 지난번 해결 방법을 알려 주고, 해결이 성공하면 에이전트에게 교훈을 저장하라고 요청합니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">릴리스 노트</a>를 참고하세요.",
-  "release.connectTitle": "실패하는 순간, 과거의 해결 방법",
+    "0.17.0 버전은 CLI, 웹 UI, 데스크톱 앱에 모두 적용됩니다. Rust 코어는 0.8.1이고 저장소는 SQLite 스키마 13을 유지합니다. 0.16의 선제적 알림이 이제 Claude Code뿐 아니라 Cursor에도 전달되고, Delphin 0.5는 명령 하나로 과거의 해결 방법을 에이전트에게 보낼 수 있습니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">릴리스 노트</a>를 참고하세요.",
+  "release.connectTitle": "Cursor도 과거의 해결 방법을 받습니다",
   "release.connectBody":
-    "이전에 나중 명령으로 해결된 오류로 명령이 실패하면, 에이전트는 그 해결 방법을 알려 주는 한 줄을 봅니다: <code>the fix was: xcode-select --install</code>. 알려진 해결 방법이 없으면 아무 말도 하지 않습니다.",
-  "release.provenanceTitle": "실제로 저장되는 교훈",
+    "<code>mw integrate cursor --capture</code>를 설정하면, 전에 해결된 오류로 셸 명령이 실패할 때 Cursor의 에이전트가 그 해결 방법을 알려 주는 한 줄을 봅니다. 실패 직후 명령이 성공하면 에이전트에게 교훈을 저장하라고 요청합니다.",
+  "release.provenanceTitle": "명령 하나로 보내기",
   "release.provenanceBody":
-    "실패 직후 명령이 성공하면 에이전트에게 원인과 해결 방법을 <code>remember</code>로 저장하라고 요청합니다. 그래서 다음 세션은 명령 기록만이 아니라 결론을 얻습니다. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code>로 두 알림을 모두 끌 수 있습니다.",
-  "release.interfaceTitle": "이제 10개 언어로",
+    "Delphin 0.5에서 실시간 힌트가 과거의 해결 방법을 알려 주면, <code>:fix</code>를 입력해 그 방법이 맞는지 확인해 달라는 요청을 에이전트에게 보냅니다. 해결 방법은 인용만 되고 실행되지 않습니다.",
+  "release.interfaceTitle": "내부도 최신으로",
   "release.interfaceBody":
-    "README와 이 사이트가 이제 스페인어와 브라질 포르투갈어로도 제공됩니다. 영어, 아랍어, 독일어, 프랑스어, 중국어 간체와 번체, 한국어, 일본어도 함께 제공됩니다.",
+    "Tauri 2.12, vitest 5, ratatui 0.30 등 의존성 업데이트와 함께 CI는 Node 22에서 실행됩니다. 데이터베이스 위치는 그대로입니다.",
   "who.eyebrow": "사용 대상",
   "who.title": "세 가지 작업 방식을 위해 만들었습니다.",
   "who.copy":
@@ -1227,9 +1227,9 @@ const KO = {
   "run.tryValue": "<code>mw demo</code>: 선택한 저장소에 샘플 데이터를 기록합니다",
   "run.prebuiltLabel": "사전 빌드 설치",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "릴리스 페이지의 .deb 패키지",
   "run.securityLabel": "보안",
@@ -1293,7 +1293,7 @@ const JA = {
   "search.hint": "このページの見出しと本文を検索します。",
   "search.empty": "一致するセクションはありません。",
   "search.results": "一致したセクション",
-  "hero.releaseBadge": "v0.16.0 リリース",
+  "hero.releaseBadge": "v0.17.0 リリース",
   "hero.title": "ターミナルに<span class=\"hero-accent\">記憶</span>を。",
   "hero.lead":
     "以前に見たエラーにまた遭遇したら、MemoryWhale がそのときの修正を返します。デバッグの記録は手元のマシンに保存されるので、コーディングエージェントが同じ問題を何度も解き直す必要はありません。",
@@ -1313,19 +1313,19 @@ const JA = {
   "integrations.label": "対応ツール",
   "integrations.via": "MCP 経由",
   "integrations.more": "すべての連携を見る",
-  "release.eyebrow": "0.16.0 の新機能",
-  "release.title": "聞く前に思い出す。",
+  "release.eyebrow": "0.17.0 の新機能",
+  "release.title": "Cursor でも思い出す。",
   "release.copy":
-    "0.16.0 は CLI、Web UI、デスクトップアプリに共通です。Rust コアは 0.8.0 のまま、ストアも SQLite スキーマ 13 のままです。Claude Code では、MemoryWhale はもう検索されるのを待ちません。同じエラーが再び起きると前回の修正を伝え、修正がうまくいくとエージェントに教訓の保存を求めます。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">リリースノート</a>をご覧ください。",
-  "release.connectTitle": "失敗したその場で、過去の修正を",
+    "0.17.0 は CLI、Web UI、デスクトップアプリに共通です。Rust コアは 0.8.1、ストアは SQLite スキーマ 13 のままです。0.16 の先回り通知が Claude Code に加えて Cursor にも届くようになり、Delphin 0.5 ではコマンド 1 つで過去の修正をエージェントに送れます。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">リリースノート</a>をご覧ください。",
+  "release.connectTitle": "Cursor にも過去の修正を",
   "release.connectBody":
-    "以前に後続のコマンドで直ったエラーでコマンドが失敗すると、エージェントにはその修正を示す 1 行が表示されます：<code>the fix was: xcode-select --install</code>。既知の修正がなければ何も表示しません。",
-  "release.provenanceTitle": "ちゃんと保存される教訓",
+    "<code>mw integrate cursor --capture</code> を使うと、以前に直ったエラーでシェルコマンドが失敗したとき、Cursor のエージェントにその修正を示す 1 行が表示されます。失敗の直後にコマンドが成功すると、教訓を保存するようエージェントに求めます。",
+  "release.provenanceTitle": "コマンド 1 つで送る",
   "release.provenanceBody":
-    "失敗の直後にコマンドが成功すると、原因と修正を <code>remember</code> で保存するようエージェントに求めます。次のセッションはコマンドの記録だけでなく結論を受け取れます。<code>MEMORYWHALE_HOOK_FEEDBACK=0</code> で両方の通知をオフにできます。",
-  "release.interfaceTitle": "10 言語に対応",
+    "Delphin 0.5 では、ライブのヒントが過去の修正を示したときに <code>:fix</code> と入力すると、その修正が当てはまるか確認するようエージェントに依頼します。修正は引用されるだけで、実行はされません。",
+  "release.interfaceTitle": "中身も最新に",
   "release.interfaceBody":
-    "README とこのサイトが、英語、アラビア語、ドイツ語、フランス語、簡体字・繁体字中国語、韓国語、日本語に加えて、スペイン語とブラジルポルトガル語でも読めるようになりました。",
+    "Tauri 2.12、vitest 5、ratatui 0.30 などの依存関係を更新し、CI は Node 22 で動くようになりました。データベースの場所は変わりません。",
   "who.eyebrow": "対象ユーザー",
   "who.title": "3 つの働き方に合わせて。",
   "who.copy":
@@ -1405,9 +1405,9 @@ const JA = {
   "run.tryValue": "<code>mw demo</code>：選択中のストアにサンプルデータを書き込みます",
   "run.prebuiltLabel": "ビルド済みバイナリ",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "リリースページの .deb パッケージ",
   "run.securityLabel": "セキュリティ",
@@ -1472,7 +1472,7 @@ const ES = {
   "search.hint": "Busca en los títulos y el contenido de esta página.",
   "search.empty": "Ninguna sección coincide.",
   "search.results": "Secciones coincidentes",
-  "hero.releaseBadge": "Ya está aquí la v0.16.0",
+  "hero.releaseBadge": "Ya está aquí la v0.17.0",
   "hero.title": "Haz que tu terminal <span class=\"hero-accent\">recuerde</span>.",
   "hero.lead":
     "Si te topas con un error que ya viste, MemoryWhale te devuelve la solución. Guarda la evidencia de depuración en tu máquina para que tus agentes de código dejen de resolver una y otra vez los mismos problemas.",
@@ -1492,19 +1492,19 @@ const ES = {
   "integrations.label": "Funciona con",
   "integrations.via": "a través de MCP",
   "integrations.more": "Todas las integraciones",
-  "release.eyebrow": "Novedades en 0.16.0",
-  "release.title": "Recuerda antes de que preguntes.",
+  "release.eyebrow": "Novedades en 0.17.0",
+  "release.title": "Recuerdo también en Cursor.",
   "release.copy":
-    "La versión 0.16.0 abarca la CLI, la interfaz web y la aplicación de escritorio; el núcleo en Rust sigue en 0.8.0 y los almacenes siguen en el esquema SQLite 13. Con Claude Code, MemoryWhale ya no espera a que lo consulten: cuando un error vuelve, indica qué lo solucionó la última vez, y cuando una solución funciona, pide al agente que guarde la lección. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">notas de la versión</a>.",
-  "release.connectTitle": "Una solución pasada, justo cuando falla",
+    "La versión 0.17.0 abarca la CLI, la interfaz web y la aplicación de escritorio; el núcleo en Rust está en 0.8.1 y los almacenes siguen en el esquema SQLite 13. Los avisos proactivos de 0.16 ahora llegan a Cursor además de a Claude Code, y Delphin 0.5 puede enviar una solución pasada al agente con un comando. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">notas de la versión</a>.",
+  "release.connectTitle": "Cursor recibe la solución pasada",
   "release.connectBody":
-    "Cuando un comando falla con un error que un comando posterior ya solucionó antes, el agente ve una línea con esa solución: <code>the fix was: xcode-select --install</code>. Si no se conoce ninguna solución, no dice nada.",
-  "release.provenanceTitle": "Lecciones que se guardan",
+    "Con <code>mw integrate cursor --capture</code>, cuando un comando de shell falla con un error que ya se solucionó antes, el agente de Cursor ve una línea con esa solución. Cuando un comando funciona justo después de fallar, se pide al agente que guarde la lección.",
+  "release.provenanceTitle": "Envíala con un comando",
   "release.provenanceBody":
-    "Cuando un comando funciona justo después de fallar, se pide al agente que guarde la causa y la solución con <code>remember</code>, para que la siguiente sesión reciba la conclusión y no solo el registro de comandos. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> desactiva ambos avisos.",
-  "release.interfaceTitle": "Ahora en 10 idiomas",
+    "En Delphin 0.5, cuando la pista en vivo nombra una solución pasada, escribir <code>:fix</code> envía al agente una petición para comprobar si se aplica. La solución solo se cita, nunca se ejecuta.",
+  "release.interfaceTitle": "Al día por dentro",
   "release.interfaceBody":
-    "El README y este sitio ya están en español y portugués de Brasil, además de inglés, árabe, alemán, francés, chino simplificado y tradicional, coreano y japonés.",
+    "Tauri 2.12, vitest 5, ratatui 0.30 y otras actualizaciones de dependencias, con la CI en Node 22. Tu base de datos sigue donde está.",
   "who.eyebrow": "Para quién es",
   "who.title": "Pensado para tres formas de trabajar.",
   "who.copy":
@@ -1584,9 +1584,9 @@ const ES = {
   "run.tryValue": "<code>mw demo</code>: escribe datos de ejemplo en el almacén seleccionado",
   "run.prebuiltLabel": "Instalación precompilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb en la página de versiones",
   "run.securityLabel": "Seguridad",
@@ -1650,7 +1650,7 @@ const PT_BR = {
   "search.hint": "Pesquise nos títulos e no conteúdo desta página.",
   "search.empty": "Nenhuma seção corresponde.",
   "search.results": "Seções correspondentes",
-  "hero.releaseBadge": "A v0.16.0 chegou",
+  "hero.releaseBadge": "A v0.17.0 chegou",
   "hero.title": "Faça seu terminal <span class=\"hero-accent\">lembrar</span>.",
   "hero.lead":
     "Esbarrou em um erro que você já viu? O MemoryWhale devolve a correção. Ele guarda as evidências de depuração na sua máquina, para que seus agentes de programação parem de resolver os mesmos problemas de novo.",
@@ -1670,19 +1670,19 @@ const PT_BR = {
   "integrations.label": "Funciona com",
   "integrations.via": "via MCP",
   "integrations.more": "Todas as integrações",
-  "release.eyebrow": "Novidades na 0.16.0",
-  "release.title": "Lembra antes de você perguntar.",
+  "release.eyebrow": "Novidades na 0.17.0",
+  "release.title": "Lembrança também no Cursor.",
   "release.copy":
-    "A versão 0.16.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust continua na 0.8.0 e as bases continuam no schema SQLite 13. Com o Claude Code, o MemoryWhale não espera mais ser consultado: quando um erro volta, ele diz o que o corrigiu da última vez, e quando uma correção funciona, pede ao agente que salve a lição. Consulte as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md\">notas de versão</a>.",
-  "release.connectTitle": "Uma correção passada, na hora da falha",
+    "A versão 0.17.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust está na 0.8.1 e as bases continuam no schema SQLite 13. Os avisos proativos da 0.16 agora chegam ao Cursor além do Claude Code, e o Delphin 0.5 pode enviar uma correção passada ao agente com um comando. Consulte as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md\">notas de versão</a>.",
+  "release.connectTitle": "O Cursor recebe a correção passada",
   "release.connectBody":
-    "Quando um comando falha com um erro que um comando posterior já corrigiu antes, o agente vê uma linha com essa correção: <code>the fix was: xcode-select --install</code>. Se nenhuma correção é conhecida, ele não diz nada.",
-  "release.provenanceTitle": "Lições que são salvas",
+    "Com <code>mw integrate cursor --capture</code>, quando um comando de shell falha com um erro que já foi corrigido antes, o agente do Cursor vê uma linha com essa correção. Quando um comando passa logo depois de falhar, o agente é convidado a salvar a lição.",
+  "release.provenanceTitle": "Envie com um comando",
   "release.provenanceBody":
-    "Quando um comando passa logo depois de falhar, o agente é convidado a salvar a causa e a correção com <code>remember</code>, para que a próxima sessão receba a conclusão e não só o registro de comandos. <code>MEMORYWHALE_HOOK_FEEDBACK=0</code> desativa os dois avisos.",
-  "release.interfaceTitle": "Agora em 10 idiomas",
+    "No Delphin 0.5, quando a dica ao vivo cita uma correção passada, digitar <code>:fix</code> envia ao agente um pedido para verificar se ela se aplica. A correção é só citada, nunca executada.",
+  "release.interfaceTitle": "Atualizado por dentro",
   "release.interfaceBody":
-    "O README e este site agora estão em espanhol e português do Brasil, além de inglês, árabe, alemão, francês, chinês simplificado e tradicional, coreano e japonês.",
+    "Tauri 2.12, vitest 5, ratatui 0.30 e outras atualizações de dependências, com a CI no Node 22. Seu banco de dados continua onde está.",
   "who.eyebrow": "Para quem é",
   "who.title": "Feito para três formas de trabalhar.",
   "who.copy":
@@ -1762,9 +1762,9 @@ const PT_BR = {
   "run.tryValue": "<code>mw demo</code>: grava dados de exemplo na base selecionada",
   "run.prebuiltLabel": "Instalação pré-compilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.16.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.17.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Pacote .deb na página de versões",
   "run.securityLabel": "Segurança",

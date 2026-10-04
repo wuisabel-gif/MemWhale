@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: d6e21f3c8b93136c1d44496b5f34e9a2475dd6d2bafdb3748bb7795bc9f07755 -->
+<!-- README-SOURCE-SHA256: bd6729a98944ef6c566b4abf77c306efe753f4349221dc60454cbbe052702e86 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -38,10 +38,10 @@ wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. �
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](../../benchmarks/README.md).
 
-**MemoryWhale 0.16.0: Proactive Recall · 2. Oktober 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.16.0; der
-wiederverwendbare Rust-Kern hat die Version 0.8.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.16.0/docs/releases/0.16.0.md).
+**MemoryWhale 0.17.0: Recall in Cursor · 3. Oktober 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.17.0; der
+wiederverwendbare Rust-Kern hat die Version 0.8.1. Hinweise zum Upgrade findest
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md).
 Beim Öffnen wird ein Speicher von Schema 10 auf 13 migriert.
 
 <p align="center">
