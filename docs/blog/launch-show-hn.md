@@ -44,9 +44,9 @@ or greener models, and, new in 0.7, sending only the chat history that matters.
 That last one ranks older turns by relevance to the latest question instead of
 dropping the oldest. On LongMemEval (470 questions, about 104,000-token
 histories), it cut 91% of the prompt and kept all of the answer's evidence for
-81% of questions; plain truncation to the same size kept it for 5%. That
-measures what reaches the model, not answer accuracy; the repo shows how to
-check that on your own traffic.
+81% of questions; plain truncation to the same size kept it for 5%. Sent to
+gpt-4o-mini at that size, 100 sampled questions were answered correctly 37% of
+the time, against 10% with truncation.
 
 Rust, Apache-2.0. `brew install wuisabel-gif/joule/joule`, `cargo install joule-proxy`,
 or `docker run ghcr.io/wuisabel-gif/joule`.
@@ -93,8 +93,11 @@ off. Local, open source, MIT: `mw integrate claude` or
 
 - **LongMemEval 97%** is retrieval only (an answer session in the top 5), on
   chat memory, not debugging. Source: `benchmarks/longmemeval/README.md`.
-- **Joule 91% / 81% vs 5%** is evidence kept after trimming, not answer
-  accuracy. Source: Joule's `bench/longmemeval/README.md`.
+- **Joule 91% / 81% vs 5%** is evidence kept after trimming. **37% vs 10%** is
+  answer accuracy with gpt-4o-mini on a 100-question sample, both systems at the
+  same prompt size, graded by exact match (a same-model judge gave 46% vs 13%).
+  It compares two ways of trimming, not trimming against the full history.
+  Source: Joule's `bench/longmemeval/README.md`.
 - **25% to 96%** (the older headline) is a controlled demonstration on
   synthetic project-specific tasks with the memory injected; on common textbook
   errors there was no difference. Use it only with that framing, from
