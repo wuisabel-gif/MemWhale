@@ -5,6 +5,10 @@ All notable changes to MemoryWhale are documented here. This project follows
 
 ## [Unreleased]
 
+### Added
+
+- **Gemini CLI: MCP setup, command capture, and proactive recall.** `mw integrate gemini` writes the MemoryWhale MCP entry into `~/.gemini/settings.json` (no more manual pasting), and `mw integrate gemini --capture` adds an `AfterTool` hook for `run_shell_command` that records each command with its output and real exit code (read from Gemini's `Exit Code:` line) and returns the same one-line notes as Claude Code: the fix that worked last time, or a request to save the lesson. `--check`, `--dry-run`, and `--revert` work as for Codex; `agent:gemini` is a search filter; `mw doctor` lists Gemini CLI.
+
 ### Fixed
 
 - **Hooks and MCP entries survive Homebrew upgrades.** `mw integrate` wrote the resolved, versioned path (`/opt/homebrew/Cellar/memorywhale/<version>/bin/...`), so capture and Codex/Cursor MCP silently stopped once an upgrade removed that version. It now writes the stable PATH name (`/opt/homebrew/bin/...`) for the same file. Re-running `mw integrate claude`, `rho`, `codex`, `cursor`, or `<client> --capture` updates an existing install in place when the old path is gone, versioned, or the same file; a different helper that still exists still needs `--revert`.

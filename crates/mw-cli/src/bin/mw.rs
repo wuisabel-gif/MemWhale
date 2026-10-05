@@ -440,7 +440,7 @@ fn print_help() {
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
-         mw search <text> [--mode evidence|lessons|recipes|failures] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|codex|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank memories by relevance (--explain shows why)\n\
+         mw search <text> [--mode evidence|lessons|recipes|failures] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|codex|gemini|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank memories by relevance (--explain shows why)\n\
          mw contradictions <a> <b>  flag two memories that share terms but differ on a negation cue (heuristic; stored as pending)\n\
          mw contradictions list | confirm <flag-id> | reject <flag-id>  review stored contradiction flags (memories are never changed)\n\
          mw explain <id> [query]  show the per-signal score breakdown for one memory (ids come from `mw search`)\n\
@@ -461,9 +461,10 @@ fn print_help() {
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          mw integrate claude [--revert]  install or remove Claude Code hook, skill, and MCP\n\
          mw integrate rho [--revert] [--http [url]] [--token secret]  Rho hook, skill, and MCP (stdio by default; --http for mw-serve /mcp)\n\
-         mw integrate codex|cursor [--config <file>] [--dry-run|--check|--revert]  configure local MCP memory access\n\
+         mw integrate codex|cursor|gemini [--config <file>] [--dry-run|--check|--revert]  configure local MCP memory access\n\
          mw integrate cursor --capture [--hooks-file <file>] [--dry-run|--check|--revert]  opt-in local Shell capture only\n\
          mw integrate codex --capture [--hooks-file <file>] [--dry-run|--check|--revert]  opt-in local Bash capture only\n\
+         mw integrate gemini --capture [--hooks-file <file>] [--dry-run|--check|--revert]  opt-in local shell capture only\n\
          mw integrate <rho|codex|cursor> --skill <SKILL.md> [--skills-dir <dir>] [--revert|--check|--dry-run]  optional local skill only\n\
          mw integrate hermes       register mw-mcp in Hermes Agent's config\n\
          mw integrate delphin      check Delphin and print the command that records its turns here\n\
@@ -479,7 +480,7 @@ fn print_help() {
 fn integrate_cmd(args: &[String]) -> Result<(), String> {
     let capture_client = args
         .first()
-        .filter(|client| matches!(client.as_str(), "cursor" | "codex"));
+        .filter(|client| matches!(client.as_str(), "cursor" | "codex" | "gemini"));
     if let Some(client) = capture_client.filter(|_| args.iter().any(|arg| arg == "--capture")) {
         if args.iter().filter(|arg| *arg == "--capture").count() != 1
             || args.iter().any(|arg| arg == "--skill")
@@ -493,17 +494,17 @@ fn integrate_cmd(args: &[String]) -> Result<(), String> {
             .filter(|arg| *arg != "--capture")
             .cloned()
             .collect::<Vec<_>>();
-        return if client == "codex" {
-            memorywhale_cli::integrate::hook_capture::codex_cli(&options)
-        } else {
-            memorywhale_cli::integrate::hook_capture::cli(&options)
+        return match client.as_str() {
+            "codex" => memorywhale_cli::integrate::hook_capture::codex_cli(&options),
+            "gemini" => memorywhale_cli::integrate::hook_capture::gemini_cli(&options),
+            _ => memorywhale_cli::integrate::hook_capture::cli(&options),
         };
     }
     if args.iter().any(|arg| arg == "--skill") {
         return memorywhale_cli::integrate::portable::cli(args);
     }
     match args.first().map(String::as_str) {
-        Some("codex" | "cursor") => memorywhale_cli::integrate::mcp_client::cli(args),
+        Some("codex" | "cursor" | "gemini") => memorywhale_cli::integrate::mcp_client::cli(args),
         Some("claude" | "claude-code") => memorywhale_cli::integrate::claude::cli(&args[1..]),
         Some("rho") => memorywhale_cli::integrate::rho::cli(&args[1..]),
         Some("delphin") if args.len() == 1 => integrate_delphin(),
@@ -3685,7 +3686,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         || filters.after.is_some();
     if query.is_empty() && !has_filter {
         return Err(
-            "usage: mw search <text> [--mode evidence|lessons|recipes|failures] [--ranking default|bayesian] [--use-feedback] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|codex|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
+            "usage: mw search <text> [--mode evidence|lessons|recipes|failures] [--ranking default|bayesian] [--use-feedback] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|codex|gemini|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]"
                 .to_string(),
         );
     }

@@ -46,7 +46,7 @@ features.
 | Continue | Yes | No | Yes | [Guide](continue/README.md) |
 | CrowClaw | Yes | No | Yes | [Guide](crowclaw/README.md) |
 | Cursor | Yes | Opt-in development adapter; fixture-tested, live verification pending | Yes | [Guide](cursor/README.md) |
-| Gemini CLI | Yes | No | Yes | [Guide](gemini-cli/README.md) |
+| Gemini CLI | Yes (`mw integrate gemini`) | Yes, opt-in hook (`mw integrate gemini --capture`), with exit codes | Yes | [Guide](gemini-cli/README.md) |
 | Goose | Yes | No | Yes | [Guide](goose/README.md) |
 | Hermes Agent | Yes | No | Example prompt | [Guide](hermes/README.md) |
 | Jan Desktop | Yes | No | No | [Guide](jan/README.md) |

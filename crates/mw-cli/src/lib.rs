@@ -2425,14 +2425,14 @@ mod tests {
         assert_eq!(query, "receipt");
         assert_eq!(filters.agents, vec!["codewhale"]);
         let error = parse_search_filters(&["agent:unsupported"]).unwrap_err();
-        assert!(error.contains("claude|rho|cursor|codewhale|codex|terminal"));
+        assert!(error.contains("claude|rho|cursor|codewhale|codex|gemini|terminal"));
     }
 
     #[test]
     fn parse_search_filters_rejects_bad_values() {
         assert!(parse_search_filters(&["before:nope"]).is_err());
         assert!(parse_search_filters(&["source:banana"]).is_err());
-        assert!(parse_search_filters(&["agent:gemini"]).is_err());
+        assert!(parse_search_filters(&["agent:goose"]).is_err());
         assert!(parse_search_filters(&["limit:x"]).is_err());
     }
 

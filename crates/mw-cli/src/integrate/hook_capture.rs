@@ -1,4 +1,5 @@
-//! Capture-only hook configuration adapter for Cursor and Codex (Interfaces).
+//! Capture-only hook configuration adapter for Cursor, Codex, and Gemini CLI
+//! (Interfaces).
 //! Never executes a client. Reuses the MCP installer's generic guarded file
 //! transaction, not MCP setup.
 use super::mcp_client::{
@@ -176,7 +177,11 @@ fn ours(entry: &Value) -> bool {
 
 /// MemoryWhale hook commands in `flag`'s (codex/cursor) default hooks file.
 pub(super) fn installed_commands(flag: &str) -> Result<Vec<String>, String> {
-    let client = if flag == "codex" { &CODEX } else { &CURSOR };
+    let client = match flag {
+        "codex" => &CODEX,
+        "gemini" => &GEMINI,
+        _ => &CURSOR,
+    };
     let path = std::env::var_os("HOME")
         .map(PathBuf::from)
         .or_else(dirs::home_dir)
@@ -216,6 +221,23 @@ pub(super) fn hook_executable(command: &str) -> Option<&str> {
     let start = command.find("' --from-hook ")?;
     let quote = command[..start].rfind('\'')?;
     Some(&command[quote + 1..start])
+}
+
+// https://geminicli.com/docs/hooks/: matcher groups like Codex; `matcher` is a
+// regex over tool names, `timeout` is in milliseconds, and the hooks share
+// settings.json with everything else, which `parse` keeps.
+const GEMINI: Client = Client {
+    name: "Gemini CLI",
+    flag: "gemini",
+    default_file: ".gemini/settings.json",
+    events: &["AfterTool"],
+    version: None,
+    empty: b"{\"hooks\":{}}",
+    entry: |command| json!({"matcher":"^run_shell_command$", "hooks":[{"name":"memorywhale", "type":"command", "command":command, "timeout":5000}]}),
+};
+
+pub fn gemini_cli(args: &[String]) -> Result<(), String> {
+    run(&GEMINI, args).map_err(|e| e.replace("MCP", "Gemini CLI capture"))
 }
 
 pub fn cli(args: &[String]) -> Result<(), String> {

@@ -14,7 +14,8 @@ pub mod rho;
 
 pub(crate) const SKILL: &str = include_str!("../../integrate/SKILL.md");
 
-/// Claude Code, Rho, Codex, and Cursor integration status for `mw doctor`.
+/// Claude Code, Rho, Codex, Cursor, and Gemini CLI integration status for
+/// `mw doctor`.
 pub fn render_doctor_reports(mcp_stdio_ok: bool) -> String {
     report::render_reports(&[
         claude::doctor_report(mcp_stdio_ok),
@@ -25,6 +26,13 @@ pub fn render_doctor_reports(mcp_stdio_ok: bool) -> String {
             "cursor",
             "cursor --capture",
             ".cursor",
+            mcp_stdio_ok,
+        ),
+        capture_doctor::doctor_report(
+            "Gemini CLI",
+            "gemini",
+            "gemini --capture",
+            ".gemini",
             mcp_stdio_ok,
         ),
     ])

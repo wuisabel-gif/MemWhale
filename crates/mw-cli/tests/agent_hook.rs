@@ -203,7 +203,7 @@ fn from_hook_requires_a_named_client() {
     assert!(!output.status.success(), "{output:?}");
     assert!(
         String::from_utf8_lossy(&output.stderr)
-            .contains("requires claude, codex, rho, cursor, or codewhale"),
+            .contains("requires claude, codex, gemini, rho, cursor, or codewhale"),
         "{output:?}"
     );
 }
@@ -284,4 +284,68 @@ fn from_hook_records_codex_bash_and_names_a_past_fix() {
         .unwrap();
     assert!(notes.contains("agent:codex"), "{notes}");
     assert_eq!(exit, None);
+}
+
+#[test]
+fn from_hook_records_gemini_shell_and_names_a_past_fix() {
+    let data_dir = sandbox("gemini");
+    let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
+    for (argv, exit, stderr, at) in [
+        (
+            r#"["cargo","build"]"#,
+            101,
+            "error: linker `cc` not found",
+            "2026-01-01T00:00:00Z",
+        ),
+        (
+            r#"["xcode-select","--install"]"#,
+            0,
+            "",
+            "2026-01-01T00:01:00Z",
+        ),
+    ] {
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
+             VALUES (json_extract(?1, '$[0]'), ?1, '/work', ?2, ?3, ?4)",
+            rusqlite::params![argv, exit, stderr, at],
+        )
+        .unwrap();
+    }
+
+    let output = remember_from_hook(
+        &data_dir,
+        "gemini",
+        r#"{
+            "session_id": "s1",
+            "transcript_path": "/tmp/t.json",
+            "cwd": "/work",
+            "hook_event_name": "AfterTool",
+            "timestamp": "2026-10-06T00:00:00Z",
+            "tool_name": "run_shell_command",
+            "tool_input": {"command": "cargo build"},
+            "tool_response": {
+                "llmContent": "Output: error: linker `cc` not found\nExit Code: 101\nProcess Group PGID: 99",
+                "returnDisplay": "",
+                "error": null
+            }
+        }"#,
+    );
+    assert!(output.status.success(), "{output:?}");
+    let reply: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let note = reply["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        note.contains("the fix was: xcode-select --install"),
+        "{note}"
+    );
+
+    let exit: Option<i64> = conn
+        .query_row(
+            "SELECT exit_code FROM command_runs WHERE agent = 'gemini'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(exit, Some(101), "Gemini reports real exit codes");
 }

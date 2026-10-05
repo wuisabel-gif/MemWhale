@@ -478,3 +478,47 @@ fn codex_capture_reinstall_updates_an_old_mw_remember_path() {
     assert_eq!(updated, current, "old entry replaced, nothing duplicated");
     ok(codex(&["--check"]));
 }
+
+#[test]
+fn gemini_capture_keeps_other_settings_and_reverts() {
+    let sb = Sandbox::new();
+    let path = sb.0.join(".gemini/settings.json");
+    let user = json!({
+        "theme": "Dracula",
+        "mcpServers": {"other": {"command": "other-mcp"}},
+        "hooks": {"AfterTool": [
+            {"matcher": "write_file", "hooks": [{"type": "command", "command": "echo mine"}]}
+        ]}
+    });
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, serde_json::to_vec(&user).unwrap()).unwrap();
+    let gemini = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_mw"))
+            .args(["integrate", "gemini", "--capture"])
+            .args(args)
+            .env("HOME", &sb.0)
+            .env("MEMORYWHALE_DATA_DIR", sb.0.join("data"))
+            .env("PATH", "")
+            .current_dir(&sb.0)
+            .output()
+            .unwrap()
+    };
+    bad(gemini(&["--check"]));
+    ok(gemini(&[]));
+    let doc: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(doc["theme"], "Dracula");
+    assert_eq!(doc["mcpServers"], user["mcpServers"]);
+    let groups = doc["hooks"]["AfterTool"].as_array().unwrap();
+    assert_eq!(groups[0], user["hooks"]["AfterTool"][0]);
+    assert_eq!(groups[1]["matcher"], "^run_shell_command$");
+    let hook = &groups[1]["hooks"][0];
+    assert_eq!(hook["timeout"], 5000, "Gemini timeouts are milliseconds");
+    assert!(hook["command"]
+        .as_str()
+        .unwrap()
+        .ends_with("mw-remember' --from-hook gemini"));
+    ok(gemini(&["--check"]));
+    ok(gemini(&["--revert"]));
+    let reverted: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(reverted, user);
+}

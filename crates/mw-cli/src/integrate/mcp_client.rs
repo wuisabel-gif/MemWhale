@@ -408,6 +408,9 @@ fn config_path(client: &str, explicit: Option<PathBuf>) -> Result<PathBuf, Strin
                     .map(Ok)
                     .unwrap_or_else(|| home().map(|p| p.join(".codex")))?
                     .join("config.toml")
+            } else if client == "gemini" {
+                // https://geminicli.com/docs/cli/tutorials/mcp-setup/
+                home()?.join(".gemini/settings.json")
             } else {
                 home()?.join(".cursor/mcp.json")
             }
@@ -426,8 +429,8 @@ pub fn cli(args: &[String]) -> Result<(), String> {
     let client = args
         .first()
         .map(String::as_str)
-        .filter(|s| matches!(*s, "codex" | "cursor"))
-        .ok_or("Expected codex or cursor")?;
+        .filter(|s| matches!(*s, "codex" | "cursor" | "gemini"))
+        .ok_or("Expected codex, cursor, or gemini")?;
     let mut config = None;
     let mut mode = "install";
     let mut i = 1;
@@ -441,7 +444,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
             }
             "--dry-run" | "--check" | "--revert" if mode == "install" => mode = args[i].as_str(),
             _ => return Err(
-                "Usage: mw integrate codex|cursor [--config FILE] [--dry-run | --check | --revert]"
+                "Usage: mw integrate codex|cursor|gemini [--config FILE] [--dry-run | --check | --revert]"
                     .into(),
             ),
         }

@@ -32,11 +32,11 @@ fn run() -> Result<(), String> {
             }
             "--from-hook" => {
                 let name = args.next().ok_or_else(|| {
-                    "mw-remember --from-hook requires claude, codex, rho, cursor, or codewhale"
+                    "mw-remember --from-hook requires claude, codex, gemini, rho, cursor, or codewhale"
                         .to_string()
                 })?;
                 from_hook = Some(Agent::parse(&name).ok_or_else(|| {
-                    format!("unknown hook client {name:?}; use claude, codex, rho, cursor, or codewhale")
+                    format!("unknown hook client {name:?}; use claude, codex, gemini, rho, cursor, or codewhale")
                 })?);
             }
             "--cwd" => {
@@ -120,7 +120,7 @@ fn run_from_hook(agent: Agent) {
     let Ok(Some(run_id)) = memorywhale_cli::remember::remember_command(record) else {
         return;
     };
-    if matches!(agent, Agent::Claude | Agent::Codex) {
+    if matches!(agent, Agent::Claude | Agent::Codex | Agent::Gemini) {
         claude_feedback(&buf, run_id);
     }
 }
@@ -139,8 +139,9 @@ fn feedback_note(run_id: i64) -> Option<String> {
         .flatten()
 }
 
-/// Claude Code and Codex read the note from `hookSpecificOutput.additionalContext`
-/// (https://developers.openai.com/codex/hooks).
+/// Claude Code, Codex, and Gemini CLI read the note from
+/// `hookSpecificOutput.additionalContext` (https://developers.openai.com/codex/hooks,
+/// https://geminicli.com/docs/hooks/reference).
 fn claude_feedback(payload: &[u8], run_id: i64) {
     let event = serde_json::from_slice::<serde_json::Value>(payload)
         .ok()
@@ -245,6 +246,6 @@ fn cursor_diagnostic(message: &'static str) {
 fn print_help() {
     println!(
         "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]\n\
-         mw-remember --from-hook claude|codex|rho|cursor|codewhale   read that client's hook JSON from stdin"
+         mw-remember --from-hook claude|codex|gemini|rho|cursor|codewhale   read that client's hook JSON from stdin"
     );
 }

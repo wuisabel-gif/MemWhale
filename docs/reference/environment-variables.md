@@ -38,7 +38,8 @@ configuration. Without it, those commands use `~/.claude/`.
 
 The Claude Code capture hook (`mw integrate claude`), the Cursor capture hook
 (`mw integrate cursor --capture`, through Cursor's `additional_context`
-output), and the Codex capture hook (`mw integrate codex --capture`) add a
+output), the Codex capture hook (`mw integrate codex --capture`), and the
+Gemini CLI capture hook (`mw integrate gemini --capture`) add a
 one-line note to the agent's context at two moments: when a command fails with
 an error that a later command fixed before (it names that fix), and when a
 command passes right after the same command failed with no note saved since

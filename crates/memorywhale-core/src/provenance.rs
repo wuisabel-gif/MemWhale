@@ -6,6 +6,7 @@ pub const AGENT_RHO: &str = "rho";
 pub const AGENT_CURSOR: &str = "cursor";
 pub const AGENT_CODEWHALE: &str = "codewhale";
 pub const AGENT_CODEX: &str = "codex";
+pub const AGENT_GEMINI: &str = "gemini";
 pub const AGENT_TERMINAL: &str = "terminal";
 /// Every producing-agent identifier `label` can return, `terminal` last. A
 /// slice, so adding an agent does not change this constant's type.
@@ -15,6 +16,7 @@ pub const SUPPORTED_AGENTS: &[&str] = &[
     AGENT_CURSOR,
     AGENT_CODEWHALE,
     AGENT_CODEX,
+    AGENT_GEMINI,
     AGENT_TERMINAL,
 ];
 
@@ -51,6 +53,8 @@ mod tests {
         assert!(is_valid(Some(AGENT_CURSOR)));
         assert_eq!(label(Some(AGENT_CODEWHALE)), AGENT_CODEWHALE);
         assert!(is_valid(Some(AGENT_CODEWHALE)));
+        assert_eq!(label(Some(AGENT_GEMINI)), AGENT_GEMINI);
+        assert!(is_valid(Some(AGENT_GEMINI)));
         assert!(SUPPORTED_AGENTS.contains(&AGENT_CODEWHALE));
         assert_eq!(label(Some(AGENT_CODEX)), AGENT_CODEX);
         assert!(is_valid(Some(AGENT_CODEX)));

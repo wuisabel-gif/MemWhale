@@ -2,7 +2,7 @@
 //!
 //! The installer names the client on the argv (`--from-hook claude` /
 //! `--from-hook rho` / `--from-hook cursor` / `--from-hook codewhale` /
-//! `--from-hook codex`).
+//! `--from-hook codex` / `--from-hook gemini`).
 //! This module does not guess the client from JSON.
 
 use std::sync::OnceLock;
@@ -36,6 +36,7 @@ pub enum Agent {
     Cursor,
     Codewhale,
     Codex,
+    Gemini,
 }
 
 impl Agent {
@@ -46,6 +47,7 @@ impl Agent {
             "cursor" => Some(Self::Cursor),
             "codewhale" => Some(Self::Codewhale),
             "codex" => Some(Self::Codex),
+            "gemini" | "gemini-cli" => Some(Self::Gemini),
             _ => None,
         }
     }
@@ -57,6 +59,7 @@ impl Agent {
             Self::Cursor => memorywhale_core::provenance::AGENT_CURSOR,
             Self::Codewhale => memorywhale_core::provenance::AGENT_CODEWHALE,
             Self::Codex => memorywhale_core::provenance::AGENT_CODEX,
+            Self::Gemini => memorywhale_core::provenance::AGENT_GEMINI,
         }
     }
 }
@@ -79,6 +82,7 @@ pub fn record_from_value(payload: &Value, agent: Agent) -> Option<CommandRecord>
         Agent::Cursor => cursor::parse(payload).ok().flatten(),
         Agent::Codewhale => codewhale::record_from_value(payload),
         Agent::Codex => payload.as_object().and_then(codex),
+        Agent::Gemini => payload.as_object().and_then(gemini),
     }
 }
 
@@ -174,6 +178,77 @@ fn codex(payload: &serde_json::Map<String, Value>) -> Option<CommandRecord> {
         command_parts: vec![command],
         capture_kind: "full".to_string(),
         agent: Some(Agent::Codex.as_str().to_string()),
+    })
+}
+
+/// Gemini CLI `AfterTool` for `run_shell_command`. Its `tool_response.llmContent`
+/// is text: `Output: <combined output>`, then `Error: …`, `Exit Code: N` (only
+/// when non-zero), `Signal: …`, and process-id lines. A finished command with
+/// none of `Exit Code`, `Error`, or `Signal` exited 0; cancelled, timed-out,
+/// and backgrounded calls (which do not start with `Output:`) keep an unknown
+/// exit.
+fn gemini(payload: &serde_json::Map<String, Value>) -> Option<CommandRecord> {
+    if payload.get("tool_name").and_then(Value::as_str) != Some("run_shell_command") {
+        return None;
+    }
+    let input = as_object(payload.get("tool_input"));
+    let command = input
+        .and_then(|input| input.get("command"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|command| !command.is_empty())?
+        .to_string();
+    let base = nonempty_str(payload.get("cwd"));
+    let cwd = match input.and_then(|input| nonempty_str(input.get("dir_path"))) {
+        Some(dir) if std::path::Path::new(dir).is_absolute() => Some(dir.to_string()),
+        Some(dir) => base.map(|base| std::path::Path::new(base).join(dir).display().to_string()),
+        None => base.map(str::to_string),
+    };
+    let response = as_object(payload.get("tool_response"));
+    let text = match response.and_then(|r| r.get("llmContent")) {
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Array(parts)) => parts
+            .iter()
+            .filter_map(|part| part.get("text").and_then(Value::as_str).or(part.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => String::new(),
+    };
+
+    let mut lines: Vec<&str> = text.lines().collect();
+    let (mut exit_code, mut error, mut signal) = (None, Vec::new(), false);
+    while let Some(last) = lines.last() {
+        if let Some(code) = last.strip_prefix("Exit Code: ") {
+            exit_code = code.trim().parse::<i64>().ok();
+        } else if let Some(message) = last.strip_prefix("Error: ") {
+            error.insert(0, message);
+        } else if last.starts_with("Signal: ") {
+            signal = true;
+        } else if !last.starts_with("Process Group PGID: ")
+            && !last.starts_with("Background PIDs: ")
+        {
+            break;
+        }
+        lines.pop();
+    }
+    let body = lines.join("\n");
+    let (stdout, finished) = match body.strip_prefix("Output: ") {
+        Some("(empty)") => (String::new(), true),
+        Some(output) => (output.to_string(), true),
+        None => (body, false),
+    };
+    if exit_code.is_none() && finished && error.is_empty() && !signal {
+        exit_code = Some(0);
+    }
+    Some(CommandRecord {
+        cwd,
+        exit_code,
+        stdout: truncate(stdout),
+        stderr: truncate(error.join("\n")),
+        notes: "agent:gemini".to_string(),
+        command_parts: vec![command],
+        capture_kind: "full".to_string(),
+        agent: Some(Agent::Gemini.as_str().to_string()),
     })
 }
 
@@ -523,6 +598,67 @@ mod tests {
             "tool_input": {"command": command},
             "tool_response": response
         })
+    }
+
+    fn gemini_event(command: &str, llm_content: &str) -> Value {
+        json!({
+            "session_id": "s1",
+            "transcript_path": "/tmp/t.json",
+            "cwd": "/repo",
+            "hook_event_name": "AfterTool",
+            "timestamp": "2026-10-06T00:00:00Z",
+            "tool_name": "run_shell_command",
+            "tool_input": {"command": command, "description": "build"},
+            "tool_response": {"llmContent": llm_content, "returnDisplay": "", "error": null}
+        })
+    }
+
+    #[test]
+    fn gemini_reads_exit_code_and_output_from_llm_content() {
+        let record = |command: &str, content: &str| {
+            record_from_value(&gemini_event(command, content), Agent::Gemini).unwrap()
+        };
+        // Failure: Gemini adds `Exit Code` only when it is non-zero.
+        let failed = record(
+            "cargo build",
+            "Output: error: linker `cc` not found\nExit Code: 101\nProcess Group PGID: 4242",
+        );
+        assert_eq!(failed.exit_code, Some(101));
+        assert_eq!(failed.stdout, "error: linker `cc` not found");
+        assert_eq!(failed.cwd.as_deref(), Some("/repo"));
+        assert_eq!(failed.agent.as_deref(), Some("gemini"));
+        assert_eq!(failed.notes, "agent:gemini");
+
+        // Success has no Exit Code line; multi-line output survives.
+        let ok = record("ls", "Output: a\nb\nProcess Group PGID: 7");
+        assert_eq!((ok.exit_code, ok.stdout.as_str()), (Some(0), "a\nb"));
+        assert_eq!(record("true", "Output: (empty)").stdout, "");
+
+        // Spawn errors and signals have no reliable exit; neither do cancels.
+        let spawn = record("nope", "Output: (empty)\nError: spawn nope ENOENT");
+        assert_eq!(
+            (spawn.exit_code, spawn.stderr.as_str()),
+            (None, "spawn nope ENOENT")
+        );
+        assert_eq!(
+            record("sleep 9", "Output: (empty)\nSignal: 15").exit_code,
+            None
+        );
+        let cancelled = record(
+            "sleep 9",
+            "Command was cancelled by user before it could start.",
+        );
+        assert_eq!(cancelled.exit_code, None);
+
+        // dir_path is relative to the session cwd.
+        let mut event = gemini_event("make", "Output: ok");
+        event["tool_input"]["dir_path"] = json!("sub");
+        let sub = record_from_value(&event, Agent::Gemini).unwrap();
+        assert_eq!(sub.cwd.as_deref(), Some("/repo/sub"));
+
+        let mut other = gemini_event("x", "Output: ok");
+        other["tool_name"] = json!("read_file");
+        assert!(record_from_value(&other, Agent::Gemini).is_none());
     }
 
     #[test]
