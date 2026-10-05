@@ -36,8 +36,8 @@
         "inLanguage": "en",
         "description": "Persistent local debugging memory for developers and coding agents. Captures terminal evidence into local SQLite and serves it over MCP.",
         "url": "https://wuisabel-gif.github.io/MemWhale/",
-        "softwareVersion": "0.17.0",
-        "datePublished": "2026-10-03",
+        "softwareVersion": "0.18.0",
+        "datePublished": "2026-10-05",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "license": "https://github.com/wuisabel-gif/MemWhale/blob/main/LICENSE"
       }
@@ -890,7 +890,7 @@
         <section id="overview" class="hero" aria-labelledby="hero-brand">
           <canvas class="ocean-canvas" aria-hidden="true"></canvas>
           <div class="hero-copy">
-            <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md" data-i18n="hero.releaseBadge">v0.17.0 is here</a>
+            <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md" data-i18n="hero.releaseBadge">v0.18.0 is here</a>
             <h1 id="hero-brand">MemoryWhale</h1>
             <p class="hero-headline" data-i18n="hero.title">Make your terminal <span class="hero-accent">remember</span>.</p>
             <p class="lead" data-i18n="hero.lead">
@@ -966,21 +966,21 @@
         </section>
 
         <section id="release" class="section">
-          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.17.0</p>
-          <h2 data-i18n="release.title">Recall in Cursor, too.</h2>
-          <p class="section-copy" data-i18n="release.copy">Product 0.17.0 spans the CLI, web UI, and desktop app; the Rust core is 0.8.1 and stores stay on SQLite schema 13. The proactive notes from 0.16 now reach Cursor as well as Claude Code, and Delphin 0.5 can send a past fix to the agent with one command. See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md">release notes</a>.</p>
+          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.18.0</p>
+          <h2 data-i18n="release.title">Recall in every agent.</h2>
+          <p class="section-copy" data-i18n="release.copy">Product 0.18.0 spans the CLI, web UI, and desktop app; the Rust core is 0.9.0 and stores stay on SQLite schema 13. Codex now joins Claude Code and Cursor: MemoryWhale records the commands it runs and tells it what fixed an error last time. Rho commands arrive with real exit codes. See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md">release notes</a>.</p>
           <div class="grid">
             <article class="card">
-              <strong data-i18n="release.connectTitle">Cursor gets the past fix</strong>
-              <p data-i18n="release.connectBody">With <code>mw integrate cursor --capture</code>, a failed shell command whose error was fixed before shows Cursor's agent one line naming that fix. A command that passes right after failing asks the agent to save the lesson.</p>
+              <strong data-i18n="release.connectTitle">Codex gets the past fix</strong>
+              <p data-i18n="release.connectBody">With <code>mw integrate codex --capture</code>, every shell command Codex runs is recorded, and when its output shows an error fixed before, Codex sees one line naming that fix.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.provenanceTitle">Send it with one command</strong>
-              <p data-i18n="release.provenanceBody">In Delphin 0.5, when the live hint names a past fix, typing <code>:fix</code> sends the agent a prompt to check whether it applies. The fix is only quoted, never run.</p>
+              <strong data-i18n="release.provenanceTitle">Real exit codes from Rho</strong>
+              <p data-i18n="release.provenanceBody">With Rho versions that send process results, Rho commands are stored with their exit code and output, so they count in <code>mw context --last-error</code> and fix detection. Contributed by Rho's author, Matt Jiang.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.interfaceTitle">Up to date underneath</strong>
-              <p data-i18n="release.interfaceBody">Tauri 2.12, vitest 5, ratatui 0.30, and other dependency updates, with CI on Node 22. Your database stays where it is.</p>
+              <strong data-i18n="release.interfaceTitle">Easier on Linux and Jetson</strong>
+              <p data-i18n="release.interfaceBody">Refreshed Linux and Jetson guides, and <code>enable-dashboard.sh --lan</code> puts the dashboard on your network behind a token that never appears in the service file.</p>
             </article>
           </div>
         </section>
@@ -1224,10 +1224,10 @@
             </p>
             <div class="stat-list">
               <div class="stat"><span data-i18n="run.tryLabel">Try first</span><strong data-i18n="run.tryValue"><code>mw demo</code>: writes sample data to the selected store</strong></div>
-              <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.17.0/docs/releases/0.17.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
+              <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
               <div class="stat">
                 <span data-i18n="run.cargoLabel">Cargo</span>
-                <strong data-i18n="run.cargoValue"><code>cargo install memorywhale-cli --version 0.17.0 --locked</code></strong>
+                <strong data-i18n="run.cargoValue"><code>cargo install memorywhale-cli --version 0.18.0 --locked</code></strong>
               </div>
               <div class="stat">
                 <span data-i18n="run.debianLabel">Debian / Jetson</span>

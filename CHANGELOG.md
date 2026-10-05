@@ -3,16 +3,26 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.18.0] — Recall in Every Agent — October 5, 2026
+
+Product `0.18.0`; `memorywhale-core` `0.9.0` (adds the `codex` agent identifier; `SUPPORTED_AGENTS` grows to six); SQLite schema `13`.
+
+See [release notes](docs/releases/0.18.0.md).
 
 ### Added
 
 - **Codex command capture and proactive recall.** `mw integrate codex --capture` adds a `PostToolUse` hook for Codex's `Bash` tool that records each command with its output, and returns the same one-line "the fix was" note as Claude Code and Cursor when the output shows an error fixed before. Codex sends no exit code, so its rows keep an unknown exit. `--check`, `--dry-run`, and `--revert` work as for Cursor. (#393)
-- **Rho exit codes and output.** With Rho versions that send `payload.process`, Rho commands are stored with their real exit code, stdout, and stderr, so they count in `--last-error`, fingerprints, and fix detection. Thanks to @matthewyjiang. (#396)
+- **Rho exit codes and output.** With Rho versions that send `payload.process`, Rho commands are stored with their real exit code, stdout, and stderr, so they count in `--last-error`, fingerprints, and fix detection. Contributed by @matthewyjiang, who also added `payload.process` to Rho. (#396)
 
 ### Changed
 
-- Hook feedback also checks commands whose exit code is unknown, and looks for the error line in stdout as well as stderr.
+- Hook feedback also checks commands whose exit code is unknown, and looks for the error line in stdout as well as stderr. (#397)
+- `agent:codex` is a valid search filter and provenance label. (#397)
+- Linux and Jetson guides install from a release, Cargo, or a root-workspace build; LAN dashboard instructions use `mw-serve --lan` with the private `serve.token`, and `linux/systemd/enable-dashboard.sh --lan` installs the service that way without putting the token in the unit file. (#398)
+
+### Tests
+
+- `mw --help` / `-h` and friendly errors for incomplete `mw` arguments are covered. (#398)
 
 ## [0.17.0] — Recall in Cursor — October 3, 2026
 

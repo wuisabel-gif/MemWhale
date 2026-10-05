@@ -1,6 +1,6 @@
 # memorywhale-cli
 
-**MemoryWhale 0.17.0: Recall in Cursor · September 30, 2026.**
+**MemoryWhale 0.18.0: Recall in Every Agent · September 30, 2026.**
 
 Local-first terminal memory. Records commands, arguments, output, errors, and
 whole sessions into local SQLite, so what already failed stays searchable —
