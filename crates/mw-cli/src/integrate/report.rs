@@ -83,7 +83,10 @@ pub(crate) struct IntegrationReport {
     pub detected: bool,
     pub mcp: McpStatus,
     pub hook: PieceStatus,
-    pub skill: PieceStatus,
+    /// `None` for clients whose skill install doctor does not track.
+    pub skill: Option<PieceStatus>,
+    /// What to pass to `mw integrate` to fix the hook (e.g. `codex --capture`).
+    pub hook_fix: &'static str,
 }
 
 impl IntegrationReport {
@@ -94,7 +97,8 @@ impl IntegrationReport {
             detected: false,
             mcp: McpStatus::NotConfigured,
             hook: PieceStatus::NotInstalled,
-            skill: PieceStatus::NotInstalled,
+            skill: Some(PieceStatus::NotInstalled),
+            hook_fix: client,
         }
     }
 
@@ -111,7 +115,28 @@ impl IntegrationReport {
             detected: true,
             mcp,
             hook,
-            skill,
+            skill: Some(skill),
+            hook_fix: client,
+        }
+    }
+
+    /// A client with opt-in capture (`mw integrate <client> --capture`) and no
+    /// tracked skill, such as Codex or Cursor.
+    pub fn capture_client(
+        title: &'static str,
+        client: &'static str,
+        hook_fix: &'static str,
+        mcp: McpStatus,
+        hook: PieceStatus,
+    ) -> Self {
+        Self {
+            title,
+            client,
+            detected: true,
+            mcp,
+            hook,
+            skill: None,
+            hook_fix,
         }
     }
 
@@ -122,8 +147,10 @@ impl IntegrationReport {
             return out;
         }
         out.push_str(&line("MCP", self.mcp.phrase(self.client)));
-        out.push_str(&line("auto-capture hook", self.hook.phrase(self.client)));
-        out.push_str(&line("skill", self.skill.phrase(self.client)));
+        out.push_str(&line("auto-capture hook", self.hook.phrase(self.hook_fix)));
+        if let Some(skill) = self.skill {
+            out.push_str(&line("skill", skill.phrase(self.client)));
+        }
         out
     }
 }

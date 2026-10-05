@@ -3,6 +3,16 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Hooks and MCP entries survive Homebrew upgrades.** `mw integrate` wrote the resolved, versioned path (`/opt/homebrew/Cellar/memorywhale/<version>/bin/...`), so capture and Codex/Cursor MCP silently stopped once an upgrade removed that version. It now writes the stable PATH name (`/opt/homebrew/bin/...`) for the same file. Re-running `mw integrate claude`, `rho`, `codex`, `cursor`, or `<client> --capture` updates an existing install in place when the old path is gone, versioned, or the same file; a different helper that still exists still needs `--revert`.
+
+### Changed
+
+- `mw doctor` lists Codex and Cursor (MCP entry and capture hook), and reports a hook or MCP entry as stale when it points at a missing or no-longer-current executable.
+
 ## [0.18.0] — Recall in Every Agent — October 5, 2026
 
 Product `0.18.0`; `memorywhale-core` `0.9.0` (adds the `codex` agent identifier; `SUPPORTED_AGENTS` grows to six); SQLite schema `13`.
