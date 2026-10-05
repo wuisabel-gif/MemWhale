@@ -203,7 +203,7 @@ fn from_hook_requires_a_named_client() {
     assert!(!output.status.success(), "{output:?}");
     assert!(
         String::from_utf8_lossy(&output.stderr)
-            .contains("requires claude, rho, cursor, or codewhale"),
+            .contains("requires claude, codex, rho, cursor, or codewhale"),
         "{output:?}"
     );
 }
@@ -220,4 +220,68 @@ fn from_hook_rejects_mixed_options() {
         String::from_utf8_lossy(&output.stderr).contains("cannot be mixed"),
         "{output:?}"
     );
+}
+
+#[test]
+fn from_hook_records_codex_bash_and_names_a_past_fix() {
+    let data_dir = sandbox("codex");
+    let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
+    for (argv, exit, stderr, at) in [
+        (
+            r#"["cargo","build"]"#,
+            101,
+            "error: linker `cc` not found",
+            "2026-01-01T00:00:00Z",
+        ),
+        (
+            r#"["xcode-select","--install"]"#,
+            0,
+            "",
+            "2026-01-01T00:01:00Z",
+        ),
+    ] {
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
+             VALUES (json_extract(?1, '$[0]'), ?1, '/work', ?2, ?3, ?4)",
+            rusqlite::params![argv, exit, stderr, at],
+        )
+        .unwrap();
+    }
+
+    // Current Codex sends the combined output as a string and no exit code.
+    let output = remember_from_hook(
+        &data_dir,
+        "codex",
+        r#"{
+            "session_id": "s1",
+            "turn_id": "t1",
+            "cwd": "/work",
+            "hook_event_name": "PostToolUse",
+            "permission_mode": "default",
+            "tool_name": "Bash",
+            "tool_use_id": "call_1",
+            "tool_input": {"command": "cargo build"},
+            "tool_response": "   Compiling app v0.1.0\nerror: linker `cc` not found\n"
+        }"#,
+    );
+    assert!(output.status.success(), "{output:?}");
+    let reply: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(reply["hookSpecificOutput"]["hookEventName"], "PostToolUse");
+    let note = reply["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        note.contains("the fix was: xcode-select --install"),
+        "{note}"
+    );
+
+    let (notes, exit): (String, Option<i64>) = conn
+        .query_row(
+            "SELECT notes, exit_code FROM command_runs WHERE agent = 'codex'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert!(notes.contains("agent:codex"), "{notes}");
+    assert_eq!(exit, None);
 }

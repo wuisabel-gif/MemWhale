@@ -3531,7 +3531,7 @@ mod tests {
             api_agent_filters("/api/v1/search?q=receipt&agent=unsupported").unwrap_err();
         assert_eq!(status, "400 Bad Request");
         assert!(body.contains("invalid_agent"));
-        assert!(body.contains("claude|rho|cursor|codewhale|terminal"));
+        assert!(body.contains("claude|rho|cursor|codewhale|codex|terminal"));
     }
 
     #[test]

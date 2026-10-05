@@ -894,17 +894,29 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
 
 /// A note for the agent right after a captured command, or `None`:
 ///
-/// - the command failed with an error recorded before, and a later command
-///   fixed it then: name that fix, so the agent need not think to search;
+/// - the command failed (or its exit is unknown, as for Codex) with an error
+///   recorded before, and a later command fixed it then: name that fix, so the
+///   agent need not think to search;
 /// - the command passed right after the same command failed in the same
 ///   directory, with no note saved since: ask for the cause and fix, which a
 ///   raw command log does not capture.
 pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, String> {
-    let (argv, cwd, exit, stderr, at): (String, Option<String>, Option<i64>, String, String) = conn
+    type Run = (String, Option<String>, Option<i64>, String, String, String);
+    let (argv, cwd, exit, stdout, stderr, at): Run = conn
         .query_row(
-            "SELECT argv_json, cwd, exit_code, stderr, created_at FROM command_runs WHERE id = ?1",
+            "SELECT argv_json, cwd, exit_code, stdout, stderr, created_at
+             FROM command_runs WHERE id = ?1",
             [run_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                ))
+            },
         )
         .map_err(|e| format!("hook feedback: {e}"))?;
     match exit {
@@ -940,8 +952,10 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
                  (or `mw remember \"...\"`) so the next session gets it directly."
             )))
         }
-        Some(_) => {
-            let line = stderr.lines().find(|l| {
+        // Some agents (Codex) report no exit code and mix both streams into
+        // stdout, so look there too; a hint still needs a recorded past fix.
+        _ => {
+            let line = stderr.lines().chain(stdout.lines()).find(|l| {
                 let l = l.to_lowercase();
                 [
                     "error",
@@ -963,7 +977,6 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
                     format!("MemoryWhale: this error was {hint}. Check whether it applies here.")
                 }))
         }
-        None => Ok(None),
     }
 }
 
@@ -1630,7 +1643,7 @@ pub struct SearchFilters {
 pub const SEARCH_SOURCES: [&str; 5] = ["command", "session", "note", "document", "conversation"];
 /// The agent names accepted by `agent:`. Keep this sourced from core so every
 /// interface uses the same vocabulary.
-pub const SEARCH_AGENTS: [&str; 5] = memorywhale_core::provenance::SUPPORTED_AGENTS;
+pub const SEARCH_AGENTS: [&str; 6] = memorywhale_core::provenance::SUPPORTED_AGENTS;
 
 pub fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
     let d = chrono::NaiveDate::parse_from_str(val, "%Y-%m-%d")
@@ -2412,14 +2425,14 @@ mod tests {
         assert_eq!(query, "receipt");
         assert_eq!(filters.agents, vec!["codewhale"]);
         let error = parse_search_filters(&["agent:unsupported"]).unwrap_err();
-        assert!(error.contains("claude|rho|cursor|codewhale|terminal"));
+        assert!(error.contains("claude|rho|cursor|codewhale|codex|terminal"));
     }
 
     #[test]
     fn parse_search_filters_rejects_bad_values() {
         assert!(parse_search_filters(&["before:nope"]).is_err());
         assert!(parse_search_filters(&["source:banana"]).is_err());
-        assert!(parse_search_filters(&["agent:codex"]).is_err());
+        assert!(parse_search_filters(&["agent:gemini"]).is_err());
         assert!(parse_search_filters(&["limit:x"]).is_err());
     }
 
@@ -2801,6 +2814,20 @@ mod tests {
             "2026-01-04T00:00:00Z",
         );
         assert_eq!(hook_feedback(&conn, new).unwrap(), None);
+        // Unknown exit with the error in stdout (Codex): still names the fix.
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, cwd, stdout, created_at)
+             VALUES ('cargo', '[\"cargo\",\"build\"]', '/p', ?1, '2026-01-05T00:00:00Z')",
+            [format!("Compiling app\n{err}")],
+        )
+        .unwrap();
+        let note = hook_feedback(&conn, conn.last_insert_rowid())
+            .unwrap()
+            .unwrap();
+        assert!(
+            note.contains("the fix was: xcode-select --install"),
+            "{note}"
+        );
         let _ = fail;
     }
 

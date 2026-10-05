@@ -1,14 +1,15 @@
 #![cfg(unix)]
 // Also compile adapters independently of public CLI dispatch.
-#[path = "../src/integrate/cursor_capture.rs"]
-mod cursor_capture;
+#[path = "../src/integrate/hook_capture.rs"]
+mod hook_capture;
 #[path = "../src/integrate/mcp_client.rs"]
 #[allow(dead_code)]
 mod mcp_client;
 
 #[test]
 fn rejects_invalid_capture_options() {
-    assert!(cursor_capture::cli(&["--unknown".into()]).is_err());
+    assert!(hook_capture::cli(&["--unknown".into()]).is_err());
+    assert!(hook_capture::codex_cli(&["--unknown".into()]).is_err());
 }
 
 use serde_json::{json, Value};
@@ -387,4 +388,48 @@ fn duplicate_owned_entries_and_pending_or_ambiguous_journals_fail_closed() {
     fs::write(s.owner(), ambiguous.as_bytes()).unwrap();
     bad(s.run(&["--check"]));
     assert_eq!(original, fs::read(s.path()).unwrap());
+}
+
+#[test]
+fn codex_capture_merges_checks_and_reverts() {
+    let sb = Sandbox::new();
+    let path = sb.0.join(".codex/hooks.json");
+    let user = json!({"hooks": {"PostToolUse": [
+        {"matcher": "apply_patch", "hooks": [{"type": "command", "command": "echo mine"}]}
+    ]}});
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, serde_json::to_vec(&user).unwrap()).unwrap();
+    let codex = |args: &[&str]| {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_mw"));
+        c.args(["integrate", "codex", "--capture"])
+            .args(args)
+            .env("HOME", &sb.0)
+            .env("MEMORYWHALE_DATA_DIR", sb.0.join("data"))
+            .env("PATH", "")
+            .current_dir(&sb.0);
+        c.output().unwrap()
+    };
+    bad(codex(&["--check"]));
+    ok(codex(&[]));
+    let doc: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let groups = doc["hooks"]["PostToolUse"].as_array().unwrap();
+    assert_eq!(groups.len(), 2);
+    assert_eq!(groups[0], user["hooks"]["PostToolUse"][0]);
+    assert_eq!(groups[1]["matcher"], "Bash");
+    let command = groups[1]["hooks"][0]["command"].as_str().unwrap();
+    assert!(
+        command.ends_with("mw-remember' --from-hook codex"),
+        "{command}"
+    );
+    ok(codex(&["--check"]));
+    ok(codex(&[]));
+    let again: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(again, doc, "reinstall is a no-op");
+    ok(codex(&["--revert"]));
+    let reverted: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(reverted, user);
+    assert!(!sb
+        .0
+        .join(".codex/hooks.json.memorywhale-codex-capture-owner.json")
+        .exists());
 }

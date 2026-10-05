@@ -42,7 +42,7 @@ features.
 | Cline | Yes | No | Yes | [Guide](cline/README.md) |
 | Codewhale | Yes | Separate opt-in development bundle; requires host execution receipts | Yes, via plugin guidance / roles | [Guide](codewhale/README.md) |
 | Waku Agent | Yes, with verified SDK bootstrap | No | Optional debugging skill | [Guide](waku/README.md) |
-| Codex CLI | Yes | No | Yes | [Guide](codex/README.md) |
+| Codex CLI | Yes | Yes, opt-in hook (`mw integrate codex --capture`); exit codes unknown | Yes | [Guide](codex/README.md) |
 | Continue | Yes | No | Yes | [Guide](continue/README.md) |
 | CrowClaw | Yes | No | Yes | [Guide](crowclaw/README.md) |
 | Cursor | Yes | Opt-in development adapter; fixture-tested, live verification pending | Yes | [Guide](cursor/README.md) |

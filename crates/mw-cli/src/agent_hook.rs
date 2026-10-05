@@ -1,7 +1,8 @@
 //! Parse explicitly selected client hook JSON into a [`CommandRecord`].
 //!
 //! The installer names the client on the argv (`--from-hook claude` /
-//! `--from-hook rho` / `--from-hook cursor` / `--from-hook codewhale`).
+//! `--from-hook rho` / `--from-hook cursor` / `--from-hook codewhale` /
+//! `--from-hook codex`).
 //! This module does not guess the client from JSON.
 
 use std::sync::OnceLock;
@@ -34,6 +35,7 @@ pub enum Agent {
     Rho,
     Cursor,
     Codewhale,
+    Codex,
 }
 
 impl Agent {
@@ -43,6 +45,7 @@ impl Agent {
             "rho" => Some(Self::Rho),
             "cursor" => Some(Self::Cursor),
             "codewhale" => Some(Self::Codewhale),
+            "codex" => Some(Self::Codex),
             _ => None,
         }
     }
@@ -53,6 +56,7 @@ impl Agent {
             Self::Rho => memorywhale_core::provenance::AGENT_RHO,
             Self::Cursor => memorywhale_core::provenance::AGENT_CURSOR,
             Self::Codewhale => memorywhale_core::provenance::AGENT_CODEWHALE,
+            Self::Codex => memorywhale_core::provenance::AGENT_CODEX,
         }
     }
 }
@@ -74,6 +78,7 @@ pub fn record_from_value(payload: &Value, agent: Agent) -> Option<CommandRecord>
         Agent::Rho => rho(payload),
         Agent::Cursor => cursor::parse(payload).ok().flatten(),
         Agent::Codewhale => codewhale::record_from_value(payload),
+        Agent::Codex => payload.as_object().and_then(codex),
     }
 }
 
@@ -134,6 +139,41 @@ fn claude(payload: &serde_json::Map<String, Value>) -> Option<CommandRecord> {
         command_parts: vec![command],
         capture_kind: "full".to_string(),
         agent: Some(Agent::Claude.as_str().to_string()),
+    })
+}
+
+/// Codex `PostToolUse` for its `Bash` tool. Codex's docs describe
+/// `tool_response` as `{exit_code, stdout, stderr}`, but current Codex sends the
+/// command's combined output as one string with no exit code, so both shapes
+/// are accepted and the exit stays unknown for the string form.
+fn codex(payload: &serde_json::Map<String, Value>) -> Option<CommandRecord> {
+    if payload.get("tool_name").and_then(Value::as_str) != Some("Bash") {
+        return None;
+    }
+    let command = as_object(payload.get("tool_input"))
+        .and_then(|input| input.get("command"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|command| !command.is_empty())?
+        .to_string();
+    let (exit_code, stdout, stderr) = match payload.get("tool_response") {
+        Some(Value::Object(response)) => (
+            bash_exit_code(payload, Some(response)),
+            truncate(first_str(Some(response), &["stdout", "output"])),
+            truncate(first_str(Some(response), &["stderr"])),
+        ),
+        Some(Value::String(output)) => (None, truncate(output.clone()), String::new()),
+        _ => (None, String::new(), String::new()),
+    };
+    Some(CommandRecord {
+        cwd: nonempty_str(payload.get("cwd")).map(str::to_string),
+        exit_code,
+        stdout,
+        stderr,
+        notes: "agent:codex".to_string(),
+        command_parts: vec![command],
+        capture_kind: "full".to_string(),
+        agent: Some(Agent::Codex.as_str().to_string()),
     })
 }
 
@@ -469,6 +509,67 @@ mod tests {
 
     fn rho(value: Value) -> Option<CommandRecord> {
         record_from_value(&value, Agent::Rho)
+    }
+
+    fn codex_event(tool_name: &str, command: &str, response: Value) -> Value {
+        json!({
+            "session_id": "s1",
+            "turn_id": "t1",
+            "cwd": "/repo",
+            "hook_event_name": "PostToolUse",
+            "permission_mode": "default",
+            "tool_name": tool_name,
+            "tool_use_id": "call_1",
+            "tool_input": {"command": command},
+            "tool_response": response
+        })
+    }
+
+    #[test]
+    fn codex_records_bash_output_with_unknown_exit() {
+        // Current Codex sends the combined output as a string, no exit code.
+        let record = record_from_value(
+            &codex_event(
+                "Bash",
+                " cargo build ",
+                json!("error: linker `cc` not found\n"),
+            ),
+            Agent::Codex,
+        )
+        .unwrap();
+        assert_eq!(record.command_parts, vec!["cargo build"]);
+        assert_eq!(record.cwd.as_deref(), Some("/repo"));
+        assert_eq!(record.exit_code, None);
+        assert_eq!(record.stdout, "error: linker `cc` not found\n");
+        assert_eq!(record.stderr, "");
+        assert_eq!(record.notes, "agent:codex");
+        assert_eq!(record.agent.as_deref(), Some("codex"));
+
+        // The documented object form carries a real exit code.
+        let record = record_from_value(
+            &codex_event(
+                "Bash",
+                "cargo test",
+                json!({"exit_code": 101, "stdout": "running 3 tests", "stderr": "error[E0308]"}),
+            ),
+            Agent::Codex,
+        )
+        .unwrap();
+        assert_eq!(
+            (
+                record.exit_code,
+                record.stdout.as_str(),
+                record.stderr.as_str()
+            ),
+            (Some(101), "running 3 tests", "error[E0308]")
+        );
+
+        for skipped in [
+            codex_event("apply_patch", "x", json!("ok")),
+            codex_event("Bash", "   ", json!("ok")),
+        ] {
+            assert!(record_from_value(&skipped, Agent::Codex).is_none());
+        }
     }
 
     #[test]

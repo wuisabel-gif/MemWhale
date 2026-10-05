@@ -36,13 +36,15 @@ configuration. Without it, those commands use `~/.claude/`.
 
 ## `MEMORYWHALE_HOOK_FEEDBACK`
 
-The Claude Code capture hook (`mw integrate claude`) and the Cursor capture
-hook (`mw integrate cursor --capture`, through Cursor's `additional_context`
-output) add a one-line note to the agent's context at two moments: when a command fails with an error that a
-later command fixed before (it names that fix), and when a command passes
-right after the same command failed with no note saved since (it asks the agent
-to save the cause and fix with `remember`). Set `MEMORYWHALE_HOOK_FEEDBACK=0`
-to record silently.
+The Claude Code capture hook (`mw integrate claude`), the Cursor capture hook
+(`mw integrate cursor --capture`, through Cursor's `additional_context`
+output), and the Codex capture hook (`mw integrate codex --capture`) add a
+one-line note to the agent's context at two moments: when a command fails with
+an error that a later command fixed before (it names that fix), and when a
+command passes right after the same command failed with no note saved since
+(it asks the agent to save the cause and fix with `remember`). Codex reports
+no exit code, so for Codex only the first note applies, matched on the
+command's output. Set `MEMORYWHALE_HOOK_FEEDBACK=0` to record silently.
 
 ## `RHO_HOME`
 

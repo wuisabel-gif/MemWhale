@@ -5,12 +5,14 @@ pub const AGENT_CLAUDE: &str = "claude";
 pub const AGENT_RHO: &str = "rho";
 pub const AGENT_CURSOR: &str = "cursor";
 pub const AGENT_CODEWHALE: &str = "codewhale";
+pub const AGENT_CODEX: &str = "codex";
 pub const AGENT_TERMINAL: &str = "terminal";
-pub const SUPPORTED_AGENTS: [&str; 5] = [
+pub const SUPPORTED_AGENTS: [&str; 6] = [
     AGENT_CLAUDE,
     AGENT_RHO,
     AGENT_CURSOR,
     AGENT_CODEWHALE,
+    AGENT_CODEX,
     AGENT_TERMINAL,
 ];
 
@@ -19,7 +21,11 @@ pub const SUPPORTED_AGENTS: [&str; 5] = [
 pub fn is_valid(agent: Option<&str>) -> bool {
     matches!(
         agent,
-        None | Some(AGENT_CLAUDE) | Some(AGENT_RHO) | Some(AGENT_CURSOR) | Some(AGENT_CODEWHALE)
+        None | Some(AGENT_CLAUDE)
+            | Some(AGENT_RHO)
+            | Some(AGENT_CURSOR)
+            | Some(AGENT_CODEWHALE)
+            | Some(AGENT_CODEX)
     )
 }
 
@@ -32,6 +38,7 @@ pub fn label(agent: Option<&str>) -> &'static str {
         Some(AGENT_RHO) => AGENT_RHO,
         Some(AGENT_CURSOR) => AGENT_CURSOR,
         Some(AGENT_CODEWHALE) => AGENT_CODEWHALE,
+        Some(AGENT_CODEX) => AGENT_CODEX,
         Some(_) => "unknown",
     }
 }
@@ -49,6 +56,8 @@ mod tests {
         assert_eq!(label(Some(AGENT_CODEWHALE)), AGENT_CODEWHALE);
         assert!(is_valid(Some(AGENT_CODEWHALE)));
         assert!(SUPPORTED_AGENTS.contains(&AGENT_CODEWHALE));
+        assert_eq!(label(Some(AGENT_CODEX)), AGENT_CODEX);
+        assert!(is_valid(Some(AGENT_CODEX)));
         assert!(!is_valid(Some("Codewhale")));
         assert!(!is_valid(Some(AGENT_TERMINAL)));
         assert_eq!(label(None), AGENT_TERMINAL);

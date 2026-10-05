@@ -3,6 +3,17 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Codex command capture and proactive recall.** `mw integrate codex --capture` adds a `PostToolUse` hook for Codex's `Bash` tool that records each command with its output, and returns the same one-line "the fix was" note as Claude Code and Cursor when the output shows an error fixed before. Codex sends no exit code, so its rows keep an unknown exit. `--check`, `--dry-run`, and `--revert` work as for Cursor. (#393)
+- **Rho exit codes and output.** With Rho versions that send `payload.process`, Rho commands are stored with their real exit code, stdout, and stderr, so they count in `--last-error`, fingerprints, and fix detection. Thanks to @matthewyjiang. (#396)
+
+### Changed
+
+- Hook feedback also checks commands whose exit code is unknown, and looks for the error line in stdout as well as stderr.
+
 ## [0.17.0] — Recall in Cursor — October 3, 2026
 
 Product `0.17.0`; `memorywhale-core` `0.8.1` (dirs 7 only); SQLite schema `13`.
