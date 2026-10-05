@@ -6,7 +6,11 @@ use std::{
 };
 // Compile the adapter independently as well as testing its public CLI dispatch.
 #[path = "../src/integrate/mcp_client.rs"]
+#[allow(dead_code)]
 mod adapter;
+#[path = "../src/integrate/files.rs"]
+#[allow(dead_code)]
+mod files;
 
 #[test]
 fn rejects_missing_client_and_invalid_options() {

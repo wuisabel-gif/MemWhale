@@ -5,8 +5,13 @@ All notable changes to MemoryWhale are documented here. This project follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hooks and MCP entries survive Homebrew upgrades.** `mw integrate` wrote the resolved, versioned path (`/opt/homebrew/Cellar/memorywhale/<version>/bin/...`), so capture and Codex/Cursor MCP silently stopped once an upgrade removed that version. It now writes the stable PATH name (`/opt/homebrew/bin/...`) for the same file. Re-running `mw integrate claude`, `rho`, `codex`, `cursor`, or `<client> --capture` updates an existing install in place when the old path is gone, versioned, or the same file; a different helper that still exists still needs `--revert`.
+
 ### Changed
 
+- `mw doctor` lists Codex and Cursor (MCP entry and capture hook), and reports a hook or MCP entry as stale when it points at a missing or no-longer-current executable.
 - `memorywhale_core::provenance::SUPPORTED_AGENTS` (and the CLI's `SEARCH_AGENTS`) is now a slice, `&[&str]`, instead of a fixed-size array, so adding an agent no longer changes its type. `is_valid` and `label` derive from it.
 - The release preflight rejects linked contributor mentions (`[@handle](url)`) in the release notes: GitHub lists release contributors only from plain `@handle` mentions.
 

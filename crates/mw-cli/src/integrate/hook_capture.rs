@@ -58,23 +58,9 @@ fn quote(text: &str) -> String {
 }
 
 fn desired(client: &Client) -> Result<Value, String> {
-    let mut candidates = Vec::new();
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            candidates.push(parent.join("mw-remember"));
-        }
-    }
-    if let Some(path) = std::env::var_os("PATH") {
-        candidates.extend(
-            std::env::split_paths(&path)
-                .filter(|p| !p.as_os_str().is_empty())
-                .map(|p| p.join("mw-remember")),
-        );
-    }
-    let exe = candidates
-        .into_iter()
-        .filter_map(|p| fs::canonicalize(p).ok())
-        .find(|p| usable_executable(p))
+    let exe = super::files::stable_executable("mw-remember")
+        .ok()
+        .filter(|path| usable_executable(path))
         .ok_or("Cannot locate executable mw-remember beside mw or on PATH")?;
     let mut command = String::new();
     if let Some(dir) = std::env::var_os("MEMORYWHALE_DATA_DIR") {
@@ -101,6 +87,23 @@ fn desired(client: &Client) -> Result<Value, String> {
             .map(|event| (event.to_string(), entry.clone()))
             .collect(),
     ))
+}
+
+/// `entries` with each hook command's quoted executable path blanked, so two
+/// installs can be compared apart from where `mw-remember` lives.
+fn without_executable(entries: &Value) -> Value {
+    static EXE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let exe = EXE.get_or_init(|| regex::Regex::new(r"'[^']*' --from-hook ").unwrap());
+    match entries {
+        Value::String(s) => Value::String(exe.replace(s, "'' --from-hook ").into_owned()),
+        Value::Array(items) => Value::Array(items.iter().map(without_executable).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), without_executable(v)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
 }
 
 fn invalid(client: &Client) -> String {
@@ -169,6 +172,50 @@ fn ours(entry: &Value) -> bool {
             .get("hooks")
             .and_then(Value::as_array)
             .is_some_and(|nested| nested.iter().any(runs_mw))
+}
+
+/// MemoryWhale hook commands in `flag`'s (codex/cursor) default hooks file.
+pub(super) fn installed_commands(flag: &str) -> Result<Vec<String>, String> {
+    let client = if flag == "codex" { &CODEX } else { &CURSOR };
+    let path = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+        .ok_or("Cannot determine home directory")?
+        .join(client.default_file);
+    let doc = parse(client, read(&path)?.as_deref())?;
+    let mut commands = Vec::new();
+    for entries in doc["hooks"]
+        .as_object()
+        .into_iter()
+        .flat_map(|h| h.values())
+    {
+        for entry in entries.as_array().into_iter().flatten().filter(|e| ours(e)) {
+            let nested = entry["hooks"].as_array().into_iter().flatten();
+            for hook in std::iter::once(entry).chain(nested) {
+                if let Some(command) = hook["command"].as_str() {
+                    commands.push(command.to_string());
+                }
+            }
+        }
+    }
+    Ok(commands)
+}
+
+/// Every `mw-remember` path named by hook commands inside `entries`.
+fn hook_executables(entries: &Value) -> Vec<String> {
+    match entries {
+        Value::String(s) => hook_executable(s).map(str::to_string).into_iter().collect(),
+        Value::Array(items) => items.iter().flat_map(hook_executables).collect(),
+        Value::Object(map) => map.values().flat_map(hook_executables).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The quoted `mw-remember` path in a hook command this adapter wrote.
+pub(super) fn hook_executable(command: &str) -> Option<&str> {
+    let start = command.find("' --from-hook ")?;
+    let quote = command[..start].rfind('\'')?;
+    Some(&command[quote + 1..start])
 }
 
 pub fn cli(args: &[String]) -> Result<(), String> {
@@ -269,6 +316,7 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
     if mode == "--check" && owner.is_none() {
         return Err(format!("{name} capture hooks are not installed"));
     }
+    let mut previous = None;
     let entries = if mode == "--revert" {
         owner
             .as_ref()
@@ -279,11 +327,30 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
         let entries =
             desired(client).map_err(|e| if owner.is_some() { stale(client) } else { e })?;
         if let Some(o) = &owner {
-            if o.entries != entries {
+            if o.entries == entries {
+                println!("{name} capture local configuration and executable paths match; live capture not tested. No files changed.");
+                return Ok(());
+            }
+            // Only where mw-remember lives changed (e.g. a versioned Homebrew
+            // path from an older install): update in place.
+            let replaceable = |v: &Value| {
+                v.to_string().contains("--from-hook")
+                    && hook_executables(v).iter().all(|old| {
+                        super::files::replaceable_executable(
+                            std::path::Path::new(old),
+                            hook_executables(&entries).first().map(PathBuf::from),
+                        )
+                    })
+            };
+            if without_executable(&o.entries) != without_executable(&entries)
+                || !replaceable(&o.entries)
+            {
                 return Err(stale(client));
             }
-            println!("{name} capture local configuration and executable paths match; live capture not tested. No files changed.");
-            return Ok(());
+            if mode == "--check" {
+                return Err(format!("{name} capture hooks point at an old mw-remember path; run mw integrate {} --capture to update them", client.flag));
+            }
+            previous = Some(o.entries.clone());
         }
         entries
     };
@@ -294,6 +361,12 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
                 .ok_or_else(|| recovery(client))?
                 .retain(|e| *e != entries[*event]);
         } else {
+            if let Some(previous) = &previous {
+                doc["hooks"][event]
+                    .as_array_mut()
+                    .ok_or_else(|| recovery(client))?
+                    .retain(|e| *e != previous[*event]);
+            }
             if doc["hooks"].get(event).is_none() {
                 doc["hooks"][event] = json!([]);
             }
@@ -308,7 +381,7 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
         return Err(format!("{name} hooks exceeds supported size limit"));
     }
     if mode == "--dry-run" {
-        println!("Would install {name} shell-command capture hooks ({}); no files written, live capture not tested.", client.events.join(", "));
+        println!("Would {} {name} shell-command capture hooks ({}); no files written, live capture not tested.", if previous.is_some() { "update the mw-remember path in" } else { "install" }, client.events.join(", "));
     } else {
         let parent = path.parent().ok_or_else(|| invalid(client))?;
         safe(parent)?;
@@ -338,7 +411,7 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
             }
             Ok(())
         })?;
-        println!("{name} capture hooks {}. Live capture not tested; normal {name} hook trust still applies.", if mode == "--revert" { "removed" } else { "installed" });
+        println!("{name} capture hooks {}. Live capture not tested; normal {name} hook trust still applies.", if mode == "--revert" { "removed" } else if previous.is_some() { "updated to the current mw-remember path" } else { "installed" });
     }
     if custom {
         println!("Custom hooks file only; not automatically registered with {name}.");
