@@ -7,8 +7,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 # __MW_SERVE__ is replaced with the resolved path to mw-serve by
-# enable-dashboard.sh. Bound to localhost by default; pass --host 0.0.0.0 to
-# reach the dashboard from your LAN (e.g. the Jetson from a laptop browser).
+# enable-dashboard.sh. Bound to localhost by default. For LAN access (e.g. the
+# Jetson from a laptop browser) run `enable-dashboard.sh --lan`, which uses
+# --lan here; mw-serve then reads its token from serve.token in the data
+# directory (mode 600), so the token never appears in this file.
 ExecStart=__MW_SERVE__ --host 127.0.0.1 --port 7071
 Restart=on-failure
 RestartSec=2

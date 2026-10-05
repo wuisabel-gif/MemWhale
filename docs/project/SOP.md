@@ -4,16 +4,23 @@ How to use MemoryWhale day to day. Everything is local; nothing is uploaded.
 
 ## 0. One-time setup (per machine)
 
+Install a release with the command in the [README](../../README.md#install),
+Homebrew, or `cargo install memorywhale-cli`. To build from source instead, run
+this from the repository root:
+
 ```bash
-cd src-tauri
-cargo build --release --bin mw --bin mw-remember --bin mw-serve --bin mw-view --bin mw-recover
+cargo build --release -p memorywhale-cli --bins
 mkdir -p ~/.local/bin
-cp target/release/{mw,mw-remember,mw-serve,mw-view,mw-recover} ~/.local/bin/
+cp target/release/{mw,mw-remember,mw-run,mw-screenshot,mw-serve,mw-view,mw-recover,mw-mcp} ~/.local/bin/
+# macOS only: re-sign each copied binary, or it is killed on launch
+#   for b in ~/.local/bin/mw*; do codesign --force --sign - "$b"; done
 # optional: put ~/.local/bin on PATH so you can drop the full path
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
 
-On Ubuntu/Jetson, install Node/Tauri system deps first — see [DEBUG.md](DEBUG.md).
+On Linux, `linux/install.sh` does the same build and install. The CLI needs
+only a Rust toolchain and a C compiler; Node and the Tauri libraries are for
+the desktop app (see [DEBUG.md](DEBUG.md)).
 
 ## 1. Record a single command (manual, fast)
 
@@ -47,16 +54,22 @@ Browse recorded sessions: `mw list` · replay one: `mw show <id>`.
 ## 3. View your memory in a browser (the dashboard)
 
 ```bash
-mw-serve --host 127.0.0.1 --port 7071     # this machine only
+mw-serve                                   # 127.0.0.1:7071, this machine only
 #   open http://localhost:7071/
 ```
 
-On a **headless Jetson**, bind to the LAN and open from your laptop:
+On a **headless Jetson**, serve on the LAN and open it from your laptop. LAN
+access always needs a token:
 
 ```bash
-mw-serve                                   # binds 0.0.0.0:7071
+mw-serve --lan --print-token               # creates serve.token once and prints it
+mw-serve --lan                             # all interfaces, port 7071
 #   laptop browser: http://<jetson-ip>:7071/   (find the IP with: hostname -I)
+#   then paste the token into the sign-in form; never put it in the URL
 ```
+
+`serve.token` sits in the data directory, readable only by you; set
+`MEMORYWHALE_TOKEN` to use your own secret instead.
 
 Click any command/session for the detail page + suggested next steps.
 A single memory page can also be generated with `mw-view <id>`.

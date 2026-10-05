@@ -15,55 +15,70 @@ before you hit them.
 ## Prerequisites
 
 - SSH access to the Jetson (a `jetson` host alias in `~/.ssh/config` is handy).
-- On the Jetson: `cargo` (rustup), `node`/`npm`, and `script` (util-linux, used
-  for session capture). All ship on the standard Jetson image.
+- On the Jetson: `script` (util-linux, used for session capture), which ships on
+  the standard Jetson image. Building from source also needs `cargo` (rustup)
+  and a C compiler; Node and the Tauri libraries are only for the desktop app.
 
-## 1. Deploy the binaries
+## 1. Install the binaries
 
-The Jetson's checkout predates the current flat `main` layout and its history has
-diverged, so `git pull` is not the path of least resistance. Copy the current
-source straight from `main` into the Jetson's bin directory instead, then build
-with the Jetson's own cargo. Each `mw-*.rs` is a standalone binary that only needs
-crates already in `Cargo.toml`, so this just works.
+Easiest: the prebuilt Linux aarch64 release, with the installer command from
+the [README's Install section](../../README.md#install) (it checks the
+installer's SHA-256 before running it). `cargo install memorywhale-cli` also
+works.
 
-From a machine that has the repo (paths below are the flat `main` layout):
-
-```bash
-REPO=/home/barracuda/barracuda_ws_isabella/MemWhale/MemoryWhale
-for f in mw mw-remember mw-serve mw-view mw-recover; do
-  git show origin/main:src-tauri/src/bin/$f.rs \
-    | ssh jetson "cat > $REPO/src-tauri/src/bin/$f.rs"
-done
-```
-
-On the Jetson:
+From source, on the Jetson, from a checkout of current `main`:
 
 ```bash
-cd ~/barracuda_ws_isabella/MemWhale/MemoryWhale/src-tauri
-cargo build --bin mw --bin mw-remember --bin mw-serve --bin mw-view --bin mw-recover
-mkdir -p ~/.local/bin
-cp target/debug/{mw,mw-remember,mw-serve,mw-view,mw-recover} ~/.local/bin/
+git clone https://github.com/wuisabel-gif/MemWhale.git
+cd MemWhale
+linux/install.sh        # builds the CLI workspace and installs every binary into ~/.local/bin
 ```
 
-No `codesign` step here — that one is macOS-only.
+`linux/install.sh` runs `cargo build --release -p memorywhale-cli` from the
+repository root and installs `mw`, `mw-remember`, `mw-run`, `mw-screenshot`,
+`mw-serve`, `mw-view`, `mw-recover`, and `mw-mcp`. Add `--all` for the shell
+hook, the dashboard service, completions, and man pages. Check with:
+
+```bash
+mw --version
+mw doctor
+```
+
+No `codesign` step here; that one is macOS-only.
 
 ## 2. Run the dashboard
 
-Bind to all interfaces so the laptop can reach it, and detach it so it survives
-your SSH session:
+`mw-serve` listens on `127.0.0.1` only by default. To open it from a laptop,
+serve on the LAN with `--lan`, which requires a token:
 
 ```bash
-setsid mw-serve --host 0.0.0.0 --port 7071 >~/mw-serve.log 2>&1 </dev/null &
+mw-serve --lan --print-token    # creates serve.token on first use and prints it
 ```
 
-Open it from a laptop on the same network at `http://<jetson-ip>:7071/`. Find the
-address with `hostname -I` and use the LAN one — ignore the Docker `172.x`
-bridges.
+The token lives in `serve.token` in the MemoryWhale data directory, readable
+only by you. Set `MEMORYWHALE_TOKEN` instead if you manage the secret
+yourself.
 
-Check it from the Jetson:
+To keep the dashboard up across logout and reboot, use the systemd helper:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:7071/   # expect 200
+linux/systemd/enable-dashboard.sh --lan
+```
+
+Or start it by hand, detached so it survives your SSH session:
+
+```bash
+setsid mw-serve --lan >~/mw-serve.log 2>&1 </dev/null &
+```
+
+Open `http://<jetson-ip>:7071/` from a laptop on the same network and paste the
+token into the sign-in form. Never put the token in the URL. Find the address
+with `hostname -I` and use the LAN one; ignore the Docker `172.x` bridges.
+
+Check it from the Jetson (the sign-in page answers without a token):
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:7071/
 ```
 
 ## 3. Test host recording
@@ -127,8 +142,8 @@ would mean baking `mw` into the image or wiring the compose service.
 
 ## Gotchas
 
-- **Nested vs flat git.** The device's old nested checkout has unrelated history
-  to flat `main`. Copy files from `main` rather than pulling.
+- **Old nested checkouts.** A device checkout from before the flat workspace
+  layout has unrelated history. Clone `main` fresh rather than pulling into it.
 - **Tilde over SSH.** `ssh jetson 'cat > ~/x'` expands `~` on the Jetson;
   `BIN=~/x; ssh jetson "cat > $BIN"` expands it on the *local* machine first. Use
   absolute remote paths, or keep the `~` inside the single-quoted remote command.

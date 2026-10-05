@@ -83,9 +83,12 @@ linux/systemd/enable-dashboard.sh
 #   stop:   linux/systemd/enable-dashboard.sh --disable
 ```
 
-For LAN access (open the dashboard from another machine), add `--lan`. If no
-token is set, `mw-serve` mints `serve.token` in the data directory. `mw-serve
---lan --print-token` prints that LAN token. MCP clients send it as
+For LAN access (open the dashboard from another machine), run
+`linux/systemd/enable-dashboard.sh --lan`, or add `--lan` when starting
+`mw-serve` by hand. If no token is set, `mw-serve` mints `serve.token` in the
+data directory, readable only by you, so the token stays out of the unit file.
+`mw-serve --lan --print-token` prints it; paste it into the dashboard's sign-in
+form, never into a URL. MCP clients send it as
 `Authorization: Bearer …` to `POST /mcp`.
 
 HTTP MCP is available on the dashboard listener without an extra flag;
@@ -117,7 +120,7 @@ With [`cargo-deb`](https://github.com/kornelski/cargo-deb):
 ```bash
 cargo install cargo-deb
 cargo deb -p memorywhale-cli   # run from the repository root
-# writes target/debian/memorywhale_0.17.0-1_<arch>.deb (revision may vary)
+# writes target/debian/memorywhale_<version>-1_<arch>.deb
 sudo dpkg -i target/debian/memorywhale_*.deb
 ```
 
