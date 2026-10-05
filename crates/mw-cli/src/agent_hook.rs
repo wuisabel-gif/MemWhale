@@ -208,6 +208,14 @@ fn rho(payload: &Value) -> Option<CommandRecord> {
         notes.push_str(" command:unknown");
     }
 
+    let failure_text = truncate(if !kind.is_empty() && !message.is_empty() {
+        format!("{kind}: {message}")
+    } else if !kind.is_empty() {
+        kind.clone()
+    } else {
+        message.clone()
+    });
+
     let (exit_code, stdout, stderr) = match process {
         Some(process) => {
             // Shortened streams keep their last bytes, so they are still real
@@ -221,20 +229,21 @@ fn rho(payload: &Value) -> Option<CommandRecord> {
             if rho_used_field_truncated(payload, &truncated) {
                 notes.push_str(" rho:truncated");
             }
+            let exit_code = parse_exit_code(process.get("exit_code"));
+            let mut stderr = truncate(first_str(Some(process), &["stderr"]));
+            // A signal can end the process with no exit code and no output;
+            // keep Rho's failure text then so the row still says why it failed.
+            if exit_code.is_none() && stderr.is_empty() {
+                stderr = failure_text;
+            }
             (
-                parse_exit_code(process.get("exit_code")),
+                exit_code,
                 truncate(first_str(Some(process), &["stdout"])),
-                truncate(first_str(Some(process), &["stderr"])),
+                stderr,
             )
         }
         None => {
-            let mut stderr = truncate(if !kind.is_empty() && !message.is_empty() {
-                format!("{kind}: {message}")
-            } else if !kind.is_empty() {
-                kind.clone()
-            } else {
-                message.clone()
-            });
+            let mut stderr = failure_text;
             if rho_used_field_truncated(payload, &truncated) {
                 if !stderr.is_empty() {
                     stderr.push('\n');
@@ -638,7 +647,12 @@ mod tests {
                     json!({"exit_code": null, "stdout": "", "stderr": ""}),
                     &[],
                 ),
-                (None, "", "", "agent:rho status:failed"),
+                (
+                    None,
+                    "",
+                    "execution: stdout:\nout\n\ntime: 0.1s  exit code: 101",
+                    "agent:rho status:failed",
+                ),
             ),
             (
                 event(
