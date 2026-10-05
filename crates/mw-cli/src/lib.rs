@@ -1643,7 +1643,7 @@ pub struct SearchFilters {
 pub const SEARCH_SOURCES: [&str; 5] = ["command", "session", "note", "document", "conversation"];
 /// The agent names accepted by `agent:`. Keep this sourced from core so every
 /// interface uses the same vocabulary.
-pub const SEARCH_AGENTS: [&str; 6] = memorywhale_core::provenance::SUPPORTED_AGENTS;
+pub const SEARCH_AGENTS: &[&str] = memorywhale_core::provenance::SUPPORTED_AGENTS;
 
 pub fn parse_filter_day(kind: &str, val: &str) -> Result<chrono::DateTime<Utc>, String> {
     let d = chrono::NaiveDate::parse_from_str(val, "%Y-%m-%d")

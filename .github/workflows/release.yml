@@ -43,6 +43,11 @@ jobs:
             echo "docs/releases/$version.md must start with '# MemoryWhale $version — <name>'" >&2
             exit 1
           }
+          # GitHub lists release contributors only from plain @mentions, not linked ones.
+          if grep -nE '\[@[A-Za-z0-9-]+\]\(' "docs/releases/$version.md"; then
+            echo "docs/releases/$version.md: write contributors as plain @handle, not [@handle](url), so GitHub credits them" >&2
+            exit 1
+          fi
       - name: Verify crates together in dependency order
         run: cargo publish --dry-run --locked -p memorywhale-core -p memorywhale-cli
       - name: Prepare draft release
