@@ -38,3 +38,41 @@ fn long_version_flag_prints_version_without_initializing_database() {
 fn short_version_flag_prints_version_without_initializing_database() {
     assert_version_flag("-V", "short");
 }
+
+fn assert_help_flag(flag: &str, sandbox_name: &str) {
+    let data_dir =
+        std::env::temp_dir().join(format!("mw-help-{sandbox_name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&data_dir);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_mw"))
+        .arg(flag)
+        .env("MEMORYWHALE_DATA_DIR", &data_dir)
+        .output()
+        .expect("run mw help command");
+
+    assert!(output.status.success(), "{flag} failed: {output:?}");
+    let stdout = std::str::from_utf8(&output.stdout).expect("help output is UTF-8");
+    for group in [
+        "record a whole shell session",
+        "mw search",
+        "mw memory",
+        "mw doctor",
+        "mw integrate",
+    ] {
+        assert!(stdout.contains(group), "{flag} help lacks {group:?}");
+    }
+    assert!(
+        !data_dir.exists(),
+        "{flag} created the MemoryWhale data directory"
+    );
+}
+
+#[test]
+fn long_help_flag_lists_command_groups_without_initializing_database() {
+    assert_help_flag("--help", "long");
+}
+
+#[test]
+fn short_help_flag_lists_command_groups_without_initializing_database() {
+    assert_help_flag("-h", "short");
+}
