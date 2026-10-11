@@ -359,17 +359,32 @@ fn executable() -> Result<PathBuf, String> {
 /// upgrade removed a versioned install path. A different executable that still
 /// exists, or a data-directory change, needs an explicit revert and reinstall.
 fn only_command_differs(old: &Value, new: &Value) -> bool {
-    let strip = |v: &Value| {
-        let mut v = v.clone();
-        if let Some(map) = v.as_object_mut() {
-            map.remove("command");
-        }
-        v
+    let (Some((old_rest, old_path)), Some((new_rest, new_path))) =
+        (split_command(old), split_command(new))
+    else {
+        return false;
     };
-    let path = |v: &Value| v["command"].as_str().map(PathBuf::from);
     old != new
-        && strip(old) == strip(new)
-        && path(old).is_some_and(|old| super::files::replaceable_executable(&old, path(new)))
+        && old_rest == new_rest
+        && super::files::replaceable_executable(&old_path, Some(new_path))
+}
+
+/// An owned entry without its `command`, and that command as a path. Cursor
+/// entries are JSON objects; Codex entries are snapshots of the TOML table text.
+fn split_command(entry: &Value) -> Option<(String, PathBuf)> {
+    match entry {
+        Value::Object(map) => {
+            let mut rest = map.clone();
+            let command = rest.remove("command")?.as_str()?.to_string();
+            Some((Value::Object(rest).to_string(), PathBuf::from(command)))
+        }
+        Value::String(toml) => {
+            let mut table = toml.parse::<toml_edit::DocumentMut>().ok()?;
+            let command = table.remove("command")?.as_str()?.to_string();
+            Some((table.to_string(), PathBuf::from(command)))
+        }
+        _ => None,
+    }
 }
 
 fn desired_entry(client: &str) -> Result<Value, String> {
@@ -571,6 +586,22 @@ pub fn cli(args: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_only_refresh_handles_codex_toml_and_cursor_json() {
+        let old = "/opt/homebrew/Cellar/memorywhale/0.18.0/bin/mw-mcp";
+        let new = "/opt/homebrew/bin/mw-mcp";
+        let toml = |cmd: &str| Value::String(format!("command = \"{cmd}\"\nargs = []\n"));
+        assert!(only_command_differs(&toml(old), &toml(new)));
+        // A data-directory change is never a path-only refresh.
+        let with_env = Value::String(format!(
+            "command = \"{new}\"\nargs = []\nenv = {{ MEMORYWHALE_DATA_DIR = \"/x\" }}\n"
+        ));
+        assert!(!only_command_differs(&toml(old), &with_env));
+        let json = |cmd: &str| json!({"command": cmd, "args": [], "type": "stdio"});
+        assert!(only_command_differs(&json(old), &json(new)));
+        assert!(!only_command_differs(&json(new), &json(new)));
+    }
 
     #[test]
     fn source_changes_release_lock_but_postjournal_failures_retain_it() {

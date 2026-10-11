@@ -11,7 +11,7 @@ All notable changes to MemoryWhale are documented here. This project follows
 
 ### Fixed
 
-- **Hooks and MCP entries survive Homebrew upgrades.** `mw integrate` wrote the resolved, versioned path (`/opt/homebrew/Cellar/memorywhale/<version>/bin/...`), so capture and Codex/Cursor MCP silently stopped once an upgrade removed that version. It now writes the stable PATH name (`/opt/homebrew/bin/...`) for the same file. Re-running `mw integrate claude`, `rho`, `codex`, `cursor`, or `<client> --capture` updates an existing install in place when the old path is gone, versioned, or the same file; a different helper that still exists still needs `--revert`.
+- **Hooks and MCP entries survive Homebrew upgrades.** `mw integrate` wrote the resolved, versioned path (`/opt/homebrew/Cellar/memorywhale/<version>/bin/...`), so capture and Codex/Cursor MCP silently stopped once an upgrade removed that version. It now writes the stable PATH name (`/opt/homebrew/bin/...`) for the same file. Re-running `mw integrate claude`, `rho`, `codex`, `cursor`, or `<client> --capture` updates an existing install in place when the old path is gone, versioned, or the same file; a different helper that still exists still needs `--revert`. Codex MCP entries now refresh in place too: 0.18.1 compared them as JSON, but Codex stores TOML, so `mw integrate codex` still asked for `--revert` after an upgrade.
 
 ### Changed
 

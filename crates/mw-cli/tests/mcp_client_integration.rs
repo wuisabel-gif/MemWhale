@@ -427,3 +427,21 @@ fn ownership_and_lock_symlinks_are_rejected_even_when_dangling() {
         }
     }
 }
+
+#[test]
+fn reinstall_updates_an_owned_entry_whose_executable_was_removed() {
+    for client in ["codex", "cursor"] {
+        let s = Sandbox::new();
+        success(s.run(client, &[]));
+        let installed = fs::read(s.config(client)).unwrap();
+        let config = s.config(client);
+        // A versioned install path that an upgrade has since deleted.
+        set_owned_command(&config, client, &s.0.join("removed/0.1.0/bin/mw-mcp"));
+        failure(s.run(client, &["--check"]));
+        let result = s.run(client, &[]);
+        success(result.clone());
+        assert!(String::from_utf8_lossy(&result.stdout).contains("updated"));
+        assert_eq!(installed, fs::read(&config).unwrap(), "{client}");
+        success(s.run(client, &["--check"]));
+    }
+}
