@@ -73,7 +73,7 @@ github.com/wuisabel-gif/MemWhale
 
 ## r/ClaudeAI or r/cursor (~90 words)
 
-**Claude Code / Cursor: get "the fix was: ..." when an error you've hit before comes back**
+**Claude Code / Cursor: get "possible fix: ..." when an error you've hit before comes back**
 
 MemoryWhale's capture hook records every shell command your agent runs. As of
 0.16 it also talks back: when a command fails with an error a later command

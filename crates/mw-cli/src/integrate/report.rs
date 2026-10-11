@@ -87,6 +87,52 @@ pub(crate) struct IntegrationReport {
     pub skill: Option<PieceStatus>,
     /// What to pass to `mw integrate` to fix the hook (e.g. `codex --capture`).
     pub hook_fix: &'static str,
+    /// Whether captured commands from this client have actually reached the
+    /// database, filled in by doctor when it can open it.
+    pub observed: Option<Observed>,
+}
+
+/// What the database shows for one client's capture, as opposed to what its
+/// configuration says.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Observed {
+    Never,
+    Seen {
+        /// e.g. "3 minutes ago".
+        age: String,
+        /// Recent rows (up to 20) and how many carried an exit code.
+        recent: u32,
+        with_exit: u32,
+    },
+}
+
+impl Observed {
+    fn phrase(&self, client: &str) -> String {
+        match self {
+            Self::Seen {
+                age,
+                recent,
+                with_exit,
+            } => {
+                let exits = if *with_exit == 0 {
+                    "no exit codes (the client does not report them)".to_string()
+                } else {
+                    format!("exit codes on {with_exit} of the last {recent}")
+                };
+                format!("{age}; {exits}")
+            }
+            Self::Never => format!(
+                "never; no command has reached MemoryWhale yet ({})",
+                match client {
+                    "codex" => "trust the hook with /hooks in Codex",
+                    "gemini" => "approve the hook when Gemini CLI asks",
+                    "claude" => "restart Claude Code and run a command",
+                    "cursor" => "restart Cursor and run a command",
+                    _ => "restart the client and run a command",
+                }
+            ),
+        }
+    }
 }
 
 impl IntegrationReport {
@@ -99,6 +145,7 @@ impl IntegrationReport {
             hook: PieceStatus::NotInstalled,
             skill: Some(PieceStatus::NotInstalled),
             hook_fix: client,
+            observed: None,
         }
     }
 
@@ -117,6 +164,7 @@ impl IntegrationReport {
             hook,
             skill: Some(skill),
             hook_fix: client,
+            observed: None,
         }
     }
 
@@ -137,6 +185,7 @@ impl IntegrationReport {
             hook,
             skill: None,
             hook_fix,
+            observed: None,
         }
     }
 
@@ -150,6 +199,13 @@ impl IntegrationReport {
         out.push_str(&line("auto-capture hook", self.hook.phrase(self.hook_fix)));
         if let Some(skill) = self.skill {
             out.push_str(&line("skill", skill.phrase(self.client)));
+        }
+        if let Some(observed) = self
+            .observed
+            .as_ref()
+            .filter(|_| self.hook != PieceStatus::NotInstalled)
+        {
+            out.push_str(&line("last captured", observed.phrase(self.client)));
         }
         out
     }

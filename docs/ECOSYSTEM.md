@@ -54,7 +54,7 @@ delphin --memorywhale -- claude
 Delphin streams each turn to `mw turns`, which redacts it and stores it, so
 MemoryWhale's **Recall** searches those turns alongside your notes and terminal
 commands. When an error scrolls past, Delphin asks `mw hint` and shows a line
-such as `🐬 MemoryWhale: seen 2 times, the fix was: xcode-select --install`.
+such as `🐬 MemoryWhale: seen 2 times; a later command passed, possible fix: xcode-select --install`.
 
 **Joule** (0.7.0 or newer). Run the proxy with `--optimize ultra`. Its
 `context-recall` pass keeps recent turns and the older exchanges most relevant

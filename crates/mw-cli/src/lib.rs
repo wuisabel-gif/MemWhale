@@ -887,7 +887,9 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
         n => format!("{n} times"),
     };
     Ok(Some(match fix {
-        Some(fix) => format!("seen {times}, the fix was: {fix}"),
+        // The next different command that passed is a likely fix, not a
+        // confirmed one; say so. `possible fix:` is what Delphin parses.
+        Some(fix) => format!("seen {times}; a later command passed, possible fix: {fix}"),
         None => format!("seen {times}, no fix recorded yet"),
     }))
 }
@@ -972,7 +974,7 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
             });
             let Some(line) = line else { return Ok(None) };
             Ok(error_hint_before(conn, line, run_id)?
-                .filter(|hint| hint.contains("the fix was"))
+                .filter(|hint| hint.contains("possible fix:"))
                 .map(|hint| {
                     format!("MemoryWhale: this error was {hint}. Check whether it applies here.")
                 }))
@@ -2748,7 +2750,7 @@ mod tests {
         let live = "  ⎿  Error: xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools)";
         assert_eq!(
             error_hint(&conn, live).unwrap().as_deref(),
-            Some("seen 2 times, the fix was: xcode-select --install")
+            Some("seen 2 times; a later command passed, possible fix: xcode-select --install")
         );
         assert_eq!(
             error_hint(&conn, "error: something else entirely").unwrap(),
@@ -2787,7 +2789,7 @@ mod tests {
         let again = run(r#"["cargo","build"]"#, 101, err, "2026-01-02T00:00:00Z");
         let note = hook_feedback(&conn, again).unwrap().unwrap();
         assert!(
-            note.contains("the fix was: xcode-select --install"),
+            note.contains("possible fix: xcode-select --install"),
             "{note}"
         );
         // It passes right after failing, nothing saved since: ask for the lesson.
@@ -2825,7 +2827,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(
-            note.contains("the fix was: xcode-select --install"),
+            note.contains("possible fix: xcode-select --install"),
             "{note}"
         );
         let _ = fail;

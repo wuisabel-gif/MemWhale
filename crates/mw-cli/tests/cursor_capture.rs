@@ -482,7 +482,7 @@ fn feedback_names_a_known_fix_in_additional_context_and_can_be_turned_off() {
         note["additional_context"]
             .as_str()
             .unwrap()
-            .contains("the fix was: xcode-select --install"),
+            .contains("possible fix: xcode-select --install"),
         "{note}"
     );
     assert_eq!(s.rows().len(), 5, "feedback never blocks capture");

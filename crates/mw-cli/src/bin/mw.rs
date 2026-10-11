@@ -5271,9 +5271,17 @@ fn doctor() -> Result<(), String> {
         Err(err) => warn("mcp", mcp_remediation(&err)),
     }
 
+    let feedback = if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
+        "off (MEMORYWHALE_HOOK_FEEDBACK=0)"
+    } else {
+        "on: agents with capture hooks get a note when a past fix is known"
+    };
+    ok("recall notes", feedback.to_string());
+
+    let conn = open_session_db().ok();
     print!(
         "{}",
-        memorywhale_cli::integrate::render_doctor_reports(mcp_stdio_ok)
+        memorywhale_cli::integrate::render_doctor_reports(mcp_stdio_ok, conn.as_ref())
     );
 
     Ok(())

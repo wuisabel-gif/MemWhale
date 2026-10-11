@@ -271,7 +271,7 @@ fn from_hook_records_codex_bash_and_names_a_past_fix() {
         .as_str()
         .unwrap();
     assert!(
-        note.contains("the fix was: xcode-select --install"),
+        note.contains("possible fix: xcode-select --install"),
         "{note}"
     );
 
@@ -336,7 +336,7 @@ fn from_hook_records_gemini_shell_and_names_a_past_fix() {
         .as_str()
         .unwrap();
     assert!(
-        note.contains("the fix was: xcode-select --install"),
+        note.contains("possible fix: xcode-select --install"),
         "{note}"
     );
 

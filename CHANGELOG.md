@@ -16,6 +16,8 @@ All notable changes to MemoryWhale are documented here. This project follows
 ### Changed
 
 - `mw doctor` lists Codex and Cursor (MCP entry and capture hook), and reports a hook or MCP entry as stale when it points at a missing or no-longer-current executable.
+- `mw doctor` shows what each connected agent has actually captured, not only how it is configured: a "last captured" line with how long ago and how many recent rows carried an exit code, or "never" with the next step (for Codex, trusting the hook in `/hooks`). A "recall notes" line says whether hook feedback is on.
+- Recall notes no longer call the next passing command "the fix": they say `seen once; a later command passed, possible fix: <command>`, since that command is usually, not always, what fixed it. Delphin 0.5.1 reads both forms for `:fix`.
 - `memorywhale_core::provenance::SUPPORTED_AGENTS` (and the CLI's `SEARCH_AGENTS`) is now a slice, `&[&str]`, instead of a fixed-size array, so adding an agent no longer changes its type. `is_valid` and `label` derive from it.
 - The release preflight rejects linked contributor mentions (`[@handle](url)`) in the release notes: GitHub lists release contributors only from plain `@handle` mentions.
 
