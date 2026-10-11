@@ -346,32 +346,30 @@ pub(super) fn usable_executable(path: &Path) -> bool {
 const REINSTALL: &str = "Owned MCP setup is stale or differs from the current executable/data-directory settings. Run mw integrate <client> --revert with the same --config selection, then reinstall with the intended MEMORYWHALE_DATA_DIR and reload the client; no files changed";
 
 fn executable() -> Result<PathBuf, String> {
-    let name = if cfg!(windows) {
-        "mw-mcp.exe"
-    } else {
-        "mw-mcp"
+    super::files::stable_executable("mw-mcp")
+        .ok()
+        .filter(|path| usable_executable(path))
+        .ok_or_else(|| {
+            "Cannot locate mw-mcp beside mw or on PATH; build/install the MCP binary first".into()
+        })
+}
+
+/// True when an owned entry differs from the desired one only because its
+/// executable path is gone or names the same file another way, as after an
+/// upgrade removed a versioned install path. A different executable that still
+/// exists, or a data-directory change, needs an explicit revert and reinstall.
+fn only_command_differs(old: &Value, new: &Value) -> bool {
+    let strip = |v: &Value| {
+        let mut v = v.clone();
+        if let Some(map) = v.as_object_mut() {
+            map.remove("command");
+        }
+        v
     };
-    let mut candidates = Vec::new();
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            candidates.push(parent.join(name));
-        }
-    }
-    if let Some(path) = std::env::var_os("PATH") {
-        candidates.extend(
-            std::env::split_paths(&path)
-                .filter(|p| !p.as_os_str().is_empty())
-                .map(|p| p.join(name)),
-        );
-    }
-    for candidate in candidates {
-        if let Ok(path) = fs::canonicalize(candidate) {
-            if usable_executable(&path) {
-                return Ok(path);
-            }
-        }
-    }
-    Err("Cannot locate mw-mcp beside mw or on PATH; build/install the MCP binary first".into())
+    let path = |v: &Value| v["command"].as_str().map(PathBuf::from);
+    old != new
+        && strip(old) == strip(new)
+        && path(old).is_some_and(|old| super::files::replaceable_executable(&old, path(new)))
 }
 
 fn desired_entry(client: &str) -> Result<Value, String> {
@@ -393,6 +391,37 @@ fn desired_entry(client: &str) -> Result<Value, String> {
     }
     Ok(entry)
 }
+/// The client config file `mw integrate <client>` edits.
+fn config_path(client: &str, explicit: Option<PathBuf>) -> Result<PathBuf, String> {
+    absolute(match explicit {
+        Some(p) => p,
+        None => {
+            let home = || {
+                std::env::var_os("HOME")
+                    .map(PathBuf::from)
+                    .or_else(dirs::home_dir)
+                    .ok_or("Cannot determine home directory".to_string())
+            };
+            if client == "codex" {
+                std::env::var_os("CODEX_HOME")
+                    .map(PathBuf::from)
+                    .map(Ok)
+                    .unwrap_or_else(|| home().map(|p| p.join(".codex")))?
+                    .join("config.toml")
+            } else {
+                home()?.join(".cursor/mcp.json")
+            }
+        }
+    })
+}
+
+/// The MemoryWhale MCP command configured for `client`, if any (read-only).
+pub(super) fn installed_command(client: &str) -> Result<Option<String>, String> {
+    let path = config_path(client, None)?;
+    let doc = Config::parse(client, read(&path)?.as_deref())?;
+    Ok(doc.command().map(str::to_string))
+}
+
 pub fn cli(args: &[String]) -> Result<(), String> {
     let client = args
         .first()
@@ -418,26 +447,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         }
         i += 1;
     }
-    let path = absolute(match config {
-        Some(p) => p,
-        None => {
-            let home = || {
-                std::env::var_os("HOME")
-                    .map(PathBuf::from)
-                    .or_else(dirs::home_dir)
-                    .ok_or("Cannot determine home directory".to_string())
-            };
-            if client == "codex" {
-                std::env::var_os("CODEX_HOME")
-                    .map(PathBuf::from)
-                    .map(Ok)
-                    .unwrap_or_else(|| home().map(|p| p.join(".codex")))?
-                    .join("config.toml")
-            } else {
-                home()?.join(".cursor/mcp.json")
-            }
-        }
-    })?;
+    let path = config_path(client, config)?;
     let journal = sidecar(&path, ".memorywhale-mcp-owner.json");
     let lock = sidecar(&path, ".memorywhale-mcp.lock");
     safe(&lock)?;
@@ -474,7 +484,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
             .command()
             .is_some_and(|command| usable_executable(Path::new(command)))
         {
-            return Err(REINSTALL.into());
+            return Err(format!("MemoryWhale MCP configuration points at a missing or unusable mw-mcp; run mw integrate {client} to update it"));
         }
         println!("MemoryWhale MCP configuration is installed (configuration only; connectivity not tested). No automatic capture or skills configured.");
         return Ok(());
@@ -507,7 +517,12 @@ pub fn cli(args: &[String]) -> Result<(), String> {
             .entry()?
             .ok_or_else(err)?
     };
-    if mode != "--revert" && owner.is_some() {
+    let refresh = mode != "--revert"
+        && owner.is_some()
+        && current
+            .as_ref()
+            .is_some_and(|current| only_command_differs(current, &entry));
+    if mode != "--revert" && owner.is_some() && !refresh {
         if current.as_ref() != Some(&entry) {
             return Err(REINSTALL.into());
         }
@@ -515,7 +530,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
     if mode == "--dry-run" {
-        println!("Would install MemoryWhale MCP configuration only; no files written, no connectivity test, no automatic capture or skills.");
+        println!("Would {} MemoryWhale MCP configuration only; no files written, no connectivity test, no automatic capture or skills.", if refresh { "update the executable path in the" } else { "install" });
         return Ok(());
     }
     let parent = path.parent().ok_or_else(err)?;
@@ -546,7 +561,7 @@ pub fn cli(args: &[String]) -> Result<(), String> {
         }
         Ok(())
     })?;
-    println!("MemoryWhale MCP configuration {}. Connectivity not tested; no automatic capture or skills configured.", if mode == "--revert" { "removed" } else { "installed" });
+    println!("MemoryWhale MCP configuration {}. Connectivity not tested; no automatic capture or skills configured.", if mode == "--revert" { "removed" } else if refresh { "updated to the current executable path" } else { "installed" });
     Ok(())
 }
 

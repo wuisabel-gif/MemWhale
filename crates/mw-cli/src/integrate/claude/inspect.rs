@@ -155,7 +155,7 @@ mod tests {
         assert!(report.detected);
         assert_eq!(report.mcp, McpStatus::NotConfigured);
         assert_eq!(report.hook, PieceStatus::NotInstalled);
-        assert_eq!(report.skill, PieceStatus::NotInstalled);
+        assert_eq!(report.skill, Some(PieceStatus::NotInstalled));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -168,7 +168,7 @@ mod tests {
         let report = inspect_at(&dir, &dir.join(".claude.json"), Some(&remember()), true);
         assert_eq!(report.mcp, McpStatus::NotConfigured);
         assert_eq!(report.hook, PieceStatus::NotInstalled);
-        assert_eq!(report.skill, PieceStatus::Installed);
+        assert_eq!(report.skill, Some(PieceStatus::Installed));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -210,7 +210,7 @@ mod tests {
         let reachable = inspect_at(&dir, &dir.join(".claude.json"), Some(&remember), true);
         assert_eq!(reachable.mcp, McpStatus::Configured { reachable: true });
         assert_eq!(reachable.hook, PieceStatus::Installed);
-        assert_eq!(reachable.skill, PieceStatus::Installed);
+        assert_eq!(reachable.skill, Some(PieceStatus::Installed));
 
         let configured = inspect_at(&dir, &dir.join(".claude.json"), Some(&remember), false);
         assert_eq!(configured.mcp, McpStatus::Configured { reachable: false });
@@ -227,7 +227,7 @@ mod tests {
         let report = inspect_at(&dir, &dir.join(".claude.json"), Some(&remember()), true);
         assert_eq!(report.mcp, McpStatus::Unreadable);
         assert_eq!(report.hook, PieceStatus::Unreadable);
-        assert_eq!(report.skill, PieceStatus::Installed);
+        assert_eq!(report.skill, Some(PieceStatus::Installed));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -289,7 +289,7 @@ mod tests {
         std::fs::create_dir_all(dir.join("skills/memorywhale")).unwrap();
         std::fs::write(dir.join("skills/memorywhale/SKILL.md"), [0xff, 0xfe]).unwrap();
         let report = inspect_at(&dir, &dir.join(".claude.json"), Some(&remember()), false);
-        assert_eq!(report.skill, PieceStatus::Unreadable);
+        assert_eq!(report.skill, Some(PieceStatus::Unreadable));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

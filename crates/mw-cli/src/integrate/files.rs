@@ -110,32 +110,116 @@ pub(crate) fn remove_legacy_python_hook(config_dir: &Path) -> Result<bool, Strin
     }
 }
 
-/// Absolute path to `mw-remember` next to this `mw` binary, else on PATH.
+/// Absolute path to `mw-remember` from the same install as this `mw`.
 pub(crate) fn mw_remember_executable() -> Result<PathBuf, String> {
-    let exe = std::env::current_exe()
-        .map_err(|err| format!("failed to resolve current executable: {err}"))?;
-    if let Some(dir) = exe.parent() {
-        let candidate = remember_name(dir);
-        if candidate.is_file() {
-            return Ok(fs::canonicalize(&candidate).unwrap_or(candidate));
-        }
-    }
-    if let Some(path) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&path) {
-            let candidate = remember_name(&dir);
-            if candidate.is_file() {
-                return Ok(fs::canonicalize(&candidate).unwrap_or(candidate));
-            }
-        }
-    }
-    Err("mw-remember not found next to mw or on PATH".to_string())
+    stable_executable("mw-remember")
 }
 
-fn remember_name(dir: &Path) -> PathBuf {
-    if cfg!(windows) {
-        dir.join("mw-remember.exe")
+/// Absolute path to helper `name` from the same install as this `mw`,
+/// preferring a PATH entry for the same file (Homebrew's `/opt/homebrew/bin`
+/// symlink) over its resolved, versioned location. Hook and MCP commands that
+/// name the versioned directory break once an upgrade removes it.
+pub(crate) fn stable_executable(name: &str) -> Result<PathBuf, String> {
+    let name = if cfg!(windows) {
+        format!("{name}.exe")
     } else {
-        dir.join("mw-remember")
+        name.to_string()
+    };
+    let on_path: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|path| {
+            std::env::split_paths(&path)
+                .filter(|dir| dir.is_absolute())
+                .map(|dir| dir.join(&name))
+                .filter(|candidate| candidate.is_file())
+                .collect()
+        })
+        .unwrap_or_default();
+    let beside = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join(&name)))
+        .filter(|candidate| candidate.is_file());
+    prefer_stable(beside, on_path).ok_or_else(|| format!("{name} not found next to mw or on PATH"))
+}
+
+/// True when a configured helper path may be replaced by `new` without asking:
+/// it no longer exists (an upgrade removed it), is a versioned Homebrew
+/// install of MemoryWhale (kept after an upgrade without cleanup), or names
+/// the same file.
+pub(crate) fn replaceable_executable(old: &Path, new: Option<PathBuf>) -> bool {
+    !old.exists()
+        || old.to_string_lossy().contains("/Cellar/memorywhale/")
+        || new.is_some_and(|new| {
+            fs::canonicalize(old).ok().is_some()
+                && fs::canonicalize(old).ok() == fs::canonicalize(new).ok()
+        })
+}
+
+/// The helper beside `mw`, named by a PATH entry that resolves to the same
+/// file when there is one; else the first PATH match.
+fn prefer_stable(beside: Option<PathBuf>, on_path: Vec<PathBuf>) -> Option<PathBuf> {
+    let Some(beside) = beside else {
+        return on_path.into_iter().next();
+    };
+    let target = fs::canonicalize(&beside).ok()?;
+    Some(
+        on_path
+            .into_iter()
+            .find(|candidate| fs::canonicalize(candidate).ok().as_ref() == Some(&target))
+            .unwrap_or(beside),
+    )
+}
+
+#[cfg(all(test, unix))]
+mod stable_path_tests {
+    use super::*;
+
+    #[test]
+    fn prefers_a_path_symlink_over_the_versioned_install() {
+        let root = std::env::temp_dir().join(format!("mw-stable-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let cellar = root.join("Cellar/memorywhale/0.18.0/bin");
+        let bin = root.join("bin");
+        let other = root.join("other");
+        for dir in [&cellar, &bin, &other] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        let real = cellar.join("mw-remember");
+        fs::write(&real, "").unwrap();
+        std::os::unix::fs::symlink(&real, bin.join("mw-remember")).unwrap();
+        fs::write(other.join("mw-remember"), "").unwrap();
+
+        // A different install earlier on PATH is skipped; the symlink to the
+        // running install wins over its versioned location.
+        assert_eq!(
+            prefer_stable(
+                Some(real.clone()),
+                vec![other.join("mw-remember"), bin.join("mw-remember")]
+            ),
+            Some(bin.join("mw-remember"))
+        );
+        // No PATH name for it: keep the path beside mw.
+        assert_eq!(
+            prefer_stable(Some(real.clone()), vec![other.join("mw-remember")]),
+            Some(real)
+        );
+        // Nothing beside mw: first PATH match.
+        assert_eq!(
+            prefer_stable(None, vec![other.join("mw-remember")]),
+            Some(other.join("mw-remember"))
+        );
+        // Replace without asking: a removed path, a versioned Homebrew
+        // install, or the same file. Keep: a different, existing helper.
+        let stable = Some(bin.join("mw-remember"));
+        assert!(replaceable_executable(
+            &root.join("gone/mw-remember"),
+            stable.clone()
+        ));
+        assert!(replaceable_executable(
+            &cellar.join("mw-remember"),
+            stable.clone()
+        ));
+        assert!(!replaceable_executable(&other.join("mw-remember"), stable));
+        let _ = fs::remove_dir_all(&root);
     }
 }
 

@@ -1,6 +1,10 @@
 #![cfg(unix)]
 // Also compile adapters independently of public CLI dispatch.
+#[path = "../src/integrate/files.rs"]
+#[allow(dead_code)]
+mod files;
 #[path = "../src/integrate/hook_capture.rs"]
+#[allow(dead_code)]
 mod hook_capture;
 #[path = "../src/integrate/mcp_client.rs"]
 #[allow(dead_code)]
@@ -432,4 +436,45 @@ fn codex_capture_merges_checks_and_reverts() {
         .0
         .join(".codex/hooks.json.memorywhale-codex-capture-owner.json")
         .exists());
+}
+
+#[test]
+fn codex_capture_reinstall_updates_an_old_mw_remember_path() {
+    let sb = Sandbox::new();
+    let path = sb.0.join(".codex/hooks.json");
+    let owner =
+        sb.0.join(".codex/hooks.json.memorywhale-codex-capture-owner.json");
+    let codex = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_mw"))
+            .args(["integrate", "codex", "--capture"])
+            .args(args)
+            .env("HOME", &sb.0)
+            .env("MEMORYWHALE_DATA_DIR", sb.0.join("data"))
+            .env("PATH", "")
+            .current_dir(&sb.0)
+            .output()
+            .unwrap()
+    };
+    ok(codex(&[]));
+    let current: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let command = current["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let exe = command.split('\'').rev().nth(1).unwrap().to_string();
+
+    // Simulate an install from a versioned path that an upgrade removed.
+    let old = sb.0.join("removed/0.1.0/bin/mw-remember");
+    let old = old.to_str().unwrap();
+    for file in [&path, &owner] {
+        let text = fs::read_to_string(file).unwrap().replace(&exe, old);
+        fs::write(file, text).unwrap();
+    }
+    bad(codex(&["--check"]));
+    let out = codex(&[]);
+    ok(out.clone());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("updated"));
+    let updated: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(updated, current, "old entry replaced, nothing duplicated");
+    ok(codex(&["--check"]));
 }
