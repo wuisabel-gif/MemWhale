@@ -3,7 +3,11 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.18.1] — Recall That Survives Upgrades — October 11, 2026
+
+Product `0.18.1`; `memorywhale-core` `0.9.0` (unchanged); SQLite schema `13`.
+
+See [release notes](docs/releases/0.18.1.md).
 
 ### Fixed
 
