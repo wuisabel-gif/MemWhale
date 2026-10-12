@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 606b53be23168f97d8cdcf5e1f59b33a25210a61226d647e079251a7511eff3c -->
+<!-- README-SOURCE-SHA256: 14da2c4f6fd18b5df9fe231d3ddc646e60879808f30062d729a2992ce872bc16 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -34,9 +34,9 @@ MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계�
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
 > 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](../../benchmarks/README.md)을 참고하세요.
 
-**MemoryWhale 0.18.0: Recall in Every Agent · 2026년 10월 5일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.18.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.9.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md)를 참고하세요.
+**MemoryWhale 0.19.0: Recall in Gemini · 2026년 10월 12일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.19.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.10.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md)를 참고하세요.
 스토어를 열면 스키마가 10에서 13으로 마이그레이션됩니다.
 
 <p align="center">

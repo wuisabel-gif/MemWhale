@@ -47,7 +47,7 @@ const EN = {
   "search.hint": "Search headings and content on this page.",
   "search.empty": "No matching sections.",
   "search.results": "Matching sections",
-  "hero.releaseBadge": "v0.18.0 is here",
+  "hero.releaseBadge": "v0.19.0 is here",
   "hero.title": "Make your terminal <span class=\"hero-accent\">remember</span>.",
   "hero.lead":
     "Hit an error you've seen before and MemoryWhale hands back the fix. It keeps debugging evidence on your machine, so your coding agents stop re-solving the same problems.",
@@ -67,19 +67,19 @@ const EN = {
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
   "integrations.more": "All integrations",
-  "release.eyebrow": "New in 0.18.0",
-  "release.title": "Recall in every agent.",
+  "release.eyebrow": "New in 0.19.0",
+  "release.title": "Recall in Gemini.",
   "release.copy":
-    "Product 0.18.0 spans the CLI, web UI, and desktop app; the Rust core is 0.9.0 and stores stay on SQLite schema 13. Codex now joins Claude Code and Cursor: MemoryWhale records the commands it runs and tells it what fixed an error last time. Rho commands arrive with real exit codes. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">release notes</a>.",
-  "release.connectTitle": "Codex gets the past fix",
+    "Product 0.19.0 spans the CLI, web UI, and desktop app; the Rust core is 0.10.0 and stores stay on SQLite schema 13. Gemini CLI joins Claude Code, Cursor, and Codex: one command connects it, and with capture on it learns from what already failed, exit codes included. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">release notes</a>.",
+  "release.connectTitle": "Gemini CLI, connected",
   "release.connectBody":
-    "With <code>mw integrate codex --capture</code>, every shell command Codex runs is recorded, and when its output shows an error fixed before, Codex sees one line naming that fix.",
-  "release.provenanceTitle": "Real exit codes from Rho",
+    "<code>mw integrate gemini</code> adds MemoryWhale's tools, and <code>--capture</code> records every shell command Gemini runs with its exit code, so a known error comes back with a possible fix.",
+  "release.provenanceTitle": "See what is really captured",
   "release.provenanceBody":
-    "With Rho versions that send process results, Rho commands are stored with their exit code and output, so they count in <code>mw context --last-error</code> and fix detection. Contributed by Rho's author, Matt Jiang.",
-  "release.interfaceTitle": "Easier on Linux and Jetson",
+    "<code>mw doctor</code> now shows when each agent last sent a command and whether it reported exit codes, so a hook that is configured but silent stands out.",
+  "release.interfaceTitle": "Honest about fixes",
   "release.interfaceBody":
-    "Refreshed Linux and Jetson guides, and <code>enable-dashboard.sh --lan</code> puts the dashboard on your network behind a token that never appears in the service file.",
+    "Notes now say <code>possible fix</code>: the next command that passed after a failure is usually the fix, not always. Hooks also keep working after Homebrew upgrades.",
   "who.eyebrow": "Who it's for",
   "who.title": "Built for three ways of working.",
   "who.copy":
@@ -159,9 +159,9 @@ const EN = {
   "run.tryValue": "<code>mw demo</code>: writes sample data to the selected store",
   "run.prebuiltLabel": "Prebuilt install",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb on the releases page",
   "run.securityLabel": "Security",
@@ -225,7 +225,7 @@ const AR = {
   "search.hint": "ابحث في عناوين هذه الصفحة ومحتواها.",
   "search.empty": "لا توجد أقسام مطابقة.",
   "search.results": "الأقسام المطابقة",
-  "hero.releaseBadge": "الإصدار v0.18.0 متاح الآن",
+  "hero.releaseBadge": "الإصدار v0.19.0 متاح الآن",
   "hero.title": "اجعل طرفيتك <span class=\"hero-accent\">تتذكّر</span>.",
   "hero.lead":
     "حين يتكرر خطأ سبق أن واجهته، يُعيد إليك MemoryWhale الإصلاح. ويحتفظ بأدلة تصحيح الأخطاء على جهازك، فلا يضطر وكلاء البرمجة إلى حل المشكلات نفسها مرة بعد مرة.",
@@ -245,19 +245,19 @@ const AR = {
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
   "integrations.more": "جميع التكاملات",
-  "release.eyebrow": "الجديد في 0.18.0",
-  "release.title": "الاستدعاء في كل وكيل.",
+  "release.eyebrow": "الجديد في 0.19.0",
+  "release.title": "الاستدعاء في Gemini.",
   "release.copy":
-    "يشمل الإصدار 0.18.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ ونواة Rust في الإصدار 0.9.0 والمخازن باقية على مخطط SQLite رقم 13. ينضم Codex الآن إلى Claude Code وCursor: يسجّل MemoryWhale الأوامر التي ينفذها ويخبره بما أصلح الخطأ في المرة السابقة. وتصل أوامر Rho الآن مع رموز خروج حقيقية. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">ملاحظات الإصدار</a>.",
-  "release.connectTitle": "Codex يحصل على الإصلاح السابق",
+    "يشمل الإصدار 0.19.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ ونواة Rust في الإصدار 0.10.0 والمخازن باقية على مخطط SQLite رقم 13. ينضم Gemini CLI إلى Claude Code وCursor وCodex: يربطه أمر واحد، ومع تفعيل الالتقاط يتعلم مما فشل من قبل، بما في ذلك رموز الخروج. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">ملاحظات الإصدار</a>.",
+  "release.connectTitle": "Gemini CLI متصل",
   "release.connectBody":
-    "مع <code>mw integrate codex --capture</code> يُسجَّل كل أمر shell ينفذه Codex، وعندما يُظهر الناتج خطأً أُصلح من قبل، يرى Codex سطرًا واحدًا يذكر ذلك الإصلاح.",
-  "release.provenanceTitle": "رموز خروج حقيقية من Rho",
+    "يضيف <code>mw integrate gemini</code> أدوات MemoryWhale، ويسجّل <code>--capture</code> كل أمر shell ينفذه Gemini مع رمز خروجه، فيعود الخطأ المعروف مع إصلاح محتمل.",
+  "release.provenanceTitle": "اعرف ما يُلتقط فعلًا",
   "release.provenanceBody":
-    "مع إصدارات Rho التي ترسل نتائج العمليات، تُخزَّن أوامر Rho مع رمز الخروج والناتج، فتُحتسب في <code>mw context --last-error</code> وفي اكتشاف الإصلاحات. ساهم بها مؤلف Rho، Matt Jiang.",
-  "release.interfaceTitle": "أسهل على Linux وJetson",
+    "يعرض <code>mw doctor</code> الآن متى أرسل كل وكيل آخر أمر وهل أبلغ عن رموز الخروج، فيظهر بوضوح أي خطاف مُعدّ لكنه صامت.",
+  "release.interfaceTitle": "صادق بشأن الإصلاحات",
   "release.interfaceBody":
-    "أدلة محدّثة لـ Linux وJetson، و<code>enable-dashboard.sh --lan</code> يتيح لوحة التحكم على شبكتك خلف رمز لا يظهر أبدًا في ملف الخدمة.",
+    "تقول الملاحظات الآن <code>possible fix</code>: الأمر التالي الذي نجح بعد الفشل هو الإصلاح غالبًا، لا دائمًا. وتبقى الخطافات تعمل بعد ترقيات Homebrew.",
   "who.eyebrow": "لمن صُمّم",
   "who.title": "صُمّم لثلاثة أنماط من العمل.",
   "who.copy":
@@ -337,9 +337,9 @@ const AR = {
   "run.tryValue": "<code>mw demo</code>: يكتب بيانات نموذجية في المخزن المحدد",
   "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "حزمة .deb من صفحة الإصدارات",
   "run.securityLabel": "الأمان",
@@ -403,7 +403,7 @@ const DE = {
   "search.hint": "Durchsuche Überschriften und Inhalte dieser Seite.",
   "search.empty": "Keine passenden Abschnitte.",
   "search.results": "Passende Abschnitte",
-  "hero.releaseBadge": "v0.18.0 ist da",
+  "hero.releaseBadge": "v0.19.0 ist da",
   "hero.title": "Gib deinem Terminal ein <span class=\"hero-accent\">Gedächtnis</span>.",
   "hero.lead":
     "Taucht ein Fehler auf, den du schon kennst, liefert dir MemoryWhale den Fix. Die Debugging-Belege bleiben auf deinem Rechner, damit deine Coding-Agenten nicht immer wieder dieselben Probleme lösen.",
@@ -423,19 +423,19 @@ const DE = {
   "integrations.label": "Funktioniert mit",
   "integrations.via": "über MCP",
   "integrations.more": "Alle Integrationen",
-  "release.eyebrow": "Neu in 0.18.0",
-  "release.title": "Erinnerung in jedem Agenten.",
+  "release.eyebrow": "Neu in 0.19.0",
+  "release.title": "Erinnerung in Gemini.",
   "release.copy":
-    "Version 0.18.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern ist 0.9.0 und Speicher bleiben auf SQLite-Schema 13. Codex kommt zu Claude Code und Cursor dazu: MemoryWhale zeichnet seine Befehle auf und sagt ihm, was einen Fehler beim letzten Mal behoben hat. Rho-Befehle kommen jetzt mit echten Exit-Codes an. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">Release Notes</a>.",
-  "release.connectTitle": "Codex bekommt die frühere Lösung",
+    "Version 0.19.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern ist 0.10.0 und Speicher bleiben auf SQLite-Schema 13. Gemini CLI kommt zu Claude Code, Cursor und Codex dazu: Ein Befehl verbindet es, und mit Aufzeichnung lernt es aus dem, was schon fehlgeschlagen ist, samt Exit-Codes. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">Release Notes</a>.",
+  "release.connectTitle": "Gemini CLI, verbunden",
   "release.connectBody":
-    "Mit <code>mw integrate codex --capture</code> wird jeder Shell-Befehl von Codex aufgezeichnet, und zeigt die Ausgabe einen schon einmal behobenen Fehler, sieht Codex eine Zeile mit dieser Lösung.",
-  "release.provenanceTitle": "Echte Exit-Codes von Rho",
+    "<code>mw integrate gemini</code> fügt die Werkzeuge von MemoryWhale hinzu, und <code>--capture</code> zeichnet jeden Shell-Befehl von Gemini mit Exit-Code auf, sodass ein bekannter Fehler mit einer möglichen Lösung zurückkommt.",
+  "release.provenanceTitle": "Sehen, was wirklich ankommt",
   "release.provenanceBody":
-    "Mit Rho-Versionen, die Prozessergebnisse senden, werden Rho-Befehle mit Exit-Code und Ausgabe gespeichert und zählen so für <code>mw context --last-error</code> und die Erkennung von Lösungen. Beigesteuert von Rhos Autor Matt Jiang.",
-  "release.interfaceTitle": "Einfacher unter Linux und auf dem Jetson",
+    "<code>mw doctor</code> zeigt jetzt, wann jeder Agent zuletzt einen Befehl geschickt hat und ob er Exit-Codes meldet, damit ein eingerichteter, aber stummer Hook auffällt.",
+  "release.interfaceTitle": "Ehrlich bei Lösungen",
   "release.interfaceBody":
-    "Überarbeitete Linux- und Jetson-Anleitungen, und <code>enable-dashboard.sh --lan</code> stellt das Dashboard in deinem Netzwerk bereit, geschützt durch ein Token, das nie in der Service-Datei steht.",
+    "Hinweise sagen jetzt <code>possible fix</code>: Der nächste erfolgreiche Befehl nach einem Fehler ist meist die Lösung, nicht immer. Hooks funktionieren außerdem nach Homebrew-Upgrades weiter.",
   "who.eyebrow": "Für wen?",
   "who.title": "Gemacht für drei Arbeitsweisen.",
   "who.copy":
@@ -515,9 +515,9 @@ const DE = {
   "run.tryValue": "<code>mw demo</code>: schreibt Beispieldaten in den ausgewählten Speicher",
   "run.prebuiltLabel": "Vorkompilierte Binaries",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb auf der Releases-Seite",
   "run.securityLabel": "Sicherheit",
@@ -581,7 +581,7 @@ const FR = {
   "search.hint": "Recherche dans les titres et le contenu de cette page.",
   "search.empty": "Aucune section ne correspond.",
   "search.results": "Sections correspondantes",
-  "hero.releaseBadge": "La v0.18.0 est disponible",
+  "hero.releaseBadge": "La v0.19.0 est disponible",
   "hero.title": "Donnez de la <span class=\"hero-accent\">mémoire</span> à votre terminal.",
   "hero.lead":
     "Vous retombez sur une erreur déjà vue ? MemoryWhale vous redonne le correctif. Les traces de débogage restent sur votre machine, et vos agents de code cessent de résoudre sans cesse les mêmes problèmes.",
@@ -601,19 +601,19 @@ const FR = {
   "integrations.label": "Compatible avec",
   "integrations.via": "via MCP",
   "integrations.more": "Toutes les intégrations",
-  "release.eyebrow": "Nouveau dans 0.18.0",
-  "release.title": "Le rappel dans chaque agent.",
+  "release.eyebrow": "Nouveau dans 0.19.0",
+  "release.title": "Le rappel dans Gemini.",
   "release.copy":
-    "La version 0.18.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust est en 0.9.0 et les stockages restent au schéma SQLite 13. Codex rejoint Claude Code et Cursor : MemoryWhale enregistre les commandes qu'il lance et lui dit ce qui a corrigé une erreur la dernière fois. Les commandes Rho arrivent désormais avec de vrais codes de sortie. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">notes de version</a>.",
-  "release.connectTitle": "Codex reçoit le correctif passé",
+    "La version 0.19.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust est en 0.10.0 et les stockages restent au schéma SQLite 13. Gemini CLI rejoint Claude Code, Cursor et Codex : une commande le connecte, et avec la capture il apprend de ce qui a déjà échoué, codes de sortie compris. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">notes de version</a>.",
+  "release.connectTitle": "Gemini CLI, connecté",
   "release.connectBody":
-    "Avec <code>mw integrate codex --capture</code>, chaque commande shell lancée par Codex est enregistrée, et quand la sortie montre une erreur déjà corrigée, Codex voit une ligne qui nomme ce correctif.",
-  "release.provenanceTitle": "De vrais codes de sortie pour Rho",
+    "<code>mw integrate gemini</code> ajoute les outils de MemoryWhale, et <code>--capture</code> enregistre chaque commande shell lancée par Gemini avec son code de sortie, pour qu'une erreur connue revienne avec un correctif possible.",
+  "release.provenanceTitle": "Voir ce qui est vraiment capturé",
   "release.provenanceBody":
-    "Avec les versions de Rho qui envoient les résultats des processus, les commandes Rho sont enregistrées avec leur code de sortie et leur sortie, et comptent donc dans <code>mw context --last-error</code> et la détection des correctifs. Contribution de l'auteur de Rho, Matt Jiang.",
-  "release.interfaceTitle": "Plus simple sous Linux et sur Jetson",
+    "<code>mw doctor</code> indique désormais quand chaque agent a envoyé sa dernière commande et s'il fournit les codes de sortie, pour repérer un hook configuré mais muet.",
+  "release.interfaceTitle": "Honnête sur les correctifs",
   "release.interfaceBody":
-    "Guides Linux et Jetson mis à jour, et <code>enable-dashboard.sh --lan</code> place le tableau de bord sur votre réseau derrière un jeton qui n'apparaît jamais dans le fichier de service.",
+    "Les messages disent désormais <code>possible fix</code> : la commande suivante qui réussit après un échec est souvent le correctif, pas toujours. Les hooks continuent aussi de fonctionner après les mises à jour Homebrew.",
   "who.eyebrow": "Pour qui ?",
   "who.title": "Pensé pour trois façons de travailler.",
   "who.copy":
@@ -693,9 +693,9 @@ const FR = {
   "run.tryValue": "<code>mw demo</code> : écrit des données d’exemple dans le stockage sélectionné",
   "run.prebuiltLabel": "Binaires précompilés",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Paquet .deb sur la page des versions",
   "run.securityLabel": "Sécurité",
@@ -759,7 +759,7 @@ const ZH_CN = {
   "search.hint": "搜索本页的标题和内容。",
   "search.empty": "没有找到相关内容。",
   "search.results": "相关内容",
-  "hero.releaseBadge": "v0.18.0 现已发布",
+  "hero.releaseBadge": "v0.19.0 现已发布",
   "hero.title": "让终端<span class=\"hero-accent\">记住</span>调试经验。",
   "hero.lead":
     "再次遇到以前见过的报错时，MemoryWhale 会直接给出修复方法。调试证据都保存在你自己的机器上，编程智能体不必再一遍遍重新解决同样的问题。",
@@ -779,19 +779,19 @@ const ZH_CN = {
   "integrations.label": "已支持",
   "integrations.via": "通过 MCP",
   "integrations.more": "所有集成",
-  "release.eyebrow": "0.18.0 新功能",
-  "release.title": "每个智能体都能主动回忆。",
+  "release.eyebrow": "0.19.0 新功能",
+  "release.title": "Gemini 也能主动回忆。",
   "release.copy":
-    "产品版本 0.18.0 覆盖 CLI、Web 界面和桌面应用；Rust 核心为 0.9.0，存储仍使用 SQLite schema 13。Codex 加入了 Claude Code 和 Cursor 的行列：MemoryWhale 会记录它运行的命令，并告诉它上次是什么修复了这个错误。Rho 的命令现在会带上真实的退出码。详见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">发布说明</a>。",
-  "release.connectTitle": "Codex 也能拿到上次的修复",
+    "产品版本 0.19.0 覆盖 CLI、Web 界面和桌面应用；Rust 核心为 0.10.0，存储仍使用 SQLite schema 13。Gemini CLI 加入 Claude Code、Cursor 和 Codex 的行列：一条命令即可连接，开启捕获后它会从以前的失败中学习，包括退出码。详见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">发布说明</a>。",
+  "release.connectTitle": "已连接 Gemini CLI",
   "release.connectBody":
-    "使用 <code>mw integrate codex --capture</code> 后，Codex 运行的每条 shell 命令都会被记录；当输出里出现以前修复过的错误时，Codex 会看到一行提示，写明那次的修复。",
-  "release.provenanceTitle": "Rho 带来真实退出码",
+    "<code>mw integrate gemini</code> 会添加 MemoryWhale 的工具，<code>--capture</code> 会连同退出码记录 Gemini 运行的每条 shell 命令，已知错误再次出现时会附上可能的修复。",
+  "release.provenanceTitle": "看清真正捕获了什么",
   "release.provenanceBody":
-    "在会发送进程结果的 Rho 版本中，Rho 命令会连同退出码和输出一起保存，因此会计入 <code>mw context --last-error</code> 和修复检测。由 Rho 的作者 Matt Jiang 贡献。",
-  "release.interfaceTitle": "在 Linux 和 Jetson 上更易上手",
+    "<code>mw doctor</code> 现在会显示每个智能体最近一次发送命令的时间，以及是否报告退出码，已配置却没有动静的钩子一眼就能看出。",
+  "release.interfaceTitle": "如实说明修复",
   "release.interfaceBody":
-    "更新了 Linux 和 Jetson 指南；<code>enable-dashboard.sh --lan</code> 可在局域网中提供仪表盘，令牌不会出现在服务文件里。",
+    "提示现在写作 <code>possible fix</code>：失败后下一条成功的命令通常是修复，但不总是。Homebrew 升级后钩子也会继续工作。",
   "who.eyebrow": "适合谁",
   "who.title": "三种开发日常，都用得上。",
   "who.copy":
@@ -871,9 +871,9 @@ const ZH_CN = {
   "run.tryValue": "<code>mw demo</code>：向当前选定的存储写入示例数据",
   "run.prebuiltLabel": "预编译安装",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "在发布页面下载 .deb 安装包",
   "run.securityLabel": "安全",
@@ -937,7 +937,7 @@ const ZH_TW = {
   "search.hint": "搜尋本頁的標題與內容。",
   "search.empty": "找不到相關內容。",
   "search.results": "相關內容",
-  "hero.releaseBadge": "v0.18.0 現已推出",
+  "hero.releaseBadge": "v0.19.0 現已推出",
   "hero.title": "讓終端機<span class=\"hero-accent\">記住</span>除錯經驗。",
   "hero.lead":
     "再次碰到以前遇過的錯誤時，MemoryWhale 會直接把修正方法交還給你。除錯證據都留在你自己的電腦上，AI 程式助理不必再一次次重新解決同樣的問題。",
@@ -957,19 +957,19 @@ const ZH_TW = {
   "integrations.label": "可搭配使用",
   "integrations.via": "透過 MCP",
   "integrations.more": "所有整合",
-  "release.eyebrow": "0.18.0 新功能",
-  "release.title": "每個代理都能主動回憶。",
+  "release.eyebrow": "0.19.0 新功能",
+  "release.title": "Gemini 也能主動回憶。",
   "release.copy":
-    "產品版本 0.18.0 涵蓋 CLI、Web 介面與桌面應用程式；Rust 核心為 0.9.0，儲存仍使用 SQLite schema 13。Codex 加入 Claude Code 與 Cursor 的行列：MemoryWhale 會記錄它執行的指令，並告訴它上次是什麼修好了這個錯誤。Rho 的指令現在會附上真實的結束代碼。詳見<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">版本說明</a>。",
-  "release.connectTitle": "Codex 也能拿到上次的修正",
+    "產品版本 0.19.0 涵蓋 CLI、Web 介面與桌面應用程式；Rust 核心為 0.10.0，儲存仍使用 SQLite schema 13。Gemini CLI 加入 Claude Code、Cursor 與 Codex 的行列：一個指令即可連接，開啟擷取後它會從先前的失敗中學習，包括結束代碼。詳見<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">版本說明</a>。",
+  "release.connectTitle": "已連接 Gemini CLI",
   "release.connectBody":
-    "使用 <code>mw integrate codex --capture</code> 後，Codex 執行的每個 shell 指令都會被記錄；當輸出出現以前修好過的錯誤時，Codex 會看到一行提示，寫明那次的修正。",
-  "release.provenanceTitle": "Rho 帶來真實結束代碼",
+    "<code>mw integrate gemini</code> 會加入 MemoryWhale 的工具，<code>--capture</code> 會連同結束代碼記錄 Gemini 執行的每個 shell 指令，已知錯誤再次出現時會附上可能的修正。",
+  "release.provenanceTitle": "看清真正擷取了什麼",
   "release.provenanceBody":
-    "在會傳送行程結果的 Rho 版本中，Rho 指令會連同結束代碼與輸出一起儲存，因此會計入 <code>mw context --last-error</code> 與修正偵測。由 Rho 的作者 Matt Jiang 貢獻。",
-  "release.interfaceTitle": "在 Linux 與 Jetson 上更容易設定",
+    "<code>mw doctor</code> 現在會顯示每個代理最近一次送出指令的時間，以及是否回報結束代碼，已設定卻沒有動靜的 hook 一眼就看得出來。",
+  "release.interfaceTitle": "如實說明修正",
   "release.interfaceBody":
-    "更新了 Linux 與 Jetson 指南；<code>enable-dashboard.sh --lan</code> 可在區域網路上提供儀表板，權杖永遠不會出現在服務檔案中。",
+    "提示現在寫作 <code>possible fix</code>：失敗後下一個成功的指令通常是修正，但不一定。Homebrew 升級後 hook 也會繼續運作。",
   "who.eyebrow": "適合誰",
   "who.title": "為三種工作方式而設計。",
   "who.copy":
@@ -1049,9 +1049,9 @@ const ZH_TW = {
   "run.tryValue": "<code>mw demo</code>：將範例資料寫入目前選定的資料庫",
   "run.prebuiltLabel": "預編譯版安裝",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "發行頁面提供 .deb",
   "run.securityLabel": "安全性",
@@ -1115,7 +1115,7 @@ const KO = {
   "search.hint": "이 페이지의 제목과 본문을 검색합니다.",
   "search.empty": "일치하는 섹션이 없습니다.",
   "search.results": "일치하는 섹션",
-  "hero.releaseBadge": "v0.18.0 출시",
+  "hero.releaseBadge": "v0.19.0 출시",
   "hero.title": "터미널이 <span class=\"hero-accent\">기억하게</span> 하세요.",
   "hero.lead":
     "전에 본 오류를 다시 만나면 MemoryWhale이 해결책을 바로 건네줍니다. 디버깅 기록을 내 컴퓨터에 보관하므로 코딩 에이전트가 같은 문제를 매번 처음부터 다시 풀지 않아도 됩니다.",
@@ -1135,19 +1135,19 @@ const KO = {
   "integrations.label": "함께 쓸 수 있는 도구",
   "integrations.via": "MCP 연동",
   "integrations.more": "전체 통합 보기",
-  "release.eyebrow": "0.18.0의 새 기능",
-  "release.title": "모든 에이전트에서 떠올립니다.",
+  "release.eyebrow": "0.19.0의 새 기능",
+  "release.title": "이제 Gemini에서도 떠올립니다.",
   "release.copy":
-    "제품 버전 0.18.0은 CLI, 웹 UI, 데스크톱 앱에 적용되며, Rust 코어는 0.9.0이고 저장소는 SQLite 스키마 13을 유지합니다. 이제 Codex도 Claude Code, Cursor와 함께합니다. MemoryWhale이 Codex가 실행한 명령을 기록하고, 지난번에 오류를 고친 방법을 알려 줍니다. Rho 명령은 이제 실제 종료 코드와 함께 기록됩니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">릴리스 노트</a>를 참고하세요.",
-  "release.connectTitle": "Codex도 이전 해결책을 받습니다",
+    "제품 버전 0.19.0은 CLI, 웹 UI, 데스크톱 앱에 적용되며, Rust 코어는 0.10.0이고 저장소는 SQLite 스키마 13을 유지합니다. Gemini CLI가 Claude Code, Cursor, Codex와 함께합니다. 명령 하나로 연결하고, 기록을 켜면 종료 코드까지 포함해 이미 실패한 일에서 배웁니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">릴리스 노트</a>를 참고하세요.",
+  "release.connectTitle": "Gemini CLI 연결",
   "release.connectBody":
-    "<code>mw integrate codex --capture</code>를 사용하면 Codex가 실행하는 모든 셸 명령이 기록되고, 출력에 이전에 고친 오류가 보이면 Codex에 그 해결책을 알려 주는 한 줄이 표시됩니다.",
-  "release.provenanceTitle": "Rho의 실제 종료 코드",
+    "<code>mw integrate gemini</code>는 MemoryWhale 도구를 추가하고, <code>--capture</code>는 Gemini가 실행하는 모든 셸 명령을 종료 코드와 함께 기록해 알려진 오류가 다시 나오면 가능한 해결책을 알려 줍니다.",
+  "release.provenanceTitle": "실제로 기록되는지 확인",
   "release.provenanceBody":
-    "프로세스 결과를 보내는 Rho 버전에서는 Rho 명령이 종료 코드와 출력과 함께 저장되어 <code>mw context --last-error</code>와 해결책 감지에 반영됩니다. Rho의 개발자 Matt Jiang이 기여했습니다.",
-  "release.interfaceTitle": "Linux와 Jetson에서 더 쉽게",
+    "<code>mw doctor</code>가 이제 각 에이전트가 마지막으로 명령을 보낸 시점과 종료 코드 보고 여부를 보여 주어, 설정만 되고 조용한 hook이 바로 드러납니다.",
+  "release.interfaceTitle": "해결책에 대해 정직하게",
   "release.interfaceBody":
-    "Linux와 Jetson 가이드를 새로 정리했고, <code>enable-dashboard.sh --lan</code>으로 대시보드를 네트워크에 공개할 수 있습니다. 토큰은 서비스 파일에 절대 나타나지 않습니다.",
+    "알림은 이제 <code>possible fix</code>라고 말합니다. 실패 후 다음으로 성공한 명령이 대개 해결책이지만 항상 그렇지는 않습니다. Homebrew 업그레이드 후에도 hook이 계속 작동합니다.",
   "who.eyebrow": "사용 대상",
   "who.title": "세 가지 작업 방식을 위해 만들었습니다.",
   "who.copy":
@@ -1227,9 +1227,9 @@ const KO = {
   "run.tryValue": "<code>mw demo</code>: 선택한 저장소에 샘플 데이터를 기록합니다",
   "run.prebuiltLabel": "사전 빌드 설치",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "릴리스 페이지의 .deb 패키지",
   "run.securityLabel": "보안",
@@ -1293,7 +1293,7 @@ const JA = {
   "search.hint": "このページの見出しと本文を検索します。",
   "search.empty": "一致するセクションはありません。",
   "search.results": "一致したセクション",
-  "hero.releaseBadge": "v0.18.0 リリース",
+  "hero.releaseBadge": "v0.19.0 リリース",
   "hero.title": "ターミナルに<span class=\"hero-accent\">記憶</span>を。",
   "hero.lead":
     "以前に見たエラーにまた遭遇したら、MemoryWhale がそのときの修正を返します。デバッグの記録は手元のマシンに保存されるので、コーディングエージェントが同じ問題を何度も解き直す必要はありません。",
@@ -1313,19 +1313,19 @@ const JA = {
   "integrations.label": "対応ツール",
   "integrations.via": "MCP 経由",
   "integrations.more": "すべての連携を見る",
-  "release.eyebrow": "0.18.0 の新機能",
-  "release.title": "どのエージェントでも思い出す。",
+  "release.eyebrow": "0.19.0 の新機能",
+  "release.title": "Gemini でも思い出す。",
   "release.copy":
-    "製品バージョン 0.18.0 は CLI、Web UI、デスクトップアプリ共通で、Rust コアは 0.9.0、ストアは SQLite スキーマ 13 のままです。Codex が Claude Code と Cursor に加わりました。MemoryWhale が Codex の実行したコマンドを記録し、前回そのエラーを直した方法を伝えます。Rho のコマンドも実際の終了コード付きで記録されます。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">リリースノート</a>をご覧ください。",
-  "release.connectTitle": "Codex にも前回の修正を",
+    "製品バージョン 0.19.0 は CLI、Web UI、デスクトップアプリ共通で、Rust コアは 0.10.0、ストアは SQLite スキーマ 13 のままです。Gemini CLI が Claude Code、Cursor、Codex に加わりました。コマンド 1 つで接続でき、キャプチャを有効にすると終了コードも含めて過去の失敗から学びます。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">リリースノート</a>をご覧ください。",
+  "release.connectTitle": "Gemini CLI と接続",
   "release.connectBody":
-    "<code>mw integrate codex --capture</code> を使うと、Codex が実行するシェルコマンドがすべて記録され、出力に以前直したエラーが現れると、その修正を示す 1 行が Codex に表示されます。",
-  "release.provenanceTitle": "Rho の実際の終了コード",
+    "<code>mw integrate gemini</code> で MemoryWhale のツールが加わり、<code>--capture</code> で Gemini が実行するシェルコマンドを終了コード付きですべて記録します。既知のエラーが出ると、修正の候補が返ってきます。",
+  "release.provenanceTitle": "本当に記録されているかが分かる",
   "release.provenanceBody":
-    "プロセスの結果を送る Rho のバージョンでは、Rho のコマンドが終了コードと出力付きで保存され、<code>mw context --last-error</code> や修正の検出に反映されます。Rho の作者 Matt Jiang さんによる貢献です。",
-  "release.interfaceTitle": "Linux と Jetson でもっと手軽に",
+    "<code>mw doctor</code> が、各エージェントが最後にコマンドを送った時刻と終了コードを報告しているかを表示するようになり、設定済みなのに動いていない hook がすぐ分かります。",
+  "release.interfaceTitle": "修正について正直に",
   "release.interfaceBody":
-    "Linux と Jetson のガイドを刷新しました。<code>enable-dashboard.sh --lan</code> でダッシュボードをネットワークに公開でき、トークンがサービスファイルに書かれることはありません。",
+    "通知は <code>possible fix</code> と表示するようになりました。失敗の後に成功した次のコマンドはたいてい修正ですが、いつもとは限りません。Homebrew のアップグレード後も hook は動き続けます。",
   "who.eyebrow": "対象ユーザー",
   "who.title": "3 つの働き方に合わせて。",
   "who.copy":
@@ -1405,9 +1405,9 @@ const JA = {
   "run.tryValue": "<code>mw demo</code>：選択中のストアにサンプルデータを書き込みます",
   "run.prebuiltLabel": "ビルド済みバイナリ",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "リリースページの .deb パッケージ",
   "run.securityLabel": "セキュリティ",
@@ -1472,7 +1472,7 @@ const ES = {
   "search.hint": "Busca en los títulos y el contenido de esta página.",
   "search.empty": "Ninguna sección coincide.",
   "search.results": "Secciones coincidentes",
-  "hero.releaseBadge": "Ya está aquí la v0.18.0",
+  "hero.releaseBadge": "Ya está aquí la v0.19.0",
   "hero.title": "Haz que tu terminal <span class=\"hero-accent\">recuerde</span>.",
   "hero.lead":
     "Si te topas con un error que ya viste, MemoryWhale te devuelve la solución. Guarda la evidencia de depuración en tu máquina para que tus agentes de código dejen de resolver una y otra vez los mismos problemas.",
@@ -1492,19 +1492,19 @@ const ES = {
   "integrations.label": "Funciona con",
   "integrations.via": "a través de MCP",
   "integrations.more": "Todas las integraciones",
-  "release.eyebrow": "Novedades en 0.18.0",
-  "release.title": "Recuerdo en cada agente.",
+  "release.eyebrow": "Novedades en 0.19.0",
+  "release.title": "Recuerdo en Gemini.",
   "release.copy":
-    "La versión 0.18.0 abarca la CLI, la interfaz web y la app de escritorio; el núcleo en Rust es 0.9.0 y los almacenes siguen en el esquema SQLite 13. Codex se suma a Claude Code y Cursor: MemoryWhale registra los comandos que ejecuta y le dice qué arregló un error la última vez. Los comandos de Rho llegan ahora con códigos de salida reales. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">notas de la versión</a>.",
-  "release.connectTitle": "Codex recibe el arreglo anterior",
+    "La versión 0.19.0 abarca la CLI, la interfaz web y la app de escritorio; el núcleo en Rust es 0.10.0 y los almacenes siguen en el esquema SQLite 13. Gemini CLI se suma a Claude Code, Cursor y Codex: un comando lo conecta y, con la captura activada, aprende de lo que ya falló, códigos de salida incluidos. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">notas de la versión</a>.",
+  "release.connectTitle": "Gemini CLI, conectado",
   "release.connectBody":
-    "Con <code>mw integrate codex --capture</code>, cada comando de shell que ejecuta Codex queda registrado, y cuando la salida muestra un error que ya se arregló, Codex ve una línea con ese arreglo.",
-  "release.provenanceTitle": "Códigos de salida reales de Rho",
+    "<code>mw integrate gemini</code> añade las herramientas de MemoryWhale, y <code>--capture</code> registra cada comando de shell que ejecuta Gemini con su código de salida, para que un error conocido vuelva con un posible arreglo.",
+  "release.provenanceTitle": "Ve lo que de verdad se registra",
   "release.provenanceBody":
-    "Con las versiones de Rho que envían el resultado del proceso, los comandos de Rho se guardan con su código de salida y su salida, así que cuentan en <code>mw context --last-error</code> y en la detección de arreglos. Contribución del autor de Rho, Matt Jiang.",
-  "release.interfaceTitle": "Más fácil en Linux y Jetson",
+    "<code>mw doctor</code> muestra ahora cuándo envió cada agente su último comando y si informa códigos de salida, para que destaque un hook configurado pero en silencio.",
+  "release.interfaceTitle": "Honesto con los arreglos",
   "release.interfaceBody":
-    "Guías de Linux y Jetson renovadas, y <code>enable-dashboard.sh --lan</code> pone el panel en tu red protegido por un token que nunca aparece en el archivo del servicio.",
+    "Los avisos dicen ahora <code>possible fix</code>: el siguiente comando que funcionó tras un fallo suele ser el arreglo, no siempre. Los hooks también siguen funcionando tras actualizar con Homebrew.",
   "who.eyebrow": "Para quién es",
   "who.title": "Pensado para tres formas de trabajar.",
   "who.copy":
@@ -1584,9 +1584,9 @@ const ES = {
   "run.tryValue": "<code>mw demo</code>: escribe datos de ejemplo en el almacén seleccionado",
   "run.prebuiltLabel": "Instalación precompilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb en la página de versiones",
   "run.securityLabel": "Seguridad",
@@ -1650,7 +1650,7 @@ const PT_BR = {
   "search.hint": "Pesquise nos títulos e no conteúdo desta página.",
   "search.empty": "Nenhuma seção corresponde.",
   "search.results": "Seções correspondentes",
-  "hero.releaseBadge": "A v0.18.0 chegou",
+  "hero.releaseBadge": "A v0.19.0 chegou",
   "hero.title": "Faça seu terminal <span class=\"hero-accent\">lembrar</span>.",
   "hero.lead":
     "Esbarrou em um erro que você já viu? O MemoryWhale devolve a correção. Ele guarda as evidências de depuração na sua máquina, para que seus agentes de programação parem de resolver os mesmos problemas de novo.",
@@ -1670,19 +1670,19 @@ const PT_BR = {
   "integrations.label": "Funciona com",
   "integrations.via": "via MCP",
   "integrations.more": "Todas as integrações",
-  "release.eyebrow": "Novidades na 0.18.0",
-  "release.title": "Lembrança em todo agente.",
+  "release.eyebrow": "Novidades na 0.19.0",
+  "release.title": "Lembrança no Gemini.",
   "release.copy":
-    "A versão 0.18.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust é 0.9.0 e os armazenamentos continuam no esquema SQLite 13. O Codex se junta ao Claude Code e ao Cursor: o MemoryWhale registra os comandos que ele executa e diz o que corrigiu um erro da última vez. Os comandos do Rho agora chegam com códigos de saída reais. Veja as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md\">notas de versão</a>.",
-  "release.connectTitle": "O Codex recebe a correção anterior",
+    "A versão 0.19.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust é 0.10.0 e os armazenamentos continuam no esquema SQLite 13. O Gemini CLI se junta ao Claude Code, ao Cursor e ao Codex: um comando o conecta e, com a captura ativada, ele aprende com o que já falhou, códigos de saída incluídos. Veja as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md\">notas de versão</a>.",
+  "release.connectTitle": "Gemini CLI conectado",
   "release.connectBody":
-    "Com <code>mw integrate codex --capture</code>, cada comando de shell que o Codex executa é registrado, e quando a saída mostra um erro já corrigido antes, o Codex vê uma linha com essa correção.",
-  "release.provenanceTitle": "Códigos de saída reais do Rho",
+    "<code>mw integrate gemini</code> adiciona as ferramentas do MemoryWhale, e <code>--capture</code> registra cada comando de shell que o Gemini executa com seu código de saída, para que um erro conhecido volte com uma possível correção.",
+  "release.provenanceTitle": "Veja o que é registrado de verdade",
   "release.provenanceBody":
-    "Com as versões do Rho que enviam o resultado do processo, os comandos do Rho são salvos com código de saída e saída, então contam em <code>mw context --last-error</code> e na detecção de correções. Contribuição do autor do Rho, Matt Jiang.",
-  "release.interfaceTitle": "Mais fácil no Linux e no Jetson",
+    "<code>mw doctor</code> agora mostra quando cada agente enviou o último comando e se informa códigos de saída, para que um hook configurado mas silencioso apareça.",
+  "release.interfaceTitle": "Honesto sobre correções",
   "release.interfaceBody":
-    "Guias de Linux e Jetson atualizados, e <code>enable-dashboard.sh --lan</code> coloca o painel na sua rede, protegido por um token que nunca aparece no arquivo do serviço.",
+    "Os avisos agora dizem <code>possible fix</code>: o próximo comando que deu certo depois de uma falha costuma ser a correção, nem sempre. Os hooks também continuam funcionando depois de atualizações do Homebrew.",
   "who.eyebrow": "Para quem é",
   "who.title": "Feito para três formas de trabalhar.",
   "who.copy":
@@ -1762,9 +1762,9 @@ const PT_BR = {
   "run.tryValue": "<code>mw demo</code>: grava dados de exemplo na base selecionada",
   "run.prebuiltLabel": "Instalação pré-compilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.18.0/docs/releases/0.18.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.18.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.19.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Pacote .deb na página de versões",
   "run.securityLabel": "Segurança",

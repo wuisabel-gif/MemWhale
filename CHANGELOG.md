@@ -3,23 +3,40 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.19.0] — Recall in Gemini — October 12, 2026
+
+Product `0.19.0`; `memorywhale-core` `0.10.0` (`SUPPORTED_AGENTS` becomes a slice; adds the `gemini` agent identifier); SQLite schema `13`.
+
+See [release notes](docs/releases/0.19.0.md).
 
 ### Added
 
-- **Gemini CLI: MCP setup, command capture, and proactive recall.** `mw integrate gemini` writes the MemoryWhale MCP entry into `~/.gemini/settings.json` (no more manual pasting), and `mw integrate gemini --capture` adds an `AfterTool` hook for `run_shell_command` that records each command with its output and real exit code (read from Gemini's `Exit Code:` line) and returns the same one-line notes as Claude Code: the fix that worked last time, or a request to save the lesson. `--check`, `--dry-run`, and `--revert` work as for Codex; `agent:gemini` is a search filter; `mw doctor` lists Gemini CLI.
-
-### Fixed
-
-- **Hooks and MCP entries survive Homebrew upgrades.** `mw integrate` wrote the resolved, versioned path (`/opt/homebrew/Cellar/memorywhale/<version>/bin/...`), so capture and Codex/Cursor MCP silently stopped once an upgrade removed that version. It now writes the stable PATH name (`/opt/homebrew/bin/...`) for the same file. Re-running `mw integrate claude`, `rho`, `codex`, `cursor`, or `<client> --capture` updates an existing install in place when the old path is gone, versioned, or the same file; a different helper that still exists still needs `--revert`. Codex MCP entries now refresh in place too: 0.18.1 compared them as JSON, but Codex stores TOML, so `mw integrate codex` still asked for `--revert` after an upgrade.
+- **Gemini CLI: MCP setup, command capture, and proactive recall.** `mw integrate gemini` writes the MemoryWhale MCP entry into `~/.gemini/settings.json` (no more manual pasting), and `mw integrate gemini --capture` adds an `AfterTool` hook for `run_shell_command` that records each command with its output and real exit code (read from Gemini's `Exit Code:` line) and returns the same one-line notes as Claude Code: the fix that worked last time, or a request to save the lesson. `--check`, `--dry-run`, and `--revert` work as for Codex; `agent:gemini` is a search filter; `mw doctor` lists Gemini CLI. (#404)
 
 ### Changed
 
-- `mw doctor` lists Codex and Cursor (MCP entry and capture hook), and reports a hook or MCP entry as stale when it points at a missing or no-longer-current executable.
-- `mw doctor` shows what each connected agent has actually captured, not only how it is configured: a "last captured" line with how long ago and how many recent rows carried an exit code, or "never" with the next step (for Codex, trusting the hook in `/hooks`). A "recall notes" line says whether hook feedback is on.
-- Recall notes no longer call the next passing command "the fix": they say `seen once; a later command passed, possible fix: <command>`, since that command is usually, not always, what fixed it. Delphin 0.5.1 reads both forms for `:fix`.
-- `memorywhale_core::provenance::SUPPORTED_AGENTS` (and the CLI's `SEARCH_AGENTS`) is now a slice, `&[&str]`, instead of a fixed-size array, so adding an agent no longer changes its type. `is_valid` and `label` derive from it.
-- The release preflight rejects linked contributor mentions (`[@handle](url)`) in the release notes: GitHub lists release contributors only from plain `@handle` mentions.
+- `mw doctor` shows what each connected agent has actually captured, not only how it is configured: a "last captured" line with how long ago and how many recent rows carried an exit code, or "never" with the next step (for Codex, trusting the hook in `/hooks`). A "recall notes" line says whether hook feedback is on. (#409)
+- Recall notes no longer call the next passing command "the fix": they say `seen once; a later command passed, possible fix: <command>`, since that command is usually, not always, what fixed it. Delphin 0.5.1 reads both forms for `:fix`. (#409, Delphin 0.5.1)
+- `memorywhale_core::provenance::SUPPORTED_AGENTS` (and the CLI's `SEARCH_AGENTS`) is now a slice, `&[&str]`, instead of a fixed-size array, so adding an agent no longer changes its type. `is_valid` and `label` derive from it. (#403)
+- The release preflight rejects linked contributor mentions (`[@handle](url)`) in the release notes: GitHub lists release contributors only from plain `@handle` mentions. (#403)
+
+### Fixed
+
+- **Codex MCP entries refresh in place after an upgrade.** 0.18.1 compared them as JSON, but Codex stores TOML, so `mw integrate codex` still asked for `--revert` after an upgrade. (#411)
+
+## [0.18.1] — Recall That Survives Upgrades — October 11, 2026
+
+Product `0.18.1`; `memorywhale-core` `0.9.0` (unchanged); SQLite schema `13`.
+
+See [release notes](docs/releases/0.18.1.md).
+
+### Fixed
+
+- **Hooks and MCP entries survive Homebrew upgrades.** `mw integrate` wrote the resolved, versioned path (`/opt/homebrew/Cellar/memorywhale/<version>/bin/...`), so capture and Codex/Cursor MCP silently stopped once an upgrade removed that version. It now writes the stable PATH name (`/opt/homebrew/bin/...`) for the same file. Re-running `mw integrate claude`, `rho`, `codex`, `cursor`, or `<client> --capture` updates an existing install in place when the old path is gone, versioned, or the same file; a different helper that still exists still needs `--revert`. (#402)
+
+### Changed
+
+- `mw doctor` lists Codex and Cursor (MCP entry and capture hook), and reports a hook or MCP entry as stale when it points at a missing or no-longer-current executable. (#402)
 
 ## [0.18.0] — Recall in Every Agent — October 5, 2026
 
