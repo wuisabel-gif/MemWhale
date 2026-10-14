@@ -78,9 +78,11 @@ configuration rather than assuming the file alone defines runtime behavior.
   unavailable. Host/local truncation markers are retained.
 - Normal hook processing is silent and nonfatal. Explicit
   `MEMORYWHALE_HOOK_DIAGNOSTICS=1` enables fixed diagnostics, not payload dumps.
-- Different executions of the same command remain separate. There is no global
-  exactly-once delivery promise; manually replaying the same receipt can create
-  another record. Session/call IDs remain available for evidence correlation.
+- Replays with the same complete session/call identity are suppressed atomically
+  while the matching record exists. Different identities remain separate even
+  when the command is identical or one ID prefixes another. Deleting a record
+  permits it to be captured again; this is not a global exactly-once guarantee.
+  Session/call IDs remain available for evidence correlation.
 - Captured content can contain secrets despite redaction. The store remains
   local, but retrieved excerpts may be sent to a model provider by a client.
   Session transcript retention is not a capture-consent signal.
@@ -101,6 +103,8 @@ installation or marketplace publication is performed by this source bundle.
 
 The implementation must be validated against a receipt-capable pinned host.
 Offline parser/subprocess tests are not a substitute for native plugin review,
-activation, actual command execution, and fresh-client retrieval. The recorded
-host/adapter verification and prerequisite PR links belong in the main
-Codewhale integration verification report before release.
+activation, actual command execution, and fresh-client retrieval. The host patch
+remains local and is not a stock Codewhale feature. See the
+[capture verification report](../CAPTURE-VERIFICATION.md) for the exact tested
+host, local changes, evidence, and remaining limits; do not infer upstream or
+released support from local results.
