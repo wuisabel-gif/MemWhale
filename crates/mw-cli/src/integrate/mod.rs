@@ -67,25 +67,10 @@ fn observed(conn: &rusqlite::Connection, agent: &str) -> Option<report::Observed
         )
         .ok()?;
     Some(report::Observed::Seen {
-        age: age(&last),
+        age: crate::relative_age(&last),
         recent,
         with_exit,
     })
-}
-
-fn age(created_at: &str) -> String {
-    let Ok(then) = chrono::DateTime::parse_from_rfc3339(created_at) else {
-        return created_at.to_string();
-    };
-    let minutes = (chrono::Utc::now() - then.with_timezone(&chrono::Utc))
-        .num_minutes()
-        .max(0);
-    match minutes {
-        0 => "just now".to_string(),
-        1..=59 => format!("{minutes} min ago"),
-        60..=2879 => format!("{} h ago", minutes / 60),
-        _ => format!("{} days ago", minutes / 1440),
-    }
 }
 
 #[cfg(test)]

@@ -5065,6 +5065,14 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
                 if let Ok(insight) = memorywhale_cli::error_insight(&conn, &fp) {
                     println!("\n## This error");
                     println!("{}", insight.summary());
+                    if let Ok(Some(hint)) = stderr
+                        .lines()
+                        .find(|l| !l.trim().is_empty())
+                        .map(|line| memorywhale_cli::error_hint(&conn, line))
+                        .unwrap_or(Ok(None))
+                    {
+                        println!("Recall: {hint}");
+                    }
                     if insight.occurrences > 1 && insight.resolutions == 0 {
                         println!("No recorded fix yet — once you resolve it, run `mw remember \"<the fix>\"`.");
                     }
@@ -5271,14 +5279,26 @@ fn doctor() -> Result<(), String> {
         Err(err) => warn("mcp", mcp_remediation(&err)),
     }
 
-    let feedback = if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
-        "off (MEMORYWHALE_HOOK_FEEDBACK=0)"
-    } else {
-        "on: agents with capture hooks get a note when a past fix is known"
-    };
-    ok("recall notes", feedback.to_string());
-
     let conn = open_session_db().ok();
+    let feedback = if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
+        "off (MEMORYWHALE_HOOK_FEEDBACK=0)".to_string()
+    } else {
+        let stats = conn
+            .as_ref()
+            .map(memorywhale_cli::recall_stats)
+            .unwrap_or_default();
+        if stats.shown == 0 {
+            "on: agents with capture hooks get a note when a past fix is known; none shown yet"
+                .to_string()
+        } else {
+            format!(
+                "on: {} shown to agents, {} followed, {} worked",
+                stats.shown, stats.followed, stats.worked
+            )
+        }
+    };
+    ok("recall notes", feedback);
+
     print!(
         "{}",
         memorywhale_cli::integrate::render_doctor_reports(mcp_stdio_ok, conn.as_ref())

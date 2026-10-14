@@ -505,11 +505,17 @@ fn stats_summary(conn: &Connection, db_path: &str) -> String {
     .flatten()
     .max()
     .unwrap_or_else(|| "none".to_string());
+    let recall = crate::recall_stats(conn);
     json!({
         "memories": memories,
         "errors": errors,
         "latest": latest,
         "db": db_path,
+        "recall": {
+            "hints_shown": recall.shown,
+            "followed": recall.followed,
+            "worked": recall.worked,
+        },
     })
     .to_string()
 }
@@ -770,6 +776,7 @@ mod tests {
         assert_eq!(v["memories"], 2);
         assert_eq!(v["errors"], 1);
         assert_eq!(v["latest"], "2026-07-21T10:00:00Z");
+        assert_eq!(v["recall"]["hints_shown"], 0);
     }
 
     #[test]

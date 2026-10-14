@@ -3,6 +3,14 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Fixes that prove themselves.** A recalled fix now carries evidence. Each time a suggested command runs after a failure and the failing command then passes, that counts as one observation; a fix observed to work more than once is reported as `confirmed fix: <command>` with its record (`worked 2 of 2 times`), while one seen once stays a `possible fix`. Candidates are ranked by how often they worked, not by which came first. Delphin 0.5.2 reads the new wording for `:fix`.
+- **Agents learn from each other.** Recall notes say who ran the fix and when (`last run by Claude Code 2 days ago`, or `run in a terminal`), so a fix found in one agent, or by you at the prompt, reaches every other agent on the machine.
+- **Recall stats.** MemoryWhale records each note it shows (schema 14, table `recall_hints`) and reads back from the following runs whether the agent followed it and whether the failing command then passed. `mw doctor` ("recall notes: on: 12 shown to agents, 9 followed, 7 worked"), the dashboard, and the MCP `stats` tool (`recall.hints_shown`, `followed`, `worked`) report it. `mw context --last-error` adds a `Recall:` line with the best fix for the last failure.
+
 ## [0.19.0] — Recall in Gemini — October 12, 2026
 
 Product `0.19.0`; `memorywhale-core` `0.10.0` (`SUPPORTED_AGENTS` becomes a slice; adds the `gemini` agent identifier); SQLite schema `13`.

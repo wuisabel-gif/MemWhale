@@ -1250,6 +1250,13 @@ fn dashboard(raw_path: &str) -> String {
         esc(&query)
     ));
     body.push_str(&tz_selector());
+    let recall = memorywhale_cli::recall_stats(&conn);
+    if recall.shown > 0 {
+        body.push_str(&format!(
+            "<p class=\"sub\">Recall notes: {} shown to agents, {} followed, {} worked.</p>\n",
+            recall.shown, recall.followed, recall.worked
+        ));
+    }
 
     if !query.trim().is_empty() {
         body.push_str(&search_results(&conn, &query));

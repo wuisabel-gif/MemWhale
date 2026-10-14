@@ -138,7 +138,7 @@ against that registry.
 | `get_context` | The most relevant remembered memory, engine-ranked, optionally scoped. | `project`, `machine` (string, optional); `agent` (optional: `claude`, `rho`, `cursor`, `codewhale`, or `terminal`) | Up to 8 ranked hits, each with score, snippet, producing-agent label, and reasons. |
 | `remember` | Save a freeform lesson or conclusion so future sessions don't re-derive it. | `text` (string, **required**) | Confirmation with the new memory id; findable later via `search_memory`/`get_context`. |
 | `similar_failures` | Check whether an error you just hit has occurred before, and whether a later run resolved it. | `error_text` (string, **required**); `command` (string, optional — enables an exact fingerprint match) | Evidence-only history: occurrence count, how often a later run of the same command succeeded, and a pointer to a concrete past occurrence. |
-| `stats` | Health/liveness check: confirm the store is reachable and populated before relying on the other tools. | none | JSON: total memory count, how many are recorded failures, the most-recent memory timestamp (or `"none"`), and the database file path. |
+| `stats` | Health/liveness check: confirm the store is reachable and populated before relying on the other tools. | none | JSON: total memory count, how many are recorded failures, the most-recent memory timestamp (or `"none"`), the database file path, and `recall` (`hints_shown`, `followed`, `worked`: how the recall notes shown to agents have done, read back from the runs that followed). |
 
 A fresh, empty store is handled gracefully — reads return empty results (and
 `stats` returns zero counts) rather than erroring.
