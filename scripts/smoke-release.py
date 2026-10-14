@@ -15,6 +15,15 @@ import sys
 import tempfile
 import time
 from urllib.error import URLError
+
+
+def latest_schema():
+    """LATEST_SCHEMA_VERSION from the CLI source, so this check follows migrations."""
+    source = (Path(__file__).resolve().parent.parent / "crates/mw-cli/src/lib.rs").read_text()
+    for line in source.splitlines():
+        if line.startswith("pub const LATEST_SCHEMA_VERSION"):
+            return int(line.rstrip(";").split("=")[1])
+    raise RuntimeError("LATEST_SCHEMA_VERSION not found")
 from urllib.request import Request, build_opener, ProxyHandler
 
 
@@ -83,7 +92,7 @@ def main():
         check("[command · rho]" in run("mw", "search", "agent:rho"), "Rho provenance missing")
         check("[command · terminal]" in run("mw", "search", "agent:terminal"), "terminal provenance missing")
         with sqlite3.connect(data / "memorywhale.sqlite3") as conn:
-            check(conn.execute("PRAGMA user_version").fetchone()[0] == 13, "migration 13 missing")
+            check(conn.execute("PRAGMA user_version").fetchone()[0] == latest_schema(), f"migration {latest_schema()} missing")
             agents = [row[0] for row in conn.execute("SELECT agent FROM command_runs ORDER BY id")]
             check(agents == ["claude", "rho", None], f"unexpected agents: {agents}")
 
