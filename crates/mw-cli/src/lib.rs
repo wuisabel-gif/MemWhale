@@ -851,7 +851,7 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
     // lines if hint latency ever shows up.
     let mut stmt = conn
         .prepare(
-            "SELECT id, command, cwd, stderr FROM command_runs
+            "SELECT id, command, argv_json, cwd, stderr FROM command_runs
              WHERE exit_code IS NOT NULL AND exit_code != 0 AND id < ?1
              ORDER BY id DESC LIMIT 2000",
         )
@@ -861,8 +861,9 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,
-                r.get::<_, Option<String>>(2)?,
-                r.get::<_, String>(3)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, String>(4)?,
             ))
         })
         .map_err(|e| format!("hint query: {e}"))?
@@ -870,7 +871,7 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
         .map_err(|e| format!("hint row: {e}"))?;
     let matches: Vec<_> = failures
         .into_iter()
-        .filter(|(_, _, _, stderr)| {
+        .filter(|(_, _, _, _, stderr)| {
             stderr.lines().any(|l| {
                 let l = normalize_error_line(l).to_lowercase();
                 l.len() >= MIN_LEN && (target.contains(&l) || l.contains(&target))
@@ -880,9 +881,14 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
     if matches.is_empty() {
         return Ok(None);
     }
-    let failures: Vec<(i64, String, Option<String>)> = matches
+    let failures: Vec<Failure> = matches
         .into_iter()
-        .map(|(id, command, cwd, _)| (id, command, cwd))
+        .map(|(id, command, argv_json, cwd, _)| Failure {
+            id,
+            command,
+            argv_json,
+            cwd,
+        })
         .collect();
     let best = fix_candidates(conn, &failures)?.into_iter().next();
     Ok(Some(format_hint(failures.len(), best.as_ref())))
@@ -913,18 +919,47 @@ impl FixCandidate {
     }
 }
 
+/// A recorded failure, as [`fix_candidates`] needs it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Failure {
+    pub id: i64,
+    /// The program name (`command` column).
+    pub command: String,
+    pub argv_json: String,
+    pub cwd: Option<String>,
+}
+
+/// SQL for the command line behind an `argv_json` column, so runs captured by
+/// an agent hook (`["cargo build"]`) and at a prompt (`["cargo","build"]`)
+/// compare equal.
+const CMDLINE: &str = "(SELECT group_concat(value, ' ') FROM json_each({}))";
+
 /// Fix candidates for a set of failures of the same error, best first: most
 /// confirmations, then most sightings, then most recent. Each failure
 /// contributes at most one candidate, the next different passing command in
 /// the same directory within the following five runs; it counts as `worked`
-/// when the failing command passed within the ten runs after the failure.
+/// when the failing command line passed within the ten runs after the failure.
 pub fn fix_candidates(
     conn: &Connection,
-    failures: &[(i64, String, Option<String>)],
+    failures: &[Failure],
 ) -> Result<Vec<FixCandidate>, String> {
     let mut by_argv: std::collections::HashMap<String, FixCandidate> =
         std::collections::HashMap::new();
-    for (id, command, cwd) in failures {
+    let worked_sql = format!(
+        "SELECT EXISTS(
+           SELECT 1 FROM command_runs
+           WHERE id > ?1 AND id <= ?2 + 10 AND cwd IS ?3 AND exit_code = 0
+             AND {} = {})",
+        CMDLINE.replace("{}", "argv_json"),
+        CMDLINE.replace("{}", "?4")
+    );
+    for Failure {
+        id,
+        command,
+        argv_json,
+        cwd,
+    } in failures
+    {
         let next: Option<(i64, String, Option<String>, String)> = conn
             .query_row(
                 "SELECT id, argv_json, agent, created_at FROM command_runs
@@ -936,25 +971,20 @@ pub fn fix_candidates(
             )
             .optional()
             .map_err(|e| format!("fix candidate: {e}"))?;
-        let Some((fix_id, argv_json, agent, at)) = next else {
+        let Some((fix_id, fix_argv, agent, at)) = next else {
             continue;
         };
-        if serde_json::from_str::<Vec<String>>(&argv_json).is_ok_and(|argv| argv.is_empty()) {
+        if serde_json::from_str::<Vec<String>>(&fix_argv).is_ok_and(|argv| argv.is_empty()) {
             continue;
         }
         let worked: bool = conn
-            .query_row(
-                "SELECT EXISTS(
-                   SELECT 1 FROM command_runs
-                   WHERE id > ?1 AND id <= ?2 + 10 AND command = ?3 AND cwd IS ?4
-                     AND exit_code = 0)",
-                params![fix_id, id, command, cwd],
-                |r| r.get(0),
-            )
+            .query_row(&worked_sql, params![fix_id, id, cwd, argv_json], |r| {
+                r.get(0)
+            })
             .map_err(|e| format!("fix outcome: {e}"))?;
-        let entry = by_argv.entry(argv_json.clone()).or_insert(FixCandidate {
+        let entry = by_argv.entry(fix_argv.clone()).or_insert(FixCandidate {
             run_id: fix_id,
-            argv_json,
+            argv_json: fix_argv,
             seen: 0,
             worked: 0,
             agent: agent.clone(),
@@ -1044,7 +1074,8 @@ pub struct RecallStats {
 }
 
 pub fn recall_stats(conn: &Connection) -> RecallStats {
-    conn.query_row(
+    let line = |column: &str| CMDLINE.replace("{}", column);
+    let sql = format!(
         "SELECT COUNT(*),
                 COALESCE(SUM(followed.id IS NOT NULL), 0),
                 COALESCE(SUM(worked.id IS NOT NULL), 0)
@@ -1053,22 +1084,25 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
          LEFT JOIN command_runs followed ON followed.id = (
              SELECT f.id FROM command_runs f
              WHERE f.id > h.run_id AND f.id <= h.run_id + 10
-               AND f.argv_json = h.fix_argv_json AND f.cwd IS r.cwd
+               AND {f} = {hf} AND f.cwd IS r.cwd
              ORDER BY f.id LIMIT 1)
          LEFT JOIN command_runs worked ON worked.id = (
              SELECT s.id FROM command_runs s
              WHERE s.id > followed.id AND s.id <= h.run_id + 20
-               AND s.argv_json = r.argv_json AND s.cwd IS r.cwd AND s.exit_code = 0
+               AND {s} = {r} AND s.cwd IS r.cwd AND s.exit_code = 0
              ORDER BY s.id LIMIT 1)",
-        [],
-        |r| {
-            Ok(RecallStats {
-                shown: r.get(0)?,
-                followed: r.get(1)?,
-                worked: r.get(2)?,
-            })
-        },
-    )
+        f = line("f.argv_json"),
+        hf = line("h.fix_argv_json"),
+        s = line("s.argv_json"),
+        r = line("r.argv_json"),
+    );
+    conn.query_row(&sql, [], |r| {
+        Ok(RecallStats {
+            shown: r.get(0)?,
+            followed: r.get(1)?,
+            worked: r.get(2)?,
+        })
+    })
     .unwrap_or_default()
 }
 
@@ -2958,10 +2992,19 @@ mod tests {
             "{hint}"
         );
 
-        let failures: Vec<(i64, String, Option<String>)> = conn
-            .prepare("SELECT id, command, cwd FROM command_runs WHERE exit_code = 101 ORDER BY id")
+        let failures: Vec<Failure> = conn
+            .prepare(
+                "SELECT id, command, argv_json, cwd FROM command_runs WHERE exit_code = 101 ORDER BY id",
+            )
             .unwrap()
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .query_map([], |r| {
+                Ok(Failure {
+                    id: r.get(0)?,
+                    command: r.get(1)?,
+                    argv_json: r.get(2)?,
+                    cwd: r.get(3)?,
+                })
+            })
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap();
@@ -2979,6 +3022,17 @@ mod tests {
         );
         assert_eq!(ranked[0].agent.as_deref(), Some("codex"));
         assert_eq!(ran_by(None), "run in a terminal");
+
+        // An agent hook stores the command line as one argument; a terminal
+        // rerun stores it split. The episode still counts as worked.
+        run(r#"["cargo build"]"#, 101, err, Some("claude"));
+        run(r#"["xcode-select","--install"]"#, 0, "", None);
+        run(r#"["cargo","build"]"#, 0, "", None);
+        let hint = error_hint(&conn, err).unwrap().unwrap();
+        assert!(
+            hint.contains("worked 3 of 3 times, last run in a terminal"),
+            "{hint}"
+        );
     }
 
     #[test]
