@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 14da2c4f6fd18b5df9fe231d3ddc646e60879808f30062d729a2992ce872bc16 -->
+<!-- README-SOURCE-SHA256: c035d0cd707838c71a0fce951741d69c48518f643ca5aefbc1ffec6243075d4c -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -34,9 +34,9 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 > 在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 **25%** 的问题，有记忆时解决了 **96%**。
 > 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](../../benchmarks/README.md)。
 
-**MemoryWhale 0.19.0: Recall in Gemini · 2026 年 10 月 12 日。**
-CLI、Web 界面和桌面应用共用产品版本号 0.19.0；可复用的 Rust 核心版本为 0.10.0。
-升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md)。打开存储库时，其 schema 会从 10 迁移到 13。
+**MemoryWhale 0.20.0: Agents Learn from Each Other · 2026 年 10 月 14 日。**
+CLI、Web 界面和桌面应用共用产品版本号 0.20.0；可复用的 Rust 核心版本为 0.10.0。
+升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.20.0/docs/releases/0.20.0.md)。打开存储库时，其 schema 会从 10 迁移到 14。
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="智能体的 make 因 xcrun 错误失败；捕获钩子回复说这个错误以前出现过一次，修复方法是 xcode-select --install。" width="820" />

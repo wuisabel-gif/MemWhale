@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 14da2c4f6fd18b5df9fe231d3ddc646e60879808f30062d729a2992ce872bc16 -->
+<!-- README-SOURCE-SHA256: c035d0cd707838c71a0fce951741d69c48518f643ca5aefbc1ffec6243075d4c -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -34,9 +34,9 @@ MCP 経由で 19 種類のコーディングエージェントと連携でき、
 > プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで **25%**、メモリありで **96%** の課題を解決しました。
 > これはメカニズムを示すための合成タスクであり、実環境での調査ではありません。詳しくは[測定方法](../../benchmarks/README.md)をご覧ください。
 
-**MemoryWhale 0.19.0: Recall in Gemini · 2026 年 10 月 12 日**
-CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.19.0 で、再利用可能な Rust コアのバージョンは 0.10.0 です。
-アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 13 に移行されます。
+**MemoryWhale 0.20.0: Agents Learn from Each Other · 2026 年 10 月 14 日**
+CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.20.0 で、再利用可能な Rust コアのバージョンは 0.10.0 です。
+アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.20.0/docs/releases/0.20.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 14 に移行されます。
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="エージェントの make が xcrun エラーで失敗すると、キャプチャフックがこのエラーは以前 1 回発生し、修正は xcode-select --install だったと返します。" width="820" />

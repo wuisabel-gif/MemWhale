@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 14da2c4f6fd18b5df9fe231d3ddc646e60879808f30062d729a2992ce872bc16 -->
+<!-- README-SOURCE-SHA256: c035d0cd707838c71a0fce951741d69c48518f643ca5aefbc1ffec6243075d4c -->
 
 <div dir="rtl">
 
@@ -39,11 +39,11 @@
 > و**96%** منها مع الذاكرة. هذه مهام اصطناعية توضّح آلية العمل، وليست دراسة ميدانية؛
 > راجع [كيف أُجري القياس](../../benchmarks/README.md).
 
-**MemoryWhale 0.19.0: Recall in Gemini · 12 أكتوبر 2026.**
-تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.19.0،
+**MemoryWhale 0.20.0: Agents Learn from Each Other · 14 أكتوبر 2026.**
+تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.20.0،
 أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.10.0. راجع
-[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.19.0/docs/releases/0.19.0.md)
-للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 13.
+[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.20.0/docs/releases/0.20.0.md)
+للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 14.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="يفشل أمر make لدى الوكيل بخطأ xcrun؛ فيردّ خطاف الالتقاط بأن هذا الخطأ ظهر مرة من قبل وأن الإصلاح كان xcode-select --install." width="820" />

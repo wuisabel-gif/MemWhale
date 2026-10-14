@@ -1,6 +1,6 @@
 # memorywhale-cli
 
-**MemoryWhale 0.19.0: Recall in Gemini · September 30, 2026.**
+**MemoryWhale 0.20.0: Agents Learn from Each Other · September 30, 2026.**
 
 Local-first terminal memory. Records commands, arguments, output, errors, and
 whole sessions into local SQLite, so what already failed stays searchable —
