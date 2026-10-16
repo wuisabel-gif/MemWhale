@@ -155,3 +155,161 @@ fn server_lists_and_calls_all_six_tools_on_empty_db() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// --- recall block of `stats`, end to end (issue #426) -----------------------
+
+const ERR: &str = "error: linker `cc` not found";
+const CWD: &str = "/mw-recall-it";
+
+fn recall_sandbox(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("mw-mcp-recall-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// Record one command run with the real `mw-remember` binary.
+fn remember(dir: &std::path::Path, exit: i64, stderr: &str, cmd: &[&str]) {
+    let out = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
+        .env("MEMORYWHALE_DATA_DIR", dir)
+        .args([
+            "--cwd",
+            CWD,
+            "--exit-code",
+            &exit.to_string(),
+            "--stderr",
+            stderr,
+            "--",
+        ])
+        .args(cmd)
+        .output()
+        .expect("spawn mw-remember");
+    assert!(out.status.success(), "mw-remember failed: {out:?}");
+}
+
+/// Send a failing Claude `PostToolUse` Bash payload through
+/// `mw-remember --from-hook claude`; this is the path that shows (and
+/// records) a recall note. Returns the hook's stdout.
+fn claude_hook_failure(dir: &std::path::Path, command: &str) -> String {
+    let payload = json!({
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "cwd": CWD,
+        "tool_input": {"command": command},
+        "tool_response": {"stdout": "", "stderr": ERR, "is_error": true}
+    });
+    let mut child = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
+        .args(["--from-hook", "claude"])
+        .env("MEMORYWHALE_DATA_DIR", dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn mw-remember --from-hook");
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(payload.to_string().as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().expect("wait mw-remember");
+    assert!(out.status.success(), "{out:?}");
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+/// Call the `stats` tool on the real `mw-mcp` binary and return its `recall` block.
+fn mcp_stats_recall(dir: &std::path::Path) -> Value {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_mw-mcp"))
+        .env("MEMORYWHALE_DATA_DIR", dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn mw-mcp");
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "stats", "arguments": {}, "_meta": modern_meta()}});
+    let mut stdin = child.stdin.take().unwrap();
+    writeln!(stdin, "{req}").unwrap();
+    drop(stdin);
+
+    let stdout = child.stdout.take().unwrap();
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        for line in BufReader::new(stdout).lines() {
+            let Ok(line) = line else { break };
+            if !line.trim().is_empty() && tx.send(line).is_err() {
+                break;
+            }
+        }
+    });
+    let resp: Value = loop {
+        let line = rx
+            .recv_timeout(Duration::from_secs(15))
+            .expect("timed out waiting for stats");
+        let v: Value = serde_json::from_str(&line).expect("valid JSON-RPC line");
+        if v.get("id").and_then(Value::as_i64) == Some(1) {
+            break v;
+        }
+    };
+    let _ = child.wait();
+    assert!(resp.get("error").is_none(), "stats errored: {resp}");
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let stats = resp["result"]
+        .get("structuredContent")
+        .cloned()
+        .or_else(|| {
+            resp["result"]["content"][0]["text"]
+                .as_str()
+                .and_then(|t| serde_json::from_str(t).ok())
+        })
+        .unwrap_or_else(|| panic!("no stats payload: {resp}"));
+    stats["recall"].clone()
+}
+
+fn assert_recall(recall: &Value, shown: i64, followed: i64, worked: i64) {
+    assert_eq!(recall["hints_shown"].as_i64(), Some(shown), "{recall}");
+    assert_eq!(recall["followed"].as_i64(), Some(followed), "{recall}");
+    assert_eq!(recall["worked"].as_i64(), Some(worked), "{recall}");
+}
+
+/// Fail, fix, pass: gives the store a recorded fix for `ERR`.
+fn seed_known_fix(dir: &std::path::Path) {
+    remember(dir, 101, ERR, &["cargo", "build"]);
+    remember(dir, 0, "", &["xcode-select", "--install"]);
+    remember(dir, 0, "", &["cargo", "build"]);
+}
+
+#[test]
+fn stats_recall_is_all_zero_on_empty_db() {
+    let dir = recall_sandbox("empty");
+    assert_recall(&mcp_stats_recall(&dir), 0, 0, 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn stats_recall_counts_a_hint_that_was_followed_and_worked() {
+    let dir = recall_sandbox("followed");
+    seed_known_fix(&dir);
+    let note = claude_hook_failure(&dir, "cargo build");
+    assert!(
+        note.contains("xcode-select --install"),
+        "hook note: {note:?}"
+    );
+    remember(&dir, 0, "", &["xcode-select", "--install"]);
+    remember(&dir, 0, "", &["cargo", "build"]);
+    assert_recall(&mcp_stats_recall(&dir), 1, 1, 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn stats_recall_counts_a_hint_that_was_shown_but_not_followed() {
+    let dir = recall_sandbox("ignored");
+    seed_known_fix(&dir);
+    let note = claude_hook_failure(&dir, "cargo build");
+    assert!(
+        note.contains("xcode-select --install"),
+        "hook note: {note:?}"
+    );
+    assert_recall(&mcp_stats_recall(&dir), 1, 0, 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
