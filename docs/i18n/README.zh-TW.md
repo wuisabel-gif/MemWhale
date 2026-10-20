@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c035d0cd707838c71a0fce951741d69c48518f643ca5aefbc1ffec6243075d4c -->
+<!-- README-SOURCE-SHA256: 1f87a8ca2e91b87f72462c0a3c6bc632ced00c51422f200060400d40af573b9d -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -34,10 +34,10 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 > 在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 **25%** 的問題，有記憶時則解決了 **96%**。
 > 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](../../benchmarks/README.md)。
 
-**MemoryWhale 0.20.0: Agents Learn from Each Other · 2026 年 10 月 14 日。**
-CLI、Web 介面與桌面應用程式共用同一個產品版本 0.20.0；可重複使用的 Rust 核心則是 0.10.0。
-升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.20.0/docs/releases/0.20.0.md)。
-開啟資料儲存區時，其 schema 會從 10 遷移到 14。
+**MemoryWhale 0.21.0: Fewer, Truer Hints · 2026 年 10 月 20 日。**
+CLI、Web 介面與桌面應用程式共用同一個產品版本 0.21.0；可重複使用的 Rust 核心則是 0.10.0。
+升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md)。
+開啟資料儲存區時，其 schema 會從 10 遷移到 15。
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="代理的 make 因 xcrun 錯誤失敗；擷取掛鉤回覆說這個錯誤先前出現過一次，修正方法是 xcode-select --install。" width="820" />

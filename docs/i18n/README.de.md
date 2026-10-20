@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c035d0cd707838c71a0fce951741d69c48518f643ca5aefbc1ffec6243075d4c -->
+<!-- README-SOURCE-SHA256: 1f87a8ca2e91b87f72462c0a3c6bc632ced00c51422f200060400d40af573b9d -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -38,11 +38,11 @@ wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. �
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](../../benchmarks/README.md).
 
-**MemoryWhale 0.20.0: Agents Learn from Each Other · 14. Oktober 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.20.0; der
+**MemoryWhale 0.21.0: Fewer, Truer Hints · 20. Oktober 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.21.0; der
 wiederverwendbare Rust-Kern hat die Version 0.10.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.20.0/docs/releases/0.20.0.md).
-Beim Öffnen wird ein Speicher von Schema 10 auf 14 migriert.
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md).
+Beim Öffnen wird ein Speicher von Schema 10 auf 15 migriert.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="Das make eines Agenten scheitert mit einem xcrun-Fehler; der Capture-Hook meldet, dass der Fehler schon einmal auftrat und der Fix xcode-select --install war." width="820" />
