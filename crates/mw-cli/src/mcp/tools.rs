@@ -529,7 +529,10 @@ fn similar_failures_report(conn: &Connection, error_text: &str, command: Option<
     // Exact path only helps when we know the command: stored fingerprints were
     // computed WITH the real command.
     if let Some(cmd) = command {
-        if let Some(fp) = crate::error_fingerprint(cmd, error_text) {
+        if let Some(fp) = crate::error_fingerprint(
+            &crate::stem_for_failure(cmd, crate::salient_error_line(error_text).unwrap_or("")),
+            error_text,
+        ) {
             if let Ok(insight) = crate::error_insight(conn, &fp) {
                 if insight.occurrences > 0 {
                     let mut out = insight.summary();

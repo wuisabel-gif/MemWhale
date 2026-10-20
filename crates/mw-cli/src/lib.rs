@@ -52,7 +52,7 @@ pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(()
 
 use chrono::Utc;
 use regex::Regex;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -159,7 +159,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 14;
+pub const LATEST_SCHEMA_VERSION: i64 = 15;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -360,6 +360,18 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
              PRAGMA user_version = 14;",
         )
         .map_err(|e| format!("failed to migrate recall hints: {e}"))?;
+    }
+    if version < 15 {
+        // Fingerprints now key on the program stem (`cargo build`) instead of
+        // argv[0], which for an agent capture was the whole command line and
+        // never recurred. Recompute them all.
+        if table_exists(conn, "command_runs")? {
+            conn.execute_batch("UPDATE command_runs SET error_fingerprint = NULL;")
+                .map_err(|e| format!("failed to reset fingerprints: {e}"))?;
+            backfill_error_fingerprints(conn)?;
+        }
+        conn.execute_batch("PRAGMA user_version = 15;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
     ensure_memory_ref_cleanup(conn)?;
     Ok(())
@@ -616,7 +628,7 @@ pub fn backfill_error_fingerprints(conn: &Connection) -> Result<(), String> {
     let rows: Vec<(i64, String, String)> = {
         let mut stmt = conn
             .prepare(
-                "SELECT id, command, stderr FROM command_runs
+                "SELECT id, argv_json, stderr FROM command_runs
                  WHERE exit_code IS NOT NULL AND exit_code != 0
                    AND error_fingerprint IS NULL",
             )
@@ -626,8 +638,9 @@ pub fn backfill_error_fingerprints(conn: &Connection) -> Result<(), String> {
             .map_err(|e| format!("backfill query: {e}"))?;
         mapped.filter_map(Result::ok).collect()
     };
-    for (id, command, stderr) in rows {
-        if let Some(fp) = error_fingerprint(&command, &stderr) {
+    for (id, argv_json, stderr) in rows {
+        if let Some(fp) = error_fingerprint(&program_stem_for_failure(&argv_json, &stderr), &stderr)
+        {
             conn.execute(
                 "UPDATE command_runs SET error_fingerprint = ?1 WHERE id = ?2",
                 params![fp, id],
@@ -713,6 +726,270 @@ pub fn error_fingerprint(command: &str, stderr: &str) -> Option<String> {
     Some(format!("{hash:08x}"))
 }
 
+/// The program a run is really about, as `program <first argument>`:
+/// `cargo build`, `python3 plot.py`, `git push`. Agents run one-shot scripts
+/// such as `S=/tmp/x; cd "$S" && cargo build 2>&1 | tail -5`, whose full text
+/// never recurs; the stem does. The stem is the last step that is not
+/// read-only (else the last step), skipping `cd`, control words, assignments,
+/// wrappers (`sudo`, `env`, `time`), a leading `yes |`, and heredoc bodies.
+pub fn program_stem(argv_json: &str) -> String {
+    let argv: Vec<String> = serde_json::from_str(argv_json).unwrap_or_default();
+    let stem = stem_of_line(&argv.join(" "));
+    if !stem.is_empty() {
+        return stem;
+    }
+    argv.first()
+        .map(|first| basename(first).to_string())
+        .unwrap_or_default()
+}
+
+/// [`program_stem`] for a command line rather than stored argv.
+pub fn stem_of_line(line: &str) -> String {
+    let steps = command_steps(line);
+    steps
+        .iter()
+        .rev()
+        .find(|(stem, _)| !read_only_program(stem))
+        .or(steps.last())
+        .map(|(stem, _)| stem.clone())
+        .unwrap_or_default()
+}
+
+/// The stem of the step that produced `error_line` when the line names its
+/// program (`ls: … No such file`, `cargo: command not found`), else
+/// [`stem_of_line`]. Fingerprints use this so a multi-step script is keyed on
+/// the step that failed.
+pub fn stem_for_failure(line: &str, error_line: &str) -> String {
+    let named = error_line
+        .split_once(':')
+        .map(|(prefix, _)| basename(prefix.trim()))
+        .filter(|prefix| {
+            !prefix.is_empty()
+                && prefix
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || "._-".contains(c))
+        });
+    if let Some(program) = named {
+        if let Some((stem, _)) = command_steps(line)
+            .into_iter()
+            .find(|(stem, _)| stem.split(' ').next() == Some(program))
+        {
+            return stem;
+        }
+    }
+    stem_of_line(line)
+}
+
+/// [`stem_for_failure`] over stored argv.
+pub fn program_stem_for_failure(argv_json: &str, stderr: &str) -> String {
+    let argv: Vec<String> = serde_json::from_str(argv_json).unwrap_or_default();
+    let line = argv.join(" ");
+    let salient = salient_error_line(stderr).unwrap_or("");
+    let stem = stem_for_failure(&line, salient);
+    if !stem.is_empty() {
+        return stem;
+    }
+    argv.first()
+        .map(|first| basename(first).to_string())
+        .unwrap_or_default()
+}
+
+/// The first stderr line naming an error, else the first non-empty line.
+pub fn salient_error_line(stderr: &str) -> Option<&str> {
+    stderr
+        .lines()
+        .find(|l| {
+            let l = l.to_lowercase();
+            [
+                "error",
+                "failed",
+                "fatal",
+                "cannot",
+                "no such",
+                "not found",
+                "panic",
+                "exception",
+            ]
+            .iter()
+            .any(|kw| l.contains(kw))
+        })
+        .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))
+        .map(str::trim)
+}
+
+/// The steps of a command line that run a program, in order, as
+/// `(stem, step text)`. Setup steps, control words, and assignments are
+/// skipped; scanning stops at a heredoc, whose body is not commands.
+fn command_steps(line: &str) -> Vec<(String, String)> {
+    // Steps that never run a program of interest: setup, loops' headers, and
+    // test expressions. A segment starting with one is skipped whole.
+    const SKIP: [&str; 32] = [
+        "cd", "pushd", "popd", "export", "set", "unset", "source", ".", "true", "alias", "ulimit",
+        "trap", "for", "case", "esac", "fi", "done", "select", "function", "[", "[[", "test", "]",
+        "in", "continue", "break", "return", "exit", "shift", "local", "declare", "readonly",
+    ];
+    // Control words and wrappers in front of a command: stripped, the command
+    // after them is the step.
+    const STRIP: [&str; 18] = [
+        "if", "then", "else", "elif", "do", "while", "until", "{", "}", "!", "(", "sudo", "env",
+        "time", "nohup", "exec", "command", "builtin",
+    ];
+    let assignment = |t: &str| {
+        t.split_once('=').is_some_and(|(k, _)| {
+            !k.is_empty() && k.chars().all(|c| c.is_alphanumeric() || c == '_')
+        })
+    };
+    let unbalanced = |t: &str| t.matches('"').count() % 2 == 1 || t.matches('\'').count() % 2 == 1;
+    let program_like = |t: &str| {
+        !t.is_empty()
+            && t.chars()
+                .all(|c| c.is_ascii_alphanumeric() || "._+-".contains(c))
+    };
+    let mut steps = Vec::new();
+    let mut heredoc: Option<String> = None;
+    for raw_line in line.split('\n') {
+        if let Some(marker) = &heredoc {
+            if raw_line.trim() == marker {
+                heredoc = None;
+            }
+            continue;
+        }
+        // ponytail: quotes are not parsed; a separator inside a quoted string
+        // splits the line, and the unbalanced-quote check drops the pieces.
+        for segment in raw_line
+            .split(';')
+            .flat_map(|s| s.split("&&"))
+            .flat_map(|s| s.split("||"))
+        {
+            let mut stages = segment.split('|').map(str::trim);
+            let mut stage = stages.next().unwrap_or("");
+            if stage
+                .split_whitespace()
+                .next()
+                .is_some_and(|t| basename(t) == "yes")
+            {
+                stage = stages.next().unwrap_or("");
+            }
+            let all: Vec<&str> = stage.split_whitespace().collect();
+            let tokens: Vec<&str> = all
+                .iter()
+                .copied()
+                .skip_while(|t| STRIP.contains(&basename(t)) || assignment(t))
+                .collect();
+            let prefix_broken = all[..all.len() - tokens.len()]
+                .iter()
+                .any(|t| unbalanced(t));
+            if let Some(first) = tokens.first() {
+                let program = basename(first);
+                if !prefix_broken && program_like(program) && !SKIP.contains(&program) {
+                    let args: Vec<&str> = tokens[1..]
+                        .iter()
+                        .copied()
+                        .filter(|t| {
+                            !t.starts_with('>')
+                                && !t.starts_with('<')
+                                && !t.starts_with("2>")
+                                && !t.starts_with("&>")
+                        })
+                        .collect();
+                    let second = match args.first().copied() {
+                        // An inline script or stdin program: the flag is the argument.
+                        Some(flag @ ("-" | "-c" | "-e")) => flag,
+                        _ => args
+                            .iter()
+                            .find(|t| !t.starts_with('-') && !t.contains('='))
+                            .or(args.first())
+                            .map(|t| basename(t))
+                            .unwrap_or(""),
+                    };
+                    let stem = if second.is_empty() {
+                        program.to_string()
+                    } else {
+                        format!("{program} {second}")
+                    };
+                    steps.push((stem, stage.to_string()));
+                }
+            }
+        }
+        if let Some(marker) = raw_line.split("<<").nth(1) {
+            let marker = marker
+                .trim_start_matches('-')
+                .trim()
+                .trim_matches(['\'', '"'])
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_string();
+            if !marker.is_empty() {
+                heredoc = Some(marker);
+            }
+        }
+    }
+    steps
+}
+
+fn basename(token: &str) -> &str {
+    token
+        .trim_matches(['"', '\''])
+        .rsplit('/')
+        .next()
+        .unwrap_or(token)
+}
+
+/// Programs that only read: never a fix, so never suggested as one. Keyed on
+/// the stem's first token, with subcommands for `git`, `brew`, `npm`, `cargo`.
+pub fn read_only_program(stem: &str) -> bool {
+    let mut parts = stem.split(' ');
+    let program = parts.next().unwrap_or("");
+    let second = parts.next().unwrap_or("");
+    const READERS: [&str; 52] = [
+        "ls", "find", "cat", "grep", "rg", "ag", "ps", "pwd", "echo", "printf", "head", "tail",
+        "less", "more", "which", "type", "stat", "file", "du", "df", "wc", "sort", "uniq", "diff",
+        "tree", "sleep", "true", "false", "test", "[", "date", "whoami", "id", "uname", "awk",
+        "jq", "column", "tr", "cut", "basename", "dirname", "realpath", "open", "man", "tee",
+        "xxd", "sqlite3", "gh", "mw", "claude", "codex", "gemini",
+    ];
+    if READERS.contains(&program) {
+        return true;
+    }
+    match program {
+        "git" => matches!(
+            second,
+            "status"
+                | "log"
+                | "diff"
+                | "show"
+                | "branch"
+                | "remote"
+                | "ls-files"
+                | "rev-parse"
+                | "blame"
+                | "describe"
+                | "grep"
+                | "stash"
+                | "tag"
+        ),
+        "brew" => matches!(second, "list" | "info" | "outdated" | "deps"),
+        "npm" | "pnpm" | "yarn" => matches!(second, "ls" | "list" | "view" | "outdated"),
+        "cargo" => matches!(second, "tree" | "metadata"),
+        // Inline scripts and heredocs are inspection, not fixes.
+        "python" | "python3" | "node" | "ruby" | "perl" => matches!(second, "-" | "-c" | "-e"),
+        _ => false,
+    }
+}
+
+/// Register `mw_stem(argv_json)` so queries can compare runs by program stem.
+pub fn register_sql_functions(conn: &Connection) -> Result<(), String> {
+    use rusqlite::functions::FunctionFlags;
+    conn.create_scalar_function(
+        "mw_stem",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| Ok(program_stem(&ctx.get::<String>(0)?)),
+    )
+    .map_err(|e| format!("failed to register mw_stem: {e}"))
+}
+
 /// Stable, portable FNV-1a hash of arbitrary content → 8 hex chars. Same style
 /// as [`error_fingerprint`] (not `std`'s `DefaultHasher`, whose output isn't
 /// portable), used to detect when a synced memory's drawer content changed.
@@ -770,19 +1047,19 @@ impl ErrorInsight {
 }
 
 /// Assemble outcome history for a fingerprint. `resolutions` counts failure rows
-/// that have a later successful run of the same command — the honest, evidence-
-/// only version of "did the fix work", computed from observed exit codes rather
-/// than anyone's claim.
+/// that have a later successful run of the same program stem: the honest,
+/// evidence-only version of "did the fix work", computed from observed exit
+/// codes rather than anyone's claim.
 pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsight, String> {
-    // The command name behind this fingerprint (rows sharing it share it).
-    let command: Option<String> = conn
+    // The program stem behind this fingerprint (rows sharing it share it).
+    let stem: Option<String> = conn
         .query_row(
-            "SELECT command FROM command_runs WHERE error_fingerprint = ?1 LIMIT 1",
+            "SELECT mw_stem(argv_json) FROM command_runs WHERE error_fingerprint = ?1 LIMIT 1",
             params![fingerprint],
             |r| r.get(0),
         )
         .ok();
-    let Some(command) = command else {
+    let Some(stem) = stem else {
         return Ok(ErrorInsight {
             fingerprint: fingerprint.to_string(),
             occurrences: 0,
@@ -797,26 +1074,26 @@ pub fn error_insight(conn: &Connection, fingerprint: &str) -> Result<ErrorInsigh
             |r| r.get(0),
         )
         .map_err(|e| format!("count failures: {e}"))?;
-    // A failure "resolved" if a later row (higher id) ran the same command and
-    // exited 0.
+    // A failure "resolved" if a later row (higher id) ran the same program
+    // stem and exited 0.
     let resolutions: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM command_runs f
              WHERE f.error_fingerprint = ?1
                AND EXISTS (
                    SELECT 1 FROM command_runs s
-                   WHERE s.command = ?2 AND s.exit_code = 0 AND s.id > f.id
+                   WHERE mw_stem(s.argv_json) = ?2 AND s.exit_code = 0 AND s.id > f.id
                )",
-            params![fingerprint, command],
+            params![fingerprint, stem],
             |r| r.get(0),
         )
         .map_err(|e| format!("count resolutions: {e}"))?;
     let currently_green: bool = conn
         .query_row(
             "SELECT exit_code = 0 FROM command_runs
-             WHERE command = ?1 AND exit_code IS NOT NULL
+             WHERE mw_stem(argv_json) = ?1 AND exit_code IS NOT NULL
              ORDER BY id DESC LIMIT 1",
-            params![command],
+            params![stem],
             |r| r.get::<_, Option<bool>>(0),
         )
         .ok()
@@ -842,6 +1119,16 @@ pub fn error_hint(conn: &Connection, line: &str) -> Result<Option<String>, Strin
 
 /// [`error_hint`] over runs older than `before` (a run's own id excludes it).
 fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Option<String>, String> {
+    Ok(best_fix_before(conn, line, before)?.map(|(seen, best)| format_hint(seen, best.as_ref())))
+}
+
+/// How often `line` was seen in recorded failures older than `before`, and the
+/// best fix candidate with evidence, if any. `None` when unseen.
+fn best_fix_before(
+    conn: &Connection,
+    line: &str,
+    before: i64,
+) -> Result<Option<(usize, Option<FixCandidate>)>, String> {
     const MIN_LEN: usize = 12;
     let target = normalize_error_line(line).to_lowercase();
     if target.len() < MIN_LEN {
@@ -851,7 +1138,7 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
     // lines if hint latency ever shows up.
     let mut stmt = conn
         .prepare(
-            "SELECT id, command, argv_json, cwd, stderr FROM command_runs
+            "SELECT id, argv_json, cwd, stderr FROM command_runs
              WHERE exit_code IS NOT NULL AND exit_code != 0 AND id < ?1
              ORDER BY id DESC LIMIT 2000",
         )
@@ -861,41 +1148,48 @@ fn error_hint_before(conn: &Connection, line: &str, before: i64) -> Result<Optio
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-                r.get::<_, Option<String>>(3)?,
-                r.get::<_, String>(4)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, String>(3)?,
             ))
         })
         .map_err(|e| format!("hint query: {e}"))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("hint row: {e}"))?;
-    let matches: Vec<_> = failures
+    let matches: Vec<Failure> = failures
         .into_iter()
-        .filter(|(_, _, _, _, stderr)| {
+        .filter(|(_, _, _, stderr)| {
             stderr.lines().any(|l| {
                 let l = normalize_error_line(l).to_lowercase();
                 l.len() >= MIN_LEN && (target.contains(&l) || l.contains(&target))
             })
         })
+        .map(|(id, argv_json, cwd, stderr)| Failure {
+            id,
+            stem: program_stem_for_failure(&argv_json, &stderr),
+            cwd,
+        })
         .collect();
     if matches.is_empty() {
         return Ok(None);
     }
-    let failures: Vec<Failure> = matches
+    // No evidence, no suggestion: see `FixCandidate::trusted`.
+    let best = fix_candidates(conn, &matches)?
         .into_iter()
-        .map(|(id, command, argv_json, cwd, _)| Failure {
-            id,
-            command,
-            argv_json,
-            cwd,
-        })
-        .collect();
-    let best = fix_candidates(conn, &failures)?.into_iter().next();
-    Ok(Some(format_hint(failures.len(), best.as_ref())))
+        .find(FixCandidate::trusted);
+    Ok(Some((matches.len(), best)))
+}
+
+/// A recorded failure, as [`fix_candidates`] needs it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Failure {
+    pub id: i64,
+    /// Its [`program_stem`].
+    pub stem: String,
+    pub cwd: Option<String>,
 }
 
 /// A command that ran right after a recorded failure and passed: the usual
-/// shape of a fix. `worked` counts the episodes where the failing command then
+/// shape of a fix. `worked` counts the episodes where the failing program then
 /// passed too, which is the evidence that it was the fix and not a bystander.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixCandidate {
@@ -904,7 +1198,7 @@ pub struct FixCandidate {
     pub argv_json: String,
     /// Episodes where it was the next different passing command.
     pub seen: i64,
-    /// Episodes where the failing command passed after it.
+    /// Episodes where the failing program passed after it.
     pub worked: i64,
     /// Who ran it most recently (`None` is a terminal), and when.
     pub agent: Option<String>,
@@ -912,79 +1206,84 @@ pub struct FixCandidate {
 }
 
 impl FixCandidate {
+    /// The fix as the note shows it: the step of the command line that is
+    /// the fix (not a whole script around it), at most 120 characters.
     pub fn command(&self) -> String {
-        serde_json::from_str::<Vec<String>>(&self.argv_json)
+        let line = serde_json::from_str::<Vec<String>>(&self.argv_json)
             .unwrap_or_default()
-            .join(" ")
+            .join(" ");
+        let stem = stem_of_line(&line);
+        let step = command_steps(&line)
+            .into_iter()
+            .find(|(s, _)| *s == stem)
+            .map(|(_, step)| step)
+            .unwrap_or(line);
+        if step.chars().count() > 120 {
+            format!("{}…", step.chars().take(119).collect::<String>())
+        } else {
+            step
+        }
+    }
+
+    /// Enough evidence to suggest: the failing program passed after it in
+    /// two episodes, or in its only episode when a person typed it at a
+    /// prompt. An agent's single "fix" is usually a bystander.
+    pub fn trusted(&self) -> bool {
+        self.worked >= 2 || (self.worked == 1 && self.seen == 1 && self.agent.is_none())
     }
 }
 
-/// A recorded failure, as [`fix_candidates`] needs it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Failure {
-    pub id: i64,
-    /// The program name (`command` column).
-    pub command: String,
-    pub argv_json: String,
-    pub cwd: Option<String>,
-}
-
-/// SQL for the command line behind an `argv_json` column, so runs captured by
-/// an agent hook (`["cargo build"]`) and at a prompt (`["cargo","build"]`)
-/// compare equal.
-const CMDLINE: &str = "(SELECT group_concat(value, ' ') FROM json_each({}))";
-
 /// Fix candidates for a set of failures of the same error, best first: most
 /// confirmations, then most sightings, then most recent. Each failure
-/// contributes at most one candidate, the next different passing command in
-/// the same directory within the following five runs; it counts as `worked`
-/// when the failing command line passed within the ten runs after the failure.
+/// contributes at most one candidate: the first passing command within the
+/// following eight runs in the same directory whose program stem differs from
+/// the failing one and is not read-only. It counts as `worked` when the
+/// failing stem passed within the twelve runs after the failure. Candidates
+/// are grouped by stem, so a fix captured by an agent and typed at a prompt
+/// are one.
 pub fn fix_candidates(
     conn: &Connection,
     failures: &[Failure],
 ) -> Result<Vec<FixCandidate>, String> {
-    let mut by_argv: std::collections::HashMap<String, FixCandidate> =
+    let mut by_stem: std::collections::HashMap<String, FixCandidate> =
         std::collections::HashMap::new();
-    let worked_sql = format!(
-        "SELECT EXISTS(
-           SELECT 1 FROM command_runs
-           WHERE id > ?1 AND id <= ?2 + 10 AND cwd IS ?3 AND exit_code = 0
-             AND {} = {})",
-        CMDLINE.replace("{}", "argv_json"),
-        CMDLINE.replace("{}", "?4")
-    );
-    for Failure {
-        id,
-        command,
-        argv_json,
-        cwd,
-    } in failures
-    {
-        let next: Option<(i64, String, Option<String>, String)> = conn
-            .query_row(
-                "SELECT id, argv_json, agent, created_at FROM command_runs
-                 WHERE id > ?1 AND exit_code = 0 AND command != ?2 AND cwd IS ?3
-                   AND id <= ?1 + 5
-                 ORDER BY id LIMIT 1",
-                params![id, command, cwd],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-            )
-            .optional()
-            .map_err(|e| format!("fix candidate: {e}"))?;
-        let Some((fix_id, fix_argv, agent, at)) = next else {
+    let mut after = conn
+        .prepare(
+            "SELECT id, argv_json, agent, created_at FROM command_runs
+             WHERE id > ?1 AND exit_code = 0 AND cwd IS ?2 AND id <= ?1 + 8
+             ORDER BY id",
+        )
+        .map_err(|e| format!("fix candidate: {e}"))?;
+    let mut worked_stmt = conn
+        .prepare(
+            "SELECT EXISTS(
+               SELECT 1 FROM command_runs
+               WHERE id > ?1 AND id <= ?2 + 12 AND cwd IS ?3 AND exit_code = 0
+                 AND mw_stem(argv_json) = ?4)",
+        )
+        .map_err(|e| format!("fix outcome: {e}"))?;
+    for Failure { id, stem, cwd } in failures {
+        let rows: Vec<(i64, String, Option<String>, String)> = after
+            .query_map(params![id, cwd], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            })
+            .map_err(|e| format!("fix candidate: {e}"))?
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("fix candidate row: {e}"))?;
+        let next = rows.into_iter().find_map(|(fix_id, argv, agent, at)| {
+            let fix_stem = program_stem(&argv);
+            (!fix_stem.is_empty() && fix_stem != *stem && !read_only_program(&fix_stem))
+                .then_some((fix_id, argv, fix_stem, agent, at))
+        });
+        let Some((fix_id, fix_argv, fix_stem, agent, at)) = next else {
             continue;
         };
-        if serde_json::from_str::<Vec<String>>(&fix_argv).is_ok_and(|argv| argv.is_empty()) {
-            continue;
-        }
-        let worked: bool = conn
-            .query_row(&worked_sql, params![fix_id, id, cwd, argv_json], |r| {
-                r.get(0)
-            })
+        let worked: bool = worked_stmt
+            .query_row(params![fix_id, id, cwd, stem], |r| r.get(0))
             .map_err(|e| format!("fix outcome: {e}"))?;
-        let entry = by_argv.entry(fix_argv.clone()).or_insert(FixCandidate {
+        let entry = by_stem.entry(fix_stem).or_insert(FixCandidate {
             run_id: fix_id,
-            argv_json: fix_argv,
+            argv_json: fix_argv.clone(),
             seen: 0,
             worked: 0,
             agent: agent.clone(),
@@ -994,11 +1293,12 @@ pub fn fix_candidates(
         entry.worked += worked as i64;
         if fix_id > entry.run_id {
             entry.run_id = fix_id;
+            entry.argv_json = fix_argv;
             entry.agent = agent;
             entry.at = at;
         }
     }
-    let mut candidates: Vec<FixCandidate> = by_argv.into_values().collect();
+    let mut candidates: Vec<FixCandidate> = by_stem.into_values().collect();
     candidates.sort_by(|a, b| {
         b.worked
             .cmp(&a.worked)
@@ -1008,11 +1308,12 @@ pub fn fix_candidates(
     Ok(candidates)
 }
 
-/// The one-line hint for an error seen `matches` times with `best` as its top
-/// fix candidate. The fix command always comes last, after `possible fix:` or
-/// `confirmed fix:`, which is what Delphin parses for `:fix`.
-fn format_hint(matches: usize, best: Option<&FixCandidate>) -> String {
-    let times = match matches {
+/// The one-line hint for an error seen `seen` times with `best` as its top
+/// fix candidate (one with enough evidence, see [`FixCandidate::trusted`]). The fix command always
+/// comes last, after `possible fix:` or `confirmed fix:`, which is what
+/// Delphin parses for `:fix`.
+fn format_hint(seen: usize, best: Option<&FixCandidate>) -> String {
+    let times = match seen {
         1 => "once".to_string(),
         n => format!("{n} times"),
     };
@@ -1021,13 +1322,13 @@ fn format_hint(matches: usize, best: Option<&FixCandidate>) -> String {
     };
     let by = format!("{} {}", ran_by(fix.agent.as_deref()), relative_age(&fix.at));
     let command = fix.command();
-    match fix.worked {
-        w if w >= 2 => format!(
-            "seen {times}; worked {w} of {} times, last {by}, confirmed fix: {command}",
-            fix.seen
-        ),
-        1 => format!("seen {times}; worked once, {by}, possible fix: {command}"),
-        _ => format!("seen {times}; a later command passed, {by}, possible fix: {command}"),
+    if fix.worked >= 2 {
+        format!(
+            "seen {times}; worked {} of {} times, last {by}, confirmed fix: {command}",
+            fix.worked, fix.seen
+        )
+    } else {
+        format!("seen {times}; worked once, {by}, possible fix: {command}")
     }
 }
 
@@ -1074,8 +1375,7 @@ pub struct RecallStats {
 }
 
 pub fn recall_stats(conn: &Connection) -> RecallStats {
-    let line = |column: &str| CMDLINE.replace("{}", column);
-    let sql = format!(
+    conn.query_row(
         "SELECT COUNT(*),
                 COALESCE(SUM(followed.id IS NOT NULL), 0),
                 COALESCE(SUM(worked.id IS NOT NULL), 0)
@@ -1084,25 +1384,23 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
          LEFT JOIN command_runs followed ON followed.id = (
              SELECT f.id FROM command_runs f
              WHERE f.id > h.run_id AND f.id <= h.run_id + 10
-               AND {f} = {hf} AND f.cwd IS r.cwd
+               AND mw_stem(f.argv_json) = mw_stem(h.fix_argv_json) AND f.cwd IS r.cwd
              ORDER BY f.id LIMIT 1)
          LEFT JOIN command_runs worked ON worked.id = (
              SELECT s.id FROM command_runs s
              WHERE s.id > followed.id AND s.id <= h.run_id + 20
-               AND {s} = {r} AND s.cwd IS r.cwd AND s.exit_code = 0
+               AND mw_stem(s.argv_json) = mw_stem(r.argv_json) AND s.cwd IS r.cwd
+               AND s.exit_code = 0
              ORDER BY s.id LIMIT 1)",
-        f = line("f.argv_json"),
-        hf = line("h.fix_argv_json"),
-        s = line("s.argv_json"),
-        r = line("r.argv_json"),
-    );
-    conn.query_row(&sql, [], |r| {
-        Ok(RecallStats {
-            shown: r.get(0)?,
-            followed: r.get(1)?,
-            worked: r.get(2)?,
-        })
-    })
+        [],
+        |r| {
+            Ok(RecallStats {
+                shown: r.get(0)?,
+                followed: r.get(1)?,
+                worked: r.get(2)?,
+            })
+        },
+    )
     .unwrap_or_default()
 }
 
@@ -1135,12 +1433,15 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
         .map_err(|e| format!("hook feedback: {e}"))?;
     match exit {
         Some(0) => {
+            // The same program (by stem, so `cd x && cargo build` and
+            // `cargo build` match) failed within the last ten runs here.
+            let stem = program_stem(&argv);
             let previous: Option<(Option<i64>, String)> = conn
                 .query_row(
                     "SELECT exit_code, created_at FROM command_runs
-                     WHERE id < ?1 AND argv_json = ?2 AND cwd IS ?3
+                     WHERE id < ?1 AND id >= ?1 - 10 AND mw_stem(argv_json) = ?2 AND cwd IS ?3
                      ORDER BY id DESC LIMIT 1",
-                    params![run_id, argv, cwd],
+                    params![run_id, stem, cwd],
                     |r| Ok((r.get(0)?, r.get(1)?)),
                 )
                 .ok();
@@ -1157,9 +1458,14 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
             if code == 0 || noted {
                 return Ok(None);
             }
-            let command = serde_json::from_str::<Vec<String>>(&argv)
+            let line = serde_json::from_str::<Vec<String>>(&argv)
                 .unwrap_or_default()
                 .join(" ");
+            let command: String = if line.chars().count() > 80 {
+                format!("{}…", line.chars().take(79).collect::<String>())
+            } else {
+                line
+            };
             Ok(Some(format!(
                 "MemoryWhale: `{command}` passed after failing earlier. If you know what fixed it, \
                  save the cause and the fix in one sentence with the MemoryWhale remember tool \
@@ -1185,25 +1491,19 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
                 .any(|kw| l.contains(kw))
             });
             let Some(line) = line else { return Ok(None) };
-            let hint = error_hint_before(conn, line, run_id)?
-                .filter(|hint| hint.contains("possible fix:") || hint.contains("confirmed fix:"));
-            let Some(hint) = hint else { return Ok(None) };
+            let Some((seen, Some(best))) = best_fix_before(conn, line, run_id)? else {
+                return Ok(None);
+            };
             // Remember that this note was shown, so recall_stats can tell
             // later whether the agent followed it and whether it worked.
-            let fix_json = hint
-                .rsplit_once("fix: ")
-                .map(|(_, command)| command)
-                .map(|command| {
-                    serde_json::to_string(&command.split(' ').collect::<Vec<_>>())
-                        .unwrap_or_default()
-                })
-                .unwrap_or_default();
             let _ = conn.execute(
-                "INSERT INTO recall_hints (run_id, fix_argv_json, created_at) VALUES (?1, ?2, ?3)",
-                params![run_id, fix_json, at],
+                "INSERT INTO recall_hints (run_id, fix_argv_json, fix_run_id, created_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![run_id, best.argv_json, best.run_id, at],
             );
             Ok(Some(format!(
-                "MemoryWhale: this error was {hint}. Check whether it applies here."
+                "MemoryWhale: this error was {}. Check whether it applies here.",
+                format_hint(seen, Some(&best))
             )))
         }
     }
@@ -2957,6 +3257,217 @@ mod tests {
     }
 
     #[test]
+    fn program_stem_reads_agent_style_command_lines() {
+        let stem = |line: &str| stem_of_line(line);
+        assert_eq!(stem("cargo build"), "cargo build");
+        assert_eq!(stem("cargo build 2>&1 | tail -5"), "cargo build");
+        assert_eq!(
+            stem(r#"S=/tmp/x; cd "$S" && cargo build 2>&1 | tail -5"#),
+            "cargo build"
+        );
+        assert_eq!(stem(r#"cd "/Users/me/game" && npm test"#), "npm test");
+        assert_eq!(stem("python3 - <<'EOF'\nimport pandas\nEOF"), "python3 -");
+        assert_eq!(
+            stem("ls /Volumes; ls \"/Volumes/X\" 2>&1"),
+            "ls X",
+            "last step when all read-only"
+        );
+        assert_eq!(
+            stem("cat a.txt && python3 x.py && ls out"),
+            "python3 x.py",
+            "last non-read-only step"
+        );
+        assert_eq!(stem("python3 -c \"import x\""), "python3 -c");
+        assert_eq!(
+            stem("ssh -o BatchMode=yes -o ConnectTimeout=10 host uptime"),
+            "ssh host"
+        );
+        assert_eq!(stem("for f in *.png; do cp \"$f\" out/; done"), "cp $f");
+        assert_eq!(
+            stem("python3 - <<'EOF'\nimport os\nEOF\ngit add -A && git commit -m x"),
+            "git commit",
+            "commands after a heredoc body count"
+        );
+        assert_eq!(
+            stem("python3 -c 'import openpyxl; print(openpyxl.__version__)'"),
+            "python3 -c",
+            "a split inside quotes is not a step"
+        );
+        assert_eq!(
+            stem("D=\"/Volumes/X10 Pro/Active\"; mkdir -p \"$D\""),
+            "mkdir $D",
+            "a quoted value with a space does not become a program"
+        );
+        assert_eq!(
+            stem("git commit -m \"fix\nCo-Authored-By: Someone <a@b>\""),
+            "git commit"
+        );
+        assert_eq!(
+            stem_for_failure(
+                "cat a.txt; ls /Volumes/X",
+                "ls: /Volumes/X: No such file or directory"
+            ),
+            "ls X",
+            "the step the error names"
+        );
+        assert_eq!(
+            stem_for_failure(
+                "cargo build && cargo test",
+                "error[E0308]: mismatched types"
+            ),
+            "cargo test",
+            "no program named: last step"
+        );
+        assert_eq!(
+            stem("F=/tmp/f; export X=1; /usr/bin/python3 /a/b/plot.py --x"),
+            "python3 plot.py"
+        );
+        assert_eq!(stem("yes | brew upgrade memorywhale"), "brew upgrade");
+        assert_eq!(stem("sudo apt install cmake"), "apt install");
+        assert_eq!(stem("time cargo test --release"), "cargo test");
+        assert_eq!(stem("ls -la"), "ls -la");
+        assert_eq!(stem("cd /tmp"), "", "a setup-only line has no program");
+        // Stored argv: one string from an agent hook, or split from a prompt.
+        assert_eq!(program_stem(r#"["cd /p && cargo build"]"#), "cargo build");
+        assert_eq!(program_stem(r#"["cargo","build"]"#), "cargo build");
+        assert_eq!(program_stem("[]"), "");
+    }
+
+    #[test]
+    fn read_only_programs_are_never_fixes() {
+        for stem in [
+            "ls Volumes",
+            "find .",
+            "cat Cargo.toml",
+            "git status",
+            "git log",
+            "python3 -",
+            "node -e",
+            "gh pr",
+            "mw doctor",
+            "brew list",
+        ] {
+            assert!(read_only_program(stem), "{stem}");
+        }
+        for stem in [
+            "brew install",
+            "xcode-select --install",
+            "git fetch",
+            "cargo build",
+            "python3 plot.py",
+            "npm install",
+            "touch .cfg",
+        ] {
+            assert!(!read_only_program(stem), "{stem}");
+        }
+    }
+
+    #[test]
+    fn no_note_without_evidence_and_compound_commands_share_a_stem() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        // One directory per episode, so one episode's runs cannot sit inside
+        // another's evidence window.
+        let run = |cwd: &str, argv: &str, exit: i64, stderr: &str, agent: Option<&str>| -> i64 {
+            conn.execute(
+                "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at, agent)
+                 VALUES (json_extract(?1, '$[0]'), ?1, ?2, ?3, ?4, '2026-01-01T00:00:00Z', ?5)",
+                params![argv, cwd, exit, stderr, agent],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
+        let err = "error: linker `cc` not found";
+        // A: a failure followed only by reads and an unrelated passing
+        // command, and nothing passes: nothing to suggest.
+        run(
+            "/a",
+            r#"["cd \"/a\" && cargo build 2>&1 | tail -3"]"#,
+            101,
+            err,
+            Some("claude"),
+        );
+        run("/a", r#"["cat Cargo.toml"]"#, 0, "", Some("claude"));
+        run("/a", r#"["git fetch"]"#, 0, "", Some("claude"));
+        assert_eq!(
+            error_hint(&conn, err).unwrap().as_deref(),
+            Some("seen once, no fix recorded yet")
+        );
+        // B: the agent runs something, then its compound build passes. One
+        // episode from an agent is not trusted: usually a bystander.
+        let b = run(
+            "/b",
+            r#"["S=/tmp/s; cd \"/b\" && cargo build"]"#,
+            101,
+            err,
+            Some("claude"),
+        );
+        assert_eq!(hook_feedback(&conn, b).unwrap(), None, "no evidence yet");
+        assert_eq!(recall_stats(&conn).shown, 0);
+        run("/b", r#"["git","fetch","--all"]"#, 0, "", Some("claude"));
+        let b_pass = run(
+            "/b",
+            r#"["cd \"/b\" && cargo build 2>&1 | tail -3"]"#,
+            0,
+            "",
+            Some("claude"),
+        );
+        let lesson = hook_feedback(&conn, b_pass).unwrap().unwrap();
+        assert!(lesson.contains("passed after failing"), "{lesson}");
+        assert_eq!(
+            error_hint(&conn, err).unwrap().as_deref(),
+            Some("seen 2 times, no fix recorded yet")
+        );
+        // C: the fix typed at a prompt, then the agent's build passes: one
+        // episode across sources, trusted on first sight because a person
+        // typed it.
+        run(
+            "/c",
+            r#"["cd \"/c\" && cargo build 2>&1 | tail -3"]"#,
+            101,
+            err,
+            Some("claude"),
+        );
+        run("/c", r#"["brew","install","cmake"]"#, 0, "", None);
+        run(
+            "/c",
+            r#"["cd \"/c\" && cargo build"]"#,
+            0,
+            "",
+            Some("claude"),
+        );
+        let hint = error_hint(&conn, err).unwrap().unwrap();
+        assert!(
+            hint.starts_with("seen 3 times; worked once, run in a terminal")
+                && hint.ends_with("possible fix: brew install cmake"),
+            "{hint}"
+        );
+    }
+
+    #[test]
+    fn migration_15_recomputes_fingerprints_with_program_stems() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let err = "error: linker `cc` not found";
+        let old = error_fingerprint("cd /p && cargo build", err).unwrap();
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at, error_fingerprint)
+             VALUES ('cd /p && cargo build', '[\"cd /p && cargo build\"]', '/p', 101, ?1, '2026-01-01T00:00:00Z', ?2)",
+            params![err, old],
+        )
+        .unwrap();
+        conn.execute_batch("PRAGMA user_version = 14;").unwrap();
+        migrate(&conn).unwrap();
+        let now: String = conn
+            .query_row("SELECT error_fingerprint FROM command_runs", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(now, error_fingerprint("cargo build", err).unwrap());
+        assert_ne!(now, old);
+    }
+
+    #[test]
     fn confirmed_fix_outranks_a_bystander_and_names_the_agent() {
         let conn = Connection::open_in_memory().unwrap();
         storage::initialize(&conn).unwrap();
@@ -2970,9 +3481,10 @@ mod tests {
         };
         let err = "error: linker `cc` not found";
         // Two episodes where xcode-select ran and cargo build then passed,
-        // from two different agents; one where ls ran and nothing passed. (The
-        // `command` column is the program name, so `cargo fmt` would not count
-        // as a different command from `cargo build`.)
+        // from two different agents; one where git fetch ran and nothing
+        // passed. (`cargo fmt` would share the `cargo` program but not the
+        // `cargo build` stem, so it would count as different; `ls` is
+        // read-only and never a candidate.)
         run(r#"["cargo","build"]"#, 101, err, Some("claude"));
         run(r#"["xcode-select","--install"]"#, 0, "", Some("claude"));
         run(r#"["cargo","build"]"#, 0, "", Some("claude"));
@@ -2980,7 +3492,7 @@ mod tests {
         run(r#"["xcode-select","--install"]"#, 0, "", Some("codex"));
         run(r#"["cargo","build"]"#, 0, "", Some("codex"));
         run(r#"["cargo","build"]"#, 101, err, Some("gemini"));
-        run(r#"["ls","-la"]"#, 0, "", Some("gemini"));
+        run(r#"["git","fetch"]"#, 0, "", Some("gemini"));
 
         let hint = error_hint(&conn, err).unwrap().unwrap();
         assert!(
@@ -2994,15 +3506,14 @@ mod tests {
 
         let failures: Vec<Failure> = conn
             .prepare(
-                "SELECT id, command, argv_json, cwd FROM command_runs WHERE exit_code = 101 ORDER BY id",
+                "SELECT id, argv_json, cwd FROM command_runs WHERE exit_code = 101 ORDER BY id",
             )
             .unwrap()
             .query_map([], |r| {
                 Ok(Failure {
                     id: r.get(0)?,
-                    command: r.get(1)?,
-                    argv_json: r.get(2)?,
-                    cwd: r.get(3)?,
+                    stem: program_stem(&r.get::<_, String>(1)?),
+                    cwd: r.get(2)?,
                 })
             })
             .unwrap()
@@ -3017,7 +3528,7 @@ mod tests {
             summary,
             vec![
                 ("xcode-select --install".to_string(), 2, 2),
-                ("ls -la".to_string(), 1, 0)
+                ("git fetch".to_string(), 1, 0)
             ]
         );
         assert_eq!(ranked[0].agent.as_deref(), Some("codex"));
@@ -3202,13 +3713,14 @@ mod tests {
                 created_at TEXT NOT NULL DEFAULT '', error_fingerprint TEXT);",
         )
         .unwrap();
+        register_sql_functions(&conn).unwrap();
         let err = "error[E0308]: mismatched types";
-        let fp = error_fingerprint("cargo", err).unwrap();
+        let fp = error_fingerprint("cargo build", err).unwrap();
         // Timeline: fail, fail, then a success (the fix), then fail again.
         let insert = |exit: i64, fp: Option<&str>| {
             conn.execute(
-                "INSERT INTO command_runs (command, exit_code, stderr, error_fingerprint)
-                 VALUES ('cargo', ?1, ?2, ?3)",
+                "INSERT INTO command_runs (command, argv_json, exit_code, stderr, error_fingerprint)
+                 VALUES ('cargo', '[\"cargo\",\"build\"]', ?1, ?2, ?3)",
                 params![exit, err, fp],
             )
             .unwrap();

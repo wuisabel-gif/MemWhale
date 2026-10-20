@@ -24,6 +24,7 @@ pub fn open_read_only(path: &Path) -> Result<Connection, String> {
         .map_err(|e| format!("failed to open read-only database {}: {e}", path.display()))?;
     conn.pragma_update(None, "query_only", true)
         .map_err(|e| format!("failed to configure read-only database: {e}"))?;
+    crate::register_sql_functions(&conn)?;
     Ok(conn)
 }
 
@@ -39,6 +40,7 @@ pub fn open_immutable(path: &Path) -> Result<Connection, String> {
     .map_err(|e| format!("failed to open immutable database {}: {e}", path.display()))?;
     conn.pragma_update(None, "query_only", true)
         .map_err(|e| format!("failed to configure immutable database: {e}"))?;
+    crate::register_sql_functions(&conn)?;
     Ok(conn)
 }
 
@@ -81,6 +83,7 @@ fn sqlite_uri_path(path: &Path) -> String {
 /// Keeping the complete latest shape here lets every binary safely open either
 /// a fresh database or one created by an older MemoryWhale release.
 pub fn initialize(conn: &Connection) -> Result<(), String> {
+    crate::register_sql_functions(conn)?;
     conn.execute_batch(
         "
         PRAGMA journal_mode = WAL;

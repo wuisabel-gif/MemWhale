@@ -239,6 +239,8 @@ fn from_hook_records_codex_bash_and_names_a_past_fix() {
             "",
             "2026-01-01T00:01:00Z",
         ),
+        // The failing program passed afterwards: the evidence a fix needs.
+        (r#"["cargo","build"]"#, 0, "", "2026-01-01T00:02:00Z"),
     ] {
         conn.execute(
             "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
@@ -303,6 +305,8 @@ fn from_hook_records_gemini_shell_and_names_a_past_fix() {
             "",
             "2026-01-01T00:01:00Z",
         ),
+        // The failing program passed afterwards: the evidence a fix needs.
+        (r#"["cargo","build"]"#, 0, "", "2026-01-01T00:02:00Z"),
     ] {
         conn.execute(
             "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)

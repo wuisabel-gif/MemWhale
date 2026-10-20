@@ -475,6 +475,11 @@ fn feedback_names_a_known_fix_in_additional_context_and_can_be_turned_off() {
             .contains("passed after failing"),
         "{lesson}"
     );
+    // One episode from an agent is not evidence; after a second episode in
+    // which the fix is followed by the build passing, the fix is confirmed.
+    assert_eq!(hook(&fail, None), None, "one agent episode is not trusted");
+    assert_eq!(hook(&shell("xcode-select --install", 0, ""), None), None);
+    hook(&shell("cargo build", 0, ""), None);
     // The same error again names the fix, unless feedback is off.
     assert_eq!(hook(&fail, Some("0")), None);
     let note = hook(&fail, None).expect("fix note");
@@ -482,8 +487,8 @@ fn feedback_names_a_known_fix_in_additional_context_and_can_be_turned_off() {
         note["additional_context"]
             .as_str()
             .unwrap()
-            .contains("possible fix: xcode-select --install"),
+            .contains("confirmed fix: xcode-select --install"),
         "{note}"
     );
-    assert_eq!(s.rows().len(), 5, "feedback never blocks capture");
+    assert_eq!(s.rows().len(), 8, "feedback never blocks capture");
 }

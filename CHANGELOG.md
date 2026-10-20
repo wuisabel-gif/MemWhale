@@ -3,6 +3,14 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Recall notes need evidence.** Four days of real use showed every note suggesting a bystander (`find …`, `ps aux`, `ls`, a `cd`): the next passing command after a failure, with no check that anything was fixed. A fix is now suggested only with evidence: the failing program passed after it in two episodes, or in its only episode when a person typed it at a prompt (an agent's single "fix" was a bystander every time). Programs that only read (`ls`, `cat`, `grep`, `git status`, inline `python3 -` scripts, and others) are never candidates. With no evidence, the hook says nothing.
+- **Commands are compared by program stem.** Agents run one-shot scripts (`S=/tmp/x; cd "$S" && cargo build 2>&1 | tail -5`) whose text never recurs. Runs now compare by stem, `program <first argument>` (`cargo build`, `python3 plot.py`), skipping `cd`, assignments, `sudo`/`env`/`time`, and a leading `yes |`. Error fingerprints, fix evidence, the "passed after failing, save a lesson" prompt, and the recall stats all use it, so a failure captured by an agent and a fix typed at a prompt are one episode. Opening a store migrates it to schema 15, which recomputes every fingerprint.
+- The "save a lesson" prompt looks back ten runs for the same stem in the same directory instead of requiring an identical command line, and quotes the command truncated to 80 characters.
+
 ## [0.20.0] — Agents Learn from Each Other — October 14, 2026
 
 Product `0.20.0`; `memorywhale-core` `0.10.0` (unchanged); SQLite schema `14` (adds `recall_hints`).

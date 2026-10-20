@@ -94,7 +94,10 @@ pub fn remember_command(mut record: CommandRecord) -> Result<Option<i64>, String
     let redacted_stderr = crate::sanitize_capture(&record.stderr);
     let fingerprint = match record.exit_code {
         Some(0) | None => None,
-        Some(_) => crate::error_fingerprint(&command, &redacted_stderr),
+        Some(_) => crate::error_fingerprint(
+            &crate::program_stem_for_failure(&argv_json, &redacted_stderr),
+            &redacted_stderr,
+        ),
     };
     conn.execute(
         "
