@@ -1012,7 +1012,8 @@ fn shell_segments(line: &str) -> Vec<(Vec<Vec<String>>, String)> {
                     stages.push(std::mem::take(&mut tokens));
                 }
             }
-            '(' | ')' if !sq && !dq && !in_tok => {}
+            '(' if !sq && !dq && !in_tok => {}
+            ')' if !sq && !dq => end_tok(&mut tokens, &mut tok, &mut in_tok),
             c if c.is_whitespace() && !sq && !dq => end_tok(&mut tokens, &mut tok, &mut in_tok),
             c => {
                 tok.push(c);
