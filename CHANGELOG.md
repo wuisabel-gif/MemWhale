@@ -3,7 +3,11 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.22.0] — Recall Before It Fails — October 21, 2026
+
+Product `0.22.0`; `memorywhale-core` `0.10.0` (unchanged); SQLite schema `16` (adds `kind` and `since_run_id` to `recall_hints`).
+
+See [release notes](docs/releases/0.22.0.md).
 
 ### Added
 

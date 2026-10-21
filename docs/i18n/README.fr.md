@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 1f87a8ca2e91b87f72462c0a3c6bc632ced00c51422f200060400d40af573b9d -->
+<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -38,10 +38,10 @@ ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via M
 > **25%** sans mémoire et **96%** avec. Il s’agit de tâches synthétiques qui démontrent le
 > mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](../../benchmarks/README.md).
 
-**MemoryWhale 0.21.0: Fewer, Truer Hints · 20 octobre 2026.**
+**MemoryWhale 0.22.0: Recall Before It Fails · 21 octobre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit
-0.21.0 ; le cœur Rust réutilisable est en version 0.10.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md)
-pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 15.
+0.22.0 ; le cœur Rust réutilisable est en version 0.10.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)
+pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 16.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="Le make d’un agent échoue avec une erreur xcrun ; le hook de capture répond que cette erreur a déjà été vue une fois et que le correctif était xcode-select --install." width="820" />

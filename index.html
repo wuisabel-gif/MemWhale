@@ -36,8 +36,8 @@
         "inLanguage": "en",
         "description": "Persistent local debugging memory for developers and coding agents. Captures terminal evidence into local SQLite and serves it over MCP.",
         "url": "https://wuisabel-gif.github.io/MemWhale/",
-        "softwareVersion": "0.21.0",
-        "datePublished": "2026-10-20",
+        "softwareVersion": "0.22.0",
+        "datePublished": "2026-10-21",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "license": "https://github.com/wuisabel-gif/MemWhale/blob/main/LICENSE"
       }
@@ -890,7 +890,7 @@
         <section id="overview" class="hero" aria-labelledby="hero-brand">
           <canvas class="ocean-canvas" aria-hidden="true"></canvas>
           <div class="hero-copy">
-            <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md" data-i18n="hero.releaseBadge">v0.21.0 is here</a>
+            <a class="release-badge" href="https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md" data-i18n="hero.releaseBadge">v0.22.0 is here</a>
             <h1 id="hero-brand">MemoryWhale</h1>
             <p class="hero-headline" data-i18n="hero.title">Make your terminal <span class="hero-accent">remember</span>.</p>
             <p class="lead" data-i18n="hero.lead">
@@ -966,21 +966,21 @@
         </section>
 
         <section id="release" class="section">
-          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.21.0</p>
-          <h2 data-i18n="release.title">Fewer, truer hints.</h2>
-          <p class="section-copy" data-i18n="release.copy">Product 0.21.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.10.0 and stores move to SQLite schema 15. Four days of real use showed every recall note pointing at a bystander. Now a fix is suggested only with evidence, agent commands are understood as scripts, and when there is nothing to say, MemoryWhale says nothing. See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md">release notes</a>.</p>
+          <p class="eyebrow" data-i18n="release.eyebrow">New in 0.22.0</p>
+          <h2 data-i18n="release.title">Recall before it fails.</h2>
+          <p class="section-copy" data-i18n="release.copy">Product 0.22.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.10.0 and stores move to SQLite schema 16. MemoryWhale now speaks before a command runs, not only after it fails: when an agent is about to repeat a known failure, it gets the lesson or the proven fix first. Nothing is blocked, and silence stays the default. See the <a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md">release notes</a>.</p>
           <div class="grid">
             <article class="card">
-              <strong data-i18n="release.connectTitle">Evidence before a suggestion</strong>
-              <p data-i18n="release.connectBody">A fix is named only after the failing program passed following it: in two episodes, or in one when you typed the fix yourself at a prompt. Commands that only read, such as <code>ls</code>, <code>cat</code>, or <code>git status</code>, are never suggested.</p>
+              <strong data-i18n="release.connectTitle">One line before the retry</strong>
+              <p data-i18n="release.connectBody">Claude Code and Codex get a pre-run hook. If the same program failed here, has not passed since, and MemoryWhale knows a fix with evidence, the agent reads <code>confirmed fix: xcode-select --install</code> before running the command again. Each failure is warned about once.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.provenanceTitle">Agent commands, understood</strong>
-              <p data-i18n="release.provenanceBody">Agents run one-shot scripts like <code>cd "$S" && cargo build 2>&1 | tail</code>. Runs now compare by program, <code>cargo build</code>, so a failure in one script and a fix in another are the same episode, and errors can finally recur.</p>
+              <strong data-i18n="release.provenanceTitle">Lessons lead</strong>
+              <p data-i18n="release.provenanceBody">A note or warning that matches a saved lesson opens with it, and a lesson alone is enough for a note. What a person concluded outranks what happened to pass next.</p>
             </article>
             <article class="card">
-              <strong data-i18n="release.interfaceTitle">Silence is a feature</strong>
-              <p data-i18n="release.interfaceBody">On the same four days of data, eight bystander notes become zero, and the recall stats in <code>mw doctor</code> keep score from here. Opening a store migrates it to schema 15 and recomputes every fingerprint.</p>
+              <strong data-i18n="release.interfaceTitle">Still measured</strong>
+              <p data-i18n="release.interfaceBody"><code>mw doctor</code> now also counts warnings and how often the warned program passed next. On a real store the hook was silent on every recent failure and cost a few milliseconds.</p>
             </article>
           </div>
         </section>
@@ -1224,10 +1224,10 @@
             </p>
             <div class="stat-list">
               <div class="stat"><span data-i18n="run.tryLabel">Try first</span><strong data-i18n="run.tryValue"><code>mw demo</code>: writes sample data to the selected store</strong></div>
-              <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
+              <div class="stat"><span data-i18n="run.prebuiltLabel">Prebuilt install</span><strong data-i18n="run.prebuiltValue"><a href="https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade">Pinned, checksum-verified installer instructions</a></strong></div>
               <div class="stat">
                 <span data-i18n="run.cargoLabel">Cargo</span>
-                <strong data-i18n="run.cargoValue"><code>cargo install memorywhale-cli --version 0.21.0 --locked</code></strong>
+                <strong data-i18n="run.cargoValue"><code>cargo install memorywhale-cli --version 0.22.0 --locked</code></strong>
               </div>
               <div class="stat">
                 <span data-i18n="run.debianLabel">Debian / Jetson</span>

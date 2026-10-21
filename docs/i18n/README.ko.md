@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 1f87a8ca2e91b87f72462c0a3c6bc632ced00c51422f200060400d40af573b9d -->
+<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -34,10 +34,10 @@ MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계�
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
 > 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](../../benchmarks/README.md)을 참고하세요.
 
-**MemoryWhale 0.21.0: Fewer, Truer Hints · 2026년 10월 20일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.21.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.10.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md)를 참고하세요.
-스토어를 열면 스키마가 10에서 15로 마이그레이션됩니다.
+**MemoryWhale 0.22.0: Recall Before It Fails · 2026년 10월 21일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.22.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.10.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)를 참고하세요.
+스토어를 열면 스키마가 10에서 16로 마이그레이션됩니다.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="에이전트의 make가 xcrun 오류로 실패하자 캡처 훅이 이 오류를 전에 한 번 봤고 해결책은 xcode-select --install이었다고 알려 줍니다." width="820" />

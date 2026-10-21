@@ -37,10 +37,10 @@ account and nothing uploaded.
 > demonstrate the mechanism, not a field study; see
 > [how it was measured](benchmarks/README.md).
 
-**MemoryWhale 0.21.0: Fewer, Truer Hints · October 20, 2026.**
-The CLI, web UI, and desktop app share product version 0.21.0; the reusable
-Rust core is version 0.10.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md)
-for the upgrade guide. Opening a store migrates it from schema 10 to 15.
+**MemoryWhale 0.22.0: Recall Before It Fails · October 21, 2026.**
+The CLI, web UI, and desktop app share product version 0.22.0; the reusable
+Rust core is version 0.10.0. See the [release notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)
+for the upgrade guide. Opening a store migrates it from schema 10 to 16.
 
 <p align="center">
   <img src="assets/proactive-recall.gif" alt="An agent's make fails with an xcrun error; the capture hook answers that this error was seen once and the fix was xcode-select --install." width="820" />

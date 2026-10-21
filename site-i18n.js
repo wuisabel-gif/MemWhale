@@ -47,7 +47,7 @@ const EN = {
   "search.hint": "Search headings and content on this page.",
   "search.empty": "No matching sections.",
   "search.results": "Matching sections",
-  "hero.releaseBadge": "v0.21.0 is here",
+  "hero.releaseBadge": "v0.22.0 is here",
   "hero.title": "Make your terminal <span class=\"hero-accent\">remember</span>.",
   "hero.lead":
     "Hit an error you've seen before and MemoryWhale hands back the fix. It keeps debugging evidence on your machine, so your coding agents stop re-solving the same problems.",
@@ -67,19 +67,19 @@ const EN = {
   "integrations.label": "Works with",
   "integrations.via": "via MCP",
   "integrations.more": "All integrations",
-  "release.eyebrow": "New in 0.21.0",
-  "release.title": "Fewer, truer hints.",
+  "release.eyebrow": "New in 0.22.0",
+  "release.title": "Recall before it fails.",
   "release.copy":
-    "Product 0.21.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.10.0 and stores move to SQLite schema 15. Four days of real use showed every recall note pointing at a bystander. Now a fix is suggested only with evidence, agent commands are understood as scripts, and when there is nothing to say, MemoryWhale says nothing. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">release notes</a>.",
-  "release.connectTitle": "Evidence before a suggestion",
+    "Product 0.22.0 spans the CLI, web UI, and desktop app; the Rust core stays 0.10.0 and stores move to SQLite schema 16. MemoryWhale now speaks before a command runs, not only after it fails: when an agent is about to repeat a known failure, it gets the lesson or the proven fix first. Nothing is blocked, and silence stays the default. See the <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">release notes</a>.",
+  "release.connectTitle": "One line before the retry",
   "release.connectBody":
-    "A fix is named only after the failing program passed following it: in two episodes, or in one when you typed the fix yourself at a prompt. Commands that only read, such as <code>ls</code>, <code>cat</code>, or <code>git status</code>, are never suggested.",
-  "release.provenanceTitle": "Agent commands, understood",
+    "Claude Code and Codex get a pre-run hook. If the same program failed here, has not passed since, and MemoryWhale knows a fix with evidence, the agent reads <code>confirmed fix: xcode-select --install</code> before running the command again. Each failure is warned about once.",
+  "release.provenanceTitle": "Lessons lead",
   "release.provenanceBody":
-    "Agents run one-shot scripts like <code>cd \"$S\" && cargo build 2>&1 | tail</code>. Runs now compare by program, <code>cargo build</code>, so a failure in one script and a fix in another are the same episode, and errors can finally recur.",
-  "release.interfaceTitle": "Silence is a feature",
+    "A note or warning that matches a saved lesson opens with it, and a lesson alone is enough for a note. What a person concluded outranks what happened to pass next.",
+  "release.interfaceTitle": "Still measured",
   "release.interfaceBody":
-    "On the same four days of data, eight bystander notes become zero, and the recall stats in <code>mw doctor</code> keep score from here. Opening a store migrates it to schema 15 and recomputes every fingerprint.",
+    "<code>mw doctor</code> now also counts warnings and how often the warned program passed next. On a real store the hook was silent on every recent failure and cost a few milliseconds.",
   "who.eyebrow": "Who it's for",
   "who.title": "Built for three ways of working.",
   "who.copy":
@@ -159,9 +159,9 @@ const EN = {
   "run.tryValue": "<code>mw demo</code>: writes sample data to the selected store",
   "run.prebuiltLabel": "Prebuilt install",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">Pinned, checksum-verified installer instructions</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb on the releases page",
   "run.securityLabel": "Security",
@@ -225,7 +225,7 @@ const AR = {
   "search.hint": "ابحث في عناوين هذه الصفحة ومحتواها.",
   "search.empty": "لا توجد أقسام مطابقة.",
   "search.results": "الأقسام المطابقة",
-  "hero.releaseBadge": "الإصدار v0.21.0 متاح الآن",
+  "hero.releaseBadge": "الإصدار v0.22.0 متاح الآن",
   "hero.title": "اجعل طرفيتك <span class=\"hero-accent\">تتذكّر</span>.",
   "hero.lead":
     "حين يتكرر خطأ سبق أن واجهته، يُعيد إليك MemoryWhale الإصلاح. ويحتفظ بأدلة تصحيح الأخطاء على جهازك، فلا يضطر وكلاء البرمجة إلى حل المشكلات نفسها مرة بعد مرة.",
@@ -245,19 +245,19 @@ const AR = {
   "integrations.label": "يعمل مع",
   "integrations.via": "عبر MCP",
   "integrations.more": "جميع التكاملات",
-  "release.eyebrow": "الجديد في 0.21.0",
-  "release.title": "تلميحات أقل وأصدق.",
+  "release.eyebrow": "الجديد في 0.22.0",
+  "release.title": "الاستدعاء قبل الفشل.",
   "release.copy":
-    "يشمل الإصدار 0.21.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ تبقى نواة Rust على 0.10.0 وتنتقل المخازن إلى مخطط SQLite رقم 15. أظهرت أربعة أيام من الاستخدام الحقيقي أن كل ملاحظة استدعاء كانت تشير إلى أمر عابر. الآن لا يُقترح الإصلاح إلا بدليل، وتُفهم أوامر الوكلاء كسكربتات، وعندما لا يوجد ما يُقال يصمت MemoryWhale. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">ملاحظات الإصدار</a>.",
-  "release.connectTitle": "الدليل قبل الاقتراح",
+    "يشمل الإصدار 0.22.0 واجهة الأوامر وواجهة الويب وتطبيق سطح المكتب؛ تبقى نواة Rust على 0.10.0 وتنتقل المخازن إلى مخطط SQLite رقم 16. يتكلم MemoryWhale الآن قبل تشغيل الأمر، لا بعد فشله فقط: عندما يوشك وكيل على تكرار فشل معروف، يحصل أولًا على الدرس أو الإصلاح المثبت. لا شيء يُحظر، ويبقى الصمت هو الافتراضي. راجع <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">ملاحظات الإصدار</a>.",
+  "release.connectTitle": "سطر واحد قبل إعادة المحاولة",
   "release.connectBody":
-    "لا يُذكر الإصلاح إلا بعد أن ينجح البرنامج الفاشل عقبه: في حلقتين، أو في حلقة واحدة إذا كتبت الإصلاح بنفسك في الطرفية. الأوامر التي تقرأ فقط مثل <code>ls</code> و<code>cat</code> و<code>git status</code> لا تُقترح أبدًا.",
-  "release.provenanceTitle": "فهم أوامر الوكلاء",
+    "يحصل Claude Code وCodex على خطاف يعمل قبل التشغيل. إذا فشل البرنامج نفسه هنا ولم ينجح منذ ذلك الحين، وكان لدى MemoryWhale إصلاح مدعوم بدليل، يقرأ الوكيل <code>confirmed fix: xcode-select --install</code> قبل تشغيل الأمر مجددًا. يُحذَّر من كل فشل مرة واحدة.",
+  "release.provenanceTitle": "الدروس أولًا",
   "release.provenanceBody":
-    "يشغّل الوكلاء سكربتات لمرة واحدة مثل <code>cd \"$S\" && cargo build 2>&1 | tail</code>. تُقارَن عمليات التشغيل الآن بحسب البرنامج، <code>cargo build</code>، فيصبح الفشل في سكربت والإصلاح في آخر حلقة واحدة، وتتكرر الأخطاء أخيرًا.",
-  "release.interfaceTitle": "الصمت ميزة",
+    "الملاحظة أو التحذير الذي يطابق درسًا محفوظًا يبدأ به، والدرس وحده يكفي لملاحظة. ما استنتجه إنسان يتقدم على ما صادف أن نجح بعده.",
+  "release.interfaceTitle": "لا يزال مقاسًا",
   "release.interfaceBody":
-    "على بيانات الأيام الأربعة نفسها تتحول ثماني ملاحظات عابرة إلى صفر، وتحتفظ إحصاءات الاستدعاء في <code>mw doctor</code> بالنتيجة من الآن. يؤدي فتح المخزن إلى ترحيله إلى المخطط 15 وإعادة حساب كل البصمات.",
+    "يعدّ <code>mw doctor</code> الآن التحذيرات أيضًا وكم مرة نجح البرنامج المحذَّر منه بعدها. على مخزن حقيقي كان الخطاف صامتًا في كل فشل حديث واستغرق بضع ميلي ثوانٍ.",
   "who.eyebrow": "لمن صُمّم",
   "who.title": "صُمّم لثلاثة أنماط من العمل.",
   "who.copy":
@@ -337,9 +337,9 @@ const AR = {
   "run.tryValue": "<code>mw demo</code>: يكتب بيانات نموذجية في المخزن المحدد",
   "run.prebuiltLabel": "تثبيت ملفات تنفيذية جاهزة",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">تعليمات تثبيت لإصدار محدد مع التحقق من المجموع الاختباري</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "حزمة .deb من صفحة الإصدارات",
   "run.securityLabel": "الأمان",
@@ -403,7 +403,7 @@ const DE = {
   "search.hint": "Durchsuche Überschriften und Inhalte dieser Seite.",
   "search.empty": "Keine passenden Abschnitte.",
   "search.results": "Passende Abschnitte",
-  "hero.releaseBadge": "v0.21.0 ist da",
+  "hero.releaseBadge": "v0.22.0 ist da",
   "hero.title": "Gib deinem Terminal ein <span class=\"hero-accent\">Gedächtnis</span>.",
   "hero.lead":
     "Taucht ein Fehler auf, den du schon kennst, liefert dir MemoryWhale den Fix. Die Debugging-Belege bleiben auf deinem Rechner, damit deine Coding-Agenten nicht immer wieder dieselben Probleme lösen.",
@@ -423,19 +423,19 @@ const DE = {
   "integrations.label": "Funktioniert mit",
   "integrations.via": "über MCP",
   "integrations.more": "Alle Integrationen",
-  "release.eyebrow": "Neu in 0.21.0",
-  "release.title": "Weniger Hinweise, dafür wahre.",
+  "release.eyebrow": "Neu in 0.22.0",
+  "release.title": "Erinnerung, bevor es fehlschlägt.",
   "release.copy":
-    "Version 0.21.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern bleibt 0.10.0, Speicher wechseln auf SQLite-Schema 15. Vier Tage echter Nutzung zeigten: Jeder Erinnerungshinweis zeigte auf einen Zufallsbefehl. Jetzt wird eine Lösung nur mit Beleg vorgeschlagen, Agentenbefehle werden als Skripte verstanden, und wenn es nichts zu sagen gibt, sagt MemoryWhale nichts. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">Release Notes</a>.",
-  "release.connectTitle": "Erst der Beleg, dann der Vorschlag",
+    "Version 0.22.0 umfasst CLI, Weboberfläche und Desktop-App; der Rust-Kern bleibt 0.10.0, Speicher wechseln auf SQLite-Schema 16. MemoryWhale meldet sich jetzt, bevor ein Befehl läuft, nicht nur nachdem er fehlgeschlagen ist: Will ein Agent einen bekannten Fehler wiederholen, bekommt er zuerst die Lektion oder die belegte Lösung. Nichts wird blockiert, Schweigen bleibt der Normalfall. Siehe die <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">Release Notes</a>.",
+  "release.connectTitle": "Eine Zeile vor dem nächsten Versuch",
   "release.connectBody":
-    "Eine Lösung wird erst genannt, wenn das fehlgeschlagene Programm danach durchlief: in zwei Episoden, oder in einer, wenn du die Lösung selbst am Prompt eingegeben hast. Befehle, die nur lesen, wie <code>ls</code>, <code>cat</code> oder <code>git status</code>, werden nie vorgeschlagen.",
-  "release.provenanceTitle": "Agentenbefehle, verstanden",
+    "Claude Code und Codex bekommen einen Hook vor der Ausführung. Ist dasselbe Programm hier fehlgeschlagen, seitdem nicht durchgelaufen und kennt MemoryWhale eine belegte Lösung, liest der Agent <code>confirmed fix: xcode-select --install</code>, bevor er den Befehl erneut ausführt. Vor jedem Fehler wird einmal gewarnt.",
+  "release.provenanceTitle": "Lektionen zuerst",
   "release.provenanceBody":
-    "Agenten führen Einmal-Skripte aus wie <code>cd \"$S\" && cargo build 2>&1 | tail</code>. Läufe werden jetzt nach Programm verglichen, <code>cargo build</code>, sodass ein Fehler in einem Skript und eine Lösung in einem anderen dieselbe Episode sind und Fehler endlich wiederkehren können.",
-  "release.interfaceTitle": "Schweigen ist ein Feature",
+    "Ein Hinweis oder eine Warnung, die zu einer gespeicherten Lektion passt, beginnt mit ihr, und eine Lektion allein reicht für einen Hinweis. Was ein Mensch geschlossen hat, zählt mehr als das, was zufällig danach durchlief.",
+  "release.interfaceTitle": "Weiter gemessen",
   "release.interfaceBody":
-    "Auf denselben vier Tagen Daten werden aus acht Zufallshinweisen null, und die Erinnerungsstatistik in <code>mw doctor</code> zählt ab jetzt mit. Beim Öffnen wird ein Speicher auf Schema 15 migriert und jeder Fingerabdruck neu berechnet.",
+    "<code>mw doctor</code> zählt jetzt auch Warnungen und wie oft das gewarnte Programm danach durchlief. Auf einem echten Speicher blieb der Hook bei jedem jüngsten Fehler stumm und kostete wenige Millisekunden.",
   "who.eyebrow": "Für wen?",
   "who.title": "Gemacht für drei Arbeitsweisen.",
   "who.copy":
@@ -515,9 +515,9 @@ const DE = {
   "run.tryValue": "<code>mw demo</code>: schreibt Beispieldaten in den ausgewählten Speicher",
   "run.prebuiltLabel": "Vorkompilierte Binaries",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">Anleitung für den fest versionierten Installer mit Prüfsummencheck</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb auf der Releases-Seite",
   "run.securityLabel": "Sicherheit",
@@ -581,7 +581,7 @@ const FR = {
   "search.hint": "Recherche dans les titres et le contenu de cette page.",
   "search.empty": "Aucune section ne correspond.",
   "search.results": "Sections correspondantes",
-  "hero.releaseBadge": "La v0.21.0 est disponible",
+  "hero.releaseBadge": "La v0.22.0 est disponible",
   "hero.title": "Donnez de la <span class=\"hero-accent\">mémoire</span> à votre terminal.",
   "hero.lead":
     "Vous retombez sur une erreur déjà vue ? MemoryWhale vous redonne le correctif. Les traces de débogage restent sur votre machine, et vos agents de code cessent de résoudre sans cesse les mêmes problèmes.",
@@ -601,19 +601,19 @@ const FR = {
   "integrations.label": "Compatible avec",
   "integrations.via": "via MCP",
   "integrations.more": "Toutes les intégrations",
-  "release.eyebrow": "Nouveau dans 0.21.0",
-  "release.title": "Moins d'indices, mais vrais.",
+  "release.eyebrow": "Nouveau dans 0.22.0",
+  "release.title": "Le rappel avant l'échec.",
   "release.copy":
-    "La version 0.21.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust reste en 0.10.0 et les stockages passent au schéma SQLite 15. Quatre jours d'usage réel ont montré que chaque message de rappel désignait une commande de passage. Désormais un correctif n'est proposé qu'avec des preuves, les commandes des agents sont comprises comme des scripts, et quand il n'y a rien à dire, MemoryWhale se tait. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">notes de version</a>.",
-  "release.connectTitle": "Des preuves avant une suggestion",
+    "La version 0.22.0 couvre la CLI, l'interface web et l'application de bureau ; le cœur Rust reste en 0.10.0 et les stockages passent au schéma SQLite 16. MemoryWhale parle désormais avant qu'une commande ne s'exécute, et pas seulement après son échec : quand un agent s'apprête à répéter un échec connu, il reçoit d'abord la leçon ou le correctif prouvé. Rien n'est bloqué, et le silence reste la règle. Voir les <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">notes de version</a>.",
+  "release.connectTitle": "Une ligne avant la nouvelle tentative",
   "release.connectBody":
-    "Un correctif n'est nommé qu'après que le programme en échec a réussi à sa suite : dans deux épisodes, ou dans un seul si vous avez tapé le correctif vous-même dans le terminal. Les commandes qui ne font que lire, comme <code>ls</code>, <code>cat</code> ou <code>git status</code>, ne sont jamais proposées.",
-  "release.provenanceTitle": "Les commandes des agents, comprises",
+    "Claude Code et Codex reçoivent un hook de pré-exécution. Si le même programme a échoué ici, n'a pas réussi depuis, et que MemoryWhale connaît un correctif étayé, l'agent lit <code>confirmed fix: xcode-select --install</code> avant de relancer la commande. Chaque échec ne fait l'objet que d'un seul avertissement.",
+  "release.provenanceTitle": "Les leçons d'abord",
   "release.provenanceBody":
-    "Les agents lancent des scripts à usage unique comme <code>cd \"$S\" && cargo build 2>&1 | tail</code>. Les exécutions sont désormais comparées par programme, <code>cargo build</code>, si bien qu'un échec dans un script et un correctif dans un autre forment le même épisode, et que les erreurs peuvent enfin se répéter.",
-  "release.interfaceTitle": "Le silence est une fonctionnalité",
+    "Un message ou un avertissement qui correspond à une leçon enregistrée commence par elle, et une leçon seule suffit à un message. Ce qu'une personne a conclu prime sur ce qui a réussi par hasard ensuite.",
+  "release.interfaceTitle": "Toujours mesuré",
   "release.interfaceBody":
-    "Sur les mêmes quatre jours de données, huit messages de passage deviennent zéro, et les statistiques de rappel de <code>mw doctor</code> tiennent le compte à partir d'ici. L'ouverture d'un stockage le migre au schéma 15 et recalcule chaque empreinte.",
+    "<code>mw doctor</code> compte désormais aussi les avertissements et la fréquence à laquelle le programme concerné a ensuite réussi. Sur un stockage réel, le hook est resté silencieux pour chaque échec récent et a coûté quelques millisecondes.",
   "who.eyebrow": "Pour qui ?",
   "who.title": "Pensé pour trois façons de travailler.",
   "who.copy":
@@ -693,9 +693,9 @@ const FR = {
   "run.tryValue": "<code>mw demo</code> : écrit des données d’exemple dans le stockage sélectionné",
   "run.prebuiltLabel": "Binaires précompilés",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">Instructions d’installation épinglées, avec vérification des sommes de contrôle</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Paquet .deb sur la page des versions",
   "run.securityLabel": "Sécurité",
@@ -759,7 +759,7 @@ const ZH_CN = {
   "search.hint": "搜索本页的标题和内容。",
   "search.empty": "没有找到相关内容。",
   "search.results": "相关内容",
-  "hero.releaseBadge": "v0.21.0 现已发布",
+  "hero.releaseBadge": "v0.22.0 现已发布",
   "hero.title": "让终端<span class=\"hero-accent\">记住</span>调试经验。",
   "hero.lead":
     "再次遇到以前见过的报错时，MemoryWhale 会直接给出修复方法。调试证据都保存在你自己的机器上，编程智能体不必再一遍遍重新解决同样的问题。",
@@ -779,19 +779,18 @@ const ZH_CN = {
   "integrations.label": "已支持",
   "integrations.via": "通过 MCP",
   "integrations.more": "所有集成",
-  "release.eyebrow": "0.21.0 新功能",
-  "release.title": "更少、但更真的提示。",
+  "release.eyebrow": "0.22.0 新功能",
+  "release.title": "在失败之前回忆。",
   "release.copy":
-    "产品版本 0.21.0 覆盖 CLI、Web 界面和桌面应用；Rust 核心保持 0.10.0，存储迁移到 SQLite schema 15。四天的真实使用表明，每条回忆提示指向的都是无关命令。现在只有有证据时才会建议修复，智能体的命令被当作脚本来理解，没有可说的时候 MemoryWhale 就保持沉默。详见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">发布说明</a>。",
-  "release.connectTitle": "先有证据，再给建议",
+    "产品版本 0.22.0 覆盖 CLI、Web 界面和桌面应用；Rust 核心保持 0.10.0，存储迁移到 SQLite schema 16。MemoryWhale 现在会在命令运行之前开口，而不只是在失败之后：当智能体即将重复一个已知的失败时，它会先得到经验或已验证的修复。不会阻止任何操作，沉默仍是默认。详见<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">发布说明</a>。",
+  "release.connectTitle": "重试之前的一行提示",
   "release.connectBody":
-    "只有在失败的程序随后成功之后才会给出修复：两次经历，或者一次经历但修复是你自己在终端输入的。只读的命令，如 <code>ls</code>、<code>cat</code> 或 <code>git status</code>，永远不会被建议。",
-  "release.provenanceTitle": "读懂智能体的命令",
-  "release.provenanceBody":
-    "智能体运行的是一次性脚本，比如 <code>cd \"$S\" && cargo build 2>&1 | tail</code>。现在按程序比较运行记录，即 <code>cargo build</code>，一个脚本里的失败和另一个脚本里的修复属于同一段经历，错误也终于能被识别为重复出现。",
-  "release.interfaceTitle": "沉默也是功能",
+    "Claude Code 和 Codex 获得了运行前钩子。如果同一个程序在这里失败过、此后没有成功过，并且 MemoryWhale 知道一个有证据的修复，智能体会在再次运行命令之前读到 <code>confirmed fix: xcode-select --install</code>。每次失败只提醒一次。",
+  "release.provenanceTitle": "经验优先",
+  "release.provenanceBody": "匹配到已保存经验的提示或警告会以该经验开头，仅有经验也足以生成一条提示。人得出的结论比碰巧随后成功的命令更重要。",
+  "release.interfaceTitle": "依然可度量",
   "release.interfaceBody":
-    "在同样四天的数据上，八条无关提示变成零，<code>mw doctor</code> 里的回忆统计从此开始计分。打开存储会迁移到 schema 15 并重新计算所有指纹。",
+    "<code>mw doctor</code> 现在也会统计警告次数，以及被警告的程序随后成功的次数。在真实存储上，该钩子对最近的每一次失败都保持沉默，只耗费几毫秒。",
   "who.eyebrow": "适合谁",
   "who.title": "三种开发日常，都用得上。",
   "who.copy":
@@ -871,9 +870,9 @@ const ZH_CN = {
   "run.tryValue": "<code>mw demo</code>：向当前选定的存储写入示例数据",
   "run.prebuiltLabel": "预编译安装",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">指定版本并校验 SHA256 的安装步骤</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "在发布页面下载 .deb 安装包",
   "run.securityLabel": "安全",
@@ -937,7 +936,7 @@ const ZH_TW = {
   "search.hint": "搜尋本頁的標題與內容。",
   "search.empty": "找不到相關內容。",
   "search.results": "相關內容",
-  "hero.releaseBadge": "v0.21.0 現已推出",
+  "hero.releaseBadge": "v0.22.0 現已推出",
   "hero.title": "讓終端機<span class=\"hero-accent\">記住</span>除錯經驗。",
   "hero.lead":
     "再次碰到以前遇過的錯誤時，MemoryWhale 會直接把修正方法交還給你。除錯證據都留在你自己的電腦上，AI 程式助理不必再一次次重新解決同樣的問題。",
@@ -957,19 +956,18 @@ const ZH_TW = {
   "integrations.label": "可搭配使用",
   "integrations.via": "透過 MCP",
   "integrations.more": "所有整合",
-  "release.eyebrow": "0.21.0 新功能",
-  "release.title": "更少、但更真的提示。",
+  "release.eyebrow": "0.22.0 新功能",
+  "release.title": "在失敗之前回憶。",
   "release.copy":
-    "產品版本 0.21.0 涵蓋 CLI、Web 介面與桌面應用程式；Rust 核心維持 0.10.0，儲存遷移到 SQLite schema 15。四天的真實使用顯示，每則回憶提示指向的都是無關指令。現在只有在有證據時才會建議修正，代理的指令被當作腳本來理解，沒有可說的時候 MemoryWhale 就保持沉默。詳見<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">版本說明</a>。",
-  "release.connectTitle": "先有證據，再給建議",
+    "產品版本 0.22.0 涵蓋 CLI、Web 介面與桌面應用程式；Rust 核心維持 0.10.0，儲存遷移到 SQLite schema 16。MemoryWhale 現在會在指令執行之前開口，而不只是在失敗之後：當代理即將重複一個已知的失敗時，會先得到經驗或已驗證的修正。不會阻止任何操作，沉默仍是預設。詳見<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">版本說明</a>。",
+  "release.connectTitle": "重試之前的一行提示",
   "release.connectBody":
-    "只有在失敗的程式隨後成功之後才會提出修正：兩次經歷，或一次經歷但修正是你自己在終端機輸入的。唯讀的指令，如 <code>ls</code>、<code>cat</code> 或 <code>git status</code>，永遠不會被建議。",
-  "release.provenanceTitle": "讀懂代理的指令",
-  "release.provenanceBody":
-    "代理執行的是一次性腳本，例如 <code>cd \"$S\" && cargo build 2>&1 | tail</code>。現在依程式比較執行紀錄，即 <code>cargo build</code>，一個腳本裡的失敗和另一個腳本裡的修正屬於同一段經歷，錯誤也終於能被辨識為重複出現。",
-  "release.interfaceTitle": "沉默也是功能",
+    "Claude Code 與 Codex 獲得執行前的 hook。如果同一個程式在這裡失敗過、此後沒有成功過，且 MemoryWhale 知道一個有證據的修正，代理會在再次執行指令前讀到 <code>confirmed fix: xcode-select --install</code>。每次失敗只提醒一次。",
+  "release.provenanceTitle": "經驗優先",
+  "release.provenanceBody": "符合已儲存經驗的提示或警告會以該經驗開頭，僅有經驗也足以產生一則提示。人得出的結論比碰巧隨後成功的指令更重要。",
+  "release.interfaceTitle": "依然可量測",
   "release.interfaceBody":
-    "在同樣四天的資料上，八則無關提示變成零，<code>mw doctor</code> 裡的回憶統計從此開始計分。開啟儲存會遷移到 schema 15 並重新計算所有指紋。",
+    "<code>mw doctor</code> 現在也會統計警告次數，以及被警告的程式隨後成功的次數。在真實儲存上，該 hook 對最近的每一次失敗都保持沉默，只花費幾毫秒。",
   "who.eyebrow": "適合誰",
   "who.title": "為三種工作方式而設計。",
   "who.copy":
@@ -1049,9 +1047,9 @@ const ZH_TW = {
   "run.tryValue": "<code>mw demo</code>：將範例資料寫入目前選定的資料庫",
   "run.prebuiltLabel": "預編譯版安裝",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">固定版本、經檢查碼驗證的安裝說明</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "發行頁面提供 .deb",
   "run.securityLabel": "安全性",
@@ -1115,7 +1113,7 @@ const KO = {
   "search.hint": "이 페이지의 제목과 본문을 검색합니다.",
   "search.empty": "일치하는 섹션이 없습니다.",
   "search.results": "일치하는 섹션",
-  "hero.releaseBadge": "v0.21.0 출시",
+  "hero.releaseBadge": "v0.22.0 출시",
   "hero.title": "터미널이 <span class=\"hero-accent\">기억하게</span> 하세요.",
   "hero.lead":
     "전에 본 오류를 다시 만나면 MemoryWhale이 해결책을 바로 건네줍니다. 디버깅 기록을 내 컴퓨터에 보관하므로 코딩 에이전트가 같은 문제를 매번 처음부터 다시 풀지 않아도 됩니다.",
@@ -1135,19 +1133,19 @@ const KO = {
   "integrations.label": "함께 쓸 수 있는 도구",
   "integrations.via": "MCP 연동",
   "integrations.more": "전체 통합 보기",
-  "release.eyebrow": "0.21.0의 새 기능",
-  "release.title": "더 적지만, 더 진짜인 힌트.",
+  "release.eyebrow": "0.22.0의 새 기능",
+  "release.title": "실패하기 전에 떠올립니다.",
   "release.copy":
-    "제품 버전 0.21.0은 CLI, 웹 UI, 데스크톱 앱에 적용되며, Rust 코어는 0.10.0을 유지하고 저장소는 SQLite 스키마 15로 옮겨 갑니다. 나흘간의 실제 사용에서 모든 떠올리기 알림이 무관한 명령을 가리켰습니다. 이제 해결책은 증거가 있을 때만 제안되고, 에이전트의 명령은 스크립트로 이해되며, 할 말이 없을 때 MemoryWhale은 침묵합니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">릴리스 노트</a>를 참고하세요.",
-  "release.connectTitle": "제안보다 증거가 먼저",
+    "제품 버전 0.22.0은 CLI, 웹 UI, 데스크톱 앱에 적용되며, Rust 코어는 0.10.0을 유지하고 저장소는 SQLite 스키마 16으로 옮겨 갑니다. 이제 MemoryWhale은 명령이 실패한 뒤만이 아니라 실행되기 전에도 말합니다. 에이전트가 알려진 실패를 반복하려 하면 먼저 교훈이나 검증된 해결책을 받습니다. 아무것도 막지 않으며, 침묵이 기본입니다. <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">릴리스 노트</a>를 참고하세요.",
+  "release.connectTitle": "다시 시도하기 전 한 줄",
   "release.connectBody":
-    "실패한 프로그램이 그 뒤에 성공한 경우에만 해결책을 말합니다. 두 번의 사례에서, 또는 여러분이 직접 터미널에 해결책을 입력했다면 한 번의 사례에서도요. <code>ls</code>, <code>cat</code>, <code>git status</code>처럼 읽기만 하는 명령은 절대 제안되지 않습니다.",
-  "release.provenanceTitle": "에이전트 명령 이해하기",
+    "Claude Code와 Codex에 실행 전 hook이 추가됩니다. 같은 프로그램이 여기서 실패했고 그 뒤로 성공한 적이 없으며 MemoryWhale이 증거 있는 해결책을 알고 있다면, 에이전트는 명령을 다시 실행하기 전에 <code>confirmed fix: xcode-select --install</code>을 읽습니다. 실패 하나에 대해 한 번만 경고합니다.",
+  "release.provenanceTitle": "교훈이 먼저",
   "release.provenanceBody":
-    "에이전트는 <code>cd \"$S\" && cargo build 2>&1 | tail</code> 같은 일회성 스크립트를 실행합니다. 이제 실행 기록을 프로그램 기준(<code>cargo build</code>)으로 비교하므로, 한 스크립트의 실패와 다른 스크립트의 해결책이 같은 사례로 묶이고 오류의 재발도 마침내 알아봅니다.",
-  "release.interfaceTitle": "침묵도 기능입니다",
+    "저장된 교훈과 맞는 알림이나 경고는 그 교훈으로 시작하고, 교훈만으로도 알림이 됩니다. 사람이 내린 결론이 우연히 다음에 성공한 명령보다 우선합니다.",
+  "release.interfaceTitle": "여전히 측정합니다",
   "release.interfaceBody":
-    "같은 나흘치 데이터에서 무관한 알림 여덟 건이 0건이 되고, <code>mw doctor</code>의 떠올리기 통계가 여기서부터 점수를 매깁니다. 저장소를 열면 스키마 15로 옮겨 가며 모든 지문을 다시 계산합니다.",
+    "<code>mw doctor</code>가 이제 경고 수와, 경고받은 프로그램이 그 뒤에 성공한 횟수도 셉니다. 실제 저장소에서 이 hook은 최근의 모든 실패에 대해 침묵했고 몇 밀리초만 걸렸습니다.",
   "who.eyebrow": "사용 대상",
   "who.title": "세 가지 작업 방식을 위해 만들었습니다.",
   "who.copy":
@@ -1227,9 +1225,9 @@ const KO = {
   "run.tryValue": "<code>mw demo</code>: 선택한 저장소에 샘플 데이터를 기록합니다",
   "run.prebuiltLabel": "사전 빌드 설치",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">버전 고정·체크섬 검증 설치 방법</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "릴리스 페이지의 .deb 패키지",
   "run.securityLabel": "보안",
@@ -1293,7 +1291,7 @@ const JA = {
   "search.hint": "このページの見出しと本文を検索します。",
   "search.empty": "一致するセクションはありません。",
   "search.results": "一致したセクション",
-  "hero.releaseBadge": "v0.21.0 リリース",
+  "hero.releaseBadge": "v0.22.0 リリース",
   "hero.title": "ターミナルに<span class=\"hero-accent\">記憶</span>を。",
   "hero.lead":
     "以前に見たエラーにまた遭遇したら、MemoryWhale がそのときの修正を返します。デバッグの記録は手元のマシンに保存されるので、コーディングエージェントが同じ問題を何度も解き直す必要はありません。",
@@ -1313,19 +1311,19 @@ const JA = {
   "integrations.label": "対応ツール",
   "integrations.via": "MCP 経由",
   "integrations.more": "すべての連携を見る",
-  "release.eyebrow": "0.21.0 の新機能",
-  "release.title": "少なく、でも本当のヒント。",
+  "release.eyebrow": "0.22.0 の新機能",
+  "release.title": "失敗する前に思い出す。",
   "release.copy":
-    "製品バージョン 0.21.0 は CLI、Web UI、デスクトップアプリ共通で、Rust コアは 0.10.0 のまま、ストアは SQLite スキーマ 15 に移行します。4 日間の実使用で、通知が示していたのはすべて無関係なコマンドでした。これからは根拠があるときだけ修正を提案し、エージェントのコマンドをスクリプトとして理解し、言うことがなければ MemoryWhale は黙ります。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">リリースノート</a>をご覧ください。",
-  "release.connectTitle": "提案の前に根拠を",
+    "製品バージョン 0.22.0 は CLI、Web UI、デスクトップアプリ共通で、Rust コアは 0.10.0 のまま、ストアは SQLite スキーマ 16 に移行します。MemoryWhale は失敗の後だけでなく、コマンドが実行される前にも語りかけます。エージェントが既知の失敗を繰り返そうとすると、先に教訓か実証済みの修正を受け取ります。何もブロックせず、沈黙が既定のままです。詳しくは<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">リリースノート</a>をご覧ください。",
+  "release.connectTitle": "再試行の前の 1 行",
   "release.connectBody":
-    "失敗したプログラムがその後に成功した場合にだけ修正を示します。2 回のエピソードで、あるいはあなた自身がターミナルで修正を入力したなら 1 回で。<code>ls</code>、<code>cat</code>、<code>git status</code> のような読むだけのコマンドは決して提案されません。",
-  "release.provenanceTitle": "エージェントのコマンドを理解する",
+    "Claude Code と Codex に実行前フックが加わります。同じプログラムがここで失敗し、それ以降成功しておらず、MemoryWhale が根拠のある修正を知っていれば、エージェントはコマンドを再実行する前に <code>confirmed fix: xcode-select --install</code> を読みます。警告は失敗ごとに 1 回だけです。",
+  "release.provenanceTitle": "教訓が先",
   "release.provenanceBody":
-    "エージェントは <code>cd \"$S\" && cargo build 2>&1 | tail</code> のような使い捨てスクリプトを実行します。実行はプログラム単位（<code>cargo build</code>）で比較されるようになり、あるスクリプトでの失敗と別のスクリプトでの修正が同じエピソードになり、エラーの再発もようやく分かります。",
-  "release.interfaceTitle": "沈黙も機能のうち",
+    "保存された教訓に合う通知や警告はその教訓から始まり、教訓だけでも通知になります。人が出した結論は、たまたま次に成功したコマンドより優先されます。",
+  "release.interfaceTitle": "引き続き計測",
   "release.interfaceBody":
-    "同じ 4 日分のデータで、無関係な通知 8 件が 0 件になり、<code>mw doctor</code> の思い出し統計がここから記録を始めます。ストアを開くとスキーマ 15 に移行し、すべてのフィンガープリントを再計算します。",
+    "<code>mw doctor</code> は警告の数と、警告されたプログラムがその後成功した回数も数えるようになりました。実際のストアでは、このフックは最近のすべての失敗で沈黙し、数ミリ秒しかかかりませんでした。",
   "who.eyebrow": "対象ユーザー",
   "who.title": "3 つの働き方に合わせて。",
   "who.copy":
@@ -1405,9 +1403,9 @@ const JA = {
   "run.tryValue": "<code>mw demo</code>：選択中のストアにサンプルデータを書き込みます",
   "run.prebuiltLabel": "ビルド済みバイナリ",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">バージョン固定・チェックサム検証付きのインストール手順</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "リリースページの .deb パッケージ",
   "run.securityLabel": "セキュリティ",
@@ -1472,7 +1470,7 @@ const ES = {
   "search.hint": "Busca en los títulos y el contenido de esta página.",
   "search.empty": "Ninguna sección coincide.",
   "search.results": "Secciones coincidentes",
-  "hero.releaseBadge": "Ya está aquí la v0.21.0",
+  "hero.releaseBadge": "Ya está aquí la v0.22.0",
   "hero.title": "Haz que tu terminal <span class=\"hero-accent\">recuerde</span>.",
   "hero.lead":
     "Si te topas con un error que ya viste, MemoryWhale te devuelve la solución. Guarda la evidencia de depuración en tu máquina para que tus agentes de código dejen de resolver una y otra vez los mismos problemas.",
@@ -1492,19 +1490,19 @@ const ES = {
   "integrations.label": "Funciona con",
   "integrations.via": "a través de MCP",
   "integrations.more": "Todas las integraciones",
-  "release.eyebrow": "Novedades en 0.21.0",
-  "release.title": "Menos pistas, pero verdaderas.",
+  "release.eyebrow": "Novedades en 0.22.0",
+  "release.title": "Recordar antes de fallar.",
   "release.copy":
-    "La versión 0.21.0 abarca la CLI, la interfaz web y la app de escritorio; el núcleo en Rust sigue en 0.10.0 y los almacenes pasan al esquema SQLite 15. Cuatro días de uso real mostraron que cada aviso de recuerdo señalaba un comando ajeno. Ahora un arreglo solo se sugiere con pruebas, los comandos de los agentes se entienden como scripts y, cuando no hay nada que decir, MemoryWhale calla. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">notas de la versión</a>.",
-  "release.connectTitle": "Pruebas antes de sugerir",
+    "La versión 0.22.0 abarca la CLI, la interfaz web y la app de escritorio; el núcleo en Rust sigue en 0.10.0 y los almacenes pasan al esquema SQLite 16. MemoryWhale ahora habla antes de que un comando se ejecute, no solo después de que falle: cuando un agente va a repetir un fallo conocido, recibe primero la lección o el arreglo probado. Nada se bloquea, y el silencio sigue siendo lo normal. Consulta las <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">notas de la versión</a>.",
+  "release.connectTitle": "Una línea antes de reintentar",
   "release.connectBody":
-    "Un arreglo se nombra solo después de que el programa fallido funcionó tras él: en dos episodios, o en uno si tú mismo escribiste el arreglo en la terminal. Los comandos que solo leen, como <code>ls</code>, <code>cat</code> o <code>git status</code>, nunca se sugieren.",
-  "release.provenanceTitle": "Comandos de agentes, entendidos",
+    "Claude Code y Codex reciben un hook previo a la ejecución. Si el mismo programa falló aquí, no ha funcionado desde entonces y MemoryWhale conoce un arreglo con pruebas, el agente lee <code>confirmed fix: xcode-select --install</code> antes de volver a ejecutar el comando. Cada fallo se avisa una sola vez.",
+  "release.provenanceTitle": "Las lecciones primero",
   "release.provenanceBody":
-    "Los agentes ejecutan scripts de un solo uso como <code>cd \"$S\" && cargo build 2>&1 | tail</code>. Las ejecuciones se comparan ahora por programa, <code>cargo build</code>, así que un fallo en un script y un arreglo en otro son el mismo episodio, y los errores por fin pueden repetirse.",
-  "release.interfaceTitle": "El silencio es una función",
+    "Un aviso o advertencia que coincide con una lección guardada empieza por ella, y una lección sola basta para un aviso. Lo que concluyó una persona vale más que lo que funcionó después por casualidad.",
+  "release.interfaceTitle": "Sigue midiéndose",
   "release.interfaceBody":
-    "Con los mismos cuatro días de datos, ocho avisos ajenos pasan a cero, y las estadísticas de recuerdo de <code>mw doctor</code> llevan la cuenta a partir de ahora. Abrir un almacén lo migra al esquema 15 y recalcula cada huella.",
+    "<code>mw doctor</code> ahora también cuenta las advertencias y cuántas veces el programa avisado funcionó después. En un almacén real, el hook guardó silencio en cada fallo reciente y costó unos milisegundos.",
   "who.eyebrow": "Para quién es",
   "who.title": "Pensado para tres formas de trabajar.",
   "who.copy":
@@ -1584,9 +1582,9 @@ const ES = {
   "run.tryValue": "<code>mw demo</code>: escribe datos de ejemplo en el almacén seleccionado",
   "run.prebuiltLabel": "Instalación precompilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">Instrucciones del instalador fijado y con suma de comprobación verificada</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": ".deb en la página de versiones",
   "run.securityLabel": "Seguridad",
@@ -1650,7 +1648,7 @@ const PT_BR = {
   "search.hint": "Pesquise nos títulos e no conteúdo desta página.",
   "search.empty": "Nenhuma seção corresponde.",
   "search.results": "Seções correspondentes",
-  "hero.releaseBadge": "A v0.21.0 chegou",
+  "hero.releaseBadge": "A v0.22.0 chegou",
   "hero.title": "Faça seu terminal <span class=\"hero-accent\">lembrar</span>.",
   "hero.lead":
     "Esbarrou em um erro que você já viu? O MemoryWhale devolve a correção. Ele guarda as evidências de depuração na sua máquina, para que seus agentes de programação parem de resolver os mesmos problemas de novo.",
@@ -1670,19 +1668,19 @@ const PT_BR = {
   "integrations.label": "Funciona com",
   "integrations.via": "via MCP",
   "integrations.more": "Todas as integrações",
-  "release.eyebrow": "Novidades na 0.21.0",
-  "release.title": "Menos dicas, porém verdadeiras.",
+  "release.eyebrow": "Novidades na 0.22.0",
+  "release.title": "Lembrar antes de falhar.",
   "release.copy":
-    "A versão 0.21.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust continua em 0.10.0 e os armazenamentos passam ao esquema SQLite 15. Quatro dias de uso real mostraram que cada aviso de lembrança apontava para um comando alheio. Agora uma correção só é sugerida com evidência, os comandos dos agentes são entendidos como scripts e, quando não há o que dizer, o MemoryWhale fica em silêncio. Veja as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md\">notas de versão</a>.",
-  "release.connectTitle": "Evidência antes da sugestão",
+    "A versão 0.22.0 abrange a CLI, a interface web e o app desktop; o núcleo Rust continua em 0.10.0 e os armazenamentos passam ao esquema SQLite 16. O MemoryWhale agora fala antes de um comando rodar, não só depois que ele falha: quando um agente está prestes a repetir uma falha conhecida, recebe primeiro a lição ou a correção comprovada. Nada é bloqueado, e o silêncio continua sendo o padrão. Veja as <a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md\">notas de versão</a>.",
+  "release.connectTitle": "Uma linha antes de tentar de novo",
   "release.connectBody":
-    "Uma correção só é nomeada depois que o programa que falhou passou após ela: em dois episódios, ou em um só se você mesmo digitou a correção no terminal. Comandos que apenas leem, como <code>ls</code>, <code>cat</code> ou <code>git status</code>, nunca são sugeridos.",
-  "release.provenanceTitle": "Comandos de agentes, entendidos",
+    "Claude Code e Codex ganham um hook de pré-execução. Se o mesmo programa falhou aqui, não passou desde então e o MemoryWhale conhece uma correção com evidência, o agente lê <code>confirmed fix: xcode-select --install</code> antes de rodar o comando de novo. Cada falha recebe um único aviso.",
+  "release.provenanceTitle": "Lições primeiro",
   "release.provenanceBody":
-    "Agentes executam scripts descartáveis como <code>cd \"$S\" && cargo build 2>&1 | tail</code>. As execuções agora são comparadas por programa, <code>cargo build</code>, então uma falha em um script e uma correção em outro são o mesmo episódio, e os erros finalmente podem se repetir.",
-  "release.interfaceTitle": "Silêncio também é recurso",
+    "Um aviso ou alerta que combina com uma lição salva começa por ela, e uma lição sozinha já basta para um aviso. O que uma pessoa concluiu vale mais do que o que por acaso passou em seguida.",
+  "release.interfaceTitle": "Ainda medido",
   "release.interfaceBody":
-    "Nos mesmos quatro dias de dados, oito avisos alheios viram zero, e as estatísticas de lembrança em <code>mw doctor</code> passam a contar a partir daqui. Abrir um armazenamento o migra para o esquema 15 e recalcula todas as impressões digitais.",
+    "<code>mw doctor</code> agora também conta os alertas e quantas vezes o programa alertado passou em seguida. Em um armazenamento real, o hook ficou em silêncio em todas as falhas recentes e custou poucos milissegundos.",
   "who.eyebrow": "Para quem é",
   "who.title": "Feito para três formas de trabalhar.",
   "who.copy":
@@ -1762,9 +1760,9 @@ const PT_BR = {
   "run.tryValue": "<code>mw demo</code>: grava dados de exemplo na base selecionada",
   "run.prebuiltLabel": "Instalação pré-compilada",
   "run.prebuiltValue":
-    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
+    "<a href=\"https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md#install-or-upgrade\">Instruções do instalador fixado e verificado por checksum</a>",
   "run.cargoLabel": "Cargo",
-  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.21.0 --locked</code>",
+  "run.cargoValue": "<code>cargo install memorywhale-cli --version 0.22.0 --locked</code>",
   "run.debianLabel": "Debian / Jetson",
   "run.debianValue": "Pacote .deb na página de versões",
   "run.securityLabel": "Segurança",

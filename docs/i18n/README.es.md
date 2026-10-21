@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 1f87a8ca2e91b87f72462c0a3c6bc632ced00c51422f200060400d40af573b9d -->
+<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -39,10 +39,10 @@ código a través de MCP, sin cuenta y sin subir nada.
 > demuestran el mecanismo, no un estudio de campo; consulta
 > [cómo se midió](../../benchmarks/README.md).
 
-**MemoryWhale 0.21.0: Fewer, Truer Hints · 20 de octubre de 2026.**
+**MemoryWhale 0.22.0: Recall Before It Fails · 21 de octubre de 2026.**
 La CLI, la interfaz web y la aplicación de escritorio comparten la versión de
-producto 0.21.0; el núcleo reutilizable en Rust está en la versión 0.10.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.21.0/docs/releases/0.21.0.md)
-para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 15.
+producto 0.22.0; el núcleo reutilizable en Rust está en la versión 0.10.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)
+para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 16.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="El make de un agente falla con un error de xcrun; el hook de captura responde que el error ya apareció una vez y que la solución fue xcode-select --install." width="820" />
