@@ -258,6 +258,7 @@ add/update/skip breakdown without contacting the server.
 ## mw-serve / mw-view / mw-recover / mw-mcp
 
 ```bash
+mw recall [--limit N]                               # every note and warning shown to an agent, what it said, and what happened next
 mw-serve [--lan | --host addr] [--port n] [--token secret] [--print-token] [--api]  # dashboard, HTTP MCP, optional JSON API
 mw-view <id>                                        # open one memory directly
 mw-recover                                          # recover interrupted recordings

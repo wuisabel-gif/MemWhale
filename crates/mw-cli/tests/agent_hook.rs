@@ -426,3 +426,55 @@ fn before_hook_warns_once_with_pre_tool_use_context() {
     let off = before(Some("0"));
     assert!(off.status.success() && off.stdout.is_empty(), "{off:?}");
 }
+
+#[test]
+fn mw_recall_lists_notes_after_the_hook_shows_one() {
+    let data_dir = sandbox("recall-cli");
+    let mw = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_mw"))
+            .args(args)
+            .env("MEMORYWHALE_DATA_DIR", &data_dir)
+            .env("PATH", "")
+            .output()
+            .unwrap()
+    };
+    let empty = mw(&["recall"]);
+    assert!(empty.status.success(), "{empty:?}");
+    assert!(String::from_utf8_lossy(&empty.stdout).contains("No notes or warnings yet"));
+    let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
+    for (argv, exit, stderr, at) in [
+        (
+            r#"["cargo","build"]"#,
+            101,
+            "error: linker `cc` not found",
+            "2026-01-01T00:00:00Z",
+        ),
+        (
+            r#"["xcode-select","--install"]"#,
+            0,
+            "",
+            "2026-01-01T00:01:00Z",
+        ),
+        (r#"["cargo","build"]"#, 0, "", "2026-01-01T00:02:00Z"),
+    ] {
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
+             VALUES (json_extract(?1, '$[0]'), ?1, '/work', ?2, ?3, ?4)",
+            rusqlite::params![argv, exit, stderr, at],
+        )
+        .unwrap();
+    }
+    let out = remember_from_hook(
+        &data_dir,
+        "claude",
+        r#"{"hook_event_name":"PostToolUse","tool_name":"Bash","cwd":"/work","tool_input":{"command":"cargo build"},"tool_response":{"stdout":"","stderr":"error: linker `cc` not found","exit_code":101}}"#,
+    );
+    assert!(!out.stdout.is_empty(), "a note was expected: {out:?}");
+    let listed = mw(&["recall", "--limit", "5"]);
+    let text = String::from_utf8_lossy(&listed.stdout);
+    assert!(listed.status.success(), "{listed:?}");
+    assert!(text.contains("1 notes shown"), "{text}");
+    assert!(text.contains("said:    MemoryWhale:"), "{text}");
+    assert!(text.contains("outcome: not followed"), "{text}");
+    assert!(mw(&["recall", "--limit", "x"]).status.code() == Some(1));
+}

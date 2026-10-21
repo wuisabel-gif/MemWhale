@@ -3,6 +3,16 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **`mw recall` and the dashboard's `/recall` page.** Every note and warning an agent was shown, newest first: when, which agent, in which directory, the failing command, the exact text (stored from this version on), and the outcome read back from the runs that followed (followed and worked, not followed, then passed). The dashboard's recall line links to it. Schema 17 adds `text` to `recall_hints`.
+
+### Changed
+
+- Command lines are split the way a shell would, minus expansion: separators and spaces inside quotes no longer break a command into fake steps, so a commit message, an inline `python3 -c` script, or a path with a space gets the right program stem.
+
 ## [0.22.0] — Recall Before It Fails — October 21, 2026
 
 Product `0.22.0`; `memorywhale-core` `0.10.0` (unchanged); SQLite schema `16` (adds `kind` and `since_run_id` to `recall_hints`).

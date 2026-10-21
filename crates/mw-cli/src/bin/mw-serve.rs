@@ -1176,6 +1176,9 @@ fn route(raw_path: &str) -> (&'static str, String) {
     if path == "/graph" {
         return ("200 OK", graph_page());
     }
+    if path == "/recall" {
+        return ("200 OK", recall_page());
+    }
     if let Some(rest) = path.strip_prefix("/project/") {
         return ("200 OK", project_page(rest));
     }
@@ -1251,10 +1254,10 @@ fn dashboard(raw_path: &str) -> String {
     ));
     body.push_str(&tz_selector());
     let recall = memorywhale_cli::recall_stats(&conn);
-    if recall.shown > 0 {
+    if recall.shown + recall.warnings > 0 {
         body.push_str(&format!(
-            "<p class=\"sub\">Recall notes: {} shown to agents, {} followed, {} worked.</p>\n",
-            recall.shown, recall.followed, recall.worked
+            "<p class=\"sub\">Recall: {} notes shown to agents ({} followed, {} worked), {} warnings before a command ({} then passed). <a class=\"glink\" href=\"/recall\">history →</a></p>\n",
+            recall.shown, recall.followed, recall.worked, recall.warnings, recall.warned_then_passed
         ));
     }
 
@@ -2743,6 +2746,50 @@ fn runs_page(raw: &str) -> String {
     page(&format!("{} runs · MemoryWhale", name), &body)
 }
 
+/// `/recall`: every note and warning an agent was shown, newest first.
+fn recall_page() -> String {
+    let conn = match open_db() {
+        Ok(c) => c,
+        Err(e) => return page("Recall", &format!("<p>{}</p>", esc(&e))),
+    };
+    page("Recall history · MemoryWhale", &recall_page_body(&conn))
+}
+
+fn recall_page_body(conn: &Connection) -> String {
+    let stats = memorywhale_cli::recall_stats(conn);
+    let mut body = String::new();
+    body.push_str("<a class=\"back\" href=\"/\">← all memory</a>\n");
+    body.push_str("<div class=\"eyebrow\">recall</div>\n<h1>What agents were told</h1>\n");
+    body.push_str(&format!(
+        "<p class=\"sub\">{} notes shown ({} followed, {} worked), {} warnings before a command ({} then passed). Outcomes are read back from the runs that followed.</p>\n",
+        stats.shown, stats.followed, stats.worked, stats.warnings, stats.warned_then_passed
+    ));
+    match memorywhale_cli::recall_history(conn, 100) {
+        Err(e) => body.push_str(&format!("<p>{}</p>\n", esc(&e))),
+        Ok(events) if events.is_empty() => body.push_str(
+            "<div class=\"list\"><p class=\"empty\">No notes or warnings yet. They appear when an agent hits an error MemoryWhale has a lesson or a fix for.</p></div>\n",
+        ),
+        Ok(events) => {
+            body.push_str("<div class=\"list\">\n");
+            for e in events {
+                body.push_str(&format!(
+                    "<div class=\"item\"><div><strong>#{}</strong> {} · {} · {} · {}</div><div><code>{}</code></div><div>{}</div><div><em>{}</em></div></div>\n",
+                    e.id,
+                    esc(&e.kind),
+                    esc(&memorywhale_cli::relative_age(&e.at)),
+                    esc(e.agent.as_deref().unwrap_or("terminal")),
+                    esc(e.cwd.as_deref().unwrap_or("")),
+                    esc_redacted(&e.command),
+                    esc_redacted(e.text.as_deref().unwrap_or("(text not recorded before 0.23)")),
+                    esc(&e.outcome)
+                ));
+            }
+            body.push_str("</div>\n");
+        }
+    }
+    body
+}
+
 fn graph_page() -> String {
     let data = match graph_json() {
         Ok(d) => d.replace("</", "<\\/"), // keep an arg value of "</script>" from breaking the page
@@ -3471,6 +3518,25 @@ mod tests {
         // Set-Cookie extras are still appended for normal routes.
         let r2 = response("200 OK", "x", "Set-Cookie: mw_tz=utc\r\n");
         assert!(r2.contains("Set-Cookie: mw_tz=utc"));
+    }
+
+    #[test]
+    fn recall_page_lists_events_and_handles_an_empty_store() {
+        let conn = Connection::open_in_memory().unwrap();
+        memorywhale_cli::storage::initialize(&conn).unwrap();
+        let empty = recall_page_body(&conn);
+        assert!(empty.contains("No notes or warnings yet"), "{empty}");
+        conn.execute_batch(
+            "INSERT INTO command_runs (id, command, argv_json, cwd, exit_code, stderr, created_at, agent)
+                 VALUES (1, 'cargo', '[\"cargo\",\"build\"]', '/p', 101, 'error: x', '2026-01-01T00:00:00Z', 'claude');
+             INSERT INTO recall_hints (run_id, fix_argv_json, created_at, kind, text)
+                 VALUES (1, '[\"brew\",\"install\",\"cmake\"]', '2026-01-01T00:00:00Z', 'note', 'MemoryWhale: <said this>');",
+        )
+        .unwrap();
+        let body = recall_page_body(&conn);
+        assert!(body.contains("cargo build"), "{body}");
+        assert!(body.contains("&lt;said this&gt;"), "escaped: {body}");
+        assert!(body.contains("not followed"), "{body}");
     }
 
     #[test]

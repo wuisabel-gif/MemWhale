@@ -68,6 +68,7 @@ fn run() -> Result<(), String> {
         Some("pull") => return pull_memory(&raw_args[1..]),
         Some("context") => return context_cmd(&raw_args[1..]),
         Some("hint") => return hint_cmd(&raw_args[1..]),
+        Some("recall") => return recall_cmd(&raw_args[1..]),
         Some("turns") => return turns_cmd(&raw_args[1..]),
         Some("agent") => return agent_cmd(&raw_args[1..]),
         Some("ask") => return ask_cmd(&raw_args[1..]),
@@ -457,6 +458,7 @@ fn print_help() {
          mw agent [session-id]    export a full session as agent-ready text to paste later (default: latest)\n\
          mw ask [question] [--chat chatgpt|claude|gemini|URL] [--session] [--no-open]  package the last failure for your chat AI\n\
          mw doctor                check the install, shell hooks, MCP server, and Claude/Rho integrations\n\
+         mw recall [--limit N]    every note and warning shown to an agent, what it said, and what happened next\n\
          mw global on|off|status  auto-record every new terminal by wiring a shell startup hook\n\
          mw hooks install|uninstall  always-on lightweight capture: command, cwd, exit code, duration (no output)\n\
          mw integrate claude [--revert]  install or remove Claude Code hook, skill, and MCP\n\
@@ -5173,6 +5175,60 @@ fn github_cmd(args: &[String]) -> Result<(), String> {
 }
 
 /// Self-check the install so a confused user (or agent) can see what's wrong.
+/// `mw recall`: the notes and warnings agents were shown, newest first, with
+/// the exact text and the outcome read back from later runs.
+fn recall_cmd(args: &[String]) -> Result<(), String> {
+    let mut limit = 20usize;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--limit" => {
+                i += 1;
+                limit = args
+                    .get(i)
+                    .and_then(|v| v.parse().ok())
+                    .ok_or("--limit needs a number")?;
+            }
+            other => {
+                return Err(format!(
+                    "unknown option {other:?}; usage: mw recall [--limit N]"
+                ))
+            }
+        }
+        i += 1;
+    }
+    let conn = open_session_db()?;
+    let stats = memorywhale_cli::recall_stats(&conn);
+    println!(
+        "Recall: {} notes shown ({} followed, {} worked), {} warnings before a command ({} then passed).",
+        stats.shown, stats.followed, stats.worked, stats.warnings, stats.warned_then_passed
+    );
+    let events = memorywhale_cli::recall_history(&conn, limit)?;
+    if events.is_empty() {
+        println!("No notes or warnings yet. They appear when an agent hits an error MemoryWhale has a lesson or a fix for.");
+        return Ok(());
+    }
+    for e in events {
+        println!(
+            "\n#{}  {:<7}  {:<12} {}  {}",
+            e.id,
+            e.kind,
+            memorywhale_cli::relative_age(&e.at),
+            e.agent.as_deref().unwrap_or("terminal"),
+            e.cwd.as_deref().unwrap_or("")
+        );
+        println!("     command: {}", e.command);
+        println!(
+            "     said:    {}",
+            e.text
+                .as_deref()
+                .unwrap_or("(text not recorded before 0.23)")
+        );
+        println!("     outcome: {}", e.outcome);
+    }
+    Ok(())
+}
+
 fn doctor() -> Result<(), String> {
     let ok = |label: &str, detail: String| println!("  ok   {label}: {detail}");
     let warn = |label: &str, detail: String| println!("  WARN {label}: {detail}");

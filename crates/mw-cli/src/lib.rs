@@ -159,7 +159,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 16;
+pub const LATEST_SCHEMA_VERSION: i64 = 17;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -381,6 +381,14 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
             add_column_if_missing(conn, "recall_hints", "since_run_id", "INTEGER")?;
         }
         conn.execute_batch("PRAGMA user_version = 16;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 17 {
+        // The exact note or warning the agent saw, so `mw recall` can show it.
+        if table_exists(conn, "recall_hints")? {
+            add_column_if_missing(conn, "recall_hints", "text", "TEXT")?;
+        }
+        conn.execute_batch("PRAGMA user_version = 17;")
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
     ensure_memory_ref_cleanup(conn)?;
@@ -849,80 +857,76 @@ fn command_steps(line: &str) -> Vec<(String, String)> {
             !k.is_empty() && k.chars().all(|c| c.is_alphanumeric() || c == '_')
         })
     };
-    let unbalanced = |t: &str| t.matches('"').count() % 2 == 1 || t.matches('\'').count() % 2 == 1;
     let program_like = |t: &str| {
         !t.is_empty()
             && t.chars()
                 .all(|c| c.is_ascii_alphanumeric() || "._+-".contains(c))
     };
     let mut steps = Vec::new();
-    let mut heredoc: Option<String> = None;
-    for raw_line in line.split('\n') {
-        if let Some(marker) = &heredoc {
-            if raw_line.trim() == marker {
-                heredoc = None;
+    for (stages, text) in shell_segments(&without_heredoc_bodies(line)) {
+        let mut stages = stages.into_iter();
+        let mut stage = stages.next().unwrap_or_default();
+        if stage.first().is_some_and(|t| basename(t) == "yes") {
+            stage = stages.next().unwrap_or_default();
+        }
+        let tokens: Vec<&str> = stage
+            .iter()
+            .map(String::as_str)
+            .skip_while(|t| STRIP.contains(&basename(t)) || assignment(t))
+            .collect();
+        let Some(first) = tokens.first() else {
+            continue;
+        };
+        let program = basename(first);
+        if !program_like(program) || SKIP.contains(&program) {
+            continue;
+        }
+        let args: Vec<&str> = tokens[1..]
+            .iter()
+            .copied()
+            .filter(|t| {
+                !t.starts_with('>')
+                    && !t.starts_with('<')
+                    && !t.starts_with("2>")
+                    && !t.starts_with("&>")
+            })
+            .collect();
+        let second = match args.first().copied() {
+            // An inline script or stdin program: the flag is the argument.
+            Some(flag @ ("-" | "-c" | "-e")) => flag,
+            _ => args
+                .iter()
+                .find(|t| !t.starts_with('-') && !t.contains('='))
+                .or(args.first())
+                .map(|t| basename(t))
+                .unwrap_or(""),
+        };
+        let stem = if second.is_empty() {
+            program.to_string()
+        } else {
+            format!("{program} {second}")
+        };
+        steps.push((stem, text));
+    }
+    steps
+}
+
+/// `line` with each heredoc body removed: from the line after `<<MARK` up to
+/// the line that is exactly `MARK`. The `<<MARK` token itself stays.
+fn without_heredoc_bodies(line: &str) -> String {
+    let mut out = String::new();
+    let mut marker: Option<String> = None;
+    for raw in line.split('\n') {
+        if let Some(m) = &marker {
+            if raw.trim() == m {
+                marker = None;
             }
             continue;
         }
-        // ponytail: quotes are not parsed; a separator inside a quoted string
-        // splits the line, and the unbalanced-quote check drops the pieces.
-        for segment in raw_line
-            .split(';')
-            .flat_map(|s| s.split("&&"))
-            .flat_map(|s| s.split("||"))
-        {
-            let mut stages = segment.split('|').map(str::trim);
-            let mut stage = stages.next().unwrap_or("");
-            if stage
-                .split_whitespace()
-                .next()
-                .is_some_and(|t| basename(t) == "yes")
-            {
-                stage = stages.next().unwrap_or("");
-            }
-            let all: Vec<&str> = stage.split_whitespace().collect();
-            let tokens: Vec<&str> = all
-                .iter()
-                .copied()
-                .skip_while(|t| STRIP.contains(&basename(t)) || assignment(t))
-                .collect();
-            let prefix_broken = all[..all.len() - tokens.len()]
-                .iter()
-                .any(|t| unbalanced(t));
-            if let Some(first) = tokens.first() {
-                let program = basename(first);
-                if !prefix_broken && program_like(program) && !SKIP.contains(&program) {
-                    let args: Vec<&str> = tokens[1..]
-                        .iter()
-                        .copied()
-                        .filter(|t| {
-                            !t.starts_with('>')
-                                && !t.starts_with('<')
-                                && !t.starts_with("2>")
-                                && !t.starts_with("&>")
-                        })
-                        .collect();
-                    let second = match args.first().copied() {
-                        // An inline script or stdin program: the flag is the argument.
-                        Some(flag @ ("-" | "-c" | "-e")) => flag,
-                        _ => args
-                            .iter()
-                            .find(|t| !t.starts_with('-') && !t.contains('='))
-                            .or(args.first())
-                            .map(|t| basename(t))
-                            .unwrap_or(""),
-                    };
-                    let stem = if second.is_empty() {
-                        program.to_string()
-                    } else {
-                        format!("{program} {second}")
-                    };
-                    steps.push((stem, stage.to_string()));
-                }
-            }
-        }
-        if let Some(marker) = raw_line.split("<<").nth(1) {
-            let marker = marker
+        out.push_str(raw);
+        out.push('\n');
+        if let Some(rest) = raw.split("<<").nth(1) {
+            let m = rest
                 .trim_start_matches('-')
                 .trim()
                 .trim_matches(['\'', '"'])
@@ -930,12 +934,102 @@ fn command_steps(line: &str) -> Vec<(String, String)> {
                 .next()
                 .unwrap_or("")
                 .to_string();
-            if !marker.is_empty() {
-                heredoc = Some(marker);
+            if !m.is_empty() {
+                marker = Some(m);
             }
         }
     }
-    steps
+    out
+}
+
+/// Split a command line the way a shell would, minus expansion: segments at
+/// unquoted `;`, newline, `&&`, `||`; stages at unquoted `|`; tokens at
+/// unquoted whitespace, with quotes removed and backslash escapes applied.
+/// Each segment comes with its original text, trimmed.
+fn shell_segments(line: &str) -> Vec<(Vec<Vec<String>>, String)> {
+    let chars: Vec<char> = line.chars().collect();
+    let mut segments: Vec<(Vec<Vec<String>>, String)> = Vec::new();
+    let mut stages: Vec<Vec<String>> = Vec::new();
+    let mut tokens: Vec<String> = Vec::new();
+    let mut tok = String::new();
+    let mut in_tok = false;
+    let mut seg_start = 0;
+    let (mut sq, mut dq) = (false, false);
+    let mut i = 0;
+    let end_tok = |tokens: &mut Vec<String>, tok: &mut String, in_tok: &mut bool| {
+        if *in_tok {
+            tokens.push(std::mem::take(tok));
+            *in_tok = false;
+        }
+    };
+    while i < chars.len() {
+        let c = chars[i];
+        let next = chars.get(i + 1).copied();
+        match c {
+            '\\' if !sq => {
+                if let Some(n) = next {
+                    tok.push(n);
+                    in_tok = true;
+                    i += 2;
+                    continue;
+                }
+            }
+            '\'' if !dq => {
+                sq = !sq;
+                in_tok = true;
+            }
+            '"' if !sq => {
+                dq = !dq;
+                in_tok = true;
+            }
+            ';' | '\n' if !sq && !dq => {
+                end_tok(&mut tokens, &mut tok, &mut in_tok);
+                if !tokens.is_empty() {
+                    stages.push(std::mem::take(&mut tokens));
+                }
+                if !stages.is_empty() {
+                    let text: String = chars[seg_start..i].iter().collect();
+                    segments.push((std::mem::take(&mut stages), text.trim().to_string()));
+                }
+                seg_start = i + 1;
+            }
+            '&' | '|' if !sq && !dq && next == Some(c) => {
+                end_tok(&mut tokens, &mut tok, &mut in_tok);
+                if !tokens.is_empty() {
+                    stages.push(std::mem::take(&mut tokens));
+                }
+                if !stages.is_empty() {
+                    let text: String = chars[seg_start..i].iter().collect();
+                    segments.push((std::mem::take(&mut stages), text.trim().to_string()));
+                }
+                seg_start = i + 2;
+                i += 2;
+                continue;
+            }
+            '|' if !sq && !dq => {
+                end_tok(&mut tokens, &mut tok, &mut in_tok);
+                if !tokens.is_empty() {
+                    stages.push(std::mem::take(&mut tokens));
+                }
+            }
+            '(' | ')' if !sq && !dq && !in_tok => {}
+            c if c.is_whitespace() && !sq && !dq => end_tok(&mut tokens, &mut tok, &mut in_tok),
+            c => {
+                tok.push(c);
+                in_tok = true;
+            }
+        }
+        i += 1;
+    }
+    end_tok(&mut tokens, &mut tok, &mut in_tok);
+    if !tokens.is_empty() {
+        stages.push(tokens);
+    }
+    if !stages.is_empty() {
+        let text: String = chars[seg_start.min(chars.len())..].iter().collect();
+        segments.push((stages, text.trim().to_string()));
+    }
+    segments
 }
 
 fn basename(token: &str) -> &str {
@@ -1521,13 +1615,14 @@ pub fn recall_before(conn: &Connection, command: &str, cwd: Option<&str>) -> Opt
     }
     text.push_str(" Consider that before retrying.");
     let _ = conn.execute(
-        "INSERT INTO recall_hints (run_id, fix_argv_json, fix_run_id, created_at, kind, since_run_id)
-         VALUES (?1, ?2, ?3, ?4, 'warning', (SELECT COALESCE(MAX(id), 0) FROM command_runs))",
+        "INSERT INTO recall_hints (run_id, fix_argv_json, fix_run_id, created_at, kind, since_run_id, text)
+         VALUES (?1, ?2, ?3, ?4, 'warning', (SELECT COALESCE(MAX(id), 0) FROM command_runs), ?5)",
         params![
             failure_id,
             fix.as_ref().map(|f| f.argv_json.clone()).unwrap_or_else(|| "[]".into()),
             fix.as_ref().map(|f| f.run_id),
-            chrono::Utc::now().to_rfc3339()
+            chrono::Utc::now().to_rfc3339(),
+            text
         ],
     );
     Some(text)
@@ -1697,20 +1792,6 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
             if lesson.is_none() && best.is_none() {
                 return Ok(None);
             }
-            // Remember that this note was shown, so recall_stats can tell
-            // later whether the agent followed it and whether it worked.
-            let _ = conn.execute(
-                "INSERT INTO recall_hints (run_id, fix_argv_json, fix_run_id, created_at)
-                 VALUES (?1, ?2, ?3, ?4)",
-                params![
-                    run_id,
-                    best.as_ref()
-                        .map(|b| b.argv_json.clone())
-                        .unwrap_or_else(|| "[]".into()),
-                    best.as_ref().map(|b| b.run_id),
-                    at
-                ],
-            );
             // A saved lesson is what someone concluded; it leads.
             let mut text = String::from("MemoryWhale:");
             if let Some((label, when)) = &lesson {
@@ -1723,9 +1804,154 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
                 ));
             }
             text.push_str(" Check whether it applies here.");
+            // Remember that this note was shown, so recall_stats can tell
+            // later whether the agent followed it and whether it worked.
+            let _ = conn.execute(
+                "INSERT INTO recall_hints (run_id, fix_argv_json, fix_run_id, created_at, text)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    run_id,
+                    best.as_ref()
+                        .map(|b| b.argv_json.clone())
+                        .unwrap_or_else(|| "[]".into()),
+                    best.as_ref().map(|b| b.run_id),
+                    at,
+                    text
+                ],
+            );
             Ok(Some(text))
         }
     }
+}
+
+/// One recall note or warning as the agent saw it, with what happened next.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct RecallEvent {
+    pub id: i64,
+    /// `note` (after a failure) or `warning` (before a command).
+    pub kind: String,
+    pub at: String,
+    pub agent: Option<String>,
+    pub cwd: Option<String>,
+    /// The failing command the event was about, truncated to 100 characters.
+    pub command: String,
+    /// The exact text shown, when recorded (0.23 and later).
+    pub text: Option<String>,
+    /// `followed, worked`, `followed, no pass yet`, `not followed`,
+    /// `then passed`, or `no pass yet`.
+    pub outcome: String,
+}
+
+/// The newest `limit` recall events, with outcomes read back from the runs
+/// that followed, by the same rules as [`recall_stats`].
+pub fn recall_history(conn: &Connection, limit: usize) -> Result<Vec<RecallEvent>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT h.id, h.kind, h.created_at, h.text, h.run_id, h.since_run_id, h.fix_argv_json,
+                    r.agent, r.cwd, r.argv_json
+             FROM recall_hints h JOIN command_runs r ON r.id = h.run_id
+             ORDER BY h.id DESC LIMIT ?1",
+        )
+        .map_err(|e| format!("recall history: {e}"))?;
+    type Row = (
+        i64,
+        String,
+        String,
+        Option<String>,
+        i64,
+        Option<i64>,
+        String,
+        Option<String>,
+        Option<String>,
+        String,
+    );
+    let rows: Vec<Row> = stmt
+        .query_map([limit as i64], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                r.get(8)?,
+                r.get(9)?,
+            ))
+        })
+        .map_err(|e| format!("recall history: {e}"))?
+        .collect::<Result<_, _>>()
+        .map_err(|e| format!("recall history row: {e}"))?;
+    let mut events = Vec::with_capacity(rows.len());
+    for (id, kind, at, text, run_id, since, fix_argv, agent, cwd, argv) in rows {
+        let outcome = if kind == "warning" {
+            let since = since.unwrap_or(run_id);
+            let passed: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM command_runs s
+                                   WHERE s.id > ?1 AND s.id <= ?1 + 5 AND s.cwd IS ?2
+                                     AND mw_stem(s.argv_json) = mw_stem(?3) AND s.exit_code = 0)",
+                    params![since, cwd, argv],
+                    |r| r.get(0),
+                )
+                .unwrap_or(false);
+            if passed {
+                "then passed"
+            } else {
+                "no pass yet"
+            }
+        } else {
+            let followed: Option<i64> = conn
+                .query_row(
+                    "SELECT f.id FROM command_runs f
+                     WHERE f.id > ?1 AND f.id <= ?1 + 10 AND f.cwd IS ?2
+                       AND mw_stem(f.argv_json) = mw_stem(?3)
+                     ORDER BY f.id LIMIT 1",
+                    params![run_id, cwd, fix_argv],
+                    |r| r.get(0),
+                )
+                .ok();
+            match followed {
+                None => "not followed",
+                Some(fid) => {
+                    let worked: bool = conn
+                        .query_row(
+                            "SELECT EXISTS(SELECT 1 FROM command_runs s
+                                           WHERE s.id > ?1 AND s.id <= ?2 + 20 AND s.cwd IS ?3
+                                             AND mw_stem(s.argv_json) = mw_stem(?4) AND s.exit_code = 0)",
+                            params![fid, run_id, cwd, argv],
+                            |r| r.get(0),
+                        )
+                        .unwrap_or(false);
+                    if worked {
+                        "followed, worked"
+                    } else {
+                        "followed, no pass yet"
+                    }
+                }
+            }
+        };
+        let line = serde_json::from_str::<Vec<String>>(&argv)
+            .unwrap_or_default()
+            .join(" ");
+        let command = if line.chars().count() > 100 {
+            format!("{}…", line.chars().take(99).collect::<String>())
+        } else {
+            line
+        };
+        events.push(RecallEvent {
+            id,
+            kind,
+            at,
+            agent,
+            cwd,
+            command,
+            text,
+            outcome: outcome.to_string(),
+        });
+    }
+    Ok(events)
 }
 
 /// Append one conversation turn (from Delphin or another duplex wrapper) to
@@ -3521,6 +3747,13 @@ mod tests {
             stem("git commit -m \"fix\nCo-Authored-By: Someone <a@b>\""),
             "git commit"
         );
+        // Quote-aware: separators and spaces inside quotes are not structure.
+        assert_eq!(stem("echo \"a && b; c\" && cargo test"), "cargo test");
+        assert_eq!(stem("sh -c 'cd x; make'"), "sh -c");
+        assert_eq!(stem("git commit -m 'one\ntwo' && git push"), "git push");
+        assert_eq!(stem("cp \"My Report.docx\" out/"), "cp My Report.docx");
+        assert_eq!(stem("printf '%s\\n' a; cargo build"), "cargo build");
+        assert_eq!(stem("(cd x && cargo build)"), "cargo build");
         assert_eq!(
             stem_for_failure(
                 "cat a.txt; ls /Volumes/X",
@@ -3684,6 +3917,65 @@ mod tests {
             .unwrap();
         assert_eq!(now, error_fingerprint("cargo build", err).unwrap());
         assert_ne!(now, old);
+    }
+
+    #[test]
+    fn recall_history_shows_text_and_outcomes() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let run = |cwd: &str, argv: &str, exit: i64, stderr: &str, agent: Option<&str>| -> i64 {
+            conn.execute(
+                "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at, agent)
+                 VALUES (json_extract(?1, '$[0]'), ?1, ?2, ?3, ?4, '2026-01-01T00:00:00Z', ?5)",
+                params![argv, cwd, exit, stderr, agent],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
+        let err = "error: linker `cc` not found";
+        for cwd in ["/a", "/b"] {
+            run(cwd, r#"["cargo","build"]"#, 101, err, Some("claude"));
+            run(
+                cwd,
+                r#"["xcode-select","--install"]"#,
+                0,
+                "",
+                Some("claude"),
+            );
+            run(cwd, r#"["cargo","build"]"#, 0, "", Some("claude"));
+        }
+        assert!(recall_history(&conn, 10).unwrap().is_empty());
+        // A note after a failure, followed and worked.
+        let failed = run("/p", r#"["cargo","build"]"#, 101, err, Some("codex"));
+        let note = hook_feedback(&conn, failed).unwrap().unwrap();
+        run(
+            "/p",
+            r#"["xcode-select","--install"]"#,
+            0,
+            "",
+            Some("codex"),
+        );
+        run("/p", r#"["cargo","build"]"#, 0, "", Some("codex"));
+        // A warning before a retry elsewhere, not yet passed.
+        run(
+            "/q",
+            r#"["cd /q && cargo build"]"#,
+            101,
+            err,
+            Some("claude"),
+        );
+        let warning = recall_before(&conn, "cargo build", Some("/q")).unwrap();
+        let events = recall_history(&conn, 10).unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].kind, "warning");
+        assert_eq!(events[0].text.as_deref(), Some(warning.as_str()));
+        assert_eq!(events[0].outcome, "no pass yet");
+        assert_eq!(events[0].command, "cd /q && cargo build");
+        assert_eq!(events[1].kind, "note");
+        assert_eq!(events[1].text.as_deref(), Some(note.as_str()));
+        assert_eq!(events[1].agent.as_deref(), Some("codex"));
+        assert_eq!(events[1].outcome, "followed, worked");
+        assert_eq!(recall_history(&conn, 1).unwrap().len(), 1);
     }
 
     #[test]
