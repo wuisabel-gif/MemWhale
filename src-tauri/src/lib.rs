@@ -167,7 +167,6 @@ pub fn run() {
             list_terminal_memory,
             recall_memories,
             explain_memory,
-            reset_demo_data,
             list_lessons,
             delete_lesson,
             approve_lesson
@@ -622,90 +621,6 @@ fn explain_memory(
     };
     let q = memorywhale_core::Query::new(query, Utc::now());
     Ok(engine.explain(id, &q).as_ref().map(to_hit))
-}
-
-/// Case evidence is retained by policy: only unlinked runs are removed, and
-/// their `command_arguments` go with them via `ON DELETE CASCADE`.
-const RESET_COMMAND_RUNS_SQL: &str = "
-    DELETE FROM command_runs
-    WHERE NOT EXISTS (
-        SELECT 1 FROM case_file_commands x
-        WHERE x.command_run_id = command_runs.id
-    );
-";
-
-#[tauri::command]
-fn reset_demo_data(state: tauri::State<AppState>) -> Result<GraphPayload, AppError> {
-    let conn = state
-        .db
-        .lock()
-        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-    conn.execute_batch(
-        "
-        DELETE FROM quotes;
-        DELETE FROM links;
-        DELETE FROM concepts;
-        DELETE FROM notes;
-        DELETE FROM documents;
-        ",
-    )?;
-    conn.execute_batch(RESET_COMMAND_RUNS_SQL)?;
-    drop(conn);
-
-    let samples = [
-        ImportRequest {
-            title: Some("Rust Desktop Systems".to_string()),
-            source_type: "markdown".to_string(),
-            content: "Rust, Tauri, and SQLite make local-first desktop software feel fast. Tauri keeps the shell small while Rust handles parsing, persistence, and safe commands.".to_string(),
-        },
-        ImportRequest {
-            title: Some("Knowledge Galaxy Notes".to_string()),
-            source_type: "note".to_string(),
-            content: "A knowledge graph can connect documents, concepts, quotes, and tags. Big nodes should represent recurring topics. Search should reveal everything related to robotics, Rust, or graph visualization.".to_string(),
-        },
-        ImportRequest {
-            title: Some("Transcript: Memory Tools".to_string()),
-            source_type: "youtube_transcript".to_string(),
-            content: "NotebookLM and Obsidian show how useful connected notes can be. MemoryWhale should import transcripts, extract concepts, and help people explore related ideas without sending private data to the cloud.".to_string(),
-        },
-    ];
-
-    for sample in samples {
-        save_document(&state, sample)?;
-    }
-
-    let command_samples = [
-        RememberCommandRequest {
-            command_line: "npm run build".to_string(),
-            cwd: Some("MemoryWhale".to_string()),
-            exit_code: Some(0),
-            stdout: Some("tsc && vite build completed successfully".to_string()),
-            stderr: None,
-            notes: Some("Baseline frontend build for the Rust/Tauri app.".to_string()),
-        },
-        RememberCommandRequest {
-            command_line: "cargo check --manifest-path MemoryWhale/src-tauri/Cargo.toml"
-                .to_string(),
-            cwd: Some("MemoryWhale".to_string()),
-            exit_code: Some(127),
-            stdout: None,
-            stderr: Some("zsh:1: command not found: cargo".to_string()),
-            notes: Some(
-                "Rust verification was blocked because cargo was unavailable in the terminal."
-                    .to_string(),
-            ),
-        },
-    ];
-
-    for sample in command_samples {
-        save_command_run(&state, sample)?;
-    }
-
-    let conn = state
-        .db
-        .lock()
-        .map_err(|_| AppError::Message("database lock poisoned".to_string()))?;
-    load_graph(&conn)
 }
 
 fn save_command_run(
@@ -1294,42 +1209,4 @@ fn extract_keywords(content: &str, limit: usize) -> Vec<String> {
         .take(limit)
         .map(|(word, _)| word)
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn reset_keeps_case_linked_runs_with_their_arguments() {
-        let conn = Connection::open_in_memory().unwrap();
-        memorywhale_cli::storage::initialize(&conn).unwrap();
-        memorywhale_cli::migrate(&conn).unwrap();
-        for id in [1_i64, 2] {
-            conn.execute("INSERT INTO command_runs(id,command,argv_json,created_at) VALUES(?1,'c','[]','now')", [id]).unwrap();
-            conn.execute(
-                "INSERT INTO command_arguments(command_run_id,position,value) VALUES(?1,0,'arg')",
-                [id],
-            )
-            .unwrap();
-        }
-        memorywhale_cli::case_files::create(
-            &conn,
-            &["--title", "keep", "--command-ids", "2"].map(String::from),
-        )
-        .unwrap();
-        conn.execute_batch(RESET_COMMAND_RUNS_SQL).unwrap();
-        let args: Vec<i64> = conn
-            .prepare("SELECT command_run_id FROM command_arguments")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .map(Result::unwrap)
-            .collect();
-        assert_eq!(args, vec![2]);
-        let runs: i64 = conn
-            .query_row("SELECT COUNT(*) FROM command_runs", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(runs, 1);
-    }
 }

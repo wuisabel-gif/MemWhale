@@ -242,17 +242,6 @@ function App() {
     await refreshGraph();
   }
 
-  async function resetDemoData() {
-    const next = await callBackend<GraphPayload>("reset_demo_data");
-    const terminal = await callBackend<TerminalMemory>("list_terminal_memory");
-    setGraph(next);
-    setTerminalMemory(terminal);
-    setSelectedId(next.nodes[0]?.id ?? null);
-    setSearchResult(null);
-    setTerminalResult(null);
-    setStatus("Loaded demo knowledge galaxy");
-  }
-
   return (
     <main className="shell">
       <aside className="sidebar" aria-label="Sources and import">
@@ -463,9 +452,6 @@ function App() {
             <button className="icon-button" onClick={() => void refreshGraph()} title="Refresh graph" type="button">
               <RefreshCcw size={17} />
             </button>
-            <button className="secondary-button" onClick={() => void resetDemoData()} type="button">
-              Demo Data
-            </button>
           </div>
         </header>
 
@@ -573,12 +559,6 @@ async function mockBackend<T>(command: string, args?: Record<string, unknown>): 
       ),
       arguments: terminal.arguments.filter((argument) => argument.value.toLowerCase().includes(query))
     } as T;
-  }
-  if (command === "reset_demo_data") {
-    localStorage.removeItem("memorywhale-demo");
-    localStorage.removeItem("memorywhale-terminal-demo");
-    seedMockTerminal();
-    return graphWithCommands(seedMockStore(), loadMockTerminal()) as T;
   }
   if (command === "search_memory") {
     const query = String(args?.query ?? "").toLowerCase();
