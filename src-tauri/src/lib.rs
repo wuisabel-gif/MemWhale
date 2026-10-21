@@ -9,6 +9,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+mod store;
+
 struct AppState {
     db: Mutex<Connection>,
 }
@@ -169,7 +171,13 @@ pub fn run() {
             explain_memory,
             list_lessons,
             delete_lesson,
-            approve_lesson
+            approve_lesson,
+            store::overview,
+            store::recall_history,
+            store::list_runs,
+            store::run_detail,
+            store::search,
+            store::add_lesson
         ])
         .run(tauri::generate_context!())
         .expect("error while running MemoryWhale");
@@ -182,6 +190,8 @@ fn init_connection() -> anyhow::Result<Connection> {
     }
 
     let conn = Connection::open(db_path)?;
+    // The CLI's schema and SQL functions first, so the app reads the same store.
+    memorywhale_cli::storage::initialize(&conn).map_err(anyhow::Error::msg)?;
     conn.execute_batch(
         "
         PRAGMA journal_mode = WAL;
