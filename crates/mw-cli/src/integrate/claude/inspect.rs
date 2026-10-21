@@ -5,8 +5,9 @@ use std::path::Path;
 use serde_json::Value;
 
 use super::{
-    claude_config_dir, hook_command, is_memorywhale_hook_command, mcp_server_entry_matches,
-    parse_settings, user_scoped_mcp_config_path, HookGroup, MCP_SERVER_NAME,
+    before_hook_command, claude_config_dir, hook_command, is_memorywhale_hook_command,
+    mcp_server_entry_matches, parse_settings, user_scoped_mcp_config_path, HookGroup,
+    MCP_SERVER_NAME,
 };
 use crate::integrate::files::{
     command_on_path, mw_remember_executable, read_existing, skill_is_installed,
@@ -84,12 +85,22 @@ fn inspect_hook(config_dir: &Path, remember_path: Option<&Path>) -> PieceStatus 
     let Some(hooks) = settings.hooks.as_ref() else {
         return PieceStatus::NotInstalled;
     };
+    let pre = memorywhale_bash_commands(&hooks.pre_tool_use);
     let post = memorywhale_bash_commands(&hooks.post_tool_use);
     let failure = memorywhale_bash_commands(&hooks.post_tool_use_failure);
-    if post.is_empty() && failure.is_empty() {
+    if pre.is_empty() && post.is_empty() && failure.is_empty() {
         return PieceStatus::NotInstalled;
     }
-    if hook_commands_current(&post, remember_path) && hook_commands_current(&failure, remember_path)
+    // An install from before 0.22 has no pre-run hook: stale, so a rerun of
+    // `mw integrate claude` adds it.
+    let pre_current = !pre.is_empty()
+        && remember_path.is_some_and(|path| {
+            pre.iter()
+                .all(|command| command.trim() == before_hook_command(path))
+        });
+    if pre_current
+        && hook_commands_current(&post, remember_path)
+        && hook_commands_current(&failure, remember_path)
     {
         PieceStatus::Installed
     } else {

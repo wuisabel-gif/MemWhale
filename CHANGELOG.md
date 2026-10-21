@@ -3,6 +3,14 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Recall before it fails.** `mw integrate claude` and `mw integrate codex --capture` now also install a pre-run hook (`PreToolUse`, `mw-remember --before-hook`). When the agent is about to run a program that failed in this directory and has not passed since, and MemoryWhale has a saved lesson or a fix with evidence for that error, it says so before the command runs: "`cargo build` failed here 2 h ago with `…`; worked 2 of 2 times, last run by Codex 2 days ago, confirmed fix: xcode-select --install". Nothing is blocked, each failure is warned about once, and read-only programs are never warned about. Reinstalling adds the hook to existing setups; Codex asks you to trust it once. Gemini CLI's `BeforeTool` hook cannot add context without blocking, so Gemini stays after-the-fact.
+- **Lessons first.** A note or warning that matches a saved lesson (by program or by a fragment of the error) leads with the lesson, and a matching lesson alone is enough for a note.
+- Recall stats count warnings and how many were followed by the warned program passing (`mw doctor`, dashboard, MCP `stats`: `recall.warnings`, `recall.warned_then_passed`). Schema 16 adds `kind` and `since_run_id` to `recall_hints`.
+
 ## [0.21.0] — Fewer, Truer Hints — October 20, 2026
 
 Product `0.21.0`; `memorywhale-core` `0.10.0` (unchanged); SQLite schema `15` (recomputes error fingerprints by program stem).

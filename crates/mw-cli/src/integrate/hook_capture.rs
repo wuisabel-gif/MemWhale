@@ -18,6 +18,9 @@ struct Client {
     /// Hooks file under `$HOME`.
     default_file: &'static str,
     events: &'static [&'static str],
+    /// Events that get the pre-run warning hook (`--before-hook`) instead of
+    /// capture (`--from-hook`).
+    before_events: &'static [&'static str],
     /// The `version` the file must declare, if the client uses one.
     version: Option<u64>,
     empty: &'static [u8],
@@ -30,6 +33,7 @@ const CURSOR: Client = Client {
     flag: "cursor",
     default_file: ".cursor/hooks.json",
     events: &["postToolUse", "postToolUseFailure"],
+    before_events: &[],
     version: Some(1),
     empty: b"{\"version\":1,\"hooks\":{}}",
     entry: |command| json!({"type":"command", "command":command, "matcher":"Shell", "timeout":5}),
@@ -41,6 +45,7 @@ const CODEX: Client = Client {
     flag: "codex",
     default_file: ".codex/hooks.json",
     events: &["PostToolUse"],
+    before_events: &["PreToolUse"],
     version: None,
     empty: b"{\"hooks\":{}}",
     entry: |command| json!({"matcher":"Bash", "hooks":[{"type":"command", "command":command, "timeout":5}]}),
@@ -78,25 +83,37 @@ fn desired(client: &Client) -> Result<Value, String> {
         command.push(' ');
     }
     command.push_str(&quote(exe.to_str().ok_or("mw-remember path is not UTF-8")?));
-    command.push_str(" --from-hook ");
-    command.push_str(client.flag);
-    let entry = (client.entry)(command);
+    let capture = (client.entry)(format!("{command} --from-hook {}", client.flag));
+    let before = (client.entry)(format!("{command} --before-hook {}", client.flag));
     Ok(Value::Object(
         client
             .events
             .iter()
-            .map(|event| (event.to_string(), entry.clone()))
+            .map(|event| (event.to_string(), capture.clone()))
+            .chain(
+                client
+                    .before_events
+                    .iter()
+                    .map(|event| (event.to_string(), before.clone())),
+            )
             .collect(),
     ))
+}
+
+impl Client {
+    /// Every hooks-file event this client owns, capture and pre-run.
+    fn all_events(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.events.iter().chain(self.before_events).copied()
+    }
 }
 
 /// `entries` with each hook command's quoted executable path blanked, so two
 /// installs can be compared apart from where `mw-remember` lives.
 fn without_executable(entries: &Value) -> Value {
     static EXE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
-    let exe = EXE.get_or_init(|| regex::Regex::new(r"'[^']*' --from-hook ").unwrap());
+    let exe = EXE.get_or_init(|| regex::Regex::new(r"'[^']*' --(from|before)-hook ").unwrap());
     match entries {
-        Value::String(s) => Value::String(exe.replace(s, "'' --from-hook ").into_owned()),
+        Value::String(s) => Value::String(exe.replace(s, "'' --$1-hook ").into_owned()),
         Value::Array(items) => Value::Array(items.iter().map(without_executable).collect()),
         Value::Object(map) => Value::Object(
             map.iter()
@@ -165,7 +182,7 @@ fn ours(entry: &Value) -> bool {
     let runs_mw = |e: &Value| {
         e.get("command").and_then(Value::as_str).is_some_and(|s| {
             let s = s.to_ascii_lowercase();
-            s.contains("mw-remember") || s.contains("--from-hook")
+            s.contains("mw-remember") || s.contains("--from-hook") || s.contains("--before-hook")
         })
     };
     runs_mw(entry)
@@ -218,7 +235,9 @@ fn hook_executables(entries: &Value) -> Vec<String> {
 
 /// The quoted `mw-remember` path in a hook command this adapter wrote.
 pub(super) fn hook_executable(command: &str) -> Option<&str> {
-    let start = command.find("' --from-hook ")?;
+    let start = command
+        .find("' --from-hook ")
+        .or_else(|| command.find("' --before-hook "))?;
     let quote = command[..start].rfind('\'')?;
     Some(&command[quote + 1..start])
 }
@@ -231,6 +250,7 @@ const GEMINI: Client = Client {
     flag: "gemini",
     default_file: ".gemini/settings.json",
     events: &["AfterTool"],
+    before_events: &[],
     version: None,
     empty: b"{\"hooks\":{}}",
     entry: |command| json!({"matcher":"^run_shell_command$", "hooks":[{"name":"memorywhale", "type":"command", "command":command, "timeout":5000}]}),
@@ -303,15 +323,14 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
     if let Some(o) = &owner {
         if o.version != 1
             || o.state != "active"
-            || o.entries.as_object().map(|v| v.len()) != Some(client.events.len())
+            || o.entries.as_object().map(|v| v.len()) != Some(client.all_events().count())
             || client
-                .events
-                .iter()
-                .any(|e| !o.entries[*e].is_object() || !ours(&o.entries[*e]))
+                .all_events()
+                .any(|e| !o.entries[e].is_object() || !ours(&o.entries[e]))
         {
             return Err(recovery(client));
         }
-        for event in client.events {
+        for event in client.all_events() {
             let count = doc["hooks"][event]
                 .as_array()
                 .map(|a| a.iter().filter(|v| **v == o.entries[event]).count());
@@ -324,7 +343,7 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
         for entry in entries.as_array().ok_or_else(|| invalid(client))? {
             if ours(entry)
                 && !owner.as_ref().is_some_and(|o| {
-                    client.events.contains(&event.as_str()) && o.entries[event] == *entry
+                    client.all_events().any(|e| e == event.as_str()) && o.entries[event] == *entry
                 })
             {
                 return Err("Unowned MemoryWhale hook conflict; no configuration changed".into());
@@ -376,18 +395,24 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
         }
         entries
     };
-    for event in client.events {
+    for event in client.all_events() {
         if mode == "--revert" {
             doc["hooks"][event]
                 .as_array_mut()
                 .ok_or_else(|| recovery(client))?
-                .retain(|e| *e != entries[*event]);
+                .retain(|e| *e != entries[event]);
+            // An event list we emptied was ours alone; leave no empty key.
+            if doc["hooks"][event].as_array().is_some_and(Vec::is_empty) {
+                if let Some(hooks) = doc["hooks"].as_object_mut() {
+                    hooks.remove(event);
+                }
+            }
         } else {
             if let Some(previous) = &previous {
                 doc["hooks"][event]
                     .as_array_mut()
                     .ok_or_else(|| recovery(client))?
-                    .retain(|e| *e != previous[*event]);
+                    .retain(|e| *e != previous[event]);
             }
             if doc["hooks"].get(event).is_none() {
                 doc["hooks"][event] = json!([]);
@@ -395,7 +420,7 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
             doc["hooks"][event]
                 .as_array_mut()
                 .ok_or_else(|| invalid(client))?
-                .push(entries[*event].clone());
+                .push(entries[event].clone());
         }
     }
     let output = serde_json::to_vec_pretty(&doc).map_err(|_| invalid(client))?;
@@ -403,7 +428,7 @@ fn run(client: &Client, args: &[String]) -> Result<(), String> {
         return Err(format!("{name} hooks exceeds supported size limit"));
     }
     if mode == "--dry-run" {
-        println!("Would {} {name} shell-command capture hooks ({}); no files written, live capture not tested.", if previous.is_some() { "update the mw-remember path in" } else { "install" }, client.events.join(", "));
+        println!("Would {} {name} shell-command capture hooks ({}); no files written, live capture not tested.", if previous.is_some() { "update the mw-remember path in" } else { "install" }, client.all_events().collect::<Vec<_>>().join(", "));
     } else {
         let parent = path.parent().ok_or_else(|| invalid(client))?;
         safe(parent)?;

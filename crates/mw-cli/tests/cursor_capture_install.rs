@@ -522,3 +522,44 @@ fn gemini_capture_keeps_other_settings_and_reverts() {
     let reverted: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     assert_eq!(reverted, user);
 }
+
+#[test]
+fn codex_capture_installs_a_pre_run_warning_hook_too() {
+    let sb = Sandbox::new();
+    let path = sb.0.join(".codex/hooks.json");
+    let out = Command::new(env!("CARGO_BIN_EXE_mw"))
+        .args(["integrate", "codex", "--capture"])
+        .env("HOME", &sb.0)
+        .env("MEMORYWHALE_DATA_DIR", sb.0.join("data"))
+        .env("PATH", "")
+        .current_dir(&sb.0)
+        .output()
+        .unwrap();
+    ok(out);
+    let doc: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let command = |event: &str| {
+        doc["hooks"][event][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    assert!(command("PreToolUse").ends_with("mw-remember' --before-hook codex"));
+    assert!(command("PostToolUse").ends_with("mw-remember' --from-hook codex"));
+    assert_eq!(doc["hooks"]["PreToolUse"][0]["matcher"], "Bash");
+    let revert = Command::new(env!("CARGO_BIN_EXE_mw"))
+        .args(["integrate", "codex", "--capture", "--revert"])
+        .env("HOME", &sb.0)
+        .env("MEMORYWHALE_DATA_DIR", sb.0.join("data"))
+        .env("PATH", "")
+        .current_dir(&sb.0)
+        .output()
+        .unwrap();
+    ok(revert);
+    let reverted: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert!(reverted["hooks"]["PreToolUse"]
+        .as_array()
+        .is_none_or(|a| a.is_empty()));
+    assert!(reverted["hooks"]["PostToolUse"]
+        .as_array()
+        .is_none_or(|a| a.is_empty()));
+}

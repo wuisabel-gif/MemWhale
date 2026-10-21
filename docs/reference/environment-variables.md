@@ -43,7 +43,7 @@ Gemini CLI capture hook (`mw integrate gemini --capture`) add a
 one-line note to the agent's context at two moments: when a command fails with
 an error that a later command fixed before (it names that fix), and when a
 command passes right after the same command failed with no note saved since
-(it asks the agent to save the cause and fix with `remember`). Codex reports
+(it asks the agent to save the cause and fix with `remember`). Claude Code and Codex also get a warning before a command runs when the same program failed here and MemoryWhale has a lesson or a fix with evidence. Codex reports
 no exit code, so for Codex only the first note applies, matched on the
 command's output. Set `MEMORYWHALE_HOOK_FEEDBACK=0` to record silently.
 

@@ -153,6 +153,17 @@ The hook is registered for both events so successful and failed Bash commands
 are captured. Commands run in an ordinary terminal are captured only through
 MemoryWhale's normal terminal capture paths.
 
+A third hook, `mw-remember --before-hook claude` on `PreToolUse`, runs before
+each Bash command. When the same program failed in this directory, has not
+passed since, and MemoryWhale has a saved lesson or a fix with evidence for
+that error, Claude gets one line before the command runs: "`cargo build`
+failed here 2 h ago with `…`; worked 2 of 2 times, last run by Codex 2 days
+ago, confirmed fix: xcode-select --install". Nothing is blocked, each failure
+is warned about once, and programs that only read are never warned about.
+`MEMORYWHALE_HOOK_FEEDBACK=0` turns both the notes and the warnings off. An
+install from before 0.22 gains the hook the next time you run
+`mw integrate claude`; restart Claude Code afterwards.
+
 ### Limitations
 
 - The bundled hook captures only the Bash tool.

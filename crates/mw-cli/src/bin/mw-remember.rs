@@ -21,6 +21,7 @@ fn run() -> Result<(), String> {
     let mut command_parts = Vec::new();
     let mut capture_kind = "full".to_string();
     let mut from_hook: Option<Agent> = None;
+    let mut before_hook: Option<Agent> = None;
     let mut record_flags = false;
 
     let mut args = env::args().skip(1).peekable();
@@ -38,6 +39,18 @@ fn run() -> Result<(), String> {
                 from_hook = Some(Agent::parse(&name).ok_or_else(|| {
                     format!("unknown hook client {name:?}; use claude, codex, gemini, rho, cursor, or codewhale")
                 })?);
+            }
+            "--before-hook" => {
+                let name = args.next().ok_or_else(|| {
+                    "mw-remember --before-hook requires claude or codex".to_string()
+                })?;
+                before_hook = Some(
+                    Agent::parse(&name)
+                        .filter(|agent| matches!(agent, Agent::Claude | Agent::Codex))
+                        .ok_or_else(|| {
+                            format!("unknown pre-run hook client {name:?}; use claude or codex")
+                        })?,
+                );
             }
             "--cwd" => {
                 record_flags = true;
@@ -81,6 +94,13 @@ fn run() -> Result<(), String> {
         run_from_hook(agent);
         return Ok(());
     }
+    if before_hook.is_some() {
+        if record_flags || !command_parts.is_empty() {
+            return Err("mw-remember --before-hook cannot be mixed with other options".to_string());
+        }
+        run_before_hook();
+        return Ok(());
+    }
 
     let run_id =
         memorywhale_cli::remember::remember_command(memorywhale_cli::remember::CommandRecord {
@@ -122,6 +142,34 @@ fn run_from_hook(agent: Agent) {
     };
     if matches!(agent, Agent::Claude | Agent::Codex | Agent::Gemini) {
         claude_feedback(&buf, run_id);
+    }
+}
+
+/// A pre-run hook must never block or fail the tool call: read the payload,
+/// and print a `PreToolUse` context note only when MemoryWhale has a saved
+/// lesson or a confirmed fix for a recent failure of the same program here.
+fn run_before_hook() {
+    if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
+        return;
+    }
+    let mut buf = Vec::new();
+    if io::stdin().read_to_end(&mut buf).is_err() {
+        return;
+    }
+    let Some((command, cwd)) = memorywhale_cli::agent_hook::before_command(&buf) else {
+        return;
+    };
+    let note = memorywhale_cli::database_path()
+        .and_then(|path| memorywhale_cli::storage::open_path(&path))
+        .ok()
+        .and_then(|conn| memorywhale_cli::recall_before(&conn, &command, cwd.as_deref()));
+    if let Some(note) = note {
+        println!(
+            "{}",
+            serde_json::json!({
+                "hookSpecificOutput": { "hookEventName": "PreToolUse", "additionalContext": note }
+            })
+        );
     }
 }
 
@@ -246,6 +294,7 @@ fn cursor_diagnostic(message: &'static str) {
 fn print_help() {
     println!(
         "mw-remember --cwd <path> --exit-code <code> --stdout <text> --stderr <text> --notes <text> --capture-kind <full|hook> -- <command> [args...]\n\
-         mw-remember --from-hook claude|codex|gemini|rho|cursor|codewhale   read that client's hook JSON from stdin"
+         mw-remember --from-hook claude|codex|gemini|rho|cursor|codewhale   read that client's hook JSON from stdin\n\
+         mw-remember --before-hook claude|codex   warn before a command that failed here and has a known fix"
     );
 }

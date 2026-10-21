@@ -515,6 +515,8 @@ fn stats_summary(conn: &Connection, db_path: &str) -> String {
             "hints_shown": recall.shown,
             "followed": recall.followed,
             "worked": recall.worked,
+            "warnings": recall.warnings,
+            "warned_then_passed": recall.warned_then_passed,
         },
     })
     .to_string()

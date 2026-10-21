@@ -55,7 +55,12 @@ shows the change without writing, and `--hooks-file PATH` edits another file.
 
 When the output contains an error that a later command fixed before, Codex
 gets one line in its context naming that fix, the same note Claude Code and
-Cursor get. Set `MEMORYWHALE_HOOK_FEEDBACK=0` to record without it.
+Cursor get. A second hook on `PreToolUse` (`mw-remember --before-hook codex`)
+warns before a command when the same program failed here, has not passed
+since, and MemoryWhale has a saved lesson or a fix with evidence; nothing is
+blocked, and each failure is warned about once. Set
+`MEMORYWHALE_HOOK_FEEDBACK=0` to record without notes or warnings. Codex asks
+you to trust the changed hooks once (`/hooks`).
 
 Limits, checked against Codex's source on 2026-10-04:
 

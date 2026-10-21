@@ -5290,7 +5290,7 @@ fn doctor() -> Result<(), String> {
             .as_ref()
             .map(memorywhale_cli::recall_stats)
             .unwrap_or_default();
-        if stats.shown == 0 {
+        let mut line = if stats.shown == 0 {
             "on: agents with capture hooks get a note when a past fix is known; none shown yet"
                 .to_string()
         } else {
@@ -5298,7 +5298,14 @@ fn doctor() -> Result<(), String> {
                 "on: {} shown to agents, {} followed, {} worked",
                 stats.shown, stats.followed, stats.worked
             )
+        };
+        if stats.warnings > 0 {
+            line.push_str(&format!(
+                "; {} warned before a command, {} then passed",
+                stats.warnings, stats.warned_then_passed
+            ));
         }
+        line
     };
     ok("recall notes", feedback);
 

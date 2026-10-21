@@ -82,6 +82,8 @@ struct ClaudeSettings {
 
 #[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
 struct Hooks {
+    #[serde(rename = "PreToolUse", default, skip_serializing_if = "Vec::is_empty")]
+    pre_tool_use: Vec<HookGroup>,
     #[serde(rename = "PostToolUse", default, skip_serializing_if = "Vec::is_empty")]
     post_tool_use: Vec<HookGroup>,
     #[serde(
@@ -96,7 +98,8 @@ struct Hooks {
 
 impl Hooks {
     fn is_empty(&self) -> bool {
-        self.post_tool_use.is_empty()
+        self.pre_tool_use.is_empty()
+            && self.post_tool_use.is_empty()
             && self.post_tool_use_failure.is_empty()
             && self.extra.is_empty()
     }
@@ -127,6 +130,14 @@ impl HookEntry {
         Self {
             hook_type: Some("command".to_string()),
             command: Some(hook_command(remember_path)),
+            extra: Map::new(),
+        }
+    }
+
+    fn before(remember_path: &Path) -> Self {
+        Self {
+            hook_type: Some("command".to_string()),
+            command: Some(before_hook_command(remember_path)),
             extra: Map::new(),
         }
     }
@@ -204,12 +215,24 @@ fn hook_command(remember_path: &Path) -> String {
     )
 }
 
+/// The pre-run hook: warns before a command that failed here and has a fix.
+fn before_hook_command(remember_path: &Path) -> String {
+    format!(
+        "\"{}\" --before-hook {}",
+        remember_path.display(),
+        Agent::Claude.as_str()
+    )
+}
+
 fn is_memorywhale_hook_command(command: &str) -> bool {
     let trimmed = command.trim();
     if trimmed.starts_with("python3 \"") && trimmed.ends_with("hooks/mw-record.py\"") {
         return true;
     }
-    let Some((binary, rest)) = trimmed.split_once(" --from-hook") else {
+    let Some((binary, rest)) = trimmed
+        .split_once(" --from-hook")
+        .or_else(|| trimmed.split_once(" --before-hook"))
+    else {
         return false;
     };
     let rest = rest.trim();
@@ -280,6 +303,7 @@ fn merge_settings(existing: &str, remember_path: &Path) -> Result<(String, bool)
     let entry = HookEntry::command(remember_path);
 
     let hooks = root.hooks.get_or_insert_with(Hooks::default);
+    upsert_bash_hook(&mut hooks.pre_tool_use, HookEntry::before(remember_path));
     upsert_bash_hook(&mut hooks.post_tool_use, entry.clone());
     upsert_bash_hook(&mut hooks.post_tool_use_failure, entry);
 
@@ -300,6 +324,7 @@ fn unmerge_settings(existing: &str) -> Result<(String, bool), String> {
         return Ok((existing.to_string(), false));
     };
 
+    remove_memorywhale_bash_hooks(&mut hooks.pre_tool_use);
     remove_memorywhale_bash_hooks(&mut hooks.post_tool_use);
     remove_memorywhale_bash_hooks(&mut hooks.post_tool_use_failure);
     if hooks.is_empty() {
@@ -809,5 +834,30 @@ mod tests {
         let (updated, changed) = unmerge_settings(original).unwrap();
         assert!(!changed);
         assert_eq!(updated, original);
+    }
+    #[test]
+    fn merge_adds_a_pre_run_warning_hook_and_unmerge_removes_it() {
+        let path = Path::new("/opt/homebrew/bin/mw-remember");
+        let (merged, changed) = merge_settings("", path).unwrap();
+        assert!(changed);
+        let value: Value = serde_json::from_str(&merged).unwrap();
+        let pre = &value["hooks"]["PreToolUse"][0];
+        assert_eq!(pre["matcher"], "Bash");
+        assert_eq!(
+            pre["hooks"][0]["command"],
+            "\"/opt/homebrew/bin/mw-remember\" --before-hook claude"
+        );
+        assert_eq!(
+            value["hooks"]["PostToolUse"][0]["hooks"][0]["command"],
+            "\"/opt/homebrew/bin/mw-remember\" --from-hook claude"
+        );
+        // Reinstalling over an install from before the pre-run hook adds it.
+        let old = merged.replace("\"PreToolUse\": [", "\"PreToolUseX\": [");
+        let (again, changed) = merge_settings(&old, path).unwrap();
+        assert!(changed);
+        assert!(serde_json::from_str::<Value>(&again).unwrap()["hooks"]["PreToolUse"].is_array());
+        let (removed, changed) = unmerge_settings(&merged).unwrap();
+        assert!(changed);
+        assert!(removed.trim().is_empty(), "{removed}");
     }
 }

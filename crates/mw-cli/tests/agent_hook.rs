@@ -353,3 +353,76 @@ fn from_hook_records_gemini_shell_and_names_a_past_fix() {
         .unwrap();
     assert_eq!(exit, Some(101), "Gemini reports real exit codes");
 }
+
+#[test]
+fn before_hook_warns_once_with_pre_tool_use_context() {
+    let data_dir = sandbox("before");
+    let conn = memorywhale_cli::storage::open_path(&data_dir.join("memorywhale.sqlite3")).unwrap();
+    let err = "error: linker `cc` not found";
+    let mut at = 0;
+    let mut run = |cwd: &str, argv: &str, exit: i64, stderr: &str| {
+        at += 1;
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
+             VALUES (json_extract(?1, '$[0]'), ?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                argv,
+                cwd,
+                exit,
+                stderr,
+                format!("2026-01-01T00:{at:02}:00Z")
+            ],
+        )
+        .unwrap();
+    };
+    for cwd in ["/a", "/b"] {
+        run(cwd, r#"["cargo","build"]"#, 101, err);
+        run(cwd, r#"["xcode-select","--install"]"#, 0, "");
+        run(cwd, r#"["cargo","build"]"#, 0, "");
+    }
+    run("/work", r#"["cargo","build"]"#, 101, err);
+
+    let payload = r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"/work","tool_input":{"command":"cargo build"}}"#;
+    let before = |feedback: Option<&str>| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_mw-remember"));
+        command
+            .args(["--before-hook", "claude"])
+            .env("MEMORYWHALE_DATA_DIR", &data_dir)
+            .env("PATH", "");
+        if let Some(value) = feedback {
+            command.env("MEMORYWHALE_HOOK_FEEDBACK", value);
+        }
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .as_mut()
+            .unwrap()
+            .write_all(payload.as_bytes())
+            .unwrap();
+        child.wait_with_output().unwrap()
+    };
+    let out = before(None);
+    assert!(out.status.success(), "{out:?}");
+    let reply: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(reply["hookSpecificOutput"]["hookEventName"], "PreToolUse");
+    let context = reply["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(
+        context.contains("confirmed fix: xcode-select --install"),
+        "{context}"
+    );
+    // Warned once; a retry of the same failure is silent, and so is opting out.
+    let again = before(None);
+    assert!(
+        again.status.success() && again.stdout.is_empty(),
+        "{again:?}"
+    );
+    let off = before(Some("0"));
+    assert!(off.status.success() && off.stdout.is_empty(), "{off:?}");
+}

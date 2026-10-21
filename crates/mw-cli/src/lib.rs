@@ -159,7 +159,7 @@ const BOOKMARKS_BASE: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
      CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);";
 
 /// Schema version `migrate` brings a database up to.
-pub const LATEST_SCHEMA_VERSION: i64 = 15;
+pub const LATEST_SCHEMA_VERSION: i64 = 16;
 
 /// Apply numbered schema migrations to a MemoryWhale database. Idempotent and
 /// cheap (a `user_version` check), so callers run it before touching bookmarks.
@@ -371,6 +371,16 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
             backfill_error_fingerprints(conn)?;
         }
         conn.execute_batch("PRAGMA user_version = 15;")
+            .map_err(|e| format!("failed to bump schema version: {e}"))?;
+    }
+    if version < 16 {
+        // Warnings shown before a command run share the table with notes:
+        // `kind` tells them apart, `since_run_id` is the newest run at the time.
+        if table_exists(conn, "recall_hints")? {
+            add_column_if_missing(conn, "recall_hints", "kind", "TEXT NOT NULL DEFAULT 'note'")?;
+            add_column_if_missing(conn, "recall_hints", "since_run_id", "INTEGER")?;
+        }
+        conn.execute_batch("PRAGMA user_version = 16;")
             .map_err(|e| format!("failed to bump schema version: {e}"))?;
     }
     ensure_memory_ref_cleanup(conn)?;
@@ -1363,6 +1373,166 @@ pub fn relative_age(created_at: &str) -> String {
     }
 }
 
+/// The newest saved lesson that mentions this failure: its program stem or a
+/// fragment of the error line. Lessons are what a person or agent concluded,
+/// so they lead any note.
+pub fn matching_lesson(
+    conn: &Connection,
+    stem: &str,
+    error_line: &str,
+) -> Option<(String, String)> {
+    // Letters, digits, and single spaces only, so `linker \`cc\` not found`
+    // matches a lesson written as "linker cc not found".
+    let squash = |text: &str| -> String {
+        let mut out = String::new();
+        let mut space = true;
+        for c in text.to_lowercase().chars() {
+            if c.is_alphanumeric() {
+                out.push(c);
+                space = false;
+            } else if !space {
+                out.push(' ');
+                space = true;
+            }
+        }
+        out.trim().to_string()
+    };
+    // Drop a short leading tag such as `error:` or `ModuleNotFoundError:`.
+    let tail = match error_line.find(':') {
+        Some(at) if at < 32 => &error_line[at + 1..],
+        _ => error_line,
+    };
+    let key: String = squash(&normalize_error_line(tail))
+        .chars()
+        .take(24)
+        .collect();
+    let key = key.trim().to_string();
+    let stem = squash(stem);
+    if key.len() < 8 && stem.is_empty() {
+        return None;
+    }
+    let mut stmt = conn
+        .prepare(
+            "SELECT label, created_at FROM bookmarks WHERE status = 'active' ORDER BY id DESC LIMIT 500",
+        )
+        .ok()?;
+    let rows: Vec<(String, String)> = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .ok()?
+        .filter_map(Result::ok)
+        .collect();
+    rows.into_iter().find(|(label, _)| {
+        let label = squash(label);
+        (key.len() >= 8 && label.contains(&key)) || (!stem.is_empty() && label.contains(&stem))
+    })
+}
+
+/// A warning for an agent about to run `command` in `cwd`: the same program
+/// failed here recently, nothing has passed since, and MemoryWhale knows a
+/// saved lesson or a confirmed fix. `None` otherwise, including once the same
+/// failure has already been warned about. Records the warning for the stats.
+pub fn recall_before(conn: &Connection, command: &str, cwd: Option<&str>) -> Option<String> {
+    let stem = stem_of_line(command);
+    if stem.is_empty() || read_only_program(&stem) {
+        return None;
+    }
+    let (failure_id, stderr, stdout, at): (i64, String, String, String) = conn
+        .query_row(
+            "SELECT id, stderr, stdout, created_at FROM command_runs
+             WHERE cwd IS ?1 AND exit_code IS NOT NULL AND exit_code != 0
+               AND mw_stem(argv_json) = ?2
+             ORDER BY id DESC LIMIT 1",
+            params![cwd, stem],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .ok()?;
+    let passed_since: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM command_runs
+                           WHERE id > ?1 AND cwd IS ?2 AND mw_stem(argv_json) = ?3 AND exit_code = 0)",
+            params![failure_id, cwd, stem],
+            |r| r.get(0),
+        )
+        .unwrap_or(true);
+    let warned: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM recall_hints WHERE run_id = ?1 AND kind = 'warning')",
+            [failure_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(true);
+    if passed_since || warned {
+        return None;
+    }
+    let line = stderr
+        .lines()
+        .chain(stdout.lines())
+        .find(|l| {
+            let l = l.to_lowercase();
+            [
+                "error",
+                "failed",
+                "fatal",
+                "cannot",
+                "no such",
+                "not found",
+                "panic",
+                "exception",
+            ]
+            .iter()
+            .any(|kw| l.contains(kw))
+        })
+        .unwrap_or("")
+        .trim();
+    let lesson = matching_lesson(conn, &stem, line);
+    let fix = if line.is_empty() {
+        None
+    } else {
+        best_fix_before(conn, line, i64::MAX)
+            .ok()
+            .flatten()
+            .and_then(|(_, best)| best)
+    };
+    if lesson.is_none() && fix.is_none() {
+        return None;
+    }
+    let shown: String = line.chars().take(80).collect();
+    let mut text = format!(
+        "MemoryWhale, before you run this: `{stem}` failed here {} with `{shown}`.",
+        relative_age(&at)
+    );
+    if let Some((label, when)) = &lesson {
+        text.push_str(&format!(" Saved lesson ({}): {label}.", relative_age(when)));
+    }
+    if let Some(fix) = &fix {
+        text.push_str(&format!(
+            " Worked {} of {} times, last {} {}, {} fix: {}.",
+            fix.worked,
+            fix.seen,
+            ran_by(fix.agent.as_deref()),
+            relative_age(&fix.at),
+            if fix.worked >= 2 {
+                "confirmed"
+            } else {
+                "possible"
+            },
+            fix.command()
+        ));
+    }
+    text.push_str(" Consider that before retrying.");
+    let _ = conn.execute(
+        "INSERT INTO recall_hints (run_id, fix_argv_json, fix_run_id, created_at, kind, since_run_id)
+         VALUES (?1, ?2, ?3, ?4, 'warning', (SELECT COALESCE(MAX(id), 0) FROM command_runs))",
+        params![
+            failure_id,
+            fix.as_ref().map(|f| f.argv_json.clone()).unwrap_or_else(|| "[]".into()),
+            fix.as_ref().map(|f| f.run_id),
+            chrono::Utc::now().to_rfc3339()
+        ],
+    );
+    Some(text)
+}
+
 /// How the recall notes have done so far: shown to an agent, followed (the
 /// suggested command ran within the next ten runs in that directory), and
 /// worked (the failing command then passed within twenty). Read back from the
@@ -1372,6 +1542,11 @@ pub struct RecallStats {
     pub shown: i64,
     pub followed: i64,
     pub worked: i64,
+    /// Warnings shown before a command ran.
+    pub warnings: i64,
+    /// Of those, how many were followed by the warned program passing within
+    /// the next five runs in that directory.
+    pub warned_then_passed: i64,
 }
 
 pub fn recall_stats(conn: &Connection) -> RecallStats {
@@ -1380,7 +1555,7 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
                 COALESCE(SUM(followed.id IS NOT NULL), 0),
                 COALESCE(SUM(worked.id IS NOT NULL), 0)
          FROM recall_hints h
-         JOIN command_runs r ON r.id = h.run_id
+         JOIN command_runs r ON r.id = h.run_id AND h.kind = 'note'
          LEFT JOIN command_runs followed ON followed.id = (
              SELECT f.id FROM command_runs f
              WHERE f.id > h.run_id AND f.id <= h.run_id + 10
@@ -1398,9 +1573,30 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
                 shown: r.get(0)?,
                 followed: r.get(1)?,
                 worked: r.get(2)?,
+                warnings: 0,
+                warned_then_passed: 0,
             })
         },
     )
+    .map(|mut stats| {
+        if let Ok((warnings, passed)) = conn.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(EXISTS(
+                        SELECT 1 FROM command_runs s
+                        WHERE s.id > h.since_run_id AND s.id <= h.since_run_id + 5
+                          AND s.cwd IS r.cwd AND mw_stem(s.argv_json) = mw_stem(r.argv_json)
+                          AND s.exit_code = 0)), 0)
+             FROM recall_hints h
+             JOIN command_runs r ON r.id = h.run_id
+             WHERE h.kind = 'warning'",
+            [],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+        ) {
+            stats.warnings = warnings;
+            stats.warned_then_passed = passed;
+        }
+        stats
+    })
     .unwrap_or_default()
 }
 
@@ -1491,20 +1687,43 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
                 .any(|kw| l.contains(kw))
             });
             let Some(line) = line else { return Ok(None) };
-            let Some((seen, Some(best))) = best_fix_before(conn, line, run_id)? else {
-                return Ok(None);
+            let lesson = matching_lesson(conn, &program_stem_for_failure(&argv, &stderr), line);
+            let best = best_fix_before(conn, line, run_id)?;
+            let (seen, best) = match best {
+                Some((seen, Some(best))) => (seen, Some(best)),
+                Some((seen, None)) => (seen, None),
+                None => (0, None),
             };
+            if lesson.is_none() && best.is_none() {
+                return Ok(None);
+            }
             // Remember that this note was shown, so recall_stats can tell
             // later whether the agent followed it and whether it worked.
             let _ = conn.execute(
                 "INSERT INTO recall_hints (run_id, fix_argv_json, fix_run_id, created_at)
                  VALUES (?1, ?2, ?3, ?4)",
-                params![run_id, best.argv_json, best.run_id, at],
+                params![
+                    run_id,
+                    best.as_ref()
+                        .map(|b| b.argv_json.clone())
+                        .unwrap_or_else(|| "[]".into()),
+                    best.as_ref().map(|b| b.run_id),
+                    at
+                ],
             );
-            Ok(Some(format!(
-                "MemoryWhale: this error was {}. Check whether it applies here.",
-                format_hint(seen, Some(&best))
-            )))
+            // A saved lesson is what someone concluded; it leads.
+            let mut text = String::from("MemoryWhale:");
+            if let Some((label, when)) = &lesson {
+                text.push_str(&format!(" saved lesson ({}): {label}.", relative_age(when)));
+            }
+            if let Some(best) = &best {
+                text.push_str(&format!(
+                    " This error was {}.",
+                    format_hint(seen, Some(best))
+                ));
+            }
+            text.push_str(" Check whether it applies here.");
+            Ok(Some(text))
         }
     }
 }
@@ -3465,6 +3684,103 @@ mod tests {
             .unwrap();
         assert_eq!(now, error_fingerprint("cargo build", err).unwrap());
         assert_ne!(now, old);
+    }
+
+    #[test]
+    fn warns_before_a_retry_only_with_evidence_and_only_once() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let run = |cwd: &str, argv: &str, exit: i64, stderr: &str, agent: Option<&str>| -> i64 {
+            conn.execute(
+                "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at, agent)
+                 VALUES (json_extract(?1, '$[0]'), ?1, ?2, ?3, ?4, '2026-01-01T00:00:00Z', ?5)",
+                params![argv, cwd, exit, stderr, agent],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
+        let err = "error: linker `cc` not found";
+        // Two confirmed episodes elsewhere.
+        for cwd in ["/a", "/b"] {
+            run(cwd, r#"["cargo","build"]"#, 101, err, Some("claude"));
+            run(
+                cwd,
+                r#"["xcode-select","--install"]"#,
+                0,
+                "",
+                Some("claude"),
+            );
+            run(cwd, r#"["cargo","build"]"#, 0, "", Some("claude"));
+        }
+        // Nothing failed in /p yet: silence.
+        assert_eq!(recall_before(&conn, "cargo build", Some("/p")), None);
+        run(
+            "/p",
+            r#"["cd /p && cargo build 2>&1 | tail -3"]"#,
+            101,
+            err,
+            Some("claude"),
+        );
+        // Read-only programs never get a warning.
+        assert_eq!(recall_before(&conn, "ls -la", Some("/p")), None);
+        let warning = recall_before(&conn, "cargo build --release", Some("/p")).unwrap();
+        assert!(warning.contains("`cargo build` failed here"), "{warning}");
+        assert!(warning.contains("Worked 2 of 2 times"), "{warning}");
+        assert!(
+            warning
+                .ends_with("confirmed fix: xcode-select --install. Consider that before retrying."),
+            "{warning}"
+        );
+        // The same failure is warned about once.
+        assert_eq!(recall_before(&conn, "cargo build", Some("/p")), None);
+        let stats = recall_stats(&conn);
+        assert_eq!(
+            (stats.shown, stats.warnings, stats.warned_then_passed),
+            (0, 1, 0)
+        );
+        // The warned program then passes: the warning counts as heeded.
+        run(
+            "/p",
+            r#"["xcode-select","--install"]"#,
+            0,
+            "",
+            Some("claude"),
+        );
+        run("/p", r#"["cargo","build"]"#, 0, "", Some("claude"));
+        assert_eq!(recall_stats(&conn).warned_then_passed, 1);
+        // After a pass, a new retry is not warned about.
+        assert_eq!(recall_before(&conn, "cargo build", Some("/p")), None);
+    }
+
+    #[test]
+    fn a_saved_lesson_leads_notes_and_warnings() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let err = "error: linker `cc` not found";
+        conn.execute(
+            "INSERT INTO bookmarks (label, created_at, status)
+             VALUES ('linker cc not found means the Command Line Tools are missing: xcode-select --install', '2026-01-01T00:00:00Z', 'active')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at, agent)
+             VALUES ('cargo', '[\"cargo\",\"build\"]', '/p', 101, ?1, '2026-01-02T00:00:00Z', 'claude')",
+            [err],
+        )
+        .unwrap();
+        let run_id = conn.last_insert_rowid();
+        // No fix evidence at all: the lesson alone is worth a note.
+        let note = hook_feedback(&conn, run_id).unwrap().unwrap();
+        assert!(note.starts_with("MemoryWhale: saved lesson ("), "{note}");
+        assert!(note.contains("Command Line Tools are missing"), "{note}");
+        assert!(!note.contains("fix:"), "{note}");
+        let warning = recall_before(&conn, "cargo build", Some("/p")).unwrap();
+        assert!(warning.contains("Saved lesson ("), "{warning}");
+        assert_eq!(
+            matching_lesson(&conn, "npm test", "error: something unrelated here"),
+            None
+        );
     }
 
     #[test]

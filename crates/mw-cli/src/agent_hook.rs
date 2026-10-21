@@ -64,6 +64,25 @@ impl Agent {
     }
 }
 
+/// The command and working directory from a pre-run hook payload (Claude Code
+/// `PreToolUse`, Codex `PreToolUse`) for the shell tool; `None` for other
+/// tools or an empty command.
+pub fn before_command(bytes: &[u8]) -> Option<(String, Option<String>)> {
+    let payload: Value = serde_json::from_slice(bytes).ok()?;
+    if payload.get("tool_name").and_then(Value::as_str) != Some("Bash") {
+        return None;
+    }
+    let command = payload
+        .get("tool_input")
+        .and_then(|input| input.get("command"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|command| !command.is_empty())?
+        .to_string();
+    let cwd = nonempty_str(payload.get("cwd")).map(str::to_string);
+    Some((command, cwd))
+}
+
 pub fn record_from_slice(bytes: &[u8], agent: Agent) -> Option<CommandRecord> {
     if agent == Agent::Codewhale {
         return codewhale::record_from_slice(bytes).ok().flatten();
@@ -659,6 +678,26 @@ mod tests {
         let mut other = gemini_event("x", "Output: ok");
         other["tool_name"] = json!("read_file");
         assert!(record_from_value(&other, Agent::Gemini).is_none());
+    }
+
+    #[test]
+    fn before_command_reads_shell_pre_run_payloads() {
+        let payload = |tool: &str, command: &str| {
+            serde_json::to_vec(&json!({
+                "hook_event_name": "PreToolUse",
+                "tool_name": tool,
+                "cwd": "/work",
+                "tool_input": {"command": command}
+            }))
+            .unwrap()
+        };
+        assert_eq!(
+            before_command(&payload("Bash", " cargo build ")),
+            Some(("cargo build".to_string(), Some("/work".to_string())))
+        );
+        assert_eq!(before_command(&payload("Read", "cargo build")), None);
+        assert_eq!(before_command(&payload("Bash", "   ")), None);
+        assert_eq!(before_command(b"not json"), None);
     }
 
     #[test]
