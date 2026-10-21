@@ -112,7 +112,9 @@ for (const [shown, source] of [
 ]) {
   expect(html.includes(shown) && cliSource.includes(source), `unverified recall output: ${shown}`);
 }
-expect(!/(?:jsdelivr|unpkg|cdnjs)/i.test(await readFile(resolve(root, "site-ocean.js"), "utf8")), "ocean scene loads a third-party script");
+for (const file of ["site-ocean.js", "ocean.js"]) {
+  expect(!/(?:jsdelivr|unpkg|cdnjs)/i.test(await readFile(resolve(root, file), "utf8")), `${file} loads a third-party script`);
+}
 for (const client of ["claude-code", "rho", "codex", "cursor"]) {
   const guide = `integrations/${client}/README.md`;
   await access(resolve(root, guide));
