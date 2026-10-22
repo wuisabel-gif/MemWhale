@@ -71,16 +71,22 @@ def main():
         assert not any(p.is_symlink() for p in (integration / source).rglob('*'))
         shutil.copytree(integration / source, plugin_root / name)
     # Copies are only discovered, never trusted or enabled by this harness.
+    # The system copies the verified run used; PATH's elsewhere (e.g. NixOS).
+    git, bash = (p if Path(p).exists() else shutil.which(Path(p).name)
+                 for p in ('/usr/bin/git', '/bin/bash'))
+    if not git or not bash:
+        raise SystemExit('git and bash are required')
+    tool_dirs = ':'.join(dict.fromkeys(str(Path(t).parent) for t in (git, bash)))
     env = {'HOME': str(root / 'home'), 'CODEWHALE_HOME': str(root / 'codewhale'),
         'XDG_CONFIG_HOME': str(root / 'config'), 'XDG_CACHE_HOME': str(root / 'cache'),
         'XDG_DATA_HOME': str(root / 'data'), 'GIT_CONFIG_NOSYSTEM': '1',
         'TMPDIR': str(root / 'tmp'), 'MEMORYWHALE_DATA_DIR': str(root / 'store'),
         'MEMORYWHALE_HOOK_DIAGNOSTICS': '1', 'CODEWHALE_TELEMETRY': '0',
-        'PATH': f'{a.bin_dir.resolve()}:/usr/bin:/bin:/usr/sbin:/sbin',
-        'TERM': 'xterm-256color', 'LANG': 'en_US.UTF-8', 'SHELL': '/bin/bash'}
+        'PATH': f'{a.bin_dir.resolve()}:{tool_dirs}:/usr/bin:/bin:/usr/sbin:/sbin',
+        'TERM': 'xterm-256color', 'LANG': 'en_US.UTF-8', 'SHELL': bash}
     # Prevent the native client and capture helper from discovering the real
     # parent repository when this task-owned scratch is inside a checkout.
-    subprocess.run(['/usr/bin/git', 'init', '--quiet', str(root / 'workspace')],
+    subprocess.run([git, 'init', '--quiet', str(root / 'workspace')],
                    env=env, check=True)
     state = {'fd': None, 'pid': None, 'session': 0, 'text': '', 'requests': 0}
     lock = threading.Lock()
