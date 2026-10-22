@@ -17,14 +17,12 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
-    "d3": "^7.9.0",
     "lucide-react": "^1.59.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.3",
-    "@types/d3": "^7.4.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.1.2",

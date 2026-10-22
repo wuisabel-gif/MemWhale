@@ -23,6 +23,31 @@ fn sql_err(e: rusqlite::Error) -> String {
     e.to_string()
 }
 
+/// Open the store the CLI uses (creating it on a fresh machine, private to
+/// this user) and add the app's embedding cache.
+pub fn open() -> Res<Connection> {
+    let path = memorywhale_cli::database_path()?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
+        memorywhale_cli::restrict_path_permissions(dir, true)?;
+    }
+    let conn = memorywhale_cli::storage::open_path(&path)?;
+    memorywhale_cli::restrict_path_permissions(&path, false)?;
+    // Semantic search caches Ollama vectors here; the CLI never reads it.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS memory_embeddings (
+            memory_id INTEGER NOT NULL,
+            model TEXT NOT NULL,
+            text_hash TEXT NOT NULL,
+            vec BLOB NOT NULL,
+            PRIMARY KEY (memory_id, model)
+        );",
+    )
+    .map_err(sql_err)?;
+    Ok(conn)
+}
+
 // ── Overview ─────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
@@ -213,6 +238,61 @@ pub fn run_detail(state: tauri::State<AppState>, id: i64) -> Res<RunDetail> {
 
 // ── Lessons ──────────────────────────────────────────────────────────────────
 
+#[derive(Debug, Serialize)]
+pub struct Lesson {
+    id: i64,
+    label: String,
+    created_at: String,
+    approved: bool,
+    provenance: String,
+}
+
+/// Every saved lesson, newest first, including agent-written ones waiting for
+/// review so they can be approved here.
+#[tauri::command]
+pub fn list_lessons(state: tauri::State<AppState>) -> Res<Vec<Lesson>> {
+    db(&state)?
+        .prepare(
+            "SELECT id, label, created_at, author_kind, author_name, source_session_id, approved
+             FROM bookmarks ORDER BY id DESC LIMIT 500",
+        )
+        .map_err(sql_err)?
+        .query_map([], |r| {
+            let created_at: String = r.get(2)?;
+            let author_kind: String = r.get(3)?;
+            let author_name: Option<String> = r.get(4)?;
+            Ok(Lesson {
+                id: r.get(0)?,
+                label: redact(&r.get::<_, String>(1)?),
+                provenance: memorywhale_cli::provenance_label(
+                    &author_kind,
+                    author_name.as_deref(),
+                    &created_at,
+                    r.get(5)?,
+                ),
+                created_at,
+                approved: r.get::<_, i64>(6)? != 0,
+            })
+        })
+        .map_err(sql_err)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(sql_err)
+}
+
+/// Approve a pending (agent-written, review-mode) lesson so retrieval includes it.
+#[tauri::command]
+pub fn approve_lesson(state: tauri::State<AppState>, id: i64) -> Res<()> {
+    memorywhale_cli::approve_note(&*db(&state)?, id)
+}
+
+#[tauri::command]
+pub fn delete_lesson(state: tauri::State<AppState>, id: i64) -> Res<()> {
+    db(&state)?
+        .execute("DELETE FROM bookmarks WHERE id = ?1", [id])
+        .map_err(sql_err)?;
+    Ok(())
+}
+
 /// Save a lesson as the person at the keyboard; agents see it first when the
 /// failure it mentions comes back.
 #[tauri::command]
@@ -274,6 +354,79 @@ fn to_hit(sm: &memorywhale_core::ScoredMemory) -> SearchHit {
     }
 }
 
+/// The embedding model whose vectors we cache (matches `OllamaEmbedder::default`).
+const EMBED_MODEL: &str = "nomic-embed-text";
+
+/// Stable-ish hash of a memory's text, used to invalidate the embedding cache
+/// when the underlying text changes.
+fn text_hash(s: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    s.hash(&mut h);
+    format!("{:016x}", h.finish())
+}
+
+fn cache_get(conn: &Connection, id: i64, hash: &str) -> Option<Vec<f32>> {
+    conn.query_row(
+        "SELECT vec FROM memory_embeddings WHERE memory_id = ?1 AND model = ?2 AND text_hash = ?3",
+        params![id, EMBED_MODEL, hash],
+        |r| r.get::<_, Vec<u8>>(0),
+    )
+    .ok()
+    .map(|b| memorywhale_core::embed::bytes_to_vec(&b))
+    .filter(|v| !v.is_empty())
+}
+
+fn cache_put(conn: &Connection, id: i64, hash: &str, vec: &[f32]) {
+    let _ = conn.execute(
+        "INSERT OR REPLACE INTO memory_embeddings (memory_id, model, text_hash, vec)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            id,
+            EMBED_MODEL,
+            hash,
+            memorywhale_core::embed::vec_to_bytes(vec)
+        ],
+    );
+}
+
+/// Fill each memory's embedding from the cache, computing and caching misses.
+/// Fails when Ollama is not running, so the caller falls back to lexical.
+fn fill_embeddings(
+    conn: &Connection,
+    mems: &mut [memorywhale_core::Memory],
+    embedder: &dyn memorywhale_core::embed::Embedder,
+) -> anyhow::Result<()> {
+    for m in mems.iter_mut() {
+        let hash = text_hash(&m.text);
+        if let Some(v) = cache_get(conn, m.id, &hash) {
+            m.embedding = Some(v);
+        } else {
+            let v = embedder.embed(&m.text)?;
+            cache_put(conn, m.id, &hash, &v);
+            m.embedding = Some(v);
+        }
+    }
+    Ok(())
+}
+
+/// Lexical ranking always; local Ollama embeddings too when the server runs,
+/// with each memory's vector cached so only the query is embedded per search.
+fn build_engine(
+    conn: &Connection,
+    mut mems: Vec<memorywhale_core::Memory>,
+) -> memorywhale_core::engine::BuiltinEngine {
+    use memorywhale_core::engine::BuiltinEngine;
+    let embedder = std::sync::Arc::new(memorywhale_core::embed::OllamaEmbedder::default());
+    if fill_embeddings(conn, &mut mems, embedder.as_ref()).is_ok() {
+        BuiltinEngine::new(mems.clone())
+            .with_embedder(embedder)
+            .unwrap_or_else(|_| BuiltinEngine::new(mems))
+    } else {
+        BuiltinEngine::new(mems)
+    }
+}
+
 #[tauri::command]
 pub fn search(
     state: tauri::State<AppState>,
@@ -283,7 +436,7 @@ pub fn search(
     let engine = {
         let conn = db(&state)?;
         let mems = memorywhale_core::sqlite::load_memories(&conn).map_err(|e| e.to_string())?;
-        crate::build_recall_engine(&conn, mems)
+        build_engine(&conn, mems)
     };
     let q = memorywhale_core::Query::new(query, Utc::now());
     Ok(engine

@@ -40,11 +40,11 @@ The Tauri desktop shell uses a restrictive CSP in
 `src-tauri/tauri.conf.json`:
 
 - scripts and default resources are same-origin only;
-- images and fonts are same-origin only; the current frontend uses inline SVG
-  and `File.text()` rather than Tauri's asset protocol or blob/data URLs;
+- images and fonts are same-origin only; the app bundles its images and uses
+  system fonts, not Tauri's asset protocol or blob/data URLs;
 - `ipc:` and `http://ipc.localhost` are required for Tauri IPC;
-- inline styles are allowed because the React frontend currently uses inline
-  style attributes for dynamic widths and layout values.
+- inline styles are allowed because the React frontend sets bar widths and
+  score rings through inline style attributes.
 - `base-uri 'none'` prevents injected markup from changing the document base;
   `form-action 'none'` prevents injected forms from submitting data.
 

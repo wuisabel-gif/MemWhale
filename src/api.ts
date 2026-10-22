@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { mockCall } from "./mock";
 
 /** Inside the desktop shell; otherwise a browser preview with sample data. */
-export const inTauri = "__TAURI_INTERNALS__" in window;
+export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return inTauri ? invoke<T>(command, args) : mockCall<T>(command, args);

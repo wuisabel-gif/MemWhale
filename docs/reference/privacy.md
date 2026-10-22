@@ -17,8 +17,8 @@ expose the data.
 | `mw-recover` / `mw-serve` recovery | recovered transcript | transcript path and timestamps |
 | `mw import` / `mw pull` | imported command runs, sessions, and lessons | cwd, filesystem paths, timestamps |
 | `mw-mcp remember` / `mw mark` | lesson text through `remember_as` | provenance fields |
-| Tauri command capture | stdout, stderr, notes, command/argv representations, derived concepts | cwd and exit status |
-| Tauri text import | title, content, summary, quotes, derived concepts | source type and timestamps |
+| Desktop app lessons | lesson text through `remember_as` | provenance fields |
+| Desktop app search cache | embedding vectors computed from the stored, already sanitized memory text | memory ID, model name, text hash |
 | `mw-screenshot` | notes | screenshot path, cwd, command-run ID |
 
 Command arguments and filesystem paths remain operational metadata with a
