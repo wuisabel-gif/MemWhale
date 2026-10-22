@@ -77,7 +77,7 @@ fn overview_of(conn: &Connection) -> Res<Overview> {
 
 #[tauri::command]
 pub fn overview(state: tauri::State<AppState>) -> Res<Overview> {
-    overview_of(&db(&state)?)
+    overview_of(&*db(&state)?)
 }
 
 /// Every note and warning an agent was shown, newest first, with its outcome.
@@ -199,7 +199,7 @@ pub fn list_runs(
     limit: Option<usize>,
 ) -> Res<Vec<Run>> {
     runs(
-        &db(&state)?,
+        &*db(&state)?,
         query.as_deref().unwrap_or(""),
         failures_only.unwrap_or(false),
         limit.unwrap_or(200),
@@ -208,7 +208,7 @@ pub fn list_runs(
 
 #[tauri::command]
 pub fn run_detail(state: tauri::State<AppState>, id: i64) -> Res<RunDetail> {
-    detail(&db(&state)?, id)
+    detail(&*db(&state)?, id)
 }
 
 // ── Lessons ──────────────────────────────────────────────────────────────────
