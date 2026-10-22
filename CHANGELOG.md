@@ -8,10 +8,20 @@ All notable changes to MemoryWhale are documented here. This project follows
 ### Added
 
 - **`mw recall` and the dashboard's `/recall` page.** Every note and warning an agent was shown, newest first: when, which agent, in which directory, the failing command, the exact text (stored from this version on), and the outcome read back from the runs that followed (followed and worked, not followed, then passed). The dashboard's recall line links to it. Schema 17 adds `text` to `recall_hints`.
+- **The desktop app, redesigned and shipped.** It looks like the website: the ocean hero with the same 3D whale, the beige device showing the last note an agent saw, a rounded face for reading and a round cursive script for titles. Home shows recall scores, recent failures, and the latest notes; Search explains each ranking; Recall lists every note and warning with its outcome; Commands opens a run's output and what ran next; Lessons can be added, approved, and deleted. A menu-bar icon keeps watching after the window closes and announces each new note or warning. Releases now attach a macOS `.dmg` and a Linux `.deb` and AppImage; see `docs/guides/desktop.md`.
 
 ### Changed
 
 - Command lines are split the way a shell would, minus expansion: separators and spaces inside quotes no longer break a command into fake steps, so a commit message, an inline `python3 -c` script, or a path with a space gets the right program stem.
+
+### Fixed
+
+- The desktop app's Demo Data button deleted every command run not linked to a case file from the real store. It is gone.
+- `npm run dev` and `npm run tauri:dev` showed a blank window: Vite looked for `src/main.tsx` under `src-tauri/`.
+
+### Removed
+
+- The desktop app's knowledge-galaxy view, text import, and manual command form, with the commands and tables only they used, the dialog and fs plugins, and d3.
 
 ## [0.22.0] — Recall Before It Fails — October 21, 2026
 

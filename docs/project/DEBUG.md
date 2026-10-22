@@ -11,7 +11,7 @@ dashboard, global and in-container recording — see [JETSON_TESTING.md](JETSON_
 
 MemoryWhale is a Rust/Tauri local-first terminal memory system. It stores
 commands, arguments, working directories, exit codes, stdout, stderr, notes, and
-imported text in a local SQLite database.
+lessons in a local SQLite database.
 
 The important local database path on Linux is:
 
@@ -281,10 +281,9 @@ This command starts only the web frontend:
 npm run dev -- --host 0.0.0.0
 ```
 
-It lets a laptop browser open the UI from the Jetson, but it does not provide
-the full Tauri desktop bridge. The terminal memory helper can still write to
-SQLite, but the browser page may not automatically show the saved entries until
-a local HTTP API is added.
+It lets a laptop browser open the UI from the Jetson, but without the Tauri
+desktop bridge it shows sample data, and the sidebar says so. To browse the real
+memory from another machine, run `mw-serve --lan` and open the dashboard.
 
 This command starts the full desktop app:
 

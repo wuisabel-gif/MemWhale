@@ -14,6 +14,7 @@ The repository documentation is organized by the question a reader is asking.
 
 - [Getting started](guides/getting-started.md)
 - [Capture terminal work](guides/terminal-capture.md)
+- [See it in the desktop app](guides/desktop.md)
 - [Debug with previous evidence](guides/debugging.md)
 - [Connect a coding agent](guides/agent-memory.md)
 - [Use memory with a response-style skill](guides/response-style-skills.md) — live Rho verification; Claude example separately pending

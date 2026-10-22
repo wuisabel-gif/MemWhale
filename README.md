@@ -118,6 +118,11 @@ Windows users can run MemoryWhale inside
 [getting-started guide](docs/guides/getting-started.md) for package installs,
 PATH setup, and platform notes.
 
+**Desktop app.** For a window instead of a terminal, the MemoryWhale app shows
+what your agents were told, the commands and output behind it, and your
+lessons, and stays in the menu bar to announce each new note. It ships with
+each release from 0.23 on; see the [desktop guide](docs/guides/desktop.md).
+
 ## Sixty-second example
 
 ```bash
@@ -201,6 +206,7 @@ end-to-end scenario with real commands.
 - [Getting started](docs/guides/getting-started.md)
 - [`mw pet` reference](docs/reference/pet.md)
 - [Terminal capture](docs/guides/terminal-capture.md)
+- [Desktop app](docs/guides/desktop.md)
 - [Agent memory](docs/guides/agent-memory.md)
 - [CLI reference](docs/reference/cli.md)
 - [Local JSON API](docs/reference/api.md)
