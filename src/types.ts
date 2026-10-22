@@ -1,111 +1,89 @@
-export type Document = {
+/** Agent labels from `memorywhale_core::provenance::label`; `terminal` is a person at a prompt. */
+export type Agent = "claude" | "rho" | "cursor" | "codewhale" | "codex" | "gemini" | "terminal" | "unknown";
+
+export type RecallStats = {
+  shown: number;
+  followed: number;
+  worked: number;
+  warnings: number;
+  warned_then_passed: number;
+};
+
+export type Overview = {
+  commands: number;
+  failures: number;
+  sessions: number;
+  lessons: number;
+  pending_lessons: number;
+  agents: [Agent, number][];
+  recall: RecallStats;
+  store: string;
+};
+
+/** One note (after a failure) or warning (before a command) as the agent saw it. */
+export type RecallEvent = {
   id: number;
-  title: string;
-  source_type: string;
-  content: string;
-  summary: string;
-  created_at: string;
+  kind: "note" | "warning";
+  at: string;
+  agent: string | null;
+  cwd: string | null;
+  command: string;
+  text: string | null;
+  outcome: string;
 };
 
-export type Concept = {
-  id: number;
-  name: string;
-  description?: string | null;
-};
-
-export type Quote = {
-  id: number;
-  document_id: number;
-  text: string;
-};
-
-export type GraphNode = {
-  id: string;
-  label: string;
-  node_type: "document" | "concept" | string;
-  weight: number;
-};
-
-export type GraphLink = {
-  source: string;
-  target: string;
-  relation: string;
-  weight: number;
-};
-
-export type GraphPayload = {
-  documents: Document[];
-  concepts: Concept[];
-  quotes: Quote[];
-  nodes: GraphNode[];
-  links: GraphLink[];
-};
-
-export type CommandRun = {
+export type Run = {
   id: number;
   command: string;
-  argv_json: string;
-  cwd?: string | null;
-  repository_id?: string | null;
-  repository_name?: string | null;
-  worktree_root?: string | null;
-  /** Nullable storage metadata; null is rendered as the terminal/manual agent. */
-  agent?: "claude" | "rho" | "cursor" | "codewhale" | "codex" | "gemini" | null;
-  exit_code?: number | null;
+  cwd: string | null;
+  agent: Agent;
+  exit_code: number | null;
+  created_at: string;
+  notes: string;
+};
+
+export type RunDetail = {
+  run: Run;
   stdout: string;
   stderr: string;
-  notes: string;
-  created_at: string;
+  next: Run[];
 };
 
-export type CommandArgument = {
+export type Signal = {
+  name: string;
+  score: number;
+  applicable: boolean;
+  detail: string;
+};
+
+export type SearchHit = {
   id: number;
-  command_run_id: number;
-  position: number;
-  value: string;
-};
-
-export type TerminalMemory = {
-  runs: CommandRun[];
-  arguments: CommandArgument[];
-};
-
-export type SearchResult = {
-  documents: Document[];
-  concepts: Concept[];
+  source: "command" | "note" | "session" | "conversation" | "document";
+  row_id: number;
+  text: string;
+  score: number;
+  reasons: string[];
+  signals: Signal[];
+  created_at: string;
+  agent: Agent;
 };
 
 export type Lesson = {
   id: number;
   label: string;
   created_at: string;
-  author_kind: string;
-  author_name: string | null;
-  source_session_id: number | null;
   approved: boolean;
   provenance: string;
 };
 
-export type SignalView = {
-  name: string;
-  weight: number;
-  score: number;
-  applicable: boolean;
-  contribution: number;
-  detail: string;
-};
+export type Page = "home" | "search" | "recall" | "commands" | "lessons";
 
-export type RecallHit = {
-  id: number;
-  text: string;
-  score: number;
-  reasons: string[];
-  signals: SignalView[];
-  created_at: string;
-  last_used: string;
-  mentions: number;
-  importance: number;
-  tags: string[];
-  agent: "claude" | "rho" | "cursor" | "codewhale" | "codex" | "gemini" | null;
-  agent_label: "claude" | "rho" | "cursor" | "codewhale" | "codex" | "gemini" | "terminal" | "unknown";
+/** What every page gets from the app shell. */
+export type PageProps = {
+  overview: Overview | null;
+  /** Changes whenever the store may have changed; pages reload on it. */
+  refreshKey: number;
+  refresh: () => void;
+  go: (page: Page) => void;
+  openRun: (id: number) => void;
 };

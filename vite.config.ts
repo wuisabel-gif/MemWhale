@@ -24,6 +24,8 @@ export default defineConfig({
     outDir: "../dist",
     emptyOutDir: true,
     target: "es2020",
+    // three.js (the ocean) is one ~540 kB chunk, loaded after the first paint.
+    chunkSizeWarningLimit: 600,
     minify: !process.env.TAURI_DEBUG,
     sourcemap: !!process.env.TAURI_DEBUG
   }
