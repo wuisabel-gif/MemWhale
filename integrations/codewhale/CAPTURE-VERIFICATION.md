@@ -1,6 +1,6 @@
 # Codewhale capture: local native verification
 
-**Native integration result: PASS — September 16, 2026.** This is a local
+**Native integration result: PASS, September 16, 2026.** This is a local
 receipt-patched host test, not stock/released Codewhale support or an LLM
 usefulness benchmark. No Codewhale push, issue, PR, merge, or release was made.
 
@@ -11,8 +11,9 @@ usefulness benchmark. No Codewhale push, issue, PR, merge, or release was made.
   correction. The original checkout remained untouched and clean.
 - Host binary SHA-256:
   `21969a634bf2421746cae294d628717a651e18a08ae7d99832bd3ba89415d084`.
-- MemoryWhale base `bcf3e320c3644383504de516c60e64891806758e`, with the local
-  exact-identity deduplication fix and regression tests described below.
+- MemoryWhale base `bcf3e320c3644383504de516c60e64891806758e`, with the
+  exact-identity deduplication fix and regression tests described below, then
+  local and since merged in #335.
 - Native plugin bundles: `memorywhale` and `memorywhale-capture`, both 0.1.0.
 - macOS arm64; a real Codewhale terminal process in a PTY, a fresh private
   profile, an empty synthetic Git workspace, and an explicitly selected new
@@ -52,8 +53,8 @@ only supported `query`/`agent` search arguments.
    ownership, not from requested command arguments. Its typed receipt requires
    this discriminator, including the synthetic observer fixture.
 2. **Identity-prefix loss:** the earlier `LIKE` lookup could suppress `call_1`
-   after `call_10`, or match identity-shaped text inside metadata. The local
-   MemoryWhale fix compares the complete anchored, hex-encoded identity with a
+   after `call_10`, or match identity-shaped text inside metadata. The
+   MemoryWhale fix (#335) compares the complete anchored, hex-encoded identity with a
    trailing delimiter under the existing immediate transaction. Regressions
    cover prefix IDs, whitespace/wildcards, metadata-shaped IDs, and concurrent
    replay. Same-identity replay remains suppressed; distinct executions survive.
