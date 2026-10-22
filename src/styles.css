@@ -1362,6 +1362,8 @@ pre {
 }
 
 .drawer-command {
+  max-height: 220px;
+  overflow: auto;
   padding: 14px 16px;
   font-size: 14px;
 }
