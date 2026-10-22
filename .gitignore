@@ -20,6 +20,8 @@ __pycache__/
 .verification-waku/
 # Isolated third-party source and Kimi verification profiles
 .verification-kimi/
+# Local Codewhale native-capture evidence (scripts/verification/codewhale-capture)
+.verification-codewhale-capture/
 
 # Terminal-Bench carried memory store (published with results, not committed)
 benchmarks/terminal_bench/store/
