@@ -1,8 +1,8 @@
 //! The menu-bar icon, and a watcher that announces a recall note or warning
 //! the moment a hook in another process writes one.
 
+use crate::store::Event;
 use crate::AppState;
-use memorywhale_cli::{redact, RecallEvent};
 use memorywhale_core::provenance;
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem};
@@ -48,7 +48,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
 }
 
 /// The newest recall hint id, and that event.
-fn latest(app: &AppHandle) -> Option<(i64, Option<RecallEvent>)> {
+fn latest(app: &AppHandle) -> Option<(i64, Option<Event>)> {
     let state = app.state::<AppState>();
     let conn = state.db.lock().ok()?;
     let id = conn
@@ -56,7 +56,7 @@ fn latest(app: &AppHandle) -> Option<(i64, Option<RecallEvent>)> {
             r.get(0)
         })
         .ok()?;
-    let event = memorywhale_cli::recall_history(&conn, 1)
+    let event = crate::store::events(&conn, 1)
         .ok()
         .and_then(|events| events.into_iter().next());
     Some((id, event))
@@ -89,19 +89,21 @@ pub fn watch(app: AppHandle) {
     });
 }
 
-fn announcement(event: &RecallEvent) -> (String, String) {
+fn announcement(Event { event, stem }: &Event) -> (String, String) {
     let agent = match provenance::label(event.agent.as_deref()) {
         "terminal" => "you",
         agent => agent,
     };
+    let program = if stem.is_empty() { "a command" } else { stem };
     let title = if event.kind == "warning" {
-        format!("Warned {agent} before a command")
+        format!("Warned {agent} before {program}")
     } else {
-        format!("Left {agent} a note after a failure")
+        format!("Left {agent} a note: {program} failed")
     };
+    // Already redacted by store::events.
     (
         title,
-        redact(event.text.as_deref().unwrap_or(&event.command)),
+        event.text.clone().unwrap_or_else(|| event.command.clone()),
     )
 }
 
@@ -110,32 +112,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn announcement_names_the_agent_and_prefers_the_exact_text() {
-        let event = RecallEvent {
-            id: 1,
-            kind: "warning".into(),
-            at: "2026-10-21T10:00:00Z".into(),
-            agent: Some("claude".into()),
-            cwd: None,
-            command: "cargo build".into(),
-            text: Some("seen 2 times; confirmed fix: xcode-select --install".into()),
-            outcome: "no pass yet".into(),
+    fn announcement_names_the_agent_and_program_and_prefers_the_exact_text() {
+        let warning = Event {
+            event: memorywhale_cli::RecallEvent {
+                id: 1,
+                kind: "warning".into(),
+                at: "2026-10-21T10:00:00Z".into(),
+                agent: Some("claude".into()),
+                cwd: None,
+                command: "L=/tmp/x cargo build --release".into(),
+                text: Some("seen 2 times; confirmed fix: xcode-select --install".into()),
+                outcome: "no pass yet".into(),
+            },
+            stem: "cargo build".into(),
         };
-        let (title, body) = announcement(&event);
-        assert_eq!(title, "Warned claude before a command");
+        let (title, body) = announcement(&warning);
+        assert_eq!(title, "Warned claude before cargo build");
         assert_eq!(body, "seen 2 times; confirmed fix: xcode-select --install");
 
-        let note = RecallEvent {
-            kind: "note".into(),
-            agent: None,
-            text: None,
-            ..event
-        };
+        let mut note = warning;
+        note.event.kind = "note".into();
+        note.event.agent = None;
+        note.event.text = None;
+        note.stem = String::new();
         assert_eq!(
             announcement(&note),
             (
-                "Left you a note after a failure".into(),
-                "cargo build".into()
+                "Left you a note: a command failed".into(),
+                "L=/tmp/x cargo build --release".into()
             )
         );
     }

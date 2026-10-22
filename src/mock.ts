@@ -23,9 +23,9 @@ const output: Record<number, Pick<RunDetail, "stdout" | "stderr">> = {
 };
 
 const events: RecallEvent[] = [
-  { id: 31, kind: "note", at: minutesAgo(9), agent: "claude", cwd: "/Users/you/code/robot-arm", command: "cargo build --release", text: "MemoryWhale: `cargo build` failed here before (linker `cc` not found); seen 2 times; worked 1 of 1 times, run in a terminal yesterday, possible fix: xcode-select --install", outcome: "followed, worked" },
-  { id: 30, kind: "warning", at: minutesAgo(48), agent: "codex", cwd: "/Users/you/code/site", command: "npm test", text: "MemoryWhale: `npm test` failed in this directory 4 min ago and has not passed since. Lesson: run npm ci after switching branches.", outcome: "then passed" },
-  { id: 27, kind: "note", at: minutesAgo(190), agent: "cursor", cwd: "/Users/you/code/robot-arm", command: "python3 -m pytest tests/test_planner.py", text: "MemoryWhale: seen 3 times; worked 2 of 3 times, last run by claude 2 days ago, confirmed fix: python3 -m pip install -r requirements.txt", outcome: "not followed" }
+  { id: 31, kind: "note", at: minutesAgo(9), agent: "claude", cwd: "/Users/you/code/robot-arm", command: "cargo build --release", stem: "cargo build", text: "MemoryWhale: `cargo build` failed here before (linker `cc` not found); seen 2 times; worked 1 of 1 times, run in a terminal yesterday, possible fix: xcode-select --install", outcome: "followed, worked" },
+  { id: 30, kind: "warning", at: minutesAgo(48), agent: "codex", cwd: "/Users/you/code/site", command: "npm test", stem: "npm test", text: "MemoryWhale: `npm test` failed in this directory 4 min ago and has not passed since. Lesson: run npm ci after switching branches.", outcome: "then passed" },
+  { id: 27, kind: "note", at: minutesAgo(190), agent: "cursor", cwd: "/Users/you/code/robot-arm", command: "python3 -m pytest tests/test_planner.py", stem: "python3 -m pytest", text: "MemoryWhale: seen 3 times; worked 2 of 3 times, last run by claude 2 days ago, confirmed fix: python3 -m pip install -r requirements.txt", outcome: "not followed" }
 ];
 
 let lessons: Lesson[] = [

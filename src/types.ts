@@ -28,6 +28,8 @@ export type RecallEvent = {
   agent: string | null;
   cwd: string | null;
   command: string;
+  /** The program it was about, e.g. `cargo build`. */
+  stem: string;
   text: string | null;
   outcome: string;
 };

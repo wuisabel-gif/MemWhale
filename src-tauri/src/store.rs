@@ -105,19 +105,43 @@ pub fn overview(state: tauri::State<AppState>) -> Res<Overview> {
     overview_of(&*db(&state)?)
 }
 
+/// A note or warning plus the program it was about (`cargo build`), which
+/// reads better than an agent's whole one-off command line.
+#[derive(Debug, Serialize)]
+pub struct Event {
+    #[serde(flatten)]
+    pub event: RecallEvent,
+    pub stem: String,
+}
+
+/// The newest `limit` notes and warnings, redacted, each with its program.
+pub(crate) fn events(conn: &Connection, limit: usize) -> Res<Vec<Event>> {
+    let mut stem_of = conn
+        .prepare(
+            "SELECT mw_stem(r.argv_json) FROM recall_hints h
+             JOIN command_runs r ON r.id = h.run_id WHERE h.id = ?1",
+        )
+        .map_err(sql_err)?;
+    memorywhale_cli::recall_history(conn, limit)?
+        .into_iter()
+        .map(|mut event| {
+            event.command = redact(&event.command);
+            event.text = event.text.as_deref().map(redact);
+            let stem: String = stem_of
+                .query_row([event.id], |r| r.get(0))
+                .unwrap_or_default();
+            Ok(Event {
+                stem: redact(&stem),
+                event,
+            })
+        })
+        .collect()
+}
+
 /// Every note and warning an agent was shown, newest first, with its outcome.
 #[tauri::command]
-pub fn recall_history(
-    state: tauri::State<AppState>,
-    limit: Option<usize>,
-) -> Res<Vec<RecallEvent>> {
-    let conn = db(&state)?;
-    let mut events = memorywhale_cli::recall_history(&conn, limit.unwrap_or(100))?;
-    for event in &mut events {
-        event.command = redact(&event.command);
-        event.text = event.text.as_deref().map(redact);
-    }
-    Ok(events)
+pub fn recall_history(state: tauri::State<AppState>, limit: Option<usize>) -> Res<Vec<Event>> {
+    events(&*db(&state)?, limit.unwrap_or(100))
 }
 
 // ── Command runs ─────────────────────────────────────────────────────────────
@@ -494,6 +518,16 @@ mod tests {
         assert_eq!(d.stderr, "error: linker `cc` not found");
         let next: Vec<_> = d.next.iter().map(|r| r.command.as_str()).collect();
         assert_eq!(next, ["xcode-select --install", "cargo build"]);
+
+        conn.execute(
+            "INSERT INTO recall_hints(run_id, fix_argv_json, created_at, kind, text)
+             VALUES(?1, '[\"xcode-select\",\"--install\"]', datetime('now'), 'note', 'token=ghp_abcdefghijklmnopqrstuvwxyz0123456789')",
+            [failures[0].id],
+        )
+        .unwrap();
+        let e = events(&conn, 10).unwrap();
+        assert_eq!(e[0].stem, "cargo build");
+        assert!(!e[0].event.text.as_deref().unwrap().contains("ghp_abcdef"));
 
         assert_eq!(tail("ab€cd", 3), "cd");
         let o = overview_of(&conn).unwrap();

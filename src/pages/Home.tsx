@@ -129,7 +129,7 @@ export function Home({ overview, refreshKey, go, openRun }: PageProps) {
                 <li key={e.id}>
                   <Bell size={15} className={e.kind === "warning" ? "warn-icon" : "note-icon"} aria-hidden="true" />
                   <span className="event-mini-main">
-                    <code>{e.command}</code>
+                    <code title={e.command}>{e.stem || e.command}</code>
                     <span className="run-meta">
                       {e.kind === "warning" ? "warning" : "note"} · {ago(e.at)}
                     </span>
@@ -177,7 +177,7 @@ function LatestNote({ event }: { event?: RecallEvent }) {
       <pre className="screen">
         {event ? (
           <>
-            <span className="prompt">$</span> {event.command}
+            <span className="prompt">$</span> <span title={event.command}>{event.stem || event.command}</span>
             {"\n\n"}
             <span className={event.kind === "warning" ? "warn" : "mint"}>
               {event.text ?? "(the exact text is kept from 0.23 on)"}

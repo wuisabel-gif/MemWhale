@@ -40,7 +40,11 @@ export function RecallPage({ overview, refreshKey }: PageProps) {
             </span>
             <div className="event-body">
               <div className="event-head">
-                <strong>{e.kind === "warning" ? "Warning before a command" : "Note after a failure"}</strong>
+                <strong>
+                  {e.kind === "warning" ? "Warning before " : "Note after "}
+                  <code>{e.stem || "a command"}</code>
+                  {e.kind === "warning" ? "" : " failed"}
+                </strong>
                 <AgentPill agent={e.agent} />
                 <span className="run-meta" title={e.at}>
                   {ago(e.at)}
