@@ -187,11 +187,88 @@ jobs:
             *.deb
             *.deb.sha256
 
-  # Keep the GitHub release in draft until all four platform archives and the
-  # registry install have been verified. Publish one curated note body.
+  # The desktop app: one macOS disk image for Apple silicon and Intel, and a
+  # Linux .deb and AppImage. Ad-hoc signed, not notarized, so macOS asks once
+  # before the first open (docs/guides/desktop.md).
+  desktop:
+    name: Desktop app (${{ matrix.name }})
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-15
+            target: universal-apple-darwin
+            rust: aarch64-apple-darwin,x86_64-apple-darwin
+            bundles: dmg
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rust: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Tauri system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libsoup-3.0-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build the app
+        run: npx tauri build --ci --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Name and checksum the bundles
+        shell: bash
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          mkdir -p desktop
+          bundle="target/${{ matrix.target }}/release/bundle"
+          shopt -s nullglob
+          for f in "$bundle"/dmg/*.dmg "$bundle"/deb/*.deb "$bundle"/appimage/*.AppImage; do
+            case "$f" in
+              *.dmg) out="MemoryWhale-${VERSION}-macos.dmg" ;;
+              *.deb) out="memorywhale-desktop_${VERSION}_amd64.deb" ;;
+              *.AppImage) out="MemoryWhale-${VERSION}-x86_64.AppImage" ;;
+            esac
+            cp "$f" "desktop/$out"
+            (cd desktop && shasum -a 256 "$out" > "$out.sha256")
+          done
+          ls -l desktop
+          test -n "$(ls desktop)"
+      - name: Retain bundles for build-only runs
+        uses: actions/upload-artifact@v7
+        with:
+          name: memorywhale-desktop-${{ matrix.target }}
+          overwrite: true
+          path: desktop/*
+      - name: Upload to release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: true
+          files: desktop/*
+
+  # Keep the GitHub release in draft until all four platform archives, the
+  # desktop bundles, and the registry install have been verified. Publish one curated note body.
   release-notes:
     name: Publish verified release
-    needs: [preflight, binaries, publish-crate]
+    needs: [preflight, binaries, desktop, publish-crate]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     permissions:
