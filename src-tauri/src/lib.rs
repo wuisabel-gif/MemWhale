@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 mod store;
+mod tray;
 
 struct AppState {
     db: Mutex<Connection>,
@@ -160,6 +161,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState { db: Mutex::new(db) })
         .invoke_handler(tauri::generate_handler![
             import_text,
@@ -179,8 +181,29 @@ pub fn run() {
             store::search,
             store::add_lesson
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running MemoryWhale");
+        .setup(|app| {
+            tray::install(app)?;
+            tray::watch(app.handle().clone());
+            Ok(())
+        })
+        // Closing the window keeps MemoryWhale in the menu bar, still watching.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building MemoryWhale")
+        .run(|app, event| {
+            // Clicking the Dock icon brings the hidden window back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                tray::show(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }
 
 fn init_connection() -> anyhow::Result<Connection> {

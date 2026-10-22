@@ -1,4 +1,5 @@
 import { Bell, BookOpen, Search, Terminal, Waves, type LucideIcon } from "lucide-react";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { call, inTauri, shortPath } from "./api";
 import { RunDrawer } from "./components/RunDrawer";
@@ -37,6 +38,13 @@ export default function App() {
     refresh();
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
+  }, [refresh]);
+
+  // The tray watcher announces each new note or warning; show it right away.
+  useEffect(() => {
+    if (!inTauri) return;
+    const off = listen("recall", refresh);
+    return () => void off.then((stop) => stop());
   }, [refresh]);
 
   const main = useRef<HTMLElement>(null);
