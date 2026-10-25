@@ -18,8 +18,9 @@ The helper accepts `mw-remember --from-hook cursor`. See the
 coverage, unknown exit handling, and the pending live-client verification.
 
 Codewhale capture uses a separate, optional native Codewhale capture plugin
-which submits receipts to `mw-remember --from-hook codewhale` and requires a
-Codewhale host build supporting execution receipts. The base
+which submits receipts to `mw-remember --from-hook codewhale` and requires
+Codewhale 0.10.1 or later in Full Access mode, the only mode that sends
+execution receipts. The base
 Codewhale MCP plugin remains hook-free; MCP access alone does not enable
 capture. There is no `mw integrate codewhale --capture` installer command.
 

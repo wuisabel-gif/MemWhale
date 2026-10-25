@@ -169,7 +169,7 @@ An empty store is valid. The tools return empty results, not errors.
 | Capability | Available |
 | --- | --- |
 | MCP memory access | Yes |
-| Automatic execution capture | Separate opt-in [capture bundle](capture-plugin/README.md); requires the Codewhale execution-receipt prerequisite, not stock legacy hooks |
+| Automatic execution capture | Separate opt-in [capture bundle](capture-plugin/README.md); Codewhale 0.10.1 or later, in Full Access mode (Ask and Auto run sandboxed and send no receipt) |
 | Memory-use guidance | Native plugin skill/commands, or roles / constitution instructions |
 
 ### How to use
@@ -186,7 +186,8 @@ verified fixes. See CodeWhale's `docs/FLEET.md` and `docs/CONFIGURATION.md`.
 MCP access is not automatic execution capture. The base `memorywhale` plugin
 still contains no capture hook. A separate optional
 [`memorywhale-capture` bundle](capture-plugin/README.md) consumes versioned
-post-admission execution receipts from a receipt-capable Codewhale build.
+post-admission execution receipts, which Codewhale 0.10.1 and later send for
+unsandboxed runs (Full Access mode in the TUI).
 Legacy hook environment fields are not sufficient: a before-hook command can
 be rewritten before execution, and the workspace is not necessarily the actual
 cwd. The adapter does not join those fields and call them executed evidence.

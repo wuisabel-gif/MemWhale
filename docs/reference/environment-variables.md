@@ -8,9 +8,9 @@ Codewhale hook processing (`mw-remember --from-hook cursor` or
 storage failures stay silent. Diagnostics never write to stdout
 or include captured payload contents. This development-branch option does not
 enable capture, change client permissions, or alter other hook clients.
-Codewhale capture requires its separate optional native capture plugin and a
-Codewhale host build supporting execution receipts; the base MCP plugin stays
-hook-free.
+Codewhale capture requires its separate optional native capture plugin and
+Codewhale 0.10.1 or later in Full Access mode, the only mode that sends execution
+receipts; the base MCP plugin stays hook-free.
 
 ## `MEMORYWHALE_DATA_DIR`
 

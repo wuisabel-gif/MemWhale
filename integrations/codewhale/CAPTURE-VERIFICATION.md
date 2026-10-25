@@ -1,10 +1,97 @@
-# Codewhale capture: local native verification
+# Codewhale capture: native verification
 
-**Native integration result: PASS, September 16, 2026.** This is a local
-receipt-patched host test, not stock/released Codewhale support or an LLM
-usefulness benchmark. No Codewhale push, issue, PR, merge, or release was made.
+## Stock Codewhale 0.10.1: PASS in Full Access mode, October 24, 2026
 
-## Tested versions and isolation
+The capture bundle works with an unpatched, released Codewhale. Codewhale 0.10.1
+ships the post-admission execution receipt (Hmbown/Codewhale#6713), and its
+`tool_call_after` stdin document carries the fields `mw-remember --from-hook
+codewhale` parses. This is an integration test with a deterministic model, not
+an LLM usefulness benchmark.
+
+**The TUI mode decides whether anything is captured.** Codewhale builds a
+receipt only for an unsandboxed, pipe-backed, local foreground run
+(`!spawned.sandboxed` in `crates/tui/src/tools/shell.rs`). On macOS the Ask and
+Auto modes run the shell inside Seatbelt, so the hook fires with empty stdin and
+no `DEEPSEEK_TOOL_EXECUTION_RECEIPT`, and MemoryWhale correctly stores nothing.
+
+| TUI mode | Shell sandboxed | Receipt | Captured |
+| --- | --- | --- | --- |
+| Ask (default) | yes | none | no |
+| Auto | yes | none | no |
+| Full Access | no | stdin document and environment variable | yes |
+
+Setting `sandbox_mode = "danger-full-access"` in the config does not change Ask
+or Auto; the session itself has to be in Full Access.
+
+### Tested
+
+- Codewhale **0.10.1** (`fead51eeea0f`), the official `codewhale-macos-arm64.tar.gz`
+  release asset. The tarball matched `codewhale-artifacts-sha256.txt`; the binary
+  SHA-256 is `e50fdb7dfbb39d7c01eb63175da01bc40f16fb958e01cbcbef03220460302654`,
+  the published hash of the standalone `codewhale-macos-arm64` asset.
+- MemoryWhale helpers built from main at `8ab0512`; this branch changes no Rust.
+- macOS arm64, a real TUI in a PTY with a sealed profile, an empty synthetic Git
+  workspace, a new synthetic store, and the loopback model fixture with a dummy
+  key. `sandbox_mode = "danger-full-access"`, and the TUI switched to Full Access
+  in both sessions with Shift+Tab. Full Access runs commands without approval
+  prompts; the only commands were the fixture's fixed synthetic ones.
+- Both bundles reviewed natively and trusted with the displayed hashes: capture
+  `d5c49dfe5665e70db58020e1eae410dd7cd277d3a4c94337285839343fccb580.184e76c07510ad41740f2105dc2fc46cbaea8f8cf8407da63849f06ec4bb66d1`
+  (one `tool_call_after` hook, no MCP, no filesystem roots or network hosts) and
+  memory `150c40d4210a426d223a10e62878b7e6d4c5f1b1671043ff774f453a0740f2c4.6d0f62add294575eb4dce138c212540a2d124c91b25ffab8e86d9cbfde5fa516`.
+
+### Observed (run `stock-0.10.1-run-6`)
+
+| Check | Observed result |
+| --- | --- |
+| Failed execution | `printf MW_NATIVE_FAIL; printf MW_NATIVE_STDERR >&2; exit 7` stored with exit 7, the actual workspace cwd, agent `codewhale`, and the session/call identity. |
+| Stream meaning | Both markers in a labeled combined stdout/stderr preview with `output_mode: combined`; stored stderr empty. |
+| Successful execution | `printf MW_NATIVE_SUCCESS; pwd` stored with exit 0; the printed directory matched the stored cwd. |
+| Fresh client | Session one exited normally; a new process started with `--fresh` in the same profile and store. |
+| MCP retrieval | The fresh session's plugin search returned `[command #1]` and the failure marker. |
+| Capture disablement | After `/plugin disable memorywhale-capture`, `printf MW_NATIVE_DISABLED` ran and its output reached the model; the store still held two records. |
+| Retrieval after disablement | Another search still returned the earlier record. `/plugin list` showed `memorywhale` active, `memorywhale-capture` disabled, and the built-in `computer-use` disabled. |
+| Checker | `check_evidence.py`: PASS. For a Full Access run it requires Full Access in both terminal recordings in place of approval stamps. |
+
+### Attempts not counted
+
+- Run 1 stopped when the driving session ended, before plugin review.
+- Runs 2 and 3, in Ask mode with `workspace-write` and then `danger-full-access`:
+  the commands ran, no receipt arrived, and no record was stored.
+- Run 4, diagnostic: a logging `mw-remember` wrapper and a config-level probe hook
+  showed the hook firing with empty stdin in Ask and Auto, and both receiving the
+  820-byte receipt in Full Access.
+- Run 5 passed the same steps before a documentation edit changed the capture
+  bundle's README and content hash (`39038d1d…`); run 6 repeats it with the
+  final bundle.
+
+### Key SHA-256 receipts (run 6)
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Codewhale 0.10.1 binary | `e50fdb7dfbb39d7c01eb63175da01bc40f16fb958e01cbcbef03220460302654` |
+| `mw-remember` | `4c4fcb6070797a9c623dbdd901b04b08acd808135fb2aad10982a1a692a4ae13` |
+| `mw-mcp` | `effec2588828ca0569a9da4a6e53728b8a8461d3652d20a29c4a084a2f5c25e4` |
+| Native driver | `d5f62e02a1bba60df5d87bf305b89473e96a4de54fb892d21bfafb3d1176b13a` |
+| Model request evidence | `b6e4b6604c71dacbf523c9b1834604f0a53e4b9f11224c377bedaf4ac6307d62` |
+| Model response evidence | `c684faf94945876b5a989736e98ad76993ae8f822aa65753a1b0baf83e2623ab` |
+
+### Remaining boundaries
+
+- Capture needs Full Access, which turns off the OS sandbox and approval
+  prompts. Users who keep Ask or Auto get MCP retrieval but no capture.
+- Only macOS was run. Linux with bubblewrap is expected to behave like macOS;
+  Linux without an OS sandbox was not tested.
+- The model was deterministic, only the model-facing `bash` tool was exercised,
+  and headless, ACP, and Windows paths were not run.
+- Background capture is bounded and can lose events on saturation or shutdown.
+
+## Earlier: receipt-patched Codewhale 0.9.13, September 16, 2026
+
+This was a local receipt-patched host test, before the receipt shipped upstream.
+No Codewhale push, issue, PR, merge, or release was made.
+
+### Tested versions and isolation
 
 - Codewhale **0.9.13 (dev)**, base `6ae17de09a894f870835208d552f4ef946fe129a`,
   with the existing local execution-receipt patch plus the explicit output-mode
@@ -24,7 +111,7 @@ usefulness benchmark. No Codewhale push, issue, PR, merge, or release was made.
   native prompt. No Full Access mode or permission bypass was used. The built-in
   computer-use plugin remained disabled; no desktop access was used.
 
-## Actual native observations
+### Actual native observations
 
 | Check | Observed result |
 | --- | --- |
@@ -45,7 +132,7 @@ exposed terminal paste/submission timing and the removed model-facing
 separates text from Return, uses the advertised `bash` interface, and submits
 only supported `query`/`agent` search arguments.
 
-## Defects corrected during verification
+### Defects corrected during verification
 
 1. **Host/adapter mismatch:** the adapter correctly required `output_mode`, but
    the unpublished host patch omitted it. The local host now derives
@@ -59,7 +146,7 @@ only supported `query`/`agent` search arguments.
    cover prefix IDs, whitespace/wildcards, metadata-shaped IDs, and concurrent
    replay. Same-identity replay remains suppressed; distinct executions survive.
 
-## Evidence and reproduction
+### Evidence and reproduction
 
 The reusable local driver and evidence checker are in
 [`scripts/verification/codewhale-capture/`](../../scripts/verification/codewhale-capture/README.md).
@@ -87,7 +174,7 @@ Key SHA-256 receipts:
 Hashes identify this local run; they are **not reusable plugin trust tokens**.
 Any later bundle change requires a fresh native review.
 
-## Remaining boundaries
+### Remaining boundaries
 
 - The model was deterministic. No claim is made that a live LLM selects useful
   memories or follows the guidance well.
