@@ -60,7 +60,15 @@ def main():
     disabled = [value for key, value in results.items()
                 if calls.get(key, ('', {}))[1].get('command') == 'printf MW_NATIVE_DISABLED']
     check(len(disabled) == 1 and disabled[0][0] == 2, 'disabled command must actually run in second session')
-    check('MW_NATIVE_DISABLED' in disabled[0][2] and '[approval]' in disabled[0][2], 'disabled command did not return approved real output')
+    # An Ask-mode run shows each call passed the native approval card. Stock
+    # Codewhale sends receipts only outside its OS sandbox, i.e. in Full Access,
+    # where there is no card; such a run must say so and show that mode.
+    full_access = launch.get('sandbox_mode') == 'danger-full-access'
+    if full_access:
+        for name in ['terminal-1.txt', 'terminal-2.txt']:
+            check('Full Access' in (root / name).read_text(), f'{name}: Full Access mode not shown')
+    approved = lambda text: full_access or '[approval]' in text
+    check('MW_NATIVE_DISABLED' in disabled[0][2] and approved(disabled[0][2]), 'disabled command did not return approved real output')
     # The deferred alias uses literal hyphens; the advertised loaded tool
     # escapes server-name hyphens by doubling them.
     memory_tools = {'mcp_plugin-11-memorywhale-memory_search_memory',
@@ -70,7 +78,7 @@ def main():
                and '[command #1]' in value[2] and 'MW_NATIVE_FAIL' in value[2]]
     check(any(s == 2 and n < disabled[0][1] for s, n, _ in recalls), 'fresh native session did not retrieve captured evidence')
     check(any(s == 2 and n > disabled[0][1] for s, n, _ in recalls), 'MCP retrieval stopped with capture disablement')
-    check(all('[approval]' in text for _, _, text in recalls), 'native MCP approval evidence absent')
+    check(all(approved(text) for _, _, text in recalls), 'native MCP approval evidence absent')
     terminal = (root / 'terminal-2.txt').read_text()
     check("Plugin bundle 'memorywhale-capture': disabled." in terminal, 'native disable confirmation missing')
     check('memorywhale — active' in terminal and 'computer-use — disabled' in terminal, 'final plugin scope not confirmed')
@@ -80,6 +88,8 @@ def main():
         'captured_exit_codes': [r['exit_code'] for r in rows], 'output_mode': 'combined',
         'fresh_session_retrieval': True, 'post_disable_command_executed': True,
         'post_disable_new_records': 0, 'post_disable_mcp_retrieval': True,
+        'sandbox_mode': launch.get('sandbox_mode', 'workspace-write'),
+        'approval': 'Full Access, no prompts' if full_access else 'Ask, each call approved once',
         'host_sha256': launch['host_sha256'], 'helper_sha256': launch['helper_sha256'],
         'harness_sha256': launch['harness_sha256'],
         'artifacts_sha256': {name: hashlib.sha256((root / name).read_bytes()).hexdigest()

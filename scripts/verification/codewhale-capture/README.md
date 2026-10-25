@@ -5,10 +5,17 @@ profile and a deterministic loopback model-protocol server. It is not a desktop
 controller, a live-provider test, or a replacement for the host's approvals.
 
 Prerequisites: Python 3 on macOS/Linux, matching built MemoryWhale helpers, and
-an explicitly selected **receipt-patched** Codewhale CLI binary. Stock legacy
-hosts do not emit the required receipt. Build the pinned host with its repository
-instructions and keep those local changes separate; these scripts do not fetch,
-install, publish, or patch Codewhale.
+an explicitly selected Codewhale **0.10.1 or later** binary (older hosts do not
+emit the receipt). These scripts do not fetch, install, publish, or patch
+Codewhale.
+
+Stock Codewhale sends receipts only for unsandboxed runs, which in the TUI means
+**Full Access** mode. Start with `--sandbox-mode danger-full-access` and, before
+step 1 and again after `restart`, press Shift+Tab (`keys --text $'\e[Z'`) until
+the status bar reads `● Full Access`. There are no approval prompts in that mode,
+so skip the "Allow once" parts below; the checker then requires Full Access to
+appear in both terminal recordings instead of approval stamps. The default
+`workspace-write` with Ask mode reproduces the original receipt-patched run.
 
 ## Start
 
@@ -17,8 +24,9 @@ Run from the MemoryWhale root, selecting an unused task-specific directory:
 ```bash
 python3 scripts/verification/codewhale-capture/native_fixture.py serve \
   --scratch "$PWD/.verification-codewhale-capture/my-run" \
-  --host /absolute/path/to/receipt-patched/codewhale \
-  --bin-dir "$PWD/target/debug"
+  --host /absolute/path/to/codewhale \
+  --bin-dir "$PWD/target/debug" \
+  --sandbox-mode danger-full-access
 ```
 
 Leave this process running. It creates a new isolated Git workspace, HOME,

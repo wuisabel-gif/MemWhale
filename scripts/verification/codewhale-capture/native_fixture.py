@@ -42,6 +42,10 @@ def main():
     p.add_argument('--host', type=Path)
     p.add_argument('--bin-dir', type=Path)
     p.add_argument('--text', default='')
+    # Stock Codewhale (0.10.1+) builds receipts only for runs outside its OS
+    # sandbox wrapper, so a stock host needs danger-full-access to be captured.
+    p.add_argument('--sandbox-mode', default='workspace-write',
+                   choices=['read-only', 'workspace-write', 'danger-full-access'])
     a = p.parse_args()
     root = a.scratch.resolve()
     if a.action != 'serve':
@@ -210,7 +214,7 @@ def main():
     (root / 'codewhale/config.toml').write_text(f'''provider = "capture-fixture"
 default_text_model = "capture-fixture"
 approval_policy = "on-request"
-sandbox_mode = "workspace-write"
+sandbox_mode = "{a.sandbox_mode}"
 telemetry = false
 [providers.capture-fixture]
 kind = "openai-compatible"
@@ -223,6 +227,7 @@ enabled = true
     evidence = {'host': str(a.host.resolve()), 'host_sha256': checksum(a.host),
         'harness_sha256': checksum(Path(__file__)),
         'bin_dir': str(a.bin_dir.resolve()), 'env': env, 'fixture_port': port,
+        'sandbox_mode': a.sandbox_mode,
         'helper_sha256': {name: checksum(a.bin_dir / name) for name in ['mw', 'mw-remember', 'mw-mcp']},
         'plugin_files': {str(p.relative_to(plugin_root)): checksum(p)
                          for p in sorted(plugin_root.rglob('*')) if p.is_file()}}
