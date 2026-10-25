@@ -398,12 +398,11 @@ fn before_hook_warns_once_with_pre_tool_use_context() {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        child
-            .stdin
-            .as_mut()
-            .unwrap()
-            .write_all(payload.as_bytes())
-            .unwrap();
+        // With feedback off the hook exits without reading stdin, so the
+        // write can race its exit; a broken pipe there is expected.
+        if let Err(e) = child.stdin.as_mut().unwrap().write_all(payload.as_bytes()) {
+            assert_eq!(e.kind(), std::io::ErrorKind::BrokenPipe, "{e}");
+        }
         child.wait_with_output().unwrap()
     };
     let out = before(None);
