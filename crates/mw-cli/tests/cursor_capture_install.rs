@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 use std::{
     fs,
     os::unix::fs::{symlink, PermissionsExt},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Output},
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -235,9 +235,8 @@ fn missing_executable_and_nonregular_or_symlink_paths_are_rejected() {
         .status()
         .unwrap()
         .success());
-    // Copying binaries on macOS requires ad-hoc re-signing; use a hard link instead.
     #[cfg(target_os = "macos")]
-    fs::hard_link(env!("CARGO_BIN_EXE_mw"), &isolated).unwrap();
+    place_mw(&isolated);
     let mut c = Command::new(&isolated);
     bad(c
         .args(["integrate", "cursor", "--capture"])
@@ -270,13 +269,22 @@ fn missing_executable_and_nonregular_or_symlink_paths_are_rejected() {
     assert_eq!(fs::read(target).unwrap(), b"private");
 }
 
+/// Put the built `mw` at `dest`. A hard link keeps the macOS signature valid,
+/// where a copy would need re-signing; it fails across filesystems, as on CI
+/// runners whose temp dir is a separate mount, so copy there instead.
+fn place_mw(dest: &Path) {
+    if fs::hard_link(env!("CARGO_BIN_EXE_mw"), dest).is_err() {
+        fs::copy(env!("CARGO_BIN_EXE_mw"), dest).unwrap();
+    }
+}
+
 #[test]
 fn quoted_binary_paths_are_not_executed_and_stale_binary_is_detected() {
     let s = Sandbox::new();
     let bin = s.0.join("bin ' $(touch NEVER_EXECUTED)");
     fs::create_dir(&bin).unwrap();
     let mw = bin.join("mw");
-    fs::hard_link(env!("CARGO_BIN_EXE_mw"), &mw).unwrap();
+    place_mw(&mw);
     let remember = bin.join("mw-remember");
     fs::write(&remember, b"#!/bin/sh\ntouch NEVER_EXECUTED\nexit 99\n").unwrap();
     fs::set_permissions(&remember, fs::Permissions::from_mode(0o700)).unwrap();
