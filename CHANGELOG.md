@@ -3,7 +3,11 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.23.0] — MemoryWhale on Your Desktop — October 26, 2026
+
+Product `0.23.0`; `memorywhale-core` `0.10.0` (unchanged); SQLite schema `17` (adds `text` to `recall_hints`).
+
+See [release notes](docs/releases/0.23.0.md).
 
 ### Added
 
@@ -12,6 +16,7 @@ All notable changes to MemoryWhale are documented here. This project follows
 
 ### Changed
 
+- Codewhale capture is verified natively against the stock Codewhale 0.10.1 release, not only a patched build. It needs Codewhale 0.10.1 or later in Full Access mode: Ask and Auto run the shell sandboxed, and Codewhale sends no execution receipt there.
 - Command lines are split the way a shell would, minus expansion: separators and spaces inside quotes no longer break a command into fake steps, so a commit message, an inline `python3 -c` script, or a path with a space gets the right program stem.
 
 ### Fixed
