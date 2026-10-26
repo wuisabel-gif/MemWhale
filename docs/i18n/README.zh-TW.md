@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -34,10 +34,10 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 > 在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 **25%** 的問題，有記憶時則解決了 **96%**。
 > 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](../../benchmarks/README.md)。
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 2026 年 10 月 21 日。**
-CLI、Web 介面與桌面應用程式共用同一個產品版本 0.22.0；可重複使用的 Rust 核心則是 0.10.0。
-升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)。
-開啟資料儲存區時，其 schema 會從 10 遷移到 16。
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 2026 年 10 月 26 日。**
+CLI、Web 介面與桌面應用程式共用同一個產品版本 0.23.0；可重複使用的 Rust 核心則是 0.10.0。
+升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)。
+開啟資料儲存區時，其 schema 會從 10 遷移到 17。
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="代理的 make 因 xcrun 錯誤失敗；擷取掛鉤回覆說這個錯誤先前出現過一次，修正方法是 xcode-select --install。" width="820" />
@@ -102,6 +102,8 @@ mw doctor
 
 Windows 使用者可以在 [WSL](https://learn.microsoft.com/windows/wsl/) 裡執行 MemoryWhale。
 套件安裝、PATH 設定與各平台注意事項，請見[入門指南](../../docs/guides/getting-started.md)。
+
+**桌面應用程式。** 想用視窗而不是終端機的話，MemoryWhale 應用程式會顯示代理被告知了什麼、背後的指令與輸出，以及你的經驗，並常駐選單列，告訴你每一則新提示。從 0.23 起隨每個版本推出；請見[桌面應用程式指南](../../docs/guides/desktop.md)。
 
 ## 60 秒上手範例
 
@@ -175,6 +177,7 @@ MemoryWhale 正是為你這樣的開發者而做。以下情況特別適用：
 - [入門指南](../../docs/guides/getting-started.md)
 - [`mw pet` 參考文件](../../docs/reference/pet.md)
 - [終端機擷取](../../docs/guides/terminal-capture.md)
+- [桌面應用程式](../../docs/guides/desktop.md)
 - [代理記憶](../../docs/guides/agent-memory.md)
 - [CLI 參考文件](../../docs/reference/cli.md)
 - [本機 JSON API](../../docs/reference/api.md)

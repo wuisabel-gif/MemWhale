@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -38,10 +38,10 @@ ou la session de l’agent terminée. Il fonctionne avec 19 agents de code via M
 > **25%** sans mémoire et **96%** avec. Il s’agit de tâches synthétiques qui démontrent le
 > mécanisme, pas d’une étude de terrain ; voir [la méthode de mesure](../../benchmarks/README.md).
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 21 octobre 2026.**
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 26 octobre 2026.**
 Le CLI, l’interface web et l’application de bureau partagent la version produit
-0.22.0 ; le cœur Rust réutilisable est en version 0.10.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)
-pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 16.
+0.23.0 ; le cœur Rust réutilisable est en version 0.10.0. Consultez les [notes de version](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)
+pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 17.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="Le make d’un agent échoue avec une erreur xcrun ; le hook de capture répond que cette erreur a déjà été vue une fois et que le correctif était xcode-select --install." width="820" />
@@ -128,6 +128,8 @@ Sous Windows, vous pouvez utiliser MemoryWhale dans
 [WSL](https://learn.microsoft.com/windows/wsl/). Le
 [guide de démarrage](../../docs/guides/getting-started.md) détaille l’installation des
 paquets, la configuration du PATH et les particularités de chaque plateforme.
+
+**Application de bureau.** Pour une fenêtre plutôt qu’un terminal, l’application MemoryWhale montre ce qu’on a dit à vos agents, les commandes et sorties derrière, et vos leçons, et reste dans la barre des menus pour annoncer chaque nouveau message. Elle est fournie avec chaque version à partir de 0.23 ; voir le [guide de l’application de bureau](../../docs/guides/desktop.md).
 
 ## Exemple en soixante secondes
 
@@ -216,6 +218,7 @@ bout en bout, avec de vraies commandes.
 - [Bien démarrer](../../docs/guides/getting-started.md)
 - [Référence de `mw pet`](../../docs/reference/pet.md)
 - [Capture du terminal](../../docs/guides/terminal-capture.md)
+- [Application de bureau](../../docs/guides/desktop.md)
 - [Mémoire des agents](../../docs/guides/agent-memory.md)
 - [Référence du CLI](../../docs/reference/cli.md)
 - [API JSON locale](../../docs/reference/api.md)

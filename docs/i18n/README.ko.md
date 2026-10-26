@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -34,10 +34,10 @@ MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계�
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
 > 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](../../benchmarks/README.md)을 참고하세요.
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 2026년 10월 21일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.22.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.10.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)를 참고하세요.
-스토어를 열면 스키마가 10에서 16로 마이그레이션됩니다.
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 2026년 10월 26일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.23.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.10.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)를 참고하세요.
+스토어를 열면 스키마가 10에서 17로 마이그레이션됩니다.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="에이전트의 make가 xcrun 오류로 실패하자 캡처 훅이 이 오류를 전에 한 번 봤고 해결책은 xcode-select --install이었다고 알려 줍니다." width="820" />
@@ -102,6 +102,8 @@ mw doctor
 
 Windows에서는 [WSL](https://learn.microsoft.com/windows/wsl/)에서 MemoryWhale을 실행하면 됩니다.
 패키지 설치, PATH 설정, 플랫폼별 참고 사항은 [시작 가이드](../../docs/guides/getting-started.md)에 정리되어 있습니다.
+
+**데스크톱 앱.** 터미널 대신 창을 원한다면, MemoryWhale 앱이 에이전트가 무엇을 전달받았는지, 그 뒤의 명령과 출력, 그리고 여러분의 교훈을 보여 주고, 메뉴 막대에 머물며 새 알림마다 알려 줍니다. 0.23부터 모든 릴리스와 함께 나옵니다. [데스크톱 가이드](../../docs/guides/desktop.md)를 참고하세요.
 
 ## 60초 만에 살펴보기
 
@@ -175,6 +177,7 @@ MemoryWhale은 디버깅 맥락이 터미널 스크롤백, 셸 히스토리, 여
 - [시작하기](../../docs/guides/getting-started.md)
 - [`mw pet` 레퍼런스](../../docs/reference/pet.md)
 - [터미널 캡처](../../docs/guides/terminal-capture.md)
+- [데스크톱 앱](../../docs/guides/desktop.md)
 - [에이전트 메모리](../../docs/guides/agent-memory.md)
 - [CLI 레퍼런스](../../docs/reference/cli.md)
 - [로컬 JSON API](../../docs/reference/api.md)

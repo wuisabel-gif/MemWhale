@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -34,9 +34,9 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 > 在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 **25%** 的问题，有记忆时解决了 **96%**。
 > 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](../../benchmarks/README.md)。
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 2026 年 10 月 21 日。**
-CLI、Web 界面和桌面应用共用产品版本号 0.22.0；可复用的 Rust 核心版本为 0.10.0。
-升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)。打开存储库时，其 schema 会从 10 迁移到 16。
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 2026 年 10 月 26 日。**
+CLI、Web 界面和桌面应用共用产品版本号 0.23.0；可复用的 Rust 核心版本为 0.10.0。
+升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)。打开存储库时，其 schema 会从 10 迁移到 17。
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="智能体的 make 因 xcrun 错误失败；捕获钩子回复说这个错误以前出现过一次，修复方法是 xcode-select --install。" width="820" />
@@ -101,6 +101,8 @@ mw doctor
 
 Windows 用户可以在 [WSL](https://learn.microsoft.com/windows/wsl/) 中运行 MemoryWhale。
 包管理器安装、PATH 设置和各平台注意事项见[入门指南](../../docs/guides/getting-started.md)。
+
+**桌面应用。** 想用窗口而不是终端的话，MemoryWhale 应用会显示智能体被告知了什么、背后的命令和输出，以及你的经验，并常驻菜单栏，告诉你每一条新提示。从 0.23 起随每个版本发布；见[桌面应用指南](../../docs/guides/desktop.md)。
 
 ## 60 秒示例
 
@@ -174,6 +176,7 @@ Rho 目前的钩子载荷不含命令文本和 stdout：失败可以用占位命
 - [入门指南](../../docs/guides/getting-started.md)
 - [`mw pet` 参考](../../docs/reference/pet.md)
 - [终端采集](../../docs/guides/terminal-capture.md)
+- [桌面应用](../../docs/guides/desktop.md)
 - [智能体记忆](../../docs/guides/agent-memory.md)
 - [CLI 参考](../../docs/reference/cli.md)
 - [本地 JSON API](../../docs/reference/api.md)

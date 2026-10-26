@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <div dir="rtl">
 
@@ -39,11 +39,11 @@
 > و**96%** منها مع الذاكرة. هذه مهام اصطناعية توضّح آلية العمل، وليست دراسة ميدانية؛
 > راجع [كيف أُجري القياس](../../benchmarks/README.md).
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 21 أكتوبر 2026.**
-تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.22.0،
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 26 أكتوبر 2026.**
+تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.23.0،
 أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.10.0. راجع
-[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)
-للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 16.
+[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)
+للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 17.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="يفشل أمر make لدى الوكيل بخطأ xcrun؛ فيردّ خطاف الالتقاط بأن هذا الخطأ ظهر مرة من قبل وأن الإصلاح كان xcode-select --install." width="820" />
@@ -133,6 +133,8 @@ mw doctor
 [WSL](https://learn.microsoft.com/windows/wsl/). راجع
 [دليل البدء](../../docs/guides/getting-started.md) لمعرفة كيفية تثبيت الحزم وإعداد
 PATH والملاحظات الخاصة بكل منصة.
+
+**تطبيق سطح المكتب.** إن أردت نافذة بدل الطرفية، فتطبيق MemoryWhale يعرض ما أُخبر به وكلاؤك، والأوامر والمخرجات التي وراءه، ودروسك، ويبقى في شريط القوائم ليعلن عن كل ملاحظة جديدة. يصدر مع كل إصدار بدءًا من 0.23؛ راجع [دليل سطح المكتب](../../docs/guides/desktop.md).
 
 ## مثال في ستين ثانية
 
@@ -230,6 +232,7 @@ MemoryWhale مخصص للمطورين الذين يتوزع سياق تصحيح 
 - [البدء](../../docs/guides/getting-started.md)
 - [مرجع `mw pet`](../../docs/reference/pet.md)
 - [تسجيل الطرفية](../../docs/guides/terminal-capture.md)
+- [تطبيق سطح المكتب](../../docs/guides/desktop.md)
 - [ذاكرة الوكلاء](../../docs/guides/agent-memory.md)
 - [مرجع واجهة سطر الأوامر](../../docs/reference/cli.md)
 - [واجهة JSON المحلية](../../docs/reference/api.md)

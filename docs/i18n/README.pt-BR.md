@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo do MemoryWhale" width="160" />
@@ -39,10 +39,10 @@ Funciona com 19 agentes de programação via MCP, sem conta e sem enviar nada.
 > mecanismo, não um estudo de campo. Veja
 > [como foi medido](../../benchmarks/README.md).
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 21 de outubro de 2026.**
-A CLI, a interface web e o app desktop compartilham a versão de produto 0.22.0;
-o núcleo Rust reutilizável está na versão 0.10.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)
-para o guia de atualização. Ao abrir uma base, ela é migrada do schema 10 para o 16.
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 26 de outubro de 2026.**
+A CLI, a interface web e o app desktop compartilham a versão de produto 0.23.0;
+o núcleo Rust reutilizável está na versão 0.10.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)
+para o guia de atualização. Ao abrir uma base, ela é migrada do schema 10 para o 17.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="O make de um agente falha com um erro do xcrun; o hook de captura responde que o erro já apareceu uma vez e que a correção foi xcode-select --install." width="820" />
@@ -123,6 +123,8 @@ No Windows, você pode usar o MemoryWhale dentro do
 [WSL](https://learn.microsoft.com/windows/wsl/). Veja o
 [guia de primeiros passos](../../docs/guides/getting-started.md) para instalação por
 pacotes, configuração do PATH e observações sobre cada plataforma.
+
+**App desktop.** Se você prefere uma janela a um terminal, o app do MemoryWhale mostra o que foi dito aos seus agentes, os comandos e a saída por trás, e as suas lições, e fica na barra de menus para anunciar cada aviso novo. Ele sai com cada versão a partir da 0.23; veja o [guia do app desktop](../../docs/guides/desktop.md).
 
 ## Exemplo em sessenta segundos
 
@@ -209,6 +211,7 @@ um cenário de ponta a ponta com comandos reais.
 - [Primeiros passos](../../docs/guides/getting-started.md)
 - [Referência do `mw pet`](../../docs/reference/pet.md)
 - [Captura do terminal](../../docs/guides/terminal-capture.md)
+- [App desktop](../../docs/guides/desktop.md)
 - [Memória de agentes](../../docs/guides/agent-memory.md)
 - [Referência da CLI](../../docs/reference/cli.md)
 - [API JSON local](../../docs/reference/api.md)

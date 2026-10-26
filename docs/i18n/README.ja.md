@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -34,9 +34,9 @@ MCP 経由で 19 種類のコーディングエージェントと連携でき、
 > プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで **25%**、メモリありで **96%** の課題を解決しました。
 > これはメカニズムを示すための合成タスクであり、実環境での調査ではありません。詳しくは[測定方法](../../benchmarks/README.md)をご覧ください。
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 2026 年 10 月 21 日**
-CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.22.0 で、再利用可能な Rust コアのバージョンは 0.10.0 です。
-アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 16 に移行されます。
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 2026 年 10 月 26 日**
+CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.23.0 で、再利用可能な Rust コアのバージョンは 0.10.0 です。
+アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 17 に移行されます。
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="エージェントの make が xcrun エラーで失敗すると、キャプチャフックがこのエラーは以前 1 回発生し、修正は xcode-select --install だったと返します。" width="820" />
@@ -101,6 +101,8 @@ mw doctor
 
 Windows をお使いの場合は、[WSL](https://learn.microsoft.com/windows/wsl/) 上で MemoryWhale を実行できます。
 パッケージでのインストール、PATH の設定、プラットフォームごとの注意点については[入門ガイド](../../docs/guides/getting-started.md)をご覧ください。
+
+**デスクトップアプリ。** ターミナルではなくウィンドウで見たいなら、MemoryWhale アプリが、エージェントに何が伝えられたか、その裏のコマンドと出力、そしてあなたの教訓を表示し、メニューバーに常駐して新しい通知をそのつど知らせます。0.23 以降の各リリースに付属します。詳しくは[デスクトップガイド](../../docs/guides/desktop.md)をご覧ください。
 
 ## 60 秒でわかる使い方
 
@@ -174,6 +176,7 @@ MemoryWhale は、デバッグのコンテキストがターミナルのスク�
 - [入門ガイド](../../docs/guides/getting-started.md)
 - [`mw pet` リファレンス](../../docs/reference/pet.md)
 - [ターミナルキャプチャ](../../docs/guides/terminal-capture.md)
+- [デスクトップアプリ](../../docs/guides/desktop.md)
 - [エージェントメモリ](../../docs/guides/agent-memory.md)
 - [CLI リファレンス](../../docs/reference/cli.md)
 - [ローカル JSON API](../../docs/reference/api.md)

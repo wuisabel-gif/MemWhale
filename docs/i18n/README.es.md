@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 56795d2938cde2fd41c8b8311349c899230825715755d7a3c49fb4da76df1fd6 -->
+<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -39,10 +39,10 @@ código a través de MCP, sin cuenta y sin subir nada.
 > demuestran el mecanismo, no un estudio de campo; consulta
 > [cómo se midió](../../benchmarks/README.md).
 
-**MemoryWhale 0.22.0: Recall Before It Fails · 21 de octubre de 2026.**
+**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 26 de octubre de 2026.**
 La CLI, la interfaz web y la aplicación de escritorio comparten la versión de
-producto 0.22.0; el núcleo reutilizable en Rust está en la versión 0.10.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.22.0/docs/releases/0.22.0.md)
-para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 16.
+producto 0.23.0; el núcleo reutilizable en Rust está en la versión 0.10.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md)
+para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 17.
 
 <p align="center">
   <img src="../../assets/proactive-recall.gif" alt="El make de un agente falla con un error de xcrun; el hook de captura responde que el error ya apareció una vez y que la solución fue xcode-select --install." width="820" />
@@ -122,6 +122,8 @@ En Windows, puedes usar MemoryWhale dentro de
 [WSL](https://learn.microsoft.com/windows/wsl/). Consulta la
 [guía de inicio](../../docs/guides/getting-started.md) para la instalación con paquetes,
 la configuración del PATH y las notas de cada plataforma.
+
+**App de escritorio.** Si prefieres una ventana a una terminal, la app de MemoryWhale muestra lo que se les dijo a tus agentes, los comandos y la salida detrás, y tus lecciones, y se queda en la barra de menús para anunciar cada aviso nuevo. Se publica con cada versión desde la 0.23; consulta la [guía de escritorio](../../docs/guides/desktop.md).
 
 ## Ejemplo en sesenta segundos
 
@@ -207,6 +209,7 @@ describe como un escenario completo con comandos reales.
 - [Primeros pasos](../../docs/guides/getting-started.md)
 - [Referencia de `mw pet`](../../docs/reference/pet.md)
 - [Captura del terminal](../../docs/guides/terminal-capture.md)
+- [App de escritorio](../../docs/guides/desktop.md)
 - [Memoria para agentes](../../docs/guides/agent-memory.md)
 - [Referencia de la CLI](../../docs/reference/cli.md)
 - [API JSON local](../../docs/reference/api.md)
