@@ -57,6 +57,7 @@ features.
 | OpenCode | Yes | No | Example prompt | [Guide](opencode/README.md) |
 | OpenRouter | No; hosted model gateway | No | No; configure in the agent | [Guide](openrouter/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |
+| pstack (skill stack) | Through the agent's MCP config; playbook calls checked on a synthetic store | No | Source playbook for `why` and `recall`; loading in pstack pending | [Guide](pstack/README.md) |
 | Pullfrog | No; PR workflow only | No | No | [Guide](pullfrog/README.md) |
 | Qwen Code | Transport/configuration verified; native client call pending | No | Optional `QWEN.md` guidance; native loading pending | [Guide](qwen-code/README.md) |
 | Second-Opinion | No; GitHub Action review only | No | No | [Guide](second-opinion/README.md) |
