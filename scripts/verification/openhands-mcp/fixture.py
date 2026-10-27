@@ -57,13 +57,13 @@ def make_repo(name="calc"):
 def commit(repo, message):
     subprocess.run(GIT + ["add", "-A"], cwd=repo, check=True)
     subprocess.run(GIT + ["commit", "-q", "-m", message], cwd=repo, check=True)
-    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True,
-                          capture_output=True, text=True).stdout.strip()
+    return git(repo, "rev-parse", "HEAD")
 
 
 def run_test(repo):
     return subprocess.run(TEST_CMD, cwd=repo, capture_output=True, text=True,
-                          env={"PATH": os.environ["PATH"], "HOME": str(HOME)})
+                          env={"PATH": os.environ["PATH"], "HOME": str(HOME),
+                               "PYTHONDONTWRITEBYTECODE": "1"})
 
 
 def seed_failure(store, repo):
@@ -87,9 +87,35 @@ def seed_unrelated(store):
     mw(store, "mw", "remember", f"fix: {UNRELATED} needs the vendored toolchain")
 
 
-def count(store, sql):
+def verified_handoff(repo, hints):
+    """The handoff note for a fix, or None unless the test passes right now on a
+    clean, committed tree. Retrieved memory (`hints`) is only cited, never
+    counted as evidence: a lesson that says "verified" proves nothing here."""
+    if git(repo, "status", "--porcelain"):
+        return None
+    run = run_test(repo)
+    if run.returncode != 0:
+        return None
+    # Provenance first: search_memory shows only the first ~160 characters.
+    return (f"verified fix at commit {git(repo, 'rev-parse', 'HEAD')}: `{' '.join(TEST_CMD)}` "
+            f"exited 0 in repo {repo.name} on {git(repo, 'branch', '--show-current')}, run by the "
+            f"harness after the change. Retrieved {', '.join(hints)} were hints only.")
+
+
+def git(repo, *args):
+    return subprocess.run(["git", *args], cwd=repo, check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def scalar(store, sql, *params):
     with sqlite3.connect(Path(store) / "memorywhale.sqlite3") as db:
-        return db.execute(sql).fetchone()[0]
+        return db.execute(sql, params).fetchone()[0]
+
+
+def approve(store, note_id):
+    """What the dashboard's Approve button runs (`approve_pending`)."""
+    with sqlite3.connect(Path(store) / "memorywhale.sqlite3") as db:
+        db.execute("UPDATE bookmarks SET approved = 1 WHERE id = ?", (note_id,))
 
 
 def server(store, **extra):

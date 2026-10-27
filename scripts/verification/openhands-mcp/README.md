@@ -31,6 +31,30 @@ packages are installed.
 | --- | --- | --- |
 | `NativeDiscoveryAndDispatch` | Native SDK, no model | The SDK's `create_mcp_tools` starts `mw-mcp` over stdio, lists the six tools, and calls them through its own `MCPToolExecutor`. `search_memory`, `recent_errors`, and `similar_failures` return the seeded synthetic failure. With one server the tool names are unprefixed; with two, each is prefixed with its config key. |
 
+| `ScriptedConversation` | SDK agent loop, deterministic fake model | The SDK's `TestLLM` emits fixed tool calls that an `Agent` + `Conversation` dispatches to `mw-mcp`. This shows the dispatch path; it does not show that a real model would choose these calls. See the handoff below. |
+
+### The fix handoff
+
+1. A conversation calls `similar_failures` and `search_memory`, which return
+   the seeded failure and a seeded lesson. The lesson says "verified, exit 0",
+   and nothing treats that as evidence.
+2. The harness, not the model, applies the hinted change. `verified_handoff`
+   refuses until the tree is clean and committed, then runs the test itself.
+   It writes a note only when that run exits 0. The note records the commit,
+   branch, test command, and exit code, and cites the retrieved memory ids as
+   hints. A wrong hinted fix (`a * b`) produces no note.
+3. A second conversation saves the note with `remember`. It lands as an agent
+   note awaiting review (`approved = 0`). It is not returned by
+   `search_memory` until it is approved, after which a fresh conversation
+   retrieves it, labelled "remembered by mcp" (the SDK's MCP client name).
+4. Neither the MCP calls nor the harness's test runs add a command run.
+   Memory access is separate from capture.
+
+`mw-mcp` does not check what a note claims. A `remember` call that copies
+"verified" from a lesson is saved like any other. The only MemoryWhale-side
+guard is that the note stays out of retrieval until someone approves it.
+
 ## Not covered
 
+- A real model choosing these calls. The scripted model only proves dispatch.
 - Container, VM, and remote Agent Server runtimes. Every path here is local.

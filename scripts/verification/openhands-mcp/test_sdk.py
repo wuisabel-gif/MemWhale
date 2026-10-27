@@ -5,6 +5,8 @@ Run from the repository root after `cargo build -p memorywhale-cli --bins`:
   uv run --no-project --with-requirements scripts/verification/openhands-mcp/requirements.txt \
     python -I scripts/verification/openhands-mcp/test_sdk.py -v
 """
+import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -13,12 +15,46 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fixture  # noqa: E402  (sets HOME before the SDK is imported)
 from fixture import TOOLS, TEST_CMD, MARKER  # noqa: E402
 
+from openhands.sdk import Agent, Conversation, Message, TextContent  # noqa: E402
+from openhands.sdk.event import AgentErrorEvent, ObservationEvent  # noqa: E402
+from openhands.sdk.llm import MessageToolCall  # noqa: E402
 from openhands.sdk.mcp import MCPToolExecutor, create_mcp_tools  # noqa: E402
+from openhands.sdk.testing import TestLLM  # noqa: E402
+
+LESSON = "fix: calc add() subtracts; make it return a + b (verified, exit 0)"
 
 
 def call(client, name, **args):
     tool = next(t for t in client.tools if t.name == name)
     return tool(tool.action_from_arguments(args))
+
+
+def tool_call(name, **args):
+    return Message(role="assistant", content=[TextContent(text="")], tool_calls=[
+        MessageToolCall(id=f"call_{name}", name=name, arguments=json.dumps(args), origin="completion")])
+
+
+def say(text):
+    return Message(role="assistant", content=[TextContent(text=text)])
+
+
+def converse(store, workspace, prompt, script, **agent_options):
+    """One Agent + Conversation turn whose model is the SDK's scripted TestLLM.
+    Tool calls go through the SDK's normal agent loop to a fresh mw-mcp."""
+    events = []
+    agent = Agent(llm=TestLLM.from_messages(script), tools=[], include_default_tools=[],
+                  mcp_config={"memorywhale": fixture.server(store)}, **agent_options)
+    conversation = Conversation(agent=agent, workspace=str(workspace),
+                                callbacks=[events.append], visualizer=None)
+    try:
+        conversation.send_message(prompt)
+        conversation.run()
+        tools = sorted(conversation.agent.tools_map)
+    finally:
+        conversation.close()
+    observed = [(e.tool_name, e.observation.text) for e in events if isinstance(e, ObservationEvent)]
+    errors = [e.error for e in events if isinstance(e, AgentErrorEvent)]
+    return tools, observed, errors
 
 
 class NativeDiscoveryAndDispatch(unittest.TestCase):
@@ -58,6 +94,83 @@ class NativeDiscoveryAndDispatch(unittest.TestCase):
         with create_mcp_tools(config, timeout=30) as client:
             names = [t.name for t in client.tools]
         self.assertEqual(names, [f"memorywhale_{t}" for t in TOOLS] + [f"other_{t}" for t in TOOLS])
+
+
+class ScriptedConversation(unittest.TestCase):
+    """A deterministic fake model drives the SDK's agent loop. It proves the
+    dispatch path, not that a real model would choose these calls."""
+
+    def setUp(self):
+        self.store = fixture.SCRATCH / self.id().rsplit(".", 1)[-1]
+        self.repo = fixture.make_repo(f"{self.store.name}-calc")
+        self.stderr = fixture.seed_failure(self.store, self.repo)
+        fixture.mw(self.store, "mw", "remember", LESSON)
+        self.runs = fixture.scalar(self.store, "SELECT count(*) FROM command_runs")
+
+    def test_retrieve_fix_verify_then_hand_off_for_review(self):
+        tools, observed, errors = converse(
+            self.store, self.repo, f"`python3 -m unittest -q` fails:\n{self.stderr}\nCheck MemoryWhale.",
+            [tool_call("similar_failures", error_text=self.stderr, command=" ".join(TEST_CMD)),
+             tool_call("search_memory", query="calc add fix", mode="lessons"),
+             say("Memory has a candidate fix. It is a hint until the test passes.")])
+        self.assertEqual(tools, sorted(TOOLS))
+        self.assertEqual(errors, [])
+        self.assertEqual([name for name, _ in observed], ["similar_failures", "search_memory"])
+        self.assertIn(f"(cwd: {self.repo})", observed[0][1])
+        self.assertIn(LESSON, observed[1][1])
+        hints = re.findall(r"command_run #\d+|note #\d+", observed[0][1] + observed[1][1])
+        self.assertEqual(len(hints), 2, hints)
+
+        # The harness, not the model, applies the hinted change and runs the test.
+        self.assertIsNone(fixture.verified_handoff(self.repo, hints), "nothing fixed yet")
+        (self.repo / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+        self.assertIsNone(fixture.verified_handoff(self.repo, hints), "uncommitted change")
+        head = fixture.commit(self.repo, "fix add")
+        note = fixture.verified_handoff(self.repo, hints)
+        self.assertTrue(note.startswith(f"verified fix at commit {head}: `python3 -m unittest -q` exited 0"))
+
+        _, observed, errors = converse(self.store, self.repo, f"Save this handoff:\n{note}",
+                                       [tool_call("remember", text=note), say("Saved for review.")])
+        self.assertEqual(errors, [])
+        saved = int(re.search(r"Saved as memory #(\d+)", observed[0][1]).group(1))
+        row = "SELECT label, author_kind, approved FROM bookmarks WHERE id = ?"
+        with fixture.sqlite3.connect(self.store / "memorywhale.sqlite3") as db:
+            self.assertEqual(db.execute(row, (saved,)).fetchone(), (note, "agent", 0))
+        # Memory access is not command capture: neither the MCP calls nor the
+        # harness's own test runs added a command run.
+        self.assertEqual(fixture.scalar(self.store, "SELECT count(*) FROM command_runs"), self.runs)
+
+        # Pending notes stay out of retrieval until someone approves them.
+        search = [tool_call("search_memory", query=head, mode="lessons"), say("Done.")]
+        _, observed, _ = converse(self.store, self.repo, "Find the handoff.", search)
+        self.assertIn(LESSON, observed[0][1])  # approved notes still come back
+        self.assertNotIn(head, observed[0][1])
+        fixture.approve(self.store, saved)
+        _, observed, _ = converse(self.store, self.repo, "Find the handoff.", search)
+        self.assertIn(f"[note #{saved}] ", observed[0][1])
+        self.assertIn(note[:150], observed[0][1])
+        self.assertIn("remembered by mcp", observed[0][1])  # the SDK's MCP clientInfo name
+
+    def test_unverified_claim_is_saved_pending_and_unretrievable(self):
+        # mw-mcp does not check what a note claims. The only guard on its side
+        # is that an agent note stays out of retrieval until it is approved.
+        claim = "verified fix at commit 0000000: tests exited 0 (copied from a retrieved lesson)"
+        _, observed, errors = converse(self.store, self.repo, "Save the lesson as verified.",
+                                       [tool_call("remember", text=claim), say("Saved.")])
+        self.assertEqual(errors, [])
+        self.assertIn("Saved as memory #", observed[0][1])
+        self.assertEqual(fixture.scalar(self.store, "SELECT approved FROM bookmarks WHERE label = ?",
+                                        claim), 0)
+        _, observed, _ = converse(self.store, self.repo, "Find it.",
+                                  [tool_call("search_memory", query="copied retrieved", mode="lessons"),
+                                   say("Done.")])
+        self.assertIn(LESSON, observed[0][1])
+        self.assertNotIn(claim, observed[0][1])
+
+    def test_a_wrong_hinted_fix_produces_no_handoff(self):
+        (self.repo / "calc.py").write_text("def add(a, b):\n    return a * b\n")
+        fixture.commit(self.repo, "apply a wrong hint")
+        self.assertIsNone(fixture.verified_handoff(self.repo, ["note #1"]))
 
 
 if __name__ == "__main__":
