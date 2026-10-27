@@ -173,5 +173,79 @@ class ScriptedConversation(unittest.TestCase):
         self.assertIsNone(fixture.verified_handoff(self.repo, ["note #1"]))
 
 
+class Isolation(unittest.TestCase):
+    """What MEMORYWHALE_DATA_DIR and the SDK's tool filter do and do not stop."""
+
+    READ_ONLY = r"^(memorywhale_)?(recent_errors|search_memory|get_context|similar_failures|stats)$"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.calc = fixture.SCRATCH / "isolation-calc"
+        fixture.seed_failure(cls.calc, fixture.make_repo("isolation-calc-repo"))
+        fixture.mw(cls.calc, "mw", "remember", LESSON)
+        cls.unrelated = fixture.SCRATCH / "isolation-unrelated"
+        fixture.seed_unrelated(cls.unrelated)
+
+    def read_everything(self, config):
+        marker = fixture.UNRELATED
+        with create_mcp_tools(config, timeout=30) as client:
+            return "\n".join(call(client, name, **args).text for name, args in [
+                ("search_memory", {"query": marker}),
+                ("search_memory", {"query": marker, "mode": "lessons"}),
+                ("get_context", {}),
+                ("recent_errors", {"limit": 64}),
+                ("similar_failures", {"error_text": f"error: {marker} build exploded",
+                                      "command": f"make {marker.lower()}"}),
+                ("stats", {}),
+            ]).lower()
+
+    def test_a_server_on_one_store_returns_nothing_from_another(self):
+        marker = fixture.UNRELATED.lower()
+        self.assertIn(marker, self.read_everything({"memorywhale": fixture.server(self.unrelated)}))
+        self.assertNotIn(marker, self.read_everything({"memorywhale": fixture.server(self.calc)}))
+
+    def test_the_child_does_not_inherit_the_parent_store_variable(self):
+        marker = fixture.UNRELATED.lower()
+        fixture.os.environ["MEMORYWHALE_DATA_DIR"] = str(self.unrelated)
+        try:
+            self.assertNotIn(marker, self.read_everything({"memorywhale": fixture.server(self.calc)}))
+            # With no env, mw-mcp falls back to the default store under the HOME
+            # the SDK passes through. Here that is the temporary HOME, which
+            # has no store; in normal use it is the real one.
+            from openhands.sdk.mcp import MCPServer
+            bare = {"memorywhale": MCPServer(command=str(fixture.BIN / "mw-mcp"))}
+            text = self.read_everything(bare)
+        finally:
+            del fixture.os.environ["MEMORYWHALE_DATA_DIR"]
+        self.assertNotIn(marker, text)
+        self.assertIn(f"failed to open {fixture.HOME}".lower(), text)
+
+    def test_the_read_only_filter_hides_remember_from_the_agent_only(self):
+        notes = "SELECT count(*) FROM bookmarks"
+        before = fixture.scalar(self.calc, notes)
+        tools, observed, errors = converse(
+            self.calc, fixture.SCRATCH, "Save a note.",
+            [tool_call("remember", text="this must not be saved"), say("Done.")],
+            filter_tools_regex=self.READ_ONLY)
+        self.assertEqual(tools, sorted(set(TOOLS) - {"remember"}))
+        self.assertEqual(observed, [])
+        self.assertTrue(any("Tool 'remember' not found" in e for e in errors), errors)
+        self.assertEqual(fixture.scalar(self.calc, notes), before)
+
+        # The filter lives in the SDK client. mw-mcp still serves remember to
+        # any client that starts it without the filter.
+        with create_mcp_tools({"memorywhale": fixture.server(self.calc)}, timeout=30) as client:
+            self.assertIn("Saved as memory #", call(client, "remember", text="unfiltered client").text)
+        self.assertEqual(fixture.scalar(self.calc, notes), before + 1)
+
+    def test_store_separation_is_not_access_control(self):
+        # Separate stores scope what the tools return. They do not stop a
+        # process running as the same user from opening another store's file.
+        db = self.unrelated / "memorywhale.sqlite3"
+        self.assertEqual(db.stat().st_uid, fixture.os.getuid())
+        self.assertIn(fixture.UNRELATED, fixture.scalar(
+            self.unrelated, "SELECT group_concat(stderr) FROM command_runs"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -33,6 +33,8 @@ packages are installed.
 
 | `ScriptedConversation` | SDK agent loop, deterministic fake model | The SDK's `TestLLM` emits fixed tool calls that an `Agent` + `Conversation` dispatches to `mw-mcp`. This shows the dispatch path; it does not show that a real model would choose these calls. See the handoff below. |
 
+| `Isolation` | Native SDK and SDK agent loop, negative tests | See [What isolation holds](#what-isolation-holds). |
+
 ### The fix handoff
 
 1. A conversation calls `similar_failures` and `search_memory`, which return
@@ -53,6 +55,41 @@ packages are installed.
 `mw-mcp` does not check what a note claims. A `remember` call that copies
 "verified" from a lesson is saved like any other. The only MemoryWhale-side
 guard is that the note stays out of retrieval until someone approves it.
+
+### What isolation holds
+
+Two stores are seeded: the calc store, and an unrelated store with a unique
+marker. Each negative test has a positive control, so it cannot pass just
+because a tool returned nothing.
+
+- **A server sees only its own store.** Pointed at the calc store, every read
+  tool (`search_memory` in both modes, `get_context`, `recent_errors` at its
+  64-run maximum, `similar_failures` with the unrelated error, and `stats`)
+  returns no trace of the marker. The same calls against the unrelated store
+  do return it.
+- **The parent's `MEMORYWHALE_DATA_DIR` does not reach the server.** The SDK
+  starts stdio servers with a small default environment plus
+  `MCPServer.env`. With the variable set in the parent and `env` naming the
+  calc store, the calc store wins. With no `env` at all, `mw-mcp` falls back
+  to the default store under the `HOME` it was given. Here that is the
+  temporary `HOME`, so the calls fail with "failed to open". **In normal use
+  it is your real store, so always set `MEMORYWHALE_DATA_DIR` in
+  `MCPServer.env`.**
+- **A read-only tool filter hides `remember` from the agent, and only from
+  the agent.** With `filter_tools_regex` set to the five read tools, the
+  agent's registry has no `remember`. A scripted `remember` call ends as
+  "Tool 'remember' not found" and writes nothing. A second client started
+  without the filter can still call `remember` on the same store. The filter
+  is enforced in the SDK process, not by `mw-mcp`.
+- **A separate store is not access control.** Every store file belongs to
+  the current user, and a plain SQLite read of the unrelated store's file
+  succeeds. `MEMORYWHALE_DATA_DIR` selects storage. It does not authenticate
+  or sandbox. A tool that can run commands as the same user, such as a
+  terminal tool, can read any store directly.
+
+Also measured: `search_memory` has no relevance floor. A query with no
+matching term still returns the store's top-ranked rows. Isolation therefore
+has to come from the store a server opens, never from the query.
 
 ## Not covered
 
