@@ -1,8 +1,8 @@
 """Minimal OpenHands Software Agent SDK config wiring MemoryWhale over local stdio.
 
-Placeholders only. Replace the two absolute paths before running. Verified against
-the OpenHands software-agent-sdk example `examples/01_standalone_sdk/07_mcp_integration.py`
-at revision bd88f050259276978dc31541d8099d98e4994428 (see VERIFICATION.md).
+Placeholders only. Replace the two absolute paths before running. Checked against
+openhands-sdk 1.58.2 (tag v1.58.2, commit d2ee0cdea60825608c2f8906eb54e1d4d264fb42)
+and its example `examples/01_standalone_sdk/07_mcp_integration.py` (see VERIFICATION.md).
 
 Scope: this wires a *local* mw-mcp binary reachable from the process that runs
 the agent. If OpenHands executes the agent in a Docker workspace, a VM, or a
@@ -19,6 +19,8 @@ from openhands.sdk.mcp import MCPServer
 # child process: an absolute path to the built `mw-mcp`, no args, and an isolated
 # store selected with MEMORYWHALE_DATA_DIR. Note the SDK types `env` values as
 # pydantic `SecretStr`, so the store path is wrapped even though it is not secret.
+# Keep MEMORYWHALE_DATA_DIR here: the server does not inherit it from this
+# process, and without it mw-mcp opens the default store under HOME.
 mcp_config = {
     "memorywhale": MCPServer(
         command="/absolute/path/to/mw-mcp",
@@ -38,6 +40,7 @@ llm = LLM(
 
 # The agent exposes MemoryWhale's six tools through the SDK's MCP registry:
 # recent_errors, search_memory, get_context, remember, similar_failures, stats.
+# With one server the names are bare; with two or more each gets a "<key>_" prefix.
 agent = Agent(llm=llm, tools=[], mcp_config=mcp_config)
 
 conversation = Conversation(agent=agent, workspace=".")

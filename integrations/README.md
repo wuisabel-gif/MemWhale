@@ -53,7 +53,7 @@ features.
 | Kimi Code CLI | Transport/configuration verified; native client call pending | No | Optional skill asset-checked; native loading pending | [Guide](kimi-code/README.md) |
 | Mistral Vibe | Transport/configuration verified; native client call pending | No | Optional skill asset-checked; native loading pending | [Guide](vibe/README.md) |
 | OpenClaw | Yes | No | Yes | [Guide](openclaw/README.md) |
-| OpenHands SDK | Local stdio verified; container/remote and native SDK run pending | No | Example prompt | [Guide](openhands/README.md) |
+| OpenHands SDK | Native SDK discovery and dispatch verified offline (scripted model); real-model run and container/remote pending | No | Example prompt | [Guide](openhands/README.md) |
 | OpenCode | Yes | No | Example prompt | [Guide](opencode/README.md) |
 | OpenRouter | No; hosted model gateway | No | No; configure in the agent | [Guide](openrouter/README.md) |
 | Pi coding agent | Unverified | No | No | [Guide](pi/README.md) |

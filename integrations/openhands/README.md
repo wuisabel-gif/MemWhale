@@ -2,20 +2,24 @@
 
 ## Status
 
-Configuration and boundaries were checked against the OpenHands
-[`software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) example
-[`examples/01_standalone_sdk/07_mcp_integration.py`](https://github.com/OpenHands/software-agent-sdk/blob/bd88f050259276978dc31541d8099d98e4994428/examples/01_standalone_sdk/07_mcp_integration.py)
-at revision `bd88f050259276978dc31541d8099d98e4994428` on September 26, 2026.
+Checked against the OpenHands
+[`software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) release
+`openhands-sdk` **1.58.2** (tag `v1.58.2`, commit
+`d2ee0cdea60825608c2f8906eb54e1d4d264fb42`) on October 27, 2026, including its
+example
+[`examples/01_standalone_sdk/07_mcp_integration.py`](https://github.com/OpenHands/software-agent-sdk/blob/d2ee0cdea60825608c2f8906eb54e1d4d264fb42/examples/01_standalone_sdk/07_mcp_integration.py).
 OpenHands is a Python SDK, not a CLI: it constructs `MCPServer(command=..., args=...,
 env=...)`, passes a `mcp_config` dict through `Agent(mcp_config=...)`, and runs a
 normal `Conversation`. This integration targets that explicit SDK configuration,
 not the OpenHands Agent Canvas frontend.
 
 This guide is scoped to a **local stdio** child process reachable from the same
-runtime that runs the agent. The MemoryWhale transport was verified directly (see
-[VERIFICATION.md](VERIFICATION.md)); a native OpenHands SDK agent run that
-discovers and dispatches the tools is pending. Container/VM/remote Agent Server
-runtimes are **not verified here** — see the deployment note in Setup.
+runtime that runs the agent. With the pinned SDK, native tool discovery and
+dispatch pass offline on synthetic stores, both through the SDK's MCP client and
+through an `Agent` + `Conversation` driven by the SDK's scripted `TestLLM` (see
+[VERIFICATION.md](VERIFICATION.md)). A run with a real model is still pending.
+Container/VM/remote Agent Server runtimes are **not verified here** — see the
+deployment note in Setup.
 
 ## Requirements
 
@@ -61,12 +65,32 @@ conversation.run()
 
 Notes on the current SDK contract:
 
-- `mcp_config` is a **dict** of `name -> MCPServer`, not a list. The key
-  (`"memorywhale"`) namespaces the tools the agent sees.
+- `mcp_config` is a **dict** of `name -> MCPServer`, not a list. With one
+  server the agent sees the bare tool names (`search_memory`). With two or more,
+  each name is prefixed with its key (`memorywhale_search_memory`).
 - `MCPServer.env` is typed `dict[str, SecretStr]`, so wrap the store path in
   `SecretStr` even though it is not a secret; a bare `str` is rejected.
 - Use an **absolute** `command` path and an **absolute**, dedicated store path.
   Review the command and env before trusting them.
+- **Always set `MEMORYWHALE_DATA_DIR` in `MCPServer.env`.** The SDK starts stdio
+  servers with a small default environment plus `env`, so the variable is not
+  inherited from your Python process. Without it, `mw-mcp` opens the default
+  store under `HOME`, which is your real one.
+
+To keep the agent from writing memory, filter `remember` out of its tools:
+
+```python
+agent = Agent(
+    llm=llm,
+    tools=[],
+    mcp_config=mcp_config,
+    filter_tools_regex=r"^(memorywhale_)?(recent_errors|search_memory|get_context|similar_failures|stats)$",
+)
+```
+
+The SDK enforces this filter, not `mw-mcp`. Any other client that starts the
+same server can still call `remember`, and a store directory is not an access
+boundary: a tool that runs commands as your user can read any store.
 
 ### Local vs container/remote deployment
 
@@ -100,17 +124,28 @@ printf '%s\n' \
 ```
 
 Expect `serverInfo` `{"name":"memorywhale", ...}` and a `tools/list` result
-listing all six tools. For native SDK validation, run the example above against a
-fresh synthetic store, confirm the agent lists the six `memorywhale`-namespaced
-tools through its MCP registry, ask it to `search_memory` for a known marker, then
-ask it to `remember` a separate lesson. Confirm the proposed note stays pending in
-MemoryWhale's ordinary review flow; a save acknowledgement is not approval.
+listing all six tools.
+
+Then run the native SDK checks. They need the pinned SDK and use only temporary
+synthetic stores and a temporary `HOME`:
+
+```bash
+cargo build -p memorywhale-cli --bins
+uv run --no-project --with-requirements scripts/verification/openhands-mcp/requirements.txt \
+  python -I scripts/verification/openhands-mcp/test_sdk.py -v
+```
+
+They cover discovery and dispatch, a fix handoff that is saved only after a
+fresh passing test run, the pending review flow, and isolation. See
+[`scripts/verification/openhands-mcp`](../../scripts/verification/openhands-mcp/README.md).
+A save acknowledgement is not approval: an agent note stays out of retrieval
+until it is approved.
 
 ## Available capabilities
 
 | Capability | Available |
 | --- | --- |
-| MCP memory access | Local stdio transport verified; native SDK tool discovery/dispatch and container/remote runtimes pending |
+| MCP memory access | Local stdio: native SDK discovery and dispatch verified offline with a scripted model; real-model run and container/remote runtimes pending |
 | Automatic execution capture | No; the SDK exposes MCP tools, it does not record executed commands |
 | Memory-use guidance | Example prompt only; no OpenHands-native skill/rule mechanism claimed |
 
