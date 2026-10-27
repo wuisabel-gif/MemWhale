@@ -6,22 +6,22 @@ Run from the repository root after `cargo build -p memorywhale-cli --bins`:
     python -I scripts/verification/openhands-mcp/test_sdk.py -v
 """
 import json
+import os
 import re
+import subprocess
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fixture  # noqa: E402  (sets HOME before the SDK is imported)
-from fixture import TOOLS, TEST_CMD, MARKER  # noqa: E402
+from fixture import TOOLS, TEST_CMD, MARKER, LESSON  # noqa: E402
 
 from openhands.sdk import Agent, Conversation, Message, TextContent  # noqa: E402
 from openhands.sdk.event import AgentErrorEvent, ObservationEvent  # noqa: E402
 from openhands.sdk.llm import MessageToolCall  # noqa: E402
 from openhands.sdk.mcp import MCPToolExecutor, create_mcp_tools  # noqa: E402
 from openhands.sdk.testing import TestLLM  # noqa: E402
-
-LESSON = "fix: calc add() subtracts; make it return a + b (verified, exit 0)"
 
 
 def call(client, name, **args):
@@ -176,8 +176,6 @@ class ScriptedConversation(unittest.TestCase):
 class Isolation(unittest.TestCase):
     """What MEMORYWHALE_DATA_DIR and the SDK's tool filter do and do not stop."""
 
-    READ_ONLY = r"^(memorywhale_)?(recent_errors|search_memory|get_context|similar_failures|stats)$"
-
     @classmethod
     def setUpClass(cls):
         cls.calc = fixture.SCRATCH / "isolation-calc"
@@ -226,7 +224,7 @@ class Isolation(unittest.TestCase):
         tools, observed, errors = converse(
             self.calc, fixture.SCRATCH, "Save a note.",
             [tool_call("remember", text="this must not be saved"), say("Done.")],
-            filter_tools_regex=self.READ_ONLY)
+            filter_tools_regex=fixture.READ_ONLY)
         self.assertEqual(tools, sorted(set(TOOLS) - {"remember"}))
         self.assertEqual(observed, [])
         self.assertTrue(any("Tool 'remember' not found" in e for e in errors), errors)
@@ -245,6 +243,39 @@ class Isolation(unittest.TestCase):
         self.assertEqual(db.stat().st_uid, fixture.os.getuid())
         self.assertIn(fixture.UNRELATED, fixture.scalar(
             self.unrelated, "SELECT group_concat(stderr) FROM command_runs"))
+
+
+class LiveHarnessOffline(unittest.TestCase):
+    """live_check.py without a model: it refuses, and its checks work on a scripted run."""
+
+    def test_refuses_without_explicit_opt_in(self):
+        script = Path(__file__).resolve().parent / "live_check.py"
+        for extra in ({}, {"MW_OPENHANDS_LIVE": "1"}, {"LLM_MODEL": "any"}):
+            env = {"PATH": os.environ["PATH"], "HOME": str(fixture.HOME), **extra}
+            done = subprocess.run([sys.executable, "-I", str(script)], env=env,
+                                  capture_output=True, text=True, timeout=120)
+            self.assertEqual(done.returncode, 2, done.stderr)
+            self.assertIn("refusing to call a model", done.stderr)
+
+    def test_a_scripted_run_passes_and_is_never_labelled_live(self):
+        import live_check
+        report = live_check.run(TestLLM.from_messages([
+            tool_call("similar_failures", error_text="AssertionError", command=" ".join(TEST_CMD)),
+            tool_call("search_memory", query="calc add fix", mode="lessons"),
+            say("Change calc.py to `return a + b`, per note #1. Untested."),
+        ]), name="live-scripted")
+        self.assertEqual(report["kind"], "scripted TestLLM, not live")
+        self.assertEqual(report["cost_usd"], 0)
+        self.assertEqual(report["tools_called"], ["similar_failures", "search_memory"])
+        self.assertTrue(report["passed"], report["checks"])
+        self.assertEqual(report["handoff"]["approved"], 0)
+
+    def test_a_reply_without_the_fix_fails_and_saves_nothing(self):
+        import live_check
+        report = live_check.run(TestLLM.from_messages([say("The tests pass now.")]), name="live-wrong")
+        self.assertFalse(report["passed"])
+        self.assertFalse(report["checks"]["called a MemoryWhale tool"])
+        self.assertIsNone(report["handoff"])
 
 
 if __name__ == "__main__":

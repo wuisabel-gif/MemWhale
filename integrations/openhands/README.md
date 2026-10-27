@@ -17,7 +17,8 @@ This guide is scoped to a **local stdio** child process reachable from the same
 runtime that runs the agent. With the pinned SDK, native tool discovery and
 dispatch pass offline on synthetic stores, both through the SDK's MCP client and
 through an `Agent` + `Conversation` driven by the SDK's scripted `TestLLM` (see
-[VERIFICATION.md](VERIFICATION.md)). A run with a real model is still pending.
+[VERIFICATION.md](VERIFICATION.md)). A run with a real model is still pending; an
+opt-in `live_check.py` is ready for it.
 Container/VM/remote Agent Server runtimes are **not verified here** — see the
 deployment note in Setup.
 

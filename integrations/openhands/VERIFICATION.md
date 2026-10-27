@@ -9,7 +9,7 @@ pending; container and remote runtimes not verified.**
 
 The checks are in
 [`scripts/verification/openhands-mcp`](../../scripts/verification/openhands-mcp/README.md)
-(9 tests). They use only temporary synthetic stores, a temporary git
+(12 tests). They use only temporary synthetic stores, a temporary git
 repository, and a temporary `HOME`, and never open the default MemoryWhale
 store.
 
@@ -21,7 +21,7 @@ Three kinds of evidence, kept separate:
 | --- | --- | --- |
 | Native SDK, no model | `openhands.sdk.mcp.create_mcp_tools` started `mw-mcp` over stdio and called its tools through `MCPToolExecutor` | PASS: six tools listed; `search_memory`, `recent_errors`, and `similar_failures` returned the seeded synthetic failure |
 | SDK agent loop, deterministic fake model | `Agent` + `Conversation` with the SDK's `openhands.sdk.testing.TestLLM` emitting fixed tool calls | PASS: calls dispatched to `mw-mcp`; fix handoff, review flow, and isolation behaved as below |
-| Real model | Nothing | **Not run** |
+| Real model | Opt-in `live_check.py`, which refuses to run without `MW_OPENHANDS_LIVE=1` and `LLM_MODEL` | **Not run**: no provider credentials, and no running local model |
 
 The scripted model proves that the SDK dispatches the calls and returns
 `mw-mcp`'s results into the conversation. It does not prove that a real model
@@ -75,7 +75,8 @@ keeps it out of retrieval.
 
 ## Not yet verified
 
-- A real model choosing these calls in a `Conversation`.
+- A real model choosing these calls in a `Conversation`. `live_check.py` is
+  ready for anyone with a model to run.
 - Container, VM, or remote Agent Server runtimes. Whether `mw-mcp` and its
   store are reachable inside those runtimes is not tested.
 - Linux and Windows. The checks ran on macOS only.
