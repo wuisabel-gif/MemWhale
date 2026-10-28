@@ -31,6 +31,8 @@ jobs:
         run: python3 scripts/test-waku-integration.py
       - name: Check Kimi Code integration assets
         run: python3 scripts/test-kimi-code-integration.py
+      - name: Check pstack source playbook against isolated MCP
+        run: python3 scripts/test-pstack-integration.py --bin-dir target/debug
       - name: Check Second-Opinion integration guide
         run: python3 scripts/test-second-opinion-integration.py
 
