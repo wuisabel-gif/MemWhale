@@ -27,6 +27,8 @@ TOOLS = ["recent_errors", "search_memory", "get_context", "remember", "similar_f
 TEST_CMD = ["python3", "-m", "unittest", "-q"]
 MARKER = "calc-add-MWOH7"
 UNRELATED = "UNRELATED-ZEBRA-41"
+LESSON = "fix: calc add() subtracts; make it return a + b (verified, exit 0)"
+READ_ONLY = r"^(memorywhale_)?(recent_errors|search_memory|get_context|similar_failures|stats)$"
 GIT = ["git", "-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid"]
 
 

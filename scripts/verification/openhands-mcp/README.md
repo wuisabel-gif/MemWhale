@@ -34,6 +34,7 @@ packages are installed.
 | `ScriptedConversation` | SDK agent loop, deterministic fake model | The SDK's `TestLLM` emits fixed tool calls that an `Agent` + `Conversation` dispatches to `mw-mcp`. This shows the dispatch path; it does not show that a real model would choose these calls. See the handoff below. |
 
 | `Isolation` | Native SDK and SDK agent loop, negative tests | See [What isolation holds](#what-isolation-holds). |
+| `LiveHarnessOffline` | Deterministic fake model | `live_check.py` refuses to run without opt-in, and its checks pass and fail correctly on scripted runs, which it labels as not live. |
 
 ### The fix handoff
 
@@ -91,7 +92,43 @@ Also measured: `search_memory` has no relevance floor. A query with no
 matching term still returns the store's top-ranked rows. Isolation therefore
 has to come from the store a server opens, never from the query.
 
+## Live check (opt-in, may cost money)
+
+`live_check.py` puts a real model in the same setup. It refuses to run unless
+you set `MW_OPENHANDS_LIVE=1` and `LLM_MODEL`, because a hosted provider may
+bill you. It takes the same `LLM_*` variables as the SDK's MCP example:
+
+```bash
+MW_OPENHANDS_LIVE=1 LLM_MODEL=<model> LLM_API_KEY=<key> \
+  uv run --no-project --with-requirements scripts/verification/openhands-mcp/requirements.txt \
+  python -I scripts/verification/openhands-mcp/live_check.py
+```
+
+For a local model server, set `LLM_BASE_URL` and leave `LLM_API_KEY` unset.
+The run is capped at 12 agent iterations and at `MW_OPENHANDS_MAX_USD`
+(default 0.25), which works only when LiteLLM knows the model's price.
+
+The model sees only the five read tools, so it cannot save memory. It is asked
+to diagnose the seeded failure and propose a fix. The harness then:
+
+1. checks that the model called a MemoryWhale tool, that the seeded failure or
+   lesson came back, and that the reply proposes `return a + b`;
+2. applies that fix, commits, and reruns the test itself;
+3. saves the handoff note only when that fresh run passes, and checks that the
+   note is pending review.
+
+It prints a JSON report with `"kind": "live model"` and the accumulated cost,
+and exits 1 if any check fails. The same function also runs offline, in
+`LiveHarnessOffline`, with the scripted `TestLLM`. The report then says
+`"scripted TestLLM, not live"` and costs 0. A scripted run is never labelled
+live.
+
+**Status: not run with a real model.** The machine this was built on had no
+provider credentials in its environment. Its only local model was a 0.5B
+model, behind an Ollama server that was not running. Running it would have
+meant starting a new local listener, which was out of scope.
+
 ## Not covered
 
-- A real model choosing these calls. The scripted model only proves dispatch.
+- A real model choosing these calls (see the live check above).
 - Container, VM, and remote Agent Server runtimes. Every path here is local.
