@@ -3,6 +3,28 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.24.0] — Sharper Search — October 29, 2026
+
+Product `0.24.0`; `memorywhale-core` `0.11.0`; SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.24.0.md).
+
+### Added
+
+- **OpenHands SDK verification** in `scripts/verification/openhands-mcp/`: `mw-mcp` under `openhands-sdk` 1.58.2 on temporary synthetic stores, covering tool discovery and dispatch, a fix handoff saved only after a fresh passing test run, the pending review flow, and isolation. An opt-in `live_check.py` runs the same setup with a real model and refuses to run without `MW_OPENHANDS_LIVE=1` and `LLM_MODEL`.
+- **A MemoryWhale playbook for pstack's `why` and `recall`** in `integrations/pstack/`, read-only and in pstack's format, with a check that runs each of its calls against `mw-mcp`.
+- `memorywhale-core` exports `sqlite::salient_error_line`.
+
+### Changed
+
+- The OpenHands guide now says to set `MEMORYWHALE_DATA_DIR` in `MCPServer.env` (the server does not inherit it and otherwise opens the default store), that one server gets unprefixed tool names, and that a read-only `filter_tools_regex` is enforced by the SDK, not by `mw-mcp`.
+- Dependencies: Tauri 2.12.5, rusqlite 0.41.0, ureq 3.5.0, Vite 8.3.5, `@tauri-apps/cli` 2.12.4, lucide-react 1.61.0, pullfrog action 0.1.102.
+
+### Fixed
+
+- A real match inside a filtered search (failures only, lessons only, one project) read as a 0% keyword match, because BM25 gives a word almost no weight once it is in half of the searched rows. A matching row now keeps at least its word overlap with the query, over its text and tags. Retrieval benchmark scores are unchanged.
+- A failing command's search result showed the first line of its error output, often a banner or a `====` rule. The line that names the error now comes first, in every interface. Scores and error fingerprints are unchanged.
+
 ## [0.23.0] — MemoryWhale on Your Desktop — October 26, 2026
 
 Product `0.23.0`; `memorywhale-core` `0.10.0` (unchanged); SQLite schema `17` (adds `text` to `recall_hints`).
