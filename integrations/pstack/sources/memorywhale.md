@@ -58,9 +58,10 @@ Read-only. Never call `remember`. Investigators gather; they do not write.
    `search_memory` has no relevance floor: it returns the top rows even when
    nothing matches. Keep a hit when its `reasons:` line names a keyword match,
    such as `59% keyword match (BM25 · body: add, calc)`, or when its snippet
-   visibly contains your terms. The keyword score can be 0 for a real match
-   when every candidate contains the term, which is common in `failures` and
-   `lessons` mode. Drop a hit that has neither, and say how many you dropped.
+   visibly contains your terms. The `reasons:` line names only signals of 15%
+   or more, so a weak real match shows no keyword reason, and in MemoryWhale
+   0.23 and earlier a real match could score 0% in `failures` and `lessons`
+   mode. Drop a hit that has neither, and say how many you dropped.
 
 5. **Ranked context for the project** (optional, when the target has a
    project tag).
