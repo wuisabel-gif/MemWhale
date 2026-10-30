@@ -96,7 +96,8 @@ def main():
 
         filled = [(name, {k: fill(v) for k, v in args.items()}) for name, args in calls]
         nonsense = ("search_memory", {"query": "qqq-nothing-zzz"})
-        schemas, out = mcp(bins, env, filled + [nonsense])
+        explain = ("search_memory", {"query": FILL["<term>"], "mode": "failures", "explain": True})
+        schemas, out = mcp(bins, env, filled + [nonsense, explain])
         for name, args in calls:
             properties = schemas[name].get("properties", {})
             assert set(args) <= set(properties), (name, args)
@@ -114,10 +115,13 @@ def main():
         assert "the latest run is green" not in similar
         errors = result("recent_errors", limit=64)
         assert f"`{COMMAND}` (exit 101" in errors and f"cwd: {repo}" in errors, errors
-        # Both failure rows contain the terms, so BM25 scores them 0 within
-        # the failures view: the snippet, not the score, shows the match.
+        # Both failure rows contain the terms. BM25 alone weights such a term
+        # near zero inside the failures view; the term-overlap floor keeps it.
         failures = result("search_memory", query="<term>", mode="failures")
         assert failures.count("calc::add") == 2, failures
+        explained = out[-1]
+        scores = re.findall(r"signal similarity: applicable=true, score=([0-9.]+)", explained)
+        assert len(scores) == 2 and all(float(v) > 0 for v in scores), explained
         evidence = result("search_memory", query="<term>", mode="evidence", project="<project>")
         assert "keyword match (BM25" in evidence.split("\n- ")[0], evidence
         lessons = result("search_memory", query="<term>", mode="lessons")
@@ -125,8 +129,8 @@ def main():
         assert "cargo" in result("get_context", project="<project>")
         # The relevance-floor warning: a query that matches nothing still
         # returns rows, and their reasons name no keyword match.
-        assert "- [" in out[-1] and "keyword match" not in out[-1], out[-1]
-        assert "qqq" not in out[-1].lower()
+        assert "- [" in out[-2] and "keyword match" not in out[-2], out[-2]
+        assert "qqq" not in out[-2].lower()
     print(f"PASS: guide headings and credit, {len(calls)} playbook calls against an isolated "
           "synthetic store (not a pstack runtime test)")
 

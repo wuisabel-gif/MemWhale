@@ -36,10 +36,15 @@ use crate::{Memory, Query, ScoredMemory, Weights};
 /// indexed but not boosted — the win is coverage, not weight.
 ///
 /// SQLite's `bm25()` is negative and more-negative = better; we flip it to a
-/// non-negative `x` and squash with `x / (1 + x)` — monotonic in match quality,
-/// deterministic, and set-independent (so a single-memory `explain` gets the
-/// same number a bulk `retrieve` would). Memories with no FTS match are absent
-/// from the map → the scorer reads that as similarity 0.
+/// non-negative `x` and squash with `x / (1 + x)` — monotonic in match quality
+/// and deterministic, so a single-memory `explain` gets the same number a bulk
+/// `retrieve` would. Memories with no FTS match are absent from the map → the
+/// scorer reads that as similarity 0.
+///
+/// BM25 is not set-independent: a term's weight comes from how rare it is in
+/// the indexed rows, and FTS5 floors it near zero once the term is in half of
+/// them. Callers index filtered sets (one project, failures only), where that
+/// is common, so a matching row keeps at least its plain term overlap.
 ///
 /// Best-effort: if FTS5 is somehow unavailable, returns an empty map and the
 /// scorer falls back to term overlap. rusqlite is `bundled` (FTS5 compiled in),
@@ -68,9 +73,14 @@ fn bm25_similarities(memories: &[Memory], query: &str) -> HashMap<i64, f32> {
         Ok((r.get::<_, i64>(0)?, r.get::<_, f64>(1)?))
     });
     if let Ok(rows) = rows {
+        let by_id: HashMap<i64, &Memory> = memories.iter().map(|m| (m.id, m)).collect();
         for (id, bm25) in rows.flatten() {
             let x = (-bm25).max(0.0) as f32; // flip: negative bm25 → non-negative
-            out.insert(id, x / (1.0 + x));
+                                             // Overlap over both indexed columns, so a tag-only match keeps its floor.
+            let overlap = by_id.get(&id).map_or(0.0, |m| {
+                crate::scorer::term_overlap(query, &format!("{} {}", m.text, m.tags.join(" ")))
+            });
+            out.insert(id, (x / (1.0 + x)).max(overlap));
         }
     }
     out
@@ -728,6 +738,25 @@ mod tests {
             sim_n.score
         );
         assert!(sim_m.score > sim_n.score);
+    }
+
+    #[test]
+    fn a_match_keeps_keyword_similarity_when_every_row_has_the_term() {
+        // Callers index filtered sets (one project, failures only), where a
+        // query term often appears in every row. A real match must not read
+        // as a 0% keyword match there.
+        let mems = sample()
+            .into_iter()
+            .map(|m| Memory {
+                text: format!("{} calc add failed", m.text),
+                ..m
+            })
+            .collect();
+        let eng = BuiltinEngine::new(mems);
+        let hit = eng.explain(7, &Query::new("calc add", now())).unwrap();
+        let sim = hit.signals.iter().find(|s| s.name == "similarity").unwrap();
+        assert!(sim.detail.contains("BM25"), "{}", sim.detail);
+        assert!(sim.score >= 0.1, "a matching row read as {}", sim.detail);
     }
 
     #[test]

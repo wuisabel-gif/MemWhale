@@ -136,15 +136,7 @@ fn similarity_signal(
         };
     }
     // Lexical fallback (no index available).
-    let q = tokenize(&query.text);
-    let m = tokenize(&memory.text);
-    let score = if q.is_empty() || m.is_empty() {
-        0.0
-    } else {
-        let inter = q.intersection(&m).count() as f32;
-        let union = q.union(&m).count() as f32;
-        inter / union
-    };
+    let score = term_overlap(&query.text, &memory.text);
     Signal {
         name: "similarity".into(),
         weight,
@@ -355,6 +347,16 @@ fn bm25_source(query: &Query, memory: &Memory) -> String {
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────
+
+/// Jaccard overlap of the query's and the memory's terms, in `[0,1]`.
+pub(crate) fn term_overlap(query: &str, text: &str) -> f32 {
+    let q = tokenize(query);
+    let m = tokenize(text);
+    if q.is_empty() || m.is_empty() {
+        return 0.0;
+    }
+    q.intersection(&m).count() as f32 / q.union(&m).count() as f32
+}
 
 fn tokenize(text: &str) -> HashSet<String> {
     text.split(|c: char| !c.is_alphanumeric())
