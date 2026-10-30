@@ -71,13 +71,13 @@ class NativeDiscoveryAndDispatch(unittest.TestCase):
             self.assertEqual([t.name for t in client.tools], TOOLS)
             self.assertTrue(all(isinstance(t.executor, MCPToolExecutor) for t in client.tools))
 
-            # The snippet is stderr's first line (unittest's ==== rule), so the
-            # marker shows up only in the matched-terms reason.
+            # The snippet leads with the AssertionError line, not unittest's
+            # ==== rule, so the marker is visible in the hit itself.
             found = call(client, "search_memory", query=MARKER)
             self.assertFalse(found.is_error, found.text)
             top = found.text.split("\n- ")[0]
             self.assertIn('["python3","-m","unittest","-q"]', top)
-            self.assertIn(MARKER.split("-")[-1].lower(), top)
+            self.assertIn(f"AssertionError: -1 != 5 : {MARKER}", top.splitlines()[0])
 
             errors = call(client, "recent_errors")
             self.assertIn("`python3 -m unittest -q` (exit 1", errors.text)

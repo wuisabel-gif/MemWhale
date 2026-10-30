@@ -814,25 +814,7 @@ pub fn program_stem_for_failure(argv_json: &str, stderr: &str) -> String {
 
 /// The first stderr line naming an error, else the first non-empty line.
 pub fn salient_error_line(stderr: &str) -> Option<&str> {
-    stderr
-        .lines()
-        .find(|l| {
-            let l = l.to_lowercase();
-            [
-                "error",
-                "failed",
-                "fatal",
-                "cannot",
-                "no such",
-                "not found",
-                "panic",
-                "exception",
-            ]
-            .iter()
-            .any(|kw| l.contains(kw))
-        })
-        .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))
-        .map(str::trim)
+    memorywhale_core::sqlite::salient_error_line(stderr)
 }
 
 /// The steps of a command line that run a program, in order, as

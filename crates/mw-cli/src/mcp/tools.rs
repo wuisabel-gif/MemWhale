@@ -548,34 +548,10 @@ fn similar_failures_report(conn: &Connection, error_text: &str, command: Option<
         }
     }
     // Fallback: best-effort text match on the salient stderr line.
-    match salient_error_line(error_text) {
+    match crate::salient_error_line(error_text) {
         Some(line) => like_fallback(conn, line, command.is_none()),
         None => "(no error text to match on)".to_string(),
     }
-}
-
-/// The stderr line the fingerprint keys on: first line naming an error keyword,
-/// else the first non-empty line. Mirrors `error_fingerprint`'s selection.
-fn salient_error_line(stderr: &str) -> Option<&str> {
-    stderr
-        .lines()
-        .find(|l| {
-            let l = l.to_lowercase();
-            [
-                "error",
-                "failed",
-                "fatal",
-                "cannot",
-                "no such",
-                "not found",
-                "panic",
-                "exception",
-            ]
-            .iter()
-            .any(|kw| l.contains(kw))
-        })
-        .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))
-        .map(str::trim)
 }
 
 /// A concrete past occurrence to go look at: the most recent run sharing this

@@ -388,7 +388,7 @@ fn command_runs(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
                 let ok = exit_code == Some(0);
                 Memory {
                     id: CMD_NS + id,
-                    text: format!("{command} {argv_json} {notes} {stderr}"),
+                    text: format!("{command} {argv_json} {notes} {}", salient_first(&stderr)),
                     created_at: when,
                     last_used: when,
                     mentions: *counts.get(&command.to_lowercase()).unwrap_or(&1),
@@ -410,6 +410,44 @@ fn command_runs(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
 }
 
 /// Agent conversation turns (desktop; written by Delphin / hooks).
+/// The first stderr line naming an error, else the first non-empty line.
+pub fn salient_error_line(stderr: &str) -> Option<&str> {
+    stderr
+        .lines()
+        .find(|l| {
+            let l = l.to_lowercase();
+            [
+                "error",
+                "failed",
+                "fatal",
+                "cannot",
+                "no such",
+                "not found",
+                "panic",
+                "exception",
+            ]
+            .iter()
+            .any(|kw| l.contains(kw))
+        })
+        .or_else(|| stderr.lines().find(|l| !l.trim().is_empty()))
+        .map(str::trim)
+}
+
+/// `stderr` with its salient line moved to the front. A command memory's first
+/// line is what search results show, and stderr often opens with a banner or a
+/// `====` rule. Only the line order changes, so ranking is unchanged.
+fn salient_first(stderr: &str) -> String {
+    let mut lines: Vec<&str> = stderr.lines().collect();
+    match salient_error_line(stderr).and_then(|s| lines.iter().position(|l| l.trim() == s)) {
+        Some(i) if i > 0 => {
+            let line = lines.remove(i);
+            lines.insert(0, line);
+            lines.join("\n")
+        }
+        _ => stderr.to_string(),
+    }
+}
+
 fn agent_turns(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
     let rows = load_rows(
         conn,
@@ -588,6 +626,34 @@ mod tests {
         let epoch = DateTime::from_timestamp(0, 0).unwrap();
         assert_eq!(parse_ts("not-a-timestamp"), epoch);
         assert_eq!(parse_ts(""), epoch);
+    }
+
+    #[test]
+    fn a_command_memory_leads_with_its_error_line() {
+        let conn = Connection::open_in_memory().unwrap();
+        let stderr = "======\nFAIL: test_add\nTraceback (most recent call last):\nAssertionError: -1 != 5\n\nFAILED (failures=1)";
+        conn.execute_batch(
+            "CREATE TABLE command_runs (id INTEGER PRIMARY KEY, command TEXT, argv_json TEXT,
+                 notes TEXT, stderr TEXT, exit_code INTEGER, created_at TEXT);",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO command_runs VALUES (1, 'python3', '[]', '', ?1, 1, '2026-06-20T12:00:00+00:00')",
+            [stderr],
+        )
+        .unwrap();
+        let text = &load_memories(&conn).unwrap()[0].text;
+        assert_eq!(
+            text.lines().next(),
+            Some("python3 []  AssertionError: -1 != 5")
+        );
+        // Same words as before, only reordered, so search scores cannot move.
+        let words = |t: &str| {
+            let mut w: Vec<String> = t.split_whitespace().map(String::from).collect();
+            w.sort();
+            w
+        };
+        assert_eq!(words(text), words(&format!("python3 []  {stderr}")));
     }
 
     #[test]
