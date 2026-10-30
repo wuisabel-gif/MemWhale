@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: cc69de73fe661553d69460cb97ad4729ba723e8a82847909a5ff9de0bf7d9a79 -->
+<!-- README-SOURCE-SHA256: 0efedd90976f50677489773101fc155ea7652a68da75e5b5f68308c0c6a06f75 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -38,10 +38,10 @@ wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. �
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](../../benchmarks/README.md).
 
-**MemoryWhale 0.23.0: MemoryWhale on Your Desktop · 26. Oktober 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.23.0; der
-wiederverwendbare Rust-Kern hat die Version 0.10.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.23.0/docs/releases/0.23.0.md).
+**MemoryWhale 0.24.0: Sharper Search · 29. Oktober 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.24.0; der
+wiederverwendbare Rust-Kern hat die Version 0.11.0. Hinweise zum Upgrade findest
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.24.0/docs/releases/0.24.0.md).
 Beim Öffnen wird ein Speicher von Schema 10 auf 17 migriert.
 
 <p align="center">
