@@ -510,7 +510,7 @@ fn api_search(raw_path: &str) -> (&'static str, String) {
     };
     let memories = memorywhale_cli::filter_memories(memories, &filters);
     let engine = memorywhale_core::engine::BuiltinEngine::new(memories);
-    let hits = memorywhale_core::engine::MemoryEngine::retrieve(
+    let hits = memorywhale_core::engine::MemoryEngine::retrieve_matches(
         &engine,
         &memorywhale_core::Query::new(&search_query, Utc::now()),
         limit,

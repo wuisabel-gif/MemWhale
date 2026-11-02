@@ -134,7 +134,7 @@ impl App {
         let filtered = crate::filter_memories(self.engine.memories.clone(), &filters);
         let q = Query::new(&search_text, self.now);
         let engine = BuiltinEngine::new(filtered);
-        let mut hits = engine.retrieve(&q, MAX_RESULTS);
+        let mut hits = engine.retrieve_matches(&q, MAX_RESULTS);
         let terms: Vec<String> = search_text
             .to_lowercase()
             .split_whitespace()

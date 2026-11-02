@@ -356,7 +356,7 @@ fn search_memory(
     if !tags.is_empty() {
         q = q.with_task(tags);
     }
-    let mut hits = engine.retrieve(&q, 20);
+    let mut hits = engine.retrieve_matches(&q, 20);
     // Opt-in feedback reranking (order only; scores/explanations untouched).
     let feedback_net = if use_feedback {
         crate::feedback_rerank(&conn, &mut hits)
@@ -364,7 +364,7 @@ fn search_memory(
         std::collections::HashMap::new()
     };
     if hits.is_empty() {
-        return Ok(format!("(no matches for {query:?})"));
+        return Ok(format!("(insufficient evidence: no content matches for {query:?}; try a more specific error or command)"));
     }
     let mut out = String::new();
     for sm in &hits {
@@ -890,6 +890,25 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.contains("unsupported ranking"), "{err}");
+    }
+
+    #[test]
+    fn search_memory_abstains_with_a_positive_control() {
+        let dir = std::env::temp_dir().join(format!("mw-mcp-abstain-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        {
+            let _lock = crate::TEST_ENV_LOCK.lock().unwrap();
+            let _env = EnvVarGuard::set("MEMORYWHALE_DATA_DIR", &dir);
+            let conn = open().unwrap();
+            conn.execute("INSERT INTO bookmarks (label, created_at, approved) VALUES ('synthetic quasar repair', '2026-11-01T00:00:00Z', 1)", []).unwrap();
+            let positive = call_tool("search_memory", &json!({"query": "quasar"}), None).unwrap();
+            assert!(positive.contains("synthetic quasar"), "{positive}");
+            let negative =
+                call_tool("search_memory", &json!({"query": "xylophonium"}), None).unwrap();
+            assert!(negative.contains("insufficient evidence"), "{negative}");
+            assert!(!negative.contains("synthetic quasar"), "{negative}");
+        }
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
