@@ -1260,7 +1260,7 @@ fn best_fix_before(
         return Ok(None);
     }
     // No evidence, no suggestion: see `FixCandidate::trusted`.
-    let best = fix_candidates(conn, &matches)?
+    let best = fix_candidates(conn, &matches, before)?
         .into_iter()
         .find(FixCandidate::trusted);
     Ok(Some((matches.len(), best)))
@@ -1353,9 +1353,15 @@ impl FixCandidate {
 /// failing stem passed within the twelve runs after the failure. Candidates
 /// are grouped by stem, so a fix captured by an agent and typed at a prompt
 /// are one.
+///
+/// `verification` is the latest run of the failing program after the fix and
+/// before the next matching failure (or `before`, the run being hinted about):
+/// the error coming back is why a hint is shown, so it never contradicts the
+/// fix by itself; a failure between the fix and that recurrence does.
 pub fn fix_candidates(
     conn: &Connection,
     failures: &[Failure],
+    before: i64,
 ) -> Result<Vec<FixCandidate>, String> {
     let mut by_stem: std::collections::HashMap<String, FixCandidate> =
         std::collections::HashMap::new();
@@ -1416,15 +1422,23 @@ pub fn fix_candidates(
     // Use the latest observed outcome, including failures and unknown exits;
     // never select just the most recent success and hide a regression.
     for candidate in by_stem.values_mut() {
+        let until = failures
+            .iter()
+            .map(|f| f.id)
+            .filter(|&id| id > candidate.run_id)
+            .min()
+            .unwrap_or(before)
+            .min(before);
         candidate.verification = conn
             .query_row(
                 "SELECT id, argv_json, exit_code, created_at, repository_id
-             FROM command_runs WHERE id > ?1 AND cwd IS ?2
+             FROM command_runs WHERE id > ?1 AND id < ?4 AND cwd IS ?2
              AND mw_stem(argv_json) = ?3 ORDER BY id DESC LIMIT 1",
                 params![
                     candidate.run_id,
                     candidate_context[&candidate.run_id].0,
-                    candidate_context[&candidate.run_id].1
+                    candidate_context[&candidate.run_id].1,
+                    until
                 ],
                 |r| {
                     Ok(FixVerification {
@@ -1463,19 +1477,17 @@ fn format_hint(seen: usize, best: Option<&FixCandidate>) -> String {
     };
     let by = format!("{} {}", ran_by(fix.agent.as_deref()), relative_age(&fix.at));
     let command = fix.command();
-    let verification = fix
-        .verification
-        .as_ref()
-        .map(FixVerification::summary)
-        .unwrap_or_else(|| "latest verification: unknown (no rerun captured)".into());
-    if fix
-        .verification
-        .as_ref()
-        .is_none_or(|v| v.exit_code != Some(0))
-    {
-        return format!("seen {times}; historical successes {} of {}; {verification}; historical candidate: {command}", fix.worked, fix.seen);
+    // A rerun that failed (or whose exit is unknown) after the fix contradicts
+    // it: drop the fix marker so Delphin's `:fix` does not pick it up.
+    if let Some(v) = fix.verification.as_ref().filter(|v| v.exit_code != Some(0)) {
+        let outcome = v.exit_code.map_or("exit unknown".to_string(), |code| {
+            format!("failed, exit {code}")
+        });
+        return format!(
+            "seen {times}; worked {} of {} times, but a later rerun {outcome}; historical candidate: {command}",
+            fix.worked, fix.seen
+        );
     }
-    let by = format!("{by}; {verification}");
     if fix.worked >= 2 {
         format!(
             "seen {times}; worked {} of {} times, last {by}, confirmed fix: {command}",
@@ -4154,12 +4166,11 @@ mod tests {
 
         let hint = error_hint(&conn, err).unwrap().unwrap();
         assert!(
-            hint.starts_with("seen 3 times; historical successes 2 of 2"),
+            hint.starts_with("seen 3 times; worked 2 of 2 times, last run by Codex"),
             "{hint}"
         );
         assert!(
-            hint.contains("contradicts")
-                && hint.ends_with("historical candidate: xcode-select --install"),
+            hint.ends_with(", confirmed fix: xcode-select --install"),
             "{hint}"
         );
 
@@ -4178,7 +4189,7 @@ mod tests {
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap();
-        let ranked = fix_candidates(&conn, &failures).unwrap();
+        let ranked = fix_candidates(&conn, &failures, i64::MAX).unwrap();
         let summary: Vec<(String, i64, i64)> = ranked
             .iter()
             .map(|c| (c.command(), c.seen, c.worked))
@@ -4226,9 +4237,8 @@ mod tests {
         let live = "  ⎿  Error: xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools)";
         let hint = error_hint(&conn, live).unwrap().unwrap();
         assert!(
-            hint.starts_with("seen 2 times; historical successes 1 of 1")
-                && hint.contains("contradicts")
-                && hint.ends_with("historical candidate: xcode-select --install"),
+            hint.starts_with("seen 2 times; worked once, run in a terminal")
+                && hint.ends_with(", possible fix: xcode-select --install"),
             "{hint}"
         );
         assert_eq!(
@@ -4268,8 +4278,7 @@ mod tests {
         let again = run(r#"["cargo","build"]"#, 101, err, "2026-01-02T00:00:00Z");
         let note = hook_feedback(&conn, again).unwrap().unwrap();
         assert!(
-            note.contains("historical candidate: xcode-select --install")
-                && note.contains("contradicts"),
+            note.contains("possible fix: xcode-select --install"),
             "{note}"
         );
         // It passes right after failing, nothing saved since: ask for the lesson.
@@ -4313,8 +4322,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(
-            note.contains("historical candidate: xcode-select --install")
-                && note.contains("outcome unknown"),
+            note.contains("possible fix: xcode-select --install"),
             "{note}"
         );
         assert_eq!(shown(&conn), 2);
