@@ -464,7 +464,7 @@ pub fn search(
     };
     let q = memorywhale_core::Query::new(query, Utc::now());
     Ok(engine
-        .retrieve(&q, limit.unwrap_or(20))
+        .retrieve_matches(&q, limit.unwrap_or(20))
         .iter()
         .map(to_hit)
         .collect())

@@ -3752,7 +3752,7 @@ fn search_memory(args: &[String]) -> Result<(), String> {
         q = q.with_task(tags);
     }
     // limit:N caps the ranked results; default matches the previous behaviour.
-    let mut hits = engine.retrieve(&q, filters.limit.unwrap_or(20));
+    let mut hits = engine.retrieve_matches(&q, filters.limit.unwrap_or(20));
     // Opt-in: recorded feedback reorders the retrieved set (order only; scores
     // and their explanations are untouched). Empty when the flag is off.
     let feedback_net = if use_feedback {
@@ -3760,6 +3760,11 @@ fn search_memory(args: &[String]) -> Result<(), String> {
     } else {
         std::collections::HashMap::new()
     };
+
+    if hits.is_empty() {
+        println!("Insufficient evidence: no content matches for {query:?}. Try a more specific error or command.");
+        return Ok(());
+    }
 
     let fb_note = if use_feedback {
         "; feedback-adjusted"
