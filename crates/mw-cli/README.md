@@ -1,6 +1,6 @@
 # memorywhale-cli
 
-**MemoryWhale 0.24.0: Sharper Search · October 29, 2026.**
+**MemoryWhale 0.25.0: Honest Answers · November 1, 2026.**
 
 Local-first terminal memory. Records commands, arguments, output, errors, and
 whole sessions into local SQLite, so what already failed stays searchable —

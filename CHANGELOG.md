@@ -3,6 +3,23 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.25.0] — Honest Answers — November 1, 2026
+
+Product `0.25.0`; `memorywhale-core` `0.12.0`; SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.25.0.md).
+
+### Added
+
+- `benchmarks/release_gate/`: a scorer for paired cold and memory debugging trials (verified solves, wasted attempts, misleading hints). Its gate needs 20 or more complete pairs of real model runs; fixture runs never pass. No model trials have been run.
+- `memorywhale-core` adds `MemoryEngine::retrieve_matches`. `FixCandidate` exposes `verification`, the latest rerun after the fix.
+
+### Changed
+
+- A search with text returns only rows whose content matches it, and says "Insufficient evidence" when none do, in the CLI, MCP, the dashboard API, the TUI, and the desktop app. Rows are filtered before the result limit. Empty-query browsing is unchanged.
+- A recall hint drops its `confirmed fix:` or `possible fix:` label when the failing command failed again after the fix and before the error came back ("historical candidate"). The error coming back does not count against the fix by itself.
+- `fix_candidates` takes the run being hinted about as a third argument.
+
 ## [0.24.0] — Sharper Search — October 29, 2026
 
 Product `0.24.0`; `memorywhale-core` `0.11.0`; SQLite schema `17` (unchanged).
