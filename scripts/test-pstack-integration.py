@@ -127,10 +127,13 @@ def main():
         lessons = result("search_memory", query="<term>", mode="lessons")
         assert "[note #" in lessons and "remembered by you on " in lessons, lessons
         assert "cargo" in result("get_context", project="<project>")
-        # The relevance-floor warning: a query that matches nothing still
-        # returns rows, and their reasons name no keyword match.
-        assert "- [" in out[-2] and "keyword match" not in out[-2], out[-2]
-        assert "qqq" not in out[-2].lower()
+        # A query without content evidence must abstain, not leak unrelated
+        # fallback rows. Positive controls above still require real matches.
+        absent = out[-2]
+        assert "insufficient evidence: no content matches" in absent, absent
+        assert "qqq-nothing-zzz" in absent, absent
+        assert "- [" not in absent, absent
+        assert "PSTACK-SYNTHETIC" not in absent and "fix: calc" not in absent, absent
     print(f"PASS: guide headings and credit, {len(calls)} playbook calls against an isolated "
           "synthetic store (not a pstack runtime test)")
 
