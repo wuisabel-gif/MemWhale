@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0efedd90976f50677489773101fc155ea7652a68da75e5b5f68308c0c6a06f75 -->
+<!-- README-SOURCE-SHA256: 28079d751f9b65585f45477f94e08da26aa2e4ec89c044403e89609d4ee84efb -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -39,9 +39,9 @@ código a través de MCP, sin cuenta y sin subir nada.
 > demuestran el mecanismo, no un estudio de campo; consulta
 > [cómo se midió](../../benchmarks/README.md).
 
-**MemoryWhale 0.24.0: Sharper Search · 29 de octubre de 2026.**
+**MemoryWhale 0.25.0: Honest Answers · 1 de noviembre de 2026.**
 La CLI, la interfaz web y la aplicación de escritorio comparten la versión de
-producto 0.24.0; el núcleo reutilizable en Rust está en la versión 0.11.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.24.0/docs/releases/0.24.0.md)
+producto 0.25.0; el núcleo reutilizable en Rust está en la versión 0.12.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.25.0/docs/releases/0.25.0.md)
 para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 17.
 
 <p align="center">
