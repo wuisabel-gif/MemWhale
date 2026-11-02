@@ -52,7 +52,7 @@ pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(()
 
 use chrono::Utc;
 use regex::Regex;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -1290,6 +1290,31 @@ pub struct FixCandidate {
     /// Who ran it most recently (`None` is a terminal), and when.
     pub agent: Option<String>,
     pub at: String,
+    /// Latest observed rerun of the failing program in the same directory.
+    /// A passing rerun is evidence of outcome, not proof of causation.
+    pub verification: Option<FixVerification>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FixVerification {
+    pub run_id: i64,
+    pub argv_json: String,
+    pub exit_code: Option<i64>,
+    pub at: String,
+    pub repository: Option<String>,
+}
+
+impl FixVerification {
+    pub fn summary(&self) -> String {
+        let outcome = match self.exit_code {
+            Some(0) => "passed".to_string(),
+            Some(code) => format!("failed (exit {code}); contradicts a currently-working fix"),
+            None => "unknown (exit code not captured)".to_string(),
+        };
+        format!("latest verification: run #{}; command {}; outcome {}; at {}; repository {}; commit unknown (not captured)",
+            self.run_id, self.argv_json, outcome, self.at,
+            self.repository.as_deref().unwrap_or("unknown"))
+    }
 }
 
 impl FixCandidate {
@@ -1334,6 +1359,7 @@ pub fn fix_candidates(
 ) -> Result<Vec<FixCandidate>, String> {
     let mut by_stem: std::collections::HashMap<String, FixCandidate> =
         std::collections::HashMap::new();
+    let mut candidate_context = std::collections::HashMap::new();
     let mut after = conn
         .prepare(
             "SELECT id, argv_json, agent, created_at FROM command_runs
@@ -1368,6 +1394,7 @@ pub fn fix_candidates(
         let worked: bool = worked_stmt
             .query_row(params![fix_id, id, cwd, stem], |r| r.get(0))
             .map_err(|e| format!("fix outcome: {e}"))?;
+        candidate_context.insert(fix_id, (cwd.clone(), stem.clone()));
         let entry = by_stem.entry(fix_stem).or_insert(FixCandidate {
             run_id: fix_id,
             argv_json: fix_argv.clone(),
@@ -1375,6 +1402,7 @@ pub fn fix_candidates(
             worked: 0,
             agent: agent.clone(),
             at: at.clone(),
+            verification: None,
         });
         entry.seen += 1;
         entry.worked += worked as i64;
@@ -1384,6 +1412,32 @@ pub fn fix_candidates(
             entry.agent = agent;
             entry.at = at;
         }
+    }
+    // Use the latest observed outcome, including failures and unknown exits;
+    // never select just the most recent success and hide a regression.
+    for candidate in by_stem.values_mut() {
+        candidate.verification = conn
+            .query_row(
+                "SELECT id, argv_json, exit_code, created_at, repository_id
+             FROM command_runs WHERE id > ?1 AND cwd IS ?2
+             AND mw_stem(argv_json) = ?3 ORDER BY id DESC LIMIT 1",
+                params![
+                    candidate.run_id,
+                    candidate_context[&candidate.run_id].0,
+                    candidate_context[&candidate.run_id].1
+                ],
+                |r| {
+                    Ok(FixVerification {
+                        run_id: r.get(0)?,
+                        argv_json: r.get(1)?,
+                        exit_code: r.get(2)?,
+                        at: r.get(3)?,
+                        repository: r.get(4)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(|e| format!("latest fix verification: {e}"))?;
     }
     let mut candidates: Vec<FixCandidate> = by_stem.into_values().collect();
     candidates.sort_by(|a, b| {
@@ -1409,6 +1463,19 @@ fn format_hint(seen: usize, best: Option<&FixCandidate>) -> String {
     };
     let by = format!("{} {}", ran_by(fix.agent.as_deref()), relative_age(&fix.at));
     let command = fix.command();
+    let verification = fix
+        .verification
+        .as_ref()
+        .map(FixVerification::summary)
+        .unwrap_or_else(|| "latest verification: unknown (no rerun captured)".into());
+    if fix
+        .verification
+        .as_ref()
+        .is_none_or(|v| v.exit_code != Some(0))
+    {
+        return format!("seen {times}; historical successes {} of {}; {verification}; historical candidate: {command}", fix.worked, fix.seen);
+    }
+    let by = format!("{by}; {verification}");
     if fix.worked >= 2 {
         format!(
             "seen {times}; worked {} of {} times, last {by}, confirmed fix: {command}",
@@ -4087,11 +4154,12 @@ mod tests {
 
         let hint = error_hint(&conn, err).unwrap().unwrap();
         assert!(
-            hint.starts_with("seen 3 times; worked 2 of 2 times, last run by Codex"),
+            hint.starts_with("seen 3 times; historical successes 2 of 2"),
             "{hint}"
         );
         assert!(
-            hint.ends_with(", confirmed fix: xcode-select --install"),
+            hint.contains("contradicts")
+                && hint.ends_with("historical candidate: xcode-select --install"),
             "{hint}"
         );
 
@@ -4158,8 +4226,9 @@ mod tests {
         let live = "  ⎿  Error: xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools)";
         let hint = error_hint(&conn, live).unwrap().unwrap();
         assert!(
-            hint.starts_with("seen 2 times; worked once, run in a terminal")
-                && hint.ends_with(", possible fix: xcode-select --install"),
+            hint.starts_with("seen 2 times; historical successes 1 of 1")
+                && hint.contains("contradicts")
+                && hint.ends_with("historical candidate: xcode-select --install"),
             "{hint}"
         );
         assert_eq!(
@@ -4199,7 +4268,8 @@ mod tests {
         let again = run(r#"["cargo","build"]"#, 101, err, "2026-01-02T00:00:00Z");
         let note = hook_feedback(&conn, again).unwrap().unwrap();
         assert!(
-            note.contains("possible fix: xcode-select --install"),
+            note.contains("historical candidate: xcode-select --install")
+                && note.contains("contradicts"),
             "{note}"
         );
         // It passes right after failing, nothing saved since: ask for the lesson.
@@ -4243,7 +4313,8 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(
-            note.contains("possible fix: xcode-select --install"),
+            note.contains("historical candidate: xcode-select --install")
+                && note.contains("outcome unknown"),
             "{note}"
         );
         assert_eq!(shown(&conn), 2);
