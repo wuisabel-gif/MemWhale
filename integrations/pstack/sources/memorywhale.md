@@ -55,8 +55,11 @@ Read-only. Never call `remember`. Investigators gather; they do not write.
    search_memory {"query": "<term>", "mode": "evidence", "project": "<project>"}
    ```
 
-   `search_memory` has no relevance floor: it returns the top rows even when
-   nothing matches. Keep a hit when its `reasons:` line names a keyword match,
+   Built-in `search_memory` now returns insufficient evidence when no content
+   matches; report that result instead of treating it as a fix. MemoryWhale
+   0.24 and earlier can return unrelated top rows even when nothing matches.
+   A content match is not proof of relevance: keep a hit when its `reasons:`
+   line names a keyword match,
    such as `59% keyword match (BM25 · body: add, calc)`, or when its snippet
    visibly contains your terms. The `reasons:` line names only signals of 15%
    or more, so a weak real match shows no keyword reason, and in MemoryWhale

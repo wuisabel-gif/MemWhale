@@ -226,6 +226,23 @@ pub trait MemoryEngine {
     fn name(&self) -> &str;
     /// Return the top-`k` memories for the query, each with its score + reasons.
     fn retrieve(&self, query: &Query, k: usize) -> Vec<ScoredMemory>;
+    /// Content-grounded search: recency, importance and task tags alone do not
+    /// establish a match. Empty queries retain browsing/context semantics.
+    /// This is an evidence floor, not a calibrated relevance probability.
+    fn retrieve_matches(&self, query: &Query, k: usize) -> Vec<ScoredMemory> {
+        // Filter before truncation, so an unrelated but recent row cannot hide
+        // a lower-ranked content match. Implementations may optimize this.
+        let mut hits = self.retrieve(query, usize::MAX);
+        if !query.text.trim().is_empty() {
+            hits.retain(|hit| {
+                hit.signals.iter().any(|signal| {
+                    signal.name == "similarity" && signal.applicable && signal.score > 0.0
+                })
+            });
+        }
+        hits.truncate(k);
+        hits
+    }
     /// Full explanation for a single memory id (the `memory explain <id>` view).
     fn explain(&self, id: i64, query: &Query) -> Option<ScoredMemory>;
 }
@@ -703,6 +720,21 @@ mod tests {
         let top = eng.retrieve(&q, 2);
         assert_eq!(top.len(), 2);
         assert_eq!(top[0].memory.id, 143); // Rust wins
+    }
+
+    #[test]
+    fn search_abstains_without_content_evidence_but_browsing_survives() {
+        let engine = BuiltinEngine::new(sample());
+        let unrelated = Query::new("xylophonium", now()).with_task(vec!["rust".into()]);
+        assert!(!engine.retrieve(&unrelated, 2).is_empty());
+        assert!(engine.retrieve_matches(&unrelated, 2).is_empty());
+        let matches = engine.retrieve_matches(&Query::new("pizza", now()), 20);
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].memory.id, 7);
+        assert_eq!(engine.retrieve_matches(&Query::new("", now()), 2).len(), 2);
+        assert!(engine
+            .retrieve_matches(&Query::new("pizza", now()), 0)
+            .is_empty());
     }
 
     #[test]
