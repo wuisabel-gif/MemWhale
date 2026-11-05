@@ -21,6 +21,8 @@ jobs:
         run: cargo clippy -p memorywhale-core -p memorywhale-cli --all-targets -- -D warnings
       - name: Test non-desktop crates
         run: cargo test -p memorywhale-core -p memorywhale-cli
+      - name: Test the core semantic path (desktop builds enable it)
+        run: cargo test -p memorywhale-core --features embeddings --lib
       - name: Check documentation references
         run: bash scripts/check-doc-references.sh
       - name: Check packaged Cursor CLI completions
