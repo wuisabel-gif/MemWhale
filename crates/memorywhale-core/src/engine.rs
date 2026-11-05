@@ -234,11 +234,7 @@ pub trait MemoryEngine {
         // a lower-ranked content match. Implementations may optimize this.
         let mut hits = self.retrieve(query, usize::MAX);
         if !query.text.trim().is_empty() {
-            hits.retain(|hit| {
-                hit.signals.iter().any(|signal| {
-                    signal.name == "similarity" && signal.applicable && signal.score > 0.0
-                })
-            });
+            hits.retain(|hit| content_match(hit, 0.0));
         }
         hits.truncate(k);
         hits
@@ -246,6 +242,21 @@ pub trait MemoryEngine {
     /// Full explanation for a single memory id (the `memory explain <id>` view).
     fn explain(&self, id: i64, query: &Query) -> Option<ScoredMemory>;
 }
+
+/// A hit whose similarity signal is above `floor`.
+fn content_match(hit: &ScoredMemory, floor: f32) -> bool {
+    hit.signals
+        .iter()
+        .any(|signal| signal.name == "similarity" && signal.applicable && signal.score > floor)
+}
+
+/// Cosine below which an embedding match is not content evidence. With
+/// `nomic-embed-text` on the recall benchmark, every relevant pair scored
+/// 0.528 or more, and off-topic questions topped out at 0.40 to 0.49
+/// (technical ones the corpus does not cover reached 0.54, so they still
+/// pass). Embeddings never score 0, so without a floor search never abstained.
+// ponytail: one floor for one model; per-model floors if another embedder ships.
+pub const SEMANTIC_MATCH_FLOOR: f32 = 0.5;
 
 /// The default, zero-setup engine: scores an in-memory set with the explainable
 /// scorer. (A SQLite-backed variant just loads `memories` from the DB first.)
@@ -305,6 +316,29 @@ impl BuiltinEngine {
     fn query_embedding(&self, _query: &Query) -> Option<Vec<f32>> {
         None
     }
+
+    /// Every memory scored for `query`, best first. `qe` is the query's
+    /// embedding when the semantic path is on.
+    fn ranked(&self, query: &Query, qe: Option<&[f32]>) -> Vec<ScoredMemory> {
+        // Keyword relevance from FTS5 BM25 — only when we're not on the semantic
+        // (embedding) path, which supersedes it.
+        let sims = if qe.is_none() {
+            bm25_similarities(&self.memories, &query.text)
+        } else {
+            HashMap::new()
+        };
+        let mut scored: Vec<ScoredMemory> = self
+            .memories
+            .iter()
+            .map(|m| score_with_lexical(m, query, &self.weights, qe, sims.get(&m.id).copied()))
+            .collect();
+        scored.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        scored
+    }
 }
 
 impl MemoryEngine for BuiltinEngine {
@@ -318,33 +352,25 @@ impl MemoryEngine for BuiltinEngine {
 
     fn retrieve(&self, query: &Query, k: usize) -> Vec<ScoredMemory> {
         let qe = self.query_embedding(query);
-        // Keyword relevance from FTS5 BM25 — only when we're not on the semantic
-        // (embedding) path, which supersedes it.
-        let sims = if qe.is_none() {
-            bm25_similarities(&self.memories, &query.text)
-        } else {
-            HashMap::new()
-        };
-        let mut scored: Vec<ScoredMemory> = self
-            .memories
-            .iter()
-            .map(|m| {
-                score_with_lexical(
-                    m,
-                    query,
-                    &self.weights,
-                    qe.as_deref(),
-                    sims.get(&m.id).copied(),
-                )
-            })
-            .collect();
-        scored.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        let mut scored = self.ranked(query, qe.as_deref());
         scored.truncate(k);
         scored
+    }
+
+    /// As the default, but a row scored by embeddings needs a cosine above
+    /// [`SEMANTIC_MATCH_FLOOR`]; keyword-scored rows still need any match.
+    fn retrieve_matches(&self, query: &Query, k: usize) -> Vec<ScoredMemory> {
+        if query.text.trim().is_empty() {
+            return self.retrieve(query, k);
+        }
+        let qe = self.query_embedding(query);
+        let mut hits = self.ranked(query, qe.as_deref());
+        hits.retain(|hit| {
+            let semantic = qe.is_some() && hit.memory.embedding.is_some();
+            content_match(hit, if semantic { SEMANTIC_MATCH_FLOOR } else { 0.0 })
+        });
+        hits.truncate(k);
+        hits
     }
 
     fn explain(&self, id: i64, query: &Query) -> Option<ScoredMemory> {
@@ -735,6 +761,40 @@ mod tests {
         assert!(engine
             .retrieve_matches(&Query::new("pizza", now()), 0)
             .is_empty());
+    }
+
+    /// Fixed vectors: "food" is close to pizza only; "weather" is near nothing.
+    #[cfg(feature = "embeddings")]
+    struct FakeEmbedder;
+
+    #[cfg(feature = "embeddings")]
+    impl Embedder for FakeEmbedder {
+        fn name(&self) -> &str {
+            "fake"
+        }
+        fn embed(&self, text: &str) -> anyhow::Result<Vec<f32>> {
+            Ok(match text {
+                "food" => vec![1.0, 0.0, 0.0],
+                "weather" => vec![0.0, 0.0, 1.0],
+                t if t.contains("pizza") => vec![0.8, 0.6, 0.0],
+                _ => vec![0.3, 0.9, 0.3],
+            })
+        }
+    }
+
+    #[cfg(feature = "embeddings")]
+    #[test]
+    fn semantic_search_abstains_below_the_floor() {
+        let engine = BuiltinEngine::new(sample())
+            .with_embedder(Arc::new(FakeEmbedder))
+            .unwrap();
+        let food = engine.retrieve_matches(&Query::new("food", now()), 20);
+        assert_eq!(food.len(), 1, "only pizza clears the floor");
+        assert_eq!(food[0].memory.id, 7);
+        let weather = Query::new("weather", now());
+        assert!(!engine.retrieve(&weather, 20).is_empty());
+        assert!(engine.retrieve_matches(&weather, 20).is_empty());
+        assert_eq!(engine.retrieve_matches(&Query::new("", now()), 2).len(), 2);
     }
 
     #[test]
