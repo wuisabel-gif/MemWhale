@@ -1,0 +1,58 @@
+name: Scheduled dependency audit
+
+# Advisories land between pushes; this catches them on main before an
+# unrelated PR trips over them (#424). Push and PR audits live in ci.yml.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Audit Cargo.lock
+        run: cargo audit
+
+  npm:
+    name: npm production audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  report:
+    name: Open or update the audit issue
+    needs: [rust, npm]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: "Scheduled dependency audit failed on main"
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Open or comment on the issue
+        run: |
+          body="The scheduled audit failed: $RUN_URL"
+          number=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq "map(select(.title == \"$TITLE\")) | .[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$TITLE" --body "$body"
+          fi
