@@ -239,6 +239,9 @@ code is unknown.
 Commands run in an ordinary terminal are captured only through MemoryWhale's
 normal terminal capture paths. MCP access alone is not automatic capture.
 
+The Rho hook only records: Rho gets no recall notes or pre-run warnings. Use
+`search_memory` or `mw context --last-error` to recall a past fix.
+
 ### How Rho sessions and MemoryWhale differ
 
 Rho keeps its own saved session transcripts in `~/.rho/sessions/` and may

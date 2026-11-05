@@ -86,6 +86,16 @@ after failing it is asked to save the lesson, the same notes Claude Code gets.
 Set `MEMORYWHALE_HOOK_FEEDBACK=0` to record without them. Gemini may warn
 before running a new or changed hook; approve it once.
 
+#### Reading a recall note
+
+A note names one earlier command and how much evidence it has:
+
+- `possible fix: <cmd>`: the error was seen once, a person typed `<cmd>` at a prompt, and the failing command then passed.
+- `confirmed fix: <cmd>`: the failing command passed after `<cmd>` in two or more episodes ("worked 2 of 2 times").
+- `historical candidate: <cmd>`: the failing command failed again after `<cmd>`, so the fix label is dropped.
+
+The note says who ran the fix last ("run by Codex", "run in a terminal"), so a fix found in one agent reaches the others. Without that evidence there is no note. `MEMORYWHALE_HOOK_FEEDBACK=0` turns notes off. See the [0.20.0](../../docs/releases/0.20.0.md) and [0.21.0](../../docs/releases/0.21.0.md) release notes.
+
 ## Verify
 
 ```bash
