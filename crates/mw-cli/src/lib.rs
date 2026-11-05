@@ -1065,16 +1065,31 @@ pub fn read_only_program(stem: &str) -> bool {
     }
 }
 
-/// Register `mw_stem(argv_json)` so queries can compare runs by program stem.
+/// Whether a run follows a recall note's fix: the same command, or the same
+/// program stem when that stem names something specific. An inline script
+/// (`python3 -`) or an empty stem says nothing about intent, so only the
+/// exact command counts; otherwise any later heredoc looked like a follow-up.
+pub fn follows_fix(run_argv_json: &str, fix_argv_json: &str) -> bool {
+    if run_argv_json == fix_argv_json && fix_argv_json != "[]" {
+        return true;
+    }
+    let fix = program_stem(fix_argv_json);
+    !fix.is_empty() && !read_only_program(&fix) && program_stem(run_argv_json) == fix
+}
+
+/// Register `mw_stem(argv_json)` so queries can compare runs by program stem,
+/// and `mw_follows(run_argv_json, fix_argv_json)` ([`follows_fix`]).
 pub fn register_sql_functions(conn: &Connection) -> Result<(), String> {
     use rusqlite::functions::FunctionFlags;
-    conn.create_scalar_function(
-        "mw_stem",
-        1,
-        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
-        |ctx| Ok(program_stem(&ctx.get::<String>(0)?)),
-    )
-    .map_err(|e| format!("failed to register mw_stem: {e}"))
+    let flags = FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC;
+    conn.create_scalar_function("mw_stem", 1, flags, |ctx| {
+        Ok(program_stem(&ctx.get::<String>(0)?))
+    })
+    .map_err(|e| format!("failed to register mw_stem: {e}"))?;
+    conn.create_scalar_function("mw_follows", 2, flags, |ctx| {
+        Ok(follows_fix(&ctx.get::<String>(0)?, &ctx.get::<String>(1)?))
+    })
+    .map_err(|e| format!("failed to register mw_follows: {e}"))
 }
 
 /// Stable, portable FNV-1a hash of arbitrary content → 8 hex chars. Same style
@@ -1716,7 +1731,7 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
          LEFT JOIN command_runs followed ON followed.id = (
              SELECT f.id FROM command_runs f
              WHERE f.id > h.run_id AND f.id <= h.run_id + 10
-               AND mw_stem(f.argv_json) = mw_stem(h.fix_argv_json) AND f.cwd IS r.cwd
+               AND mw_follows(f.argv_json, h.fix_argv_json) AND f.cwd IS r.cwd
              ORDER BY f.id LIMIT 1)
          LEFT JOIN command_runs worked ON worked.id = (
              SELECT s.id FROM command_runs s
@@ -1968,7 +1983,7 @@ pub fn recall_history(conn: &Connection, limit: usize) -> Result<Vec<RecallEvent
                 .query_row(
                     "SELECT f.id FROM command_runs f
                      WHERE f.id > ?1 AND f.id <= ?1 + 10 AND f.cwd IS ?2
-                       AND mw_stem(f.argv_json) = mw_stem(?3)
+                       AND mw_follows(f.argv_json, ?3)
                      ORDER BY f.id LIMIT 1",
                     params![run_id, cwd, fix_argv],
                     |r| r.get(0),
@@ -3845,6 +3860,24 @@ mod tests {
         assert_eq!(program_stem(r#"["cd /p && cargo build"]"#), "cargo build");
         assert_eq!(program_stem(r#"["cargo","build"]"#), "cargo build");
         assert_eq!(program_stem("[]"), "");
+    }
+
+    #[test]
+    fn only_the_fix_itself_counts_as_following_a_note() {
+        let fix = r#"["xcode-select","--install"]"#;
+        assert!(follows_fix(fix, fix));
+        assert!(follows_fix(r#"["cd /p && xcode-select --install"]"#, fix));
+        assert!(!follows_fix(r#"["cargo","build"]"#, fix));
+        // Two different heredocs share the stem `python3 -`.
+        let script = r#"["cd ~/a && python3 - <<'EOF'\nprint(1)\nEOF"]"#;
+        assert!(follows_fix(script, script));
+        assert!(!follows_fix(
+            r#"["python3 - <<'EOF'\nprint(2)\nEOF"]"#,
+            script
+        ));
+        // A lesson-only note has no fix to follow.
+        assert!(!follows_fix(r#"["cd /tmp"]"#, "[]"));
+        assert!(!follows_fix("[]", "[]"));
     }
 
     #[test]
