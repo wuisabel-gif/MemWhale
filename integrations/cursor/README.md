@@ -172,8 +172,9 @@ the capture hooks, commands are recorded only through normal terminal capture,
   malformed input/storage failure, and uses a five-second configured timeout.
 - Hook feedback: after a recorded Shell command, the hook may print one
   `{"additional_context": "..."}` line, which Cursor adds to the conversation
-  ([hooks reference](https://cursor.com/docs/agent/hooks)). It names the fix
-  that worked last time when a command fails with an error seen before, and asks
+  ([hooks reference](https://cursor.com/docs/agent/hooks)). It names an earlier
+  fix and its evidence when a command fails with an error seen before (see
+  "Reading a recall note" below), and asks
   for a one-sentence lesson when a command passes right after failing. Otherwise
   stdout stays empty, and any lookup error is silent. Set
   `MEMORYWHALE_HOOK_FEEDBACK=0` in the hook's environment to record silently.
@@ -184,6 +185,16 @@ The Rule falls back to the `mw` CLI, so even with only the binaries installed,
 Cursor can run `mw context --last-error` / `mw search "…"` / `mw remember "…"`.
 With no editor integration at all, `mw ask` packages the last failure onto
 your clipboard for any chat.
+
+### Reading a recall note
+
+A note names one earlier command and how much evidence it has:
+
+- `possible fix: <cmd>`: the error was seen once, a person typed `<cmd>` at a prompt, and the failing command then passed.
+- `confirmed fix: <cmd>`: the failing command passed after `<cmd>` in two or more episodes ("worked 2 of 2 times").
+- `historical candidate: <cmd>`: the failing command failed again after `<cmd>`, so the fix label is dropped.
+
+The note says who ran the fix last ("run by Codex", "run in a terminal"), so a fix found in one agent reaches the others. Without that evidence there is no note. `MEMORYWHALE_HOOK_FEEDBACK=0` turns notes off. See the [0.20.0](../../docs/releases/0.20.0.md) and [0.21.0](../../docs/releases/0.21.0.md) release notes.
 
 ## Example prompt
 

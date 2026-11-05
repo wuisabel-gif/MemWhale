@@ -164,6 +164,16 @@ is warned about once, and programs that only read are never warned about.
 install from before 0.22 gains the hook the next time you run
 `mw integrate claude`; restart Claude Code afterwards.
 
+### Reading a recall note
+
+A note names one earlier command and how much evidence it has:
+
+- `possible fix: <cmd>`: the error was seen once, a person typed `<cmd>` at a prompt, and the failing command then passed.
+- `confirmed fix: <cmd>`: the failing command passed after `<cmd>` in two or more episodes ("worked 2 of 2 times").
+- `historical candidate: <cmd>`: the failing command failed again after `<cmd>`, so the fix label is dropped.
+
+The note says who ran the fix last ("run by Codex", "run in a terminal"), so a fix found in one agent reaches the others. Without that evidence there is no note. `MEMORYWHALE_HOOK_FEEDBACK=0` turns notes off. See the [0.20.0](../../docs/releases/0.20.0.md) and [0.21.0](../../docs/releases/0.21.0.md) release notes.
+
 ### Limitations
 
 - The bundled hook captures only the Bash tool.
