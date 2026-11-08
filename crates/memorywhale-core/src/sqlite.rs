@@ -544,7 +544,9 @@ fn bookmarks(conn: &Connection) -> Result<Vec<Memory>, LoadError> {
                 created_at: when,
                 last_used: when,
                 mentions: 1,
-                importance: 0.55,
+                // A lesson someone chose to save outranks the raw failure it
+                // explains (0.65), which also gains reinforcement from repeats.
+                importance: 0.8,
                 tags: vec!["note".into()],
                 embedding: None,
                 agent: None,

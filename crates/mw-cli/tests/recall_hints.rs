@@ -154,3 +154,29 @@ fn a_saved_lesson_leads_context_instead_of_no_fix() {
     assert!(!text.contains("no fix recorded yet"), "{text}");
     assert!(!text.contains("No recorded fix yet"), "{text}");
 }
+
+#[test]
+fn a_saved_lesson_ranks_above_the_failures_it_explains() {
+    let dir = store("rank");
+    fail(&dir);
+    run(
+        env!("CARGO_BIN_EXE_mw"),
+        &dir,
+        &[
+            "remember",
+            "linker cc not found -> run: xcode-select --install",
+        ],
+    );
+    fail(&dir);
+    let out = run(
+        env!("CARGO_BIN_EXE_mw"),
+        &dir,
+        &["search", "linker", "cc", "not", "found"],
+    );
+    let text = String::from_utf8_lossy(&out.stdout);
+    let first = text
+        .lines()
+        .find(|l| l.contains('%'))
+        .unwrap_or_else(|| panic!("no hits:\n{text}"));
+    assert!(first.contains("[note"), "lesson should lead:\n{text}");
+}
