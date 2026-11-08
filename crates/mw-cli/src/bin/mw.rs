@@ -5075,15 +5075,31 @@ fn context_cmd(args: &[String]) -> Result<(), String> {
                 if let Ok(insight) = memorywhale_cli::error_insight(&conn, &fp) {
                     println!("\n## This error");
                     println!("{}", insight.summary());
-                    if let Ok(Some(hint)) = stderr
-                        .lines()
-                        .find(|l| !l.trim().is_empty())
+                    let line = stderr.lines().find(|l| !l.trim().is_empty());
+                    // A saved lesson is what someone concluded: it leads, as
+                    // in agent notes, and stands in for a missing fix command.
+                    let lesson = line.and_then(|line| {
+                        memorywhale_cli::matching_lesson(
+                            &conn,
+                            &memorywhale_cli::program_stem_for_failure(&argv_json, &stderr),
+                            line,
+                        )
+                    });
+                    if let Some((label, when)) = &lesson {
+                        println!(
+                            "Saved lesson ({}): {label}",
+                            memorywhale_cli::relative_age(when)
+                        );
+                    }
+                    if let Ok(Some(hint)) = line
                         .map(|line| memorywhale_cli::error_hint(&conn, line))
                         .unwrap_or(Ok(None))
                     {
-                        println!("Recall: {hint}");
+                        if lesson.is_none() || !hint.ends_with("no fix recorded yet") {
+                            println!("Recall: {hint}");
+                        }
                     }
-                    if insight.occurrences > 1 && insight.resolutions == 0 {
+                    if lesson.is_none() && insight.occurrences > 1 && insight.resolutions == 0 {
                         println!("No recorded fix yet — once you resolve it, run `mw remember \"<the fix>\"`.");
                     }
                 }

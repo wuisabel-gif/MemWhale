@@ -131,8 +131,13 @@ fn a_hook_failure_and_a_terminal_fix_are_one_episode() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn a_saved_lesson_ranks_above_the_failures_it_explains() {
     let dir = store("rank");
+=======
+fn a_saved_lesson_leads_context_instead_of_no_fix() {
+    let dir = store("lesson");
+>>>>>>> origin/main
     fail(&dir);
     run(
         env!("CARGO_BIN_EXE_mw"),
@@ -143,6 +148,7 @@ fn a_saved_lesson_ranks_above_the_failures_it_explains() {
         ],
     );
     fail(&dir);
+<<<<<<< HEAD
     let out = run(
         env!("CARGO_BIN_EXE_mw"),
         &dir,
@@ -154,4 +160,16 @@ fn a_saved_lesson_ranks_above_the_failures_it_explains() {
         .find(|l| l.contains('%'))
         .unwrap_or_else(|| panic!("no hits:\n{text}"));
     assert!(first.contains("[note"), "lesson should lead:\n{text}");
+=======
+    let out = run(env!("CARGO_BIN_EXE_mw"), &dir, &["context", "--last-error"]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains(
+            "Saved lesson (just now): linker cc not found -> run: xcode-select --install"
+        ),
+        "{text}"
+    );
+    assert!(!text.contains("no fix recorded yet"), "{text}");
+    assert!(!text.contains("No recorded fix yet"), "{text}");
+>>>>>>> origin/main
 }
