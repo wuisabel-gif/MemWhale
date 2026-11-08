@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 28079d751f9b65585f45477f94e08da26aa2e4ec89c044403e89609d4ee84efb -->
+<!-- README-SOURCE-SHA256: 0eaaff083d647e4cb22204dfcf140513a57f53ec0141c6e44d9e9fa4269a50bd -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo do MemoryWhale" width="160" />
@@ -39,9 +39,9 @@ Funciona com 19 agentes de programação via MCP, sem conta e sem enviar nada.
 > mecanismo, não um estudo de campo. Veja
 > [como foi medido](../../benchmarks/README.md).
 
-**MemoryWhale 0.25.0: Honest Answers · 1º de novembro de 2026.**
-A CLI, a interface web e o app desktop compartilham a versão de produto 0.25.0;
-o núcleo Rust reutilizável está na versão 0.12.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.25.0/docs/releases/0.25.0.md)
+**MemoryWhale 0.26.0: Lessons First · 7 de novembro de 2026.**
+A CLI, a interface web e o app desktop compartilham a versão de produto 0.26.0;
+o núcleo Rust reutilizável está na versão 0.13.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.26.0/docs/releases/0.26.0.md)
 para o guia de atualização. Ao abrir uma base, ela é migrada do schema 10 para o 17.
 
 <p align="center">
