@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0eaaff083d647e4cb22204dfcf140513a57f53ec0141c6e44d9e9fa4269a50bd -->
+<!-- README-SOURCE-SHA256: 8e983c2dfaaabf588f410944e2a4955a5f27b50d44040d5872761feb1b11a7e8 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -34,7 +34,7 @@ MCP 経由で 19 種類のコーディングエージェントと連携でき、
 > プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで **25%**、メモリありで **96%** の課題を解決しました。
 > これはメカニズムを示すための合成タスクであり、実環境での調査ではありません。詳しくは[測定方法](../../benchmarks/README.md)をご覧ください。
 
-**MemoryWhale 0.26.0: Lessons First · 2026 年 11 月 7 日**
+**MemoryWhale 0.26.0: Lessons First · 2026 年 11 月 8 日**
 CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.26.0 で、再利用可能な Rust コアのバージョンは 0.13.0 です。
 アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.26.0/docs/releases/0.26.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 17 に移行されます。
 

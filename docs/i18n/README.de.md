@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0eaaff083d647e4cb22204dfcf140513a57f53ec0141c6e44d9e9fa4269a50bd -->
+<!-- README-SOURCE-SHA256: 8e983c2dfaaabf588f410944e2a4955a5f27b50d44040d5872761feb1b11a7e8 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -38,7 +38,7 @@ wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. �
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](../../benchmarks/README.md).
 
-**MemoryWhale 0.26.0: Lessons First · 7. November 2026.**
+**MemoryWhale 0.26.0: Lessons First · 8. November 2026.**
 CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.26.0; der
 wiederverwendbare Rust-Kern hat die Version 0.13.0. Hinweise zum Upgrade findest
 du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.26.0/docs/releases/0.26.0.md).

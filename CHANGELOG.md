@@ -3,7 +3,7 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [0.26.0] — Lessons First — November 7, 2026
+## [0.26.0] — Lessons First — November 8, 2026
 
 Product `0.26.0`; `memorywhale-core` `0.13.0`; SQLite schema `17` (unchanged).
 

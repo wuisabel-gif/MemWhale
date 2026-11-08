@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0eaaff083d647e4cb22204dfcf140513a57f53ec0141c6e44d9e9fa4269a50bd -->
+<!-- README-SOURCE-SHA256: 8e983c2dfaaabf588f410944e2a4955a5f27b50d44040d5872761feb1b11a7e8 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -34,7 +34,7 @@ MemoryWhale 记录调试时真正发生过的事情：命令、输出、失败�
 > 在一项针对项目特定 bug 的对照评测中，智能体在没有记忆时解决了 **25%** 的问题，有记忆时解决了 **96%**。
 > 这些是用于演示其机制的合成任务，并非实地研究；详见[测评方法](../../benchmarks/README.md)。
 
-**MemoryWhale 0.26.0: Lessons First · 2026 年 11 月 7 日。**
+**MemoryWhale 0.26.0: Lessons First · 2026 年 11 月 8 日。**
 CLI、Web 界面和桌面应用共用产品版本号 0.26.0；可复用的 Rust 核心版本为 0.13.0。
 升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.26.0/docs/releases/0.26.0.md)。打开存储库时，其 schema 会从 10 迁移到 17。
 

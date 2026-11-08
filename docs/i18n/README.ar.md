@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 0eaaff083d647e4cb22204dfcf140513a57f53ec0141c6e44d9e9fa4269a50bd -->
+<!-- README-SOURCE-SHA256: 8e983c2dfaaabf588f410944e2a4955a5f27b50d44040d5872761feb1b11a7e8 -->
 
 <div dir="rtl">
 
@@ -39,7 +39,7 @@
 > و**96%** منها مع الذاكرة. هذه مهام اصطناعية توضّح آلية العمل، وليست دراسة ميدانية؛
 > راجع [كيف أُجري القياس](../../benchmarks/README.md).
 
-**MemoryWhale 0.26.0: Lessons First · 7 نوفمبر 2026.**
+**MemoryWhale 0.26.0: Lessons First · 8 نوفمبر 2026.**
 تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.26.0،
 أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.13.0. راجع
 [ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.26.0/docs/releases/0.26.0.md)
