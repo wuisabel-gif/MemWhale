@@ -129,3 +129,28 @@ fn a_hook_failure_and_a_terminal_fix_are_one_episode() {
         "{hint}"
     );
 }
+
+#[test]
+fn a_saved_lesson_leads_context_instead_of_no_fix() {
+    let dir = store("lesson");
+    fail(&dir);
+    run(
+        env!("CARGO_BIN_EXE_mw"),
+        &dir,
+        &[
+            "remember",
+            "linker cc not found -> run: xcode-select --install",
+        ],
+    );
+    fail(&dir);
+    let out = run(env!("CARGO_BIN_EXE_mw"), &dir, &["context", "--last-error"]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains(
+            "Saved lesson (just now): linker cc not found -> run: xcode-select --install"
+        ),
+        "{text}"
+    );
+    assert!(!text.contains("no fix recorded yet"), "{text}");
+    assert!(!text.contains("No recorded fix yet"), "{text}");
+}
