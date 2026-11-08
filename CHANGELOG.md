@@ -3,6 +3,29 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.26.0] — Lessons First — November 7, 2026
+
+Product `0.26.0`; `memorywhale-core` `0.13.0`; SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.26.0.md).
+
+### Added
+
+- `memorywhale-core` adds `SEMANTIC_MATCH_FLOOR` (0.5) and its own `BuiltinEngine::retrieve_matches`.
+- A weekly and on-demand dependency audit of `main` that opens or updates one issue when it fails (`.github/workflows/audit.yml`).
+- Each agent guide (Claude Code, Codex, Cursor, Gemini CLI) explains `possible fix`, `confirmed fix`, and `historical candidate`. The Rho guide says Rho gets no notes.
+
+### Changed
+
+- `mw context --last-error` leads with a saved lesson that matches the last error, and no longer says "no fix recorded yet" next to one.
+- Saved lessons rank above the failures they explain in search: notes load at importance 0.8, above a failed command's 0.65.
+- With embeddings on (the desktop app with Ollama), search needs a cosine above 0.5 for a match, so it can say "Insufficient evidence".
+- The README GIFs are re-recorded with current output.
+
+### Fixed
+
+- The recall score in `mw doctor`, `mw recall`, and `/recall` counted a note as followed when any later inline script (`python3 -`) or setup-only line ran. A note now counts as followed only when its fix runs: the same command, or the same specific program stem.
+
 ## [0.25.0] — Honest Answers — November 1, 2026
 
 Product `0.25.0`; `memorywhale-core` `0.12.0`; SQLite schema `17` (unchanged).
