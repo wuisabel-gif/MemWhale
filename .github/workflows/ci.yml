@@ -171,3 +171,33 @@ jobs:
         run: cargo install cargo-audit --locked
       - name: Audit Cargo.lock
         run: cargo audit
+
+  coverage:
+    name: Rust coverage report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+      - name: Run tests with coverage
+        run: cargo llvm-cov -p memorywhale-core -p memorywhale-cli --lcov --output-path lcov.info
+      - name: Summarize line coverage by file
+        run: |
+          {
+            echo '### Rust line coverage (memorywhale-core, memorywhale-cli)'
+            echo '```'
+            cargo llvm-cov report
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      # Baseline measured 2026-11-13: 71.5% of 24,383 lines. The floor sits a
+      # little below it; raise it deliberately when coverage rises.
+      - name: Check the line-coverage floor
+        run: cargo llvm-cov report --summary-only --fail-under-lines 68
+      - name: Upload lcov report
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-coverage-lcov
+          path: lcov.info
