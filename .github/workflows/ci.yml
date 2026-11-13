@@ -192,6 +192,10 @@ jobs:
             cargo llvm-cov report
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
+      # Baseline measured 2026-11-13: 71.5% of 24,383 lines. The floor sits a
+      # little below it; raise it deliberately when coverage rises.
+      - name: Check the line-coverage floor
+        run: cargo llvm-cov report --summary-only --fail-under-lines 68
       - name: Upload lcov report
         uses: actions/upload-artifact@v7
         with:

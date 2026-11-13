@@ -84,6 +84,19 @@ cargo test -p memorywhale-core -p memorywhale-cli
 cargo build --workspace
 ```
 
+To see which Rust lines the tests exercise (CI's `Rust coverage report` job
+runs the same commands, prints the per-file table in its summary, and fails
+below 68% line coverage, a floor set just under the measured 71.5%):
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+cargo llvm-cov -p memorywhale-core -p memorywhale-cli --lcov --output-path lcov.info
+cargo llvm-cov report            # per-file table
+```
+
+Coverage shows where tests are missing; it is not proof of correctness.
+
 Run repository consistency checks:
 
 ```bash
