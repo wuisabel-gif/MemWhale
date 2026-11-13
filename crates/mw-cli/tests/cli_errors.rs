@@ -62,7 +62,7 @@ fn show_needs_a_numeric_id() {
 
 #[test]
 fn memory_needs_a_lifecycle_action() {
-    mw_fails(&["memory"], "usage: mw memory stale <id>");
+    mw_fails(&["memory"], "usage: mw memory pending | mw memory approve <id>");
 }
 
 #[test]
