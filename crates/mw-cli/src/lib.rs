@@ -840,7 +840,9 @@ fn command_steps(line: &str) -> Vec<(String, String)> {
         })
     };
     let program_like = |t: &str| {
+        // A leading `-` is a flag left over from `x=$(prog -f …)`, not a program.
         !t.is_empty()
+            && !t.starts_with('-')
             && t.chars()
                 .all(|c| c.is_ascii_alphanumeric() || "._+-".contains(c))
     };
@@ -1584,7 +1586,8 @@ pub fn matching_lesson(
     }
     let mut stmt = conn
         .prepare(
-            "SELECT label, created_at FROM bookmarks WHERE status = 'active' ORDER BY id DESC LIMIT 500",
+            "SELECT label, created_at FROM bookmarks
+             WHERE status = 'active' AND approved = 1 ORDER BY id DESC LIMIT 500",
         )
         .ok()?;
     let rows: Vec<(String, String)> = stmt
@@ -1594,7 +1597,9 @@ pub fn matching_lesson(
         .collect();
     rows.into_iter().find(|(label, _)| {
         let label = squash(label);
-        (key.len() >= 8 && label.contains(&key)) || (!stem.is_empty() && label.contains(&stem))
+        // The stem must match whole words: `f p` is not in "pkill f pgrep f".
+        (key.len() >= 8 && label.contains(&key))
+            || (!stem.is_empty() && format!(" {label} ").contains(&format!(" {stem} ")))
     })
 }
 
@@ -1669,9 +1674,14 @@ pub fn recall_before(conn: &Connection, command: &str, cwd: Option<&str>) -> Opt
     }
     let shown: String = line.chars().take(80).collect();
     let mut text = format!(
-        "MemoryWhale, before you run this: `{stem}` failed here {} with `{shown}`.",
+        "MemoryWhale, before you run this: `{stem}` failed here {}",
         relative_age(&at)
     );
+    text.push_str(&if shown.is_empty() {
+        ".".to_string()
+    } else {
+        format!(" with `{shown}`.")
+    });
     if let Some((label, when)) = &lesson {
         text.push_str(&format!(" Saved lesson ({}): {label}.", relative_age(when)));
     }
@@ -4167,6 +4177,31 @@ mod tests {
         assert_eq!(
             matching_lesson(&conn, "npm test", "error: something unrelated here"),
             None
+        );
+    }
+
+    #[test]
+    fn a_lesson_needs_whole_word_stem_matches_and_approval() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO bookmarks (label, created_at) VALUES
+             ('over ssh, pkill -f / pgrep -f with a literal pattern kills the session', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        // The real false positive: a flag fragment inside the lesson's words.
+        assert_eq!(matching_lesson(&conn, "-f $p", ""), None);
+        assert_eq!(matching_lesson(&conn, "kill", ""), None);
+        assert!(matching_lesson(&conn, "pgrep -f", "").is_some());
+        // An unapproved (pending) lesson is never shown.
+        conn.execute("UPDATE bookmarks SET approved = 0", [])
+            .unwrap();
+        assert_eq!(matching_lesson(&conn, "pgrep -f", ""), None);
+        // A flag after `x=$(prog -f …)` is not a program.
+        assert_eq!(
+            stem_of_line("for p in 1 2; do t=$(pdftotext -f $p a.pdf -); echo \"$t\"; done"),
+            "echo $t"
         );
     }
 
