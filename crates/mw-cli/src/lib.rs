@@ -3102,6 +3102,130 @@ pub fn reject_note(conn: &Connection, id: i64) -> Result<(), String> {
         .map_err(|e| format!("failed to reject note: {e}"))
 }
 
+/// Where a repository keeps the lessons it shares, relative to its root.
+pub const REPO_LESSONS_FILE: &str = ".memorywhale/lessons.md";
+
+/// One lesson per `- ` line; anything else in the file is prose.
+fn repo_lesson_lines(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| line.strip_prefix("- "))
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+
+/// Write this repository's lessons to [`REPO_LESSONS_FILE`] so they can be
+/// committed: approved, active, permanent lessons saved inside `repo_root`,
+/// redacted, one per line. Lessons already in the file (a teammate's) are
+/// kept. Returns the file and how many lessons were added.
+pub fn publish_repo_lessons(
+    conn: &Connection,
+    repo_root: &str,
+) -> Result<(std::path::PathBuf, usize), String> {
+    let path = std::path::Path::new(repo_root).join(REPO_LESSONS_FILE);
+    let mut lessons = std::fs::read_to_string(&path)
+        .map(|text| repo_lesson_lines(&text))
+        .unwrap_or_default();
+    let before = lessons.len();
+    let mut stmt = conn
+        .prepare(
+            "SELECT label, cwd FROM bookmarks
+             WHERE approved = 1 AND status = 'active' AND expires_at IS NULL AND cwd IS NOT NULL
+             ORDER BY id",
+        )
+        .map_err(|e| format!("failed to read lessons: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(|e| format!("failed to read lessons: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("failed to read lessons: {e}"))?;
+    for (label, cwd) in rows {
+        // A lesson belongs to the repository its directory resolves to; a
+        // directory that no longer exists falls back to its path.
+        let inside = match repository::discover(&cwd) {
+            Some(repo) => repo.worktree_root == repo_root,
+            None => std::path::Path::new(&cwd).starts_with(repo_root),
+        };
+        let line = redact(&label)
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if inside && !line.is_empty() && !lessons.contains(&line) {
+            lessons.push(line);
+        }
+    }
+    let added = lessons.len() - before;
+    if added > 0 {
+        let mut text = String::from(
+            "# MemoryWhale lessons\n\nLessons saved for this repository. \
+             Run `mw memory adopt` to add them to your local review queue.\n\n",
+        );
+        for lesson in &lessons {
+            text.push_str(&format!("- {lesson}\n"));
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+        }
+        std::fs::write(&path, text)
+            .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+    }
+    Ok((path, added))
+}
+
+/// Read [`REPO_LESSONS_FILE`] into the review queue. The file comes from
+/// whoever could commit to the repository, so every lesson starts unapproved
+/// (`mw memory pending`), is sanitized like any capture, and is capped in
+/// size. Lessons already stored are skipped. Returns how many were added.
+pub fn adopt_repo_lessons(conn: &Connection, repo_root: &str) -> Result<usize, String> {
+    const MAX_FILE_BYTES: u64 = 256 * 1024;
+    const MAX_LESSON_CHARS: usize = 500;
+    let gate = capture_rule_for(Some(repo_root));
+    if !gate.mode.stores_anything() {
+        return Err(format!(
+            "capture is off for this directory ({}) — nothing adopted",
+            gate.source
+        ));
+    }
+    let path = std::path::Path::new(repo_root).join(REPO_LESSONS_FILE);
+    let size = std::fs::metadata(&path)
+        .map_err(|_| format!("no {REPO_LESSONS_FILE} in this repository"))?
+        .len();
+    if size > MAX_FILE_BYTES {
+        return Err(format!(
+            "{} is larger than 256 KiB; not read",
+            path.display()
+        ));
+    }
+    let text = std::fs::read_to_string(&path)
+        .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    let mut added = 0;
+    for line in repo_lesson_lines(&text) {
+        let lesson: String = sanitize_capture(&strip_terminal_controls(&line))
+            .chars()
+            .take(MAX_LESSON_CHARS)
+            .collect();
+        let known: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE label = ?1)",
+                [&lesson],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("failed to check lessons: {e}"))?;
+        if lesson.trim().is_empty() || known {
+            continue;
+        }
+        conn.execute(
+            "INSERT INTO bookmarks (label, cwd, created_at, author_kind, author_name, approved)
+             VALUES (?1, ?2, ?3, 'agent', 'repo', 0)",
+            params![lesson, repo_root, Utc::now().to_rfc3339()],
+        )
+        .map_err(|e| format!("failed to save lesson: {e}"))?;
+        added += 1;
+    }
+    Ok(added)
+}
+
 /// Mark a memory stale without deleting its source evidence.
 pub fn mark_note_stale(conn: &Connection, id: i64) -> Result<(), String> {
     let changed = conn
