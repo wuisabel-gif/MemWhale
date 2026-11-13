@@ -180,3 +180,68 @@ fn a_saved_lesson_ranks_above_the_failures_it_explains() {
         .unwrap_or_else(|| panic!("no hits:\n{text}"));
     assert!(first.contains("[note"), "lesson should lead:\n{text}");
 }
+
+#[test]
+fn a_pending_lesson_is_reviewed_from_the_terminal() {
+    let dir = store("review");
+    fail(&dir);
+    let db = rusqlite::Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+    db.execute(
+        "INSERT INTO bookmarks (label, created_at, author_kind, author_name, approved)
+         VALUES ('linker cc not found -> run: xcode-select --install',
+                 '2026-01-01T00:00:00Z', 'agent', 'claude-code', 0)",
+        [],
+    )
+    .unwrap();
+    let mw = env!("CARGO_BIN_EXE_mw");
+    let text = |args: &[&str]| String::from_utf8_lossy(&run(mw, &dir, args).stdout).into_owned();
+
+    // Unapproved: listed for review, but not shown as a saved lesson.
+    let pending = text(&["memory", "pending"]);
+    assert!(
+        pending.contains("#1") && pending.contains("claude-code"),
+        "{pending}"
+    );
+    assert!(!text(&["context", "--last-error"]).contains("Saved lesson"));
+    assert!(text(&["doctor"]).contains("1 waiting for review"));
+
+    assert!(text(&["memory", "approve", "1"]).contains("approved"));
+    assert!(text(&["context", "--last-error"]).contains("Saved lesson"));
+    assert!(text(&["memory", "pending"]).contains("no lessons are waiting"));
+
+    // Approve and reject touch only the review queue.
+    let out = Command::new(mw)
+        .env("MEMORYWHALE_DATA_DIR", &dir)
+        .args(["memory", "reject", "1"])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "an approved lesson must not be deletable by reject"
+    );
+}
+
+#[test]
+fn a_lesson_saved_from_claude_codes_shell_names_the_agent_and_stays_live() {
+    let dir = store("author");
+    fail(&dir);
+    let out = Command::new(env!("CARGO_BIN_EXE_mw"))
+        .env("MEMORYWHALE_DATA_DIR", &dir)
+        .env("CLAUDECODE", "1")
+        .args([
+            "remember",
+            "linker cc not found -> run: xcode-select --install",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let db = rusqlite::Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+    let row: (String, Option<String>, i64) = db
+        .query_row(
+            "SELECT author_kind, author_name, approved FROM bookmarks",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(row, ("agent".into(), Some("claude-code".into()), 1));
+}

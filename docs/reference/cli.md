@@ -71,6 +71,9 @@ mw compare 12 34                      # compare two saved command runs, includin
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
+mw memory pending                     # agent-written lessons waiting for review
+mw memory approve <id>                # use a pending lesson in notes, warnings, and search
+mw memory reject <id>                 # delete a pending lesson
 mw memory stale <id>                  # retire an outdated lesson, preserving its row
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
 mw memory compact [--apply]           # preview/apply conservative evidence compaction
@@ -137,6 +140,12 @@ Memories written through MCP start pending by default and stay out of retrieval
 until approved in the TUI review pane. To opt into automatic approval, set
 `MEMORYWHALE_REVIEW_AGENT_MEMORIES=0` or add
 `review_agent_memories = false` to `config.toml`.
+
+A lesson an agent saves through the MCP `remember` tool waits for review:
+`mw memory pending` lists the queue, `mw doctor` says when it is not empty, and
+`mw memory approve <id>` or `mw memory reject <id>` settles each one. A lesson
+an agent saves by running `mw remember` in Claude Code's shell is used right
+away and is labeled as written by `claude-code`.
 
 Use `mw memory stale <id>` when advice is no longer current, or
 `mw memory supersede <old-id> <new-id>` when a newer lesson replaces it. Both

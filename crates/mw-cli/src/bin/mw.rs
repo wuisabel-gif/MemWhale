@@ -423,6 +423,8 @@ fn print_help() {
          mw recipe list | show <id> | copy <id>  browse saved recipes (copy prints the recorded argv JSON, redacted; nothing runs)\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
+         mw memory pending        list agent-written lessons waiting for review\n\
+         mw memory approve|reject <id>  approve a pending lesson, or delete it\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
          mw memory supersede <old-id> <new-id>  replace an old lesson with a newer one\n\
          mw memory compact [--apply]  preview/apply conservative evidence compaction\n\
@@ -1448,9 +1450,50 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
         [action, rest @ ..] if action == "compact" => {
             return memory_compact_cmd(&conn, rest);
         }
+        [action] if action == "pending" => {
+            let pending = memorywhale_cli::pending_agent_notes(&conn)?;
+            if pending.is_empty() {
+                println!("mw: no lessons are waiting for review.");
+            }
+            for note in &pending {
+                println!(
+                    "#{}  {}  by {}\n    {}",
+                    note.id,
+                    memorywhale_cli::relative_age(&note.created_at),
+                    note.author_name.as_deref().unwrap_or("an agent"),
+                    memorywhale_cli::redact(&note.label)
+                );
+            }
+            if !pending.is_empty() {
+                println!("\nmw memory approve <id>   use it in notes, warnings, and search");
+                println!("mw memory reject <id>    delete it");
+            }
+        }
+        [action, id] if action == "approve" || action == "reject" => {
+            let id: i64 = id
+                .parse()
+                .map_err(|_| format!("invalid memory id {id:?}"))?;
+            // Only a lesson in the review queue: `reject` deletes the row.
+            if !memorywhale_cli::pending_agent_notes(&conn)?
+                .iter()
+                .any(|note| note.id == id)
+            {
+                return Err(format!(
+                    "memory #{id} is not waiting for review; see `mw memory pending`"
+                ));
+            }
+            if action == "approve" {
+                memorywhale_cli::approve_note(&conn, id)?;
+                println!("mw: memory #{id} approved; notes, warnings, and search now use it.");
+            } else {
+                memorywhale_cli::reject_note(&conn, id)?;
+                println!("mw: memory #{id} rejected and deleted.");
+            }
+        }
         _ => {
             return Err(
-                "usage: mw memory stale <id> | mw memory supersede <old-id> <new-id> \
+                "usage: mw memory pending | mw memory approve <id> | mw memory reject <id> \
+                        | mw memory stale <id> | mw memory supersede <old-id> <new-id> \
                         | mw memory compact [--apply] [--min-session-bytes N] [--stale-days N] \
                         [--max-output-bytes N]"
                     .to_string(),
@@ -1745,6 +1788,18 @@ fn remember_cmd(args: &[String]) -> Result<(), String> {
     }
 
     let id = memorywhale_cli::remember(&text, cwd.as_deref())?;
+    // Claude Code sets CLAUDECODE in the shells it runs. Say who wrote the
+    // lesson; it stays in use, as before, because a shell command is what the
+    // skill tells the agent to run.
+    // ponytail: one agent marker; add others when their variable is verified.
+    if env::var_os("CLAUDECODE").is_some() {
+        if let Ok(conn) = open_session_db() {
+            let _ = conn.execute(
+                "UPDATE bookmarks SET author_kind = 'agent', author_name = 'claude-code' WHERE id = ?1",
+                [id],
+            );
+        }
+    }
     if let Some(exp) = &expires_at {
         if let Ok(conn) = open_session_db() {
             let _ = memorywhale_cli::set_note_expiry(&conn, id, Some(exp));
@@ -5385,6 +5440,17 @@ fn doctor() -> Result<(), String> {
         line
     };
     ok("recall notes", feedback);
+    // Agent-written lessons do nothing until someone reviews them.
+    let pending = conn
+        .as_ref()
+        .and_then(|conn| memorywhale_cli::pending_agent_notes(conn).ok())
+        .map_or(0, |notes| notes.len());
+    if pending > 0 {
+        warn(
+            "lessons",
+            format!("{pending} waiting for review; run `mw memory pending`"),
+        );
+    }
 
     print!(
         "{}",
