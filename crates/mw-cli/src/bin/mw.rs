@@ -423,6 +423,8 @@ fn print_help() {
          mw recipe list | show <id> | copy <id>  browse saved recipes (copy prints the recorded argv JSON, redacted; nothing runs)\n\
          mw mark <text>           bookmark the current debugging moment\n\
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
+         mw memory publish        write this repository's lessons to .memorywhale/lessons.md, to commit\n\
+         mw memory adopt          read .memorywhale/lessons.md into your review queue\n\
          mw memory pending        list agent-written lessons waiting for review\n\
          mw memory approve|reject <id>  approve a pending lesson, or delete it\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
@@ -1450,6 +1452,29 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
         [action, rest @ ..] if action == "compact" => {
             return memory_compact_cmd(&conn, rest);
         }
+        [action] if action == "publish" || action == "adopt" => {
+            let cwd = env::current_dir().map_err(|e| format!("no current directory: {e}"))?;
+            let repo = memorywhale_cli::repository::discover(&cwd.to_string_lossy())
+                .ok_or("not inside a git repository")?;
+            if action == "publish" {
+                let (path, added) =
+                    memorywhale_cli::publish_repo_lessons(&conn, &repo.worktree_root)?;
+                if added == 0 {
+                    println!("mw: no new lessons for this repository.");
+                } else {
+                    println!(
+                        "mw: wrote {added} lesson(s) to {}. Read it, then commit it to share.",
+                        path.display()
+                    );
+                }
+            } else {
+                let added = memorywhale_cli::adopt_repo_lessons(&conn, &repo.worktree_root)?;
+                println!(
+                    "mw: {added} new lesson(s) from {} are waiting for review; run `mw memory pending`.",
+                    memorywhale_cli::REPO_LESSONS_FILE
+                );
+            }
+        }
         [action] if action == "pending" => {
             let pending = memorywhale_cli::pending_agent_notes(&conn)?;
             if pending.is_empty() {
@@ -1493,6 +1518,7 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
         _ => {
             return Err(
                 "usage: mw memory pending | mw memory approve <id> | mw memory reject <id> \
+                        | mw memory publish | mw memory adopt \
                         | mw memory stale <id> | mw memory supersede <old-id> <new-id> \
                         | mw memory compact [--apply] [--min-session-bytes N] [--stale-days N] \
                         [--max-output-bytes N]"

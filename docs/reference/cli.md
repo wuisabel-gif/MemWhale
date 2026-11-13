@@ -71,6 +71,8 @@ mw compare 12 34                      # compare two saved command runs, includin
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
+mw memory publish                     # write this repo's lessons to .memorywhale/lessons.md
+mw memory adopt                       # read that file into your review queue
 mw memory pending                     # agent-written lessons waiting for review
 mw memory approve <id>                # use a pending lesson in notes, warnings, and search
 mw memory reject <id>                 # delete a pending lesson
@@ -146,6 +148,15 @@ A lesson an agent saves through the MCP `remember` tool waits for review:
 `mw memory approve <id>` or `mw memory reject <id>` settles each one. A lesson
 an agent saves by running `mw remember` in Claude Code's shell is used right
 away and is labeled as written by `claude-code`.
+
+Lessons can travel with a repository. `mw memory publish` writes the approved
+lessons saved inside the current git repository to `.memorywhale/lessons.md`,
+one per line, redacted; read the file, then commit it. It keeps lines other
+people added and never includes lessons from other directories, temporary
+(`ttl:`) lessons, or lessons still waiting for review. After a clone or pull,
+`mw memory adopt` reads the file into the review queue: nothing from it is
+shown to an agent until you approve it with `mw memory approve <id>`, because
+the file is whatever someone committed.
 
 Use `mw memory stale <id>` when advice is no longer current, or
 `mw memory supersede <old-id> <new-id>` when a newer lesson replaces it. Both
