@@ -128,10 +128,14 @@ mw recipe copy 1
 
 `mw` starts a recorded subshell; run commands normally, then `exit` or Ctrl-D
 to stop. The raw transcript lands in the data folder, searchable metadata in
-SQLite. `--live` matters for SSH sessions and sudden shutdown risk: if the
-terminal dies before `exit`, the last autosaved transcript is still there.
-Recorded a garbage terminal? Type `mw discard` inside it before exiting, or
-`mw rm <id>` after the fact.
+SQLite. `--live` matters for SSH sessions and sudden shutdown risk: the
+session row is created with status `recording` and autosaved every 2 s, and
+if the terminal dies before `exit`, a parent-death watcher finalizes the row
+as `interrupted` right away — the last autosaved transcript is still there.
+If a recording died before writing any row, `mw-recover` imports the orphaned
+transcript. Recorded a garbage terminal? Type `mw discard` inside it before
+exiting, or `mw rm <id>` after the fact. See
+[the live capture and recovery guide](../guides/debugging.md) for details.
 
 Memories written through MCP start pending by default and stay out of retrieval
 until approved in the TUI review pane. To opt into automatic approval, set
