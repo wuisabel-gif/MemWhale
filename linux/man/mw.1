@@ -1,4 +1,4 @@
-.TH MW 1 "2026-11-08" "MemoryWhale 0.26.0" "User Commands"
+.TH MW 1 "2026-11-13" "MemoryWhale 0.27.0" "User Commands"
 .SH NAME
 mw \- record whole terminal sessions into local MemoryWhale storage
 .SH SYNOPSIS
@@ -269,6 +269,25 @@ Save a freeform lesson or conclusion (e.g. what actually fixed a bug), so
 .BR "mw search" " and " "mw context"
 surface it later instead of it being re-derived. Shares storage with
 .BR "mw mark" .
+.TP
+.B mw memory pending
+List agent-written lessons waiting for review.
+.TP
+.BI "mw memory approve " id
+Put a pending lesson into use in notes, warnings, and search.
+.TP
+.BI "mw memory reject " id
+Delete a pending lesson.
+.TP
+.B mw memory publish
+Write the lessons saved inside the current git repository to
+.IR .memorywhale/lessons.md ,
+to read and commit.
+.TP
+.B mw memory adopt
+Read
+.I .memorywhale/lessons.md
+into the review queue; nothing from it is used until approved.
 .TP
 .BI "mw memory stale " id
 Retire an outdated lesson while preserving its row.

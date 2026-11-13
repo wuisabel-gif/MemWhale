@@ -3,6 +3,28 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.27.0] — Lessons You Can Trust — November 13, 2026
+
+Product `0.27.0`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.27.0.md).
+
+### Added
+
+- `mw memory pending`, `mw memory approve <id>`, and `mw memory reject <id>` review agent-written lessons from the terminal. `mw doctor` warns when lessons are waiting.
+- `mw memory publish` writes the lessons saved inside the current git repository to `.memorywhale/lessons.md`. `mw memory adopt` reads that file into the review queue.
+- CI reports Rust line coverage per file and fails below 68%, a floor set from the measured 71.5%.
+
+### Changed
+
+- A lesson saved with `mw remember` from Claude Code's shell is labeled as written by `claude-code`. It stays in use right away.
+
+### Fixed
+
+- A saved lesson could be attached to an unrelated command: a flag was read as the program name, and lessons matched on any substring of it. A token starting with `-` is no longer a program, and a lesson matches a program name on whole words.
+- A lesson still waiting for review could lead a note or warning. Only approved lessons are used.
+- A pre-run warning with no error line ended in an empty "with ``".
+
 ## [0.26.0] — Lessons First — November 8, 2026
 
 Product `0.26.0`; `memorywhale-core` `0.13.0`; SQLite schema `17` (unchanged).
