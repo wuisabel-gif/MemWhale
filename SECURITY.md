@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.26.x | ✅ security fixes |
-| < 0.26.0 | ❌ upgrade — fixes are not backported unless noted in release notes |
+| 0.27.x | ✅ security fixes |
+| < 0.27.0 | ❌ upgrade — fixes are not backported unless noted in release notes |
 
 (This table is updated with each release; older tags stop receiving fixes when a
 new minor ships.)
