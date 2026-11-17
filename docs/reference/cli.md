@@ -66,6 +66,7 @@ mw github context <pr>                 # fetch bounded, redacted GitHub PR conte
 mw mark "before the risky flash"      # bookmark the current debugging moment
 mw remember "the fix was passing --features vendored-ssl"  # save a lesson/conclusion (warns on a near-duplicate; add --force to save anyway)
 mw remember "staging creds rotate friday" ttl:7d   # auto-expires after 7d (m/h/d/w) — drops from retrieval, evidence preserved
+mw remember 'when `echo ==`: zsh reads =word as a lookup; quote it'  # a lesson that opens with when `text` stops a Claude Code command containing that text, once, before it runs
 mw replay 12                          # rerun a saved command run
 mw compare 12 34                      # compare two saved command runs, including provenance and differences
 mw demo                               # seed a small demo dataset to explore

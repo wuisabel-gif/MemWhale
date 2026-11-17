@@ -94,11 +94,11 @@ fn run() -> Result<(), String> {
         run_from_hook(agent);
         return Ok(());
     }
-    if before_hook.is_some() {
+    if let Some(agent) = before_hook {
         if record_flags || !command_parts.is_empty() {
             return Err("mw-remember --before-hook cannot be mixed with other options".to_string());
         }
-        run_before_hook();
+        run_before_hook(agent);
         return Ok(());
     }
 
@@ -145,10 +145,12 @@ fn run_from_hook(agent: Agent) {
     }
 }
 
-/// A pre-run hook must never block or fail the tool call: read the payload,
-/// and print a `PreToolUse` context note only when MemoryWhale has a saved
-/// lesson or a confirmed fix for a recent failure of the same program here.
-fn run_before_hook() {
+/// A pre-run hook must never fail the tool call. It stops one, once, only
+/// when a saved lesson names text in the command (Claude Code shows the
+/// reason to the model, which rewrites; the same command sent again runs).
+/// Otherwise it prints a context note when MemoryWhale has a saved lesson or
+/// a confirmed fix for a recent failure of the same program here.
+fn run_before_hook(agent: Agent) {
     if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
         return;
     }
@@ -159,11 +161,28 @@ fn run_before_hook() {
     let Some((command, cwd)) = memorywhale_cli::agent_hook::before_command(&buf) else {
         return;
     };
-    let note = memorywhale_cli::database_path()
+    let Ok(conn) = memorywhale_cli::database_path()
         .and_then(|path| memorywhale_cli::storage::open_path(&path))
-        .ok()
-        .and_then(|conn| memorywhale_cli::recall_before(&conn, &command, cwd.as_deref()));
-    if let Some(note) = note {
+    else {
+        return;
+    };
+    // Only Claude Code documents that the model sees a denial's reason.
+    if agent == Agent::Claude {
+        if let Some(reason) = memorywhale_cli::lesson_before(&conn, &command) {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": reason
+                    }
+                })
+            );
+            return;
+        }
+    }
+    if let Some(note) = memorywhale_cli::recall_before(&conn, &command, cwd.as_deref()) {
         println!(
             "{}",
             serde_json::json!({

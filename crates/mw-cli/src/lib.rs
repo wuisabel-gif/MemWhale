@@ -1603,6 +1603,69 @@ pub fn matching_lesson(
     })
 }
 
+/// The command text a lesson is about, when the lesson opens with it in
+/// backticks after "when": "when `echo ===`: zsh expands =word, quote it".
+pub fn lesson_trigger(label: &str) -> Option<&str> {
+    let rest = label.trim_start();
+    if !rest.get(..4)?.eq_ignore_ascii_case("when") {
+        return None;
+    }
+    let rest = rest[4..].trim_start().strip_prefix('`')?;
+    let trigger = rest[..rest.find('`')?].trim();
+    (trigger.len() >= 4).then_some(trigger)
+}
+
+/// The reason to stop `command` before it runs: a saved lesson names command
+/// text (see [`lesson_trigger`]) that `command` contains, in any directory.
+/// `None` when no lesson applies, and when this exact command was stopped in
+/// the last ten minutes: the agent has read the lesson and sent it again, so
+/// it runs. Records the stop for the stats.
+pub fn lesson_before(conn: &Connection, command: &str) -> Option<String> {
+    // ponytail: plain substring of the command line outside heredoc bodies, so
+    // a quoted mention also stops once; parse quoting if that proves noisy.
+    let line = without_heredoc_bodies(command);
+    let mut stmt = conn
+        .prepare(
+            "SELECT label, created_at FROM bookmarks
+             WHERE status = 'active' AND approved = 1 ORDER BY id DESC LIMIT 500",
+        )
+        .ok()?;
+    let (label, when) = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .ok()?
+        .filter_map(Result::ok)
+        .find(|(label, _)| lesson_trigger(label).is_some_and(|t| line.contains(t)))?;
+    let sent = serde_json::json!([command]).to_string();
+    let now = chrono::Utc::now();
+    let resent: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM recall_hints
+                           WHERE kind = 'stopped' AND fix_argv_json = ?1 AND created_at >= ?2)",
+            params![sent, (now - chrono::Duration::minutes(10)).to_rfc3339()],
+            |r| r.get(0),
+        )
+        .unwrap_or(true);
+    if resent {
+        return None;
+    }
+    let text = format!(
+        "MemoryWhale stopped this command before it ran. Saved lesson ({}): {label} \
+         Rewrite the command; to run it unchanged, send it again.",
+        relative_age(&when)
+    );
+    // The stop hangs off the newest run; with none recorded it cannot be
+    // remembered, so nothing is stopped.
+    let recorded = conn
+        .execute(
+            "INSERT INTO recall_hints (run_id, fix_argv_json, created_at, kind, since_run_id, text)
+             SELECT MAX(id), ?1, ?2, 'stopped', MAX(id), ?3 FROM command_runs
+             HAVING MAX(id) IS NOT NULL",
+            params![sent, now.to_rfc3339(), text],
+        )
+        .unwrap_or(0);
+    (recorded == 1).then_some(text)
+}
+
 /// A warning for an agent about to run `command` in `cwd`: the same program
 /// failed here recently, nothing has passed since, and MemoryWhale knows a
 /// saved lesson or a confirmed fix. `None` otherwise, including once the same
@@ -1729,6 +1792,10 @@ pub struct RecallStats {
     /// Of those, how many were followed by the warned program passing within
     /// the next five runs in that directory.
     pub warned_then_passed: i64,
+    /// Commands stopped before running because a lesson names their text.
+    pub stopped: i64,
+    /// Of those, how many were followed by a command that passed.
+    pub stopped_then_passed: i64,
 }
 
 pub fn recall_stats(conn: &Connection) -> RecallStats {
@@ -1755,8 +1822,7 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
                 shown: r.get(0)?,
                 followed: r.get(1)?,
                 worked: r.get(2)?,
-                warnings: 0,
-                warned_then_passed: 0,
+                ..RecallStats::default()
             })
         },
     )
@@ -1776,6 +1842,17 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
         ) {
             stats.warnings = warnings;
             stats.warned_then_passed = passed;
+        }
+        if let Ok((stopped, passed)) = conn.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM((SELECT s.exit_code FROM command_runs s
+                                  WHERE s.id > h.since_run_id ORDER BY s.id LIMIT 1) = 0), 0)
+             FROM recall_hints h WHERE h.kind = 'stopped'",
+            [],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+        ) {
+            stats.stopped = stopped;
+            stats.stopped_then_passed = passed;
         }
         stats
     })
