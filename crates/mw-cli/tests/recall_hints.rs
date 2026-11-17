@@ -245,3 +245,57 @@ fn a_lesson_saved_from_claude_codes_shell_names_the_agent_and_stays_live() {
         .unwrap();
     assert_eq!(row, ("agent".into(), Some("claude-code".into()), 1));
 }
+
+/// What the Claude Code pre-run hook prints for `command`.
+fn before(dir: &Path, command: &str) -> String {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
+        .env("MEMORYWHALE_DATA_DIR", dir)
+        .args(["--before-hook", "claude"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn mw-remember --before-hook");
+    let payload = serde_json::json!({
+        "hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": "/somewhere/else",
+        "tool_input": { "command": command }
+    });
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(payload.to_string().as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "{out:?}");
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+#[test]
+fn a_lesson_naming_command_text_stops_that_command_once() {
+    let dir = store("stop");
+    fail(&dir);
+    run(
+        env!("CARGO_BIN_EXE_mw"),
+        &dir,
+        &[
+            "remember",
+            "when `echo ===`: zsh reads =word as a path lookup; quote the separator",
+        ],
+    );
+    // Never run here before, in a directory with no history: stopped anyway.
+    let stopped = before(&dir, "ls src; echo ====; ls tests");
+    assert!(
+        stopped.contains(r#""permissionDecision":"deny""#),
+        "{stopped}"
+    );
+    assert!(stopped.contains("quote the separator"), "{stopped}");
+    // Sent again unchanged, it runs.
+    assert_eq!(before(&dir, "ls src; echo ====; ls tests"), "");
+    // Quoted, or only inside a heredoc body, it was never a match.
+    assert_eq!(before(&dir, "ls src; echo '===='; ls tests"), "");
+    assert_eq!(before(&dir, "cat <<'EOF'\necho ====\nEOF"), "");
+
+    let doctor = run(env!("CARGO_BIN_EXE_mw"), &dir, &["doctor"]);
+    let doctor = String::from_utf8_lossy(&doctor.stdout);
+    assert!(doctor.contains("1 stopped before running"), "{doctor}");
+}

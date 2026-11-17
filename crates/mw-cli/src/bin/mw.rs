@@ -5463,6 +5463,12 @@ fn doctor() -> Result<(), String> {
                 stats.warnings, stats.warned_then_passed
             ));
         }
+        if stats.stopped > 0 {
+            line.push_str(&format!(
+                "; {} stopped before running, {} then passed",
+                stats.stopped, stats.stopped_then_passed
+            ));
+        }
         line
     };
     ok("recall notes", feedback);
