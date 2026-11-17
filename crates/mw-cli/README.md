@@ -1,6 +1,6 @@
 # memorywhale-cli
 
-**MemoryWhale 0.27.0: Lessons You Can Trust · November 13, 2026.**
+**MemoryWhale 0.28.0: Stopped Before It Fails · November 17, 2026.**
 
 Local-first terminal memory. Records commands, arguments, output, errors, and
 whole sessions into local SQLite, so what already failed stays searchable —
