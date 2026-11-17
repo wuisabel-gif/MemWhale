@@ -1598,8 +1598,11 @@ pub fn matching_lesson(
     rows.into_iter().find(|(label, _)| {
         let label = squash(label);
         // The stem must match whole words: `f p` is not in "pkill f pgrep f".
+        // A bare program name is an ordinary word too often (a scratch
+        // binary called `check` matched every lesson saying "check"), so
+        // the stem counts only with its subcommand or first argument.
         (key.len() >= 8 && label.contains(&key))
-            || (!stem.is_empty() && format!(" {label} ").contains(&format!(" {stem} ")))
+            || (stem.contains(' ') && format!(" {label} ").contains(&format!(" {stem} ")))
     })
 }
 
@@ -4317,6 +4320,8 @@ mod tests {
         // The real false positive: a flag fragment inside the lesson's words.
         assert_eq!(matching_lesson(&conn, "-f $p", ""), None);
         assert_eq!(matching_lesson(&conn, "kill", ""), None);
+        // A one-word stem is not evidence: "session" is just a word here.
+        assert_eq!(matching_lesson(&conn, "session", ""), None);
         assert!(matching_lesson(&conn, "pgrep -f", "").is_some());
         // An unapproved (pending) lesson is never shown.
         conn.execute("UPDATE bookmarks SET approved = 0", [])
