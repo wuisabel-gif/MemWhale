@@ -180,3 +180,122 @@ fn a_saved_lesson_ranks_above_the_failures_it_explains() {
         .unwrap_or_else(|| panic!("no hits:\n{text}"));
     assert!(first.contains("[note"), "lesson should lead:\n{text}");
 }
+
+#[test]
+fn a_pending_lesson_is_reviewed_from_the_terminal() {
+    let dir = store("review");
+    fail(&dir);
+    let db = rusqlite::Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+    db.execute(
+        "INSERT INTO bookmarks (label, created_at, author_kind, author_name, approved)
+         VALUES ('linker cc not found -> run: xcode-select --install',
+                 '2026-01-01T00:00:00Z', 'agent', 'claude-code', 0)",
+        [],
+    )
+    .unwrap();
+    let mw = env!("CARGO_BIN_EXE_mw");
+    let text = |args: &[&str]| String::from_utf8_lossy(&run(mw, &dir, args).stdout).into_owned();
+
+    // Unapproved: listed for review, but not shown as a saved lesson.
+    let pending = text(&["memory", "pending"]);
+    assert!(
+        pending.contains("#1") && pending.contains("claude-code"),
+        "{pending}"
+    );
+    assert!(!text(&["context", "--last-error"]).contains("Saved lesson"));
+    assert!(text(&["doctor"]).contains("1 waiting for review"));
+
+    assert!(text(&["memory", "approve", "1"]).contains("approved"));
+    assert!(text(&["context", "--last-error"]).contains("Saved lesson"));
+    assert!(text(&["memory", "pending"]).contains("no lessons are waiting"));
+
+    // Approve and reject touch only the review queue.
+    let out = Command::new(mw)
+        .env("MEMORYWHALE_DATA_DIR", &dir)
+        .args(["memory", "reject", "1"])
+        .output()
+        .unwrap();
+    assert!(
+        !out.status.success(),
+        "an approved lesson must not be deletable by reject"
+    );
+}
+
+#[test]
+fn a_lesson_saved_from_claude_codes_shell_names_the_agent_and_stays_live() {
+    let dir = store("author");
+    fail(&dir);
+    let out = Command::new(env!("CARGO_BIN_EXE_mw"))
+        .env("MEMORYWHALE_DATA_DIR", &dir)
+        .env("CLAUDECODE", "1")
+        .args([
+            "remember",
+            "linker cc not found -> run: xcode-select --install",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let db = rusqlite::Connection::open(dir.join("memorywhale.sqlite3")).unwrap();
+    let row: (String, Option<String>, i64) = db
+        .query_row(
+            "SELECT author_kind, author_name, approved FROM bookmarks",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(row, ("agent".into(), Some("claude-code".into()), 1));
+}
+
+/// What the Claude Code pre-run hook prints for `command`.
+fn before(dir: &Path, command: &str) -> String {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
+        .env("MEMORYWHALE_DATA_DIR", dir)
+        .args(["--before-hook", "claude"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn mw-remember --before-hook");
+    let payload = serde_json::json!({
+        "hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": "/somewhere/else",
+        "tool_input": { "command": command }
+    });
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(payload.to_string().as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "{out:?}");
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+#[test]
+fn a_lesson_naming_command_text_stops_that_command_once() {
+    let dir = store("stop");
+    fail(&dir);
+    run(
+        env!("CARGO_BIN_EXE_mw"),
+        &dir,
+        &[
+            "remember",
+            "when `echo ===`: zsh reads =word as a path lookup; quote the separator",
+        ],
+    );
+    // Never run here before, in a directory with no history: stopped anyway.
+    let stopped = before(&dir, "ls src; echo ====; ls tests");
+    assert!(
+        stopped.contains(r#""permissionDecision":"deny""#),
+        "{stopped}"
+    );
+    assert!(stopped.contains("quote the separator"), "{stopped}");
+    // Sent again unchanged, it runs.
+    assert_eq!(before(&dir, "ls src; echo ====; ls tests"), "");
+    // Quoted, or only inside a heredoc body, it was never a match.
+    assert_eq!(before(&dir, "ls src; echo '===='; ls tests"), "");
+    assert_eq!(before(&dir, "cat <<'EOF'\necho ====\nEOF"), "");
+
+    let doctor = run(env!("CARGO_BIN_EXE_mw"), &dir, &["doctor"]);
+    let doctor = String::from_utf8_lossy(&doctor.stdout);
+    assert!(doctor.contains("1 stopped before running"), "{doctor}");
+}

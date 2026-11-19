@@ -840,7 +840,9 @@ fn command_steps(line: &str) -> Vec<(String, String)> {
         })
     };
     let program_like = |t: &str| {
+        // A leading `-` is a flag left over from `x=$(prog -f …)`, not a program.
         !t.is_empty()
+            && !t.starts_with('-')
             && t.chars()
                 .all(|c| c.is_ascii_alphanumeric() || "._+-".contains(c))
     };
@@ -1584,7 +1586,8 @@ pub fn matching_lesson(
     }
     let mut stmt = conn
         .prepare(
-            "SELECT label, created_at FROM bookmarks WHERE status = 'active' ORDER BY id DESC LIMIT 500",
+            "SELECT label, created_at FROM bookmarks
+             WHERE status = 'active' AND approved = 1 ORDER BY id DESC LIMIT 500",
         )
         .ok()?;
     let rows: Vec<(String, String)> = stmt
@@ -1594,8 +1597,76 @@ pub fn matching_lesson(
         .collect();
     rows.into_iter().find(|(label, _)| {
         let label = squash(label);
-        (key.len() >= 8 && label.contains(&key)) || (!stem.is_empty() && label.contains(&stem))
+        // The stem must match whole words: `f p` is not in "pkill f pgrep f".
+        // A bare program name is an ordinary word too often (a scratch
+        // binary called `check` matched every lesson saying "check"), so
+        // the stem counts only with its subcommand or first argument.
+        (key.len() >= 8 && label.contains(&key))
+            || (stem.contains(' ') && format!(" {label} ").contains(&format!(" {stem} ")))
     })
+}
+
+/// The command text a lesson is about, when the lesson opens with it in
+/// backticks after "when": "when `echo ===`: zsh expands =word, quote it".
+pub fn lesson_trigger(label: &str) -> Option<&str> {
+    let rest = label.trim_start();
+    if !rest.get(..4)?.eq_ignore_ascii_case("when") {
+        return None;
+    }
+    let rest = rest[4..].trim_start().strip_prefix('`')?;
+    let trigger = rest[..rest.find('`')?].trim();
+    (trigger.len() >= 4).then_some(trigger)
+}
+
+/// The reason to stop `command` before it runs: a saved lesson names command
+/// text (see [`lesson_trigger`]) that `command` contains, in any directory.
+/// `None` when no lesson applies, and when this exact command was stopped in
+/// the last ten minutes: the agent has read the lesson and sent it again, so
+/// it runs. Records the stop for the stats.
+pub fn lesson_before(conn: &Connection, command: &str) -> Option<String> {
+    // ponytail: plain substring of the command line outside heredoc bodies, so
+    // a quoted mention also stops once; parse quoting if that proves noisy.
+    let line = without_heredoc_bodies(command);
+    let mut stmt = conn
+        .prepare(
+            "SELECT label, created_at FROM bookmarks
+             WHERE status = 'active' AND approved = 1 ORDER BY id DESC LIMIT 500",
+        )
+        .ok()?;
+    let (label, when) = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .ok()?
+        .filter_map(Result::ok)
+        .find(|(label, _)| lesson_trigger(label).is_some_and(|t| line.contains(t)))?;
+    let sent = serde_json::json!([command]).to_string();
+    let now = chrono::Utc::now();
+    let resent: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM recall_hints
+                           WHERE kind = 'stopped' AND fix_argv_json = ?1 AND created_at >= ?2)",
+            params![sent, (now - chrono::Duration::minutes(10)).to_rfc3339()],
+            |r| r.get(0),
+        )
+        .unwrap_or(true);
+    if resent {
+        return None;
+    }
+    let text = format!(
+        "MemoryWhale stopped this command before it ran. Saved lesson ({}): {label} \
+         Rewrite the command; to run it unchanged, send it again.",
+        relative_age(&when)
+    );
+    // The stop hangs off the newest run; with none recorded it cannot be
+    // remembered, so nothing is stopped.
+    let recorded = conn
+        .execute(
+            "INSERT INTO recall_hints (run_id, fix_argv_json, created_at, kind, since_run_id, text)
+             SELECT MAX(id), ?1, ?2, 'stopped', MAX(id), ?3 FROM command_runs
+             HAVING MAX(id) IS NOT NULL",
+            params![sent, now.to_rfc3339(), text],
+        )
+        .unwrap_or(0);
+    (recorded == 1).then_some(text)
 }
 
 /// A warning for an agent about to run `command` in `cwd`: the same program
@@ -1669,9 +1740,14 @@ pub fn recall_before(conn: &Connection, command: &str, cwd: Option<&str>) -> Opt
     }
     let shown: String = line.chars().take(80).collect();
     let mut text = format!(
-        "MemoryWhale, before you run this: `{stem}` failed here {} with `{shown}`.",
+        "MemoryWhale, before you run this: `{stem}` failed here {}",
         relative_age(&at)
     );
+    text.push_str(&if shown.is_empty() {
+        ".".to_string()
+    } else {
+        format!(" with `{shown}`.")
+    });
     if let Some((label, when)) = &lesson {
         text.push_str(&format!(" Saved lesson ({}): {label}.", relative_age(when)));
     }
@@ -1719,6 +1795,10 @@ pub struct RecallStats {
     /// Of those, how many were followed by the warned program passing within
     /// the next five runs in that directory.
     pub warned_then_passed: i64,
+    /// Commands stopped before running because a lesson names their text.
+    pub stopped: i64,
+    /// Of those, how many were followed by a command that passed.
+    pub stopped_then_passed: i64,
 }
 
 pub fn recall_stats(conn: &Connection) -> RecallStats {
@@ -1745,8 +1825,7 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
                 shown: r.get(0)?,
                 followed: r.get(1)?,
                 worked: r.get(2)?,
-                warnings: 0,
-                warned_then_passed: 0,
+                ..RecallStats::default()
             })
         },
     )
@@ -1766,6 +1845,17 @@ pub fn recall_stats(conn: &Connection) -> RecallStats {
         ) {
             stats.warnings = warnings;
             stats.warned_then_passed = passed;
+        }
+        if let Ok((stopped, passed)) = conn.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM((SELECT s.exit_code FROM command_runs s
+                                  WHERE s.id > h.since_run_id ORDER BY s.id LIMIT 1) = 0), 0)
+             FROM recall_hints h WHERE h.kind = 'stopped'",
+            [],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+        ) {
+            stats.stopped = stopped;
+            stats.stopped_then_passed = passed;
         }
         stats
     })
@@ -3092,6 +3182,130 @@ pub fn reject_note(conn: &Connection, id: i64) -> Result<(), String> {
         .map_err(|e| format!("failed to reject note: {e}"))
 }
 
+/// Where a repository keeps the lessons it shares, relative to its root.
+pub const REPO_LESSONS_FILE: &str = ".memorywhale/lessons.md";
+
+/// One lesson per `- ` line; anything else in the file is prose.
+fn repo_lesson_lines(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| line.strip_prefix("- "))
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+
+/// Write this repository's lessons to [`REPO_LESSONS_FILE`] so they can be
+/// committed: approved, active, permanent lessons saved inside `repo_root`,
+/// redacted, one per line. Lessons already in the file (a teammate's) are
+/// kept. Returns the file and how many lessons were added.
+pub fn publish_repo_lessons(
+    conn: &Connection,
+    repo_root: &str,
+) -> Result<(std::path::PathBuf, usize), String> {
+    let path = std::path::Path::new(repo_root).join(REPO_LESSONS_FILE);
+    let mut lessons = std::fs::read_to_string(&path)
+        .map(|text| repo_lesson_lines(&text))
+        .unwrap_or_default();
+    let before = lessons.len();
+    let mut stmt = conn
+        .prepare(
+            "SELECT label, cwd FROM bookmarks
+             WHERE approved = 1 AND status = 'active' AND expires_at IS NULL AND cwd IS NOT NULL
+             ORDER BY id",
+        )
+        .map_err(|e| format!("failed to read lessons: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(|e| format!("failed to read lessons: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("failed to read lessons: {e}"))?;
+    for (label, cwd) in rows {
+        // A lesson belongs to the repository its directory resolves to; a
+        // directory that no longer exists falls back to its path.
+        let inside = match repository::discover(&cwd) {
+            Some(repo) => repo.worktree_root == repo_root,
+            None => std::path::Path::new(&cwd).starts_with(repo_root),
+        };
+        let line = redact(&label)
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if inside && !line.is_empty() && !lessons.contains(&line) {
+            lessons.push(line);
+        }
+    }
+    let added = lessons.len() - before;
+    if added > 0 {
+        let mut text = String::from(
+            "# MemoryWhale lessons\n\nLessons saved for this repository. \
+             Run `mw memory adopt` to add them to your local review queue.\n\n",
+        );
+        for lesson in &lessons {
+            text.push_str(&format!("- {lesson}\n"));
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+        }
+        std::fs::write(&path, text)
+            .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+    }
+    Ok((path, added))
+}
+
+/// Read [`REPO_LESSONS_FILE`] into the review queue. The file comes from
+/// whoever could commit to the repository, so every lesson starts unapproved
+/// (`mw memory pending`), is sanitized like any capture, and is capped in
+/// size. Lessons already stored are skipped. Returns how many were added.
+pub fn adopt_repo_lessons(conn: &Connection, repo_root: &str) -> Result<usize, String> {
+    const MAX_FILE_BYTES: u64 = 256 * 1024;
+    const MAX_LESSON_CHARS: usize = 500;
+    let gate = capture_rule_for(Some(repo_root));
+    if !gate.mode.stores_anything() {
+        return Err(format!(
+            "capture is off for this directory ({}) — nothing adopted",
+            gate.source
+        ));
+    }
+    let path = std::path::Path::new(repo_root).join(REPO_LESSONS_FILE);
+    let size = std::fs::metadata(&path)
+        .map_err(|_| format!("no {REPO_LESSONS_FILE} in this repository"))?
+        .len();
+    if size > MAX_FILE_BYTES {
+        return Err(format!(
+            "{} is larger than 256 KiB; not read",
+            path.display()
+        ));
+    }
+    let text = std::fs::read_to_string(&path)
+        .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    let mut added = 0;
+    for line in repo_lesson_lines(&text) {
+        let lesson: String = sanitize_capture(&strip_terminal_controls(&line))
+            .chars()
+            .take(MAX_LESSON_CHARS)
+            .collect();
+        let known: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM bookmarks WHERE label = ?1)",
+                [&lesson],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("failed to check lessons: {e}"))?;
+        if lesson.trim().is_empty() || known {
+            continue;
+        }
+        conn.execute(
+            "INSERT INTO bookmarks (label, cwd, created_at, author_kind, author_name, approved)
+             VALUES (?1, ?2, ?3, 'agent', 'repo', 0)",
+            params![lesson, repo_root, Utc::now().to_rfc3339()],
+        )
+        .map_err(|e| format!("failed to save lesson: {e}"))?;
+        added += 1;
+    }
+    Ok(added)
+}
+
 /// Mark a memory stale without deleting its source evidence.
 pub fn mark_note_stale(conn: &Connection, id: i64) -> Result<(), String> {
     let changed = conn
@@ -4167,6 +4381,33 @@ mod tests {
         assert_eq!(
             matching_lesson(&conn, "npm test", "error: something unrelated here"),
             None
+        );
+    }
+
+    #[test]
+    fn a_lesson_needs_whole_word_stem_matches_and_approval() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO bookmarks (label, created_at) VALUES
+             ('over ssh, pkill -f / pgrep -f with a literal pattern kills the session', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        // The real false positive: a flag fragment inside the lesson's words.
+        assert_eq!(matching_lesson(&conn, "-f $p", ""), None);
+        assert_eq!(matching_lesson(&conn, "kill", ""), None);
+        // A one-word stem is not evidence: "session" is just a word here.
+        assert_eq!(matching_lesson(&conn, "session", ""), None);
+        assert!(matching_lesson(&conn, "pgrep -f", "").is_some());
+        // An unapproved (pending) lesson is never shown.
+        conn.execute("UPDATE bookmarks SET approved = 0", [])
+            .unwrap();
+        assert_eq!(matching_lesson(&conn, "pgrep -f", ""), None);
+        // A flag after `x=$(prog -f …)` is not a program.
+        assert_eq!(
+            stem_of_line("for p in 1 2; do t=$(pdftotext -f $p a.pdf -); echo \"$t\"; done"),
+            "echo $t"
         );
     }
 
