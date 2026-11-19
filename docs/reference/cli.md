@@ -66,11 +66,17 @@ mw github context <pr>                 # fetch bounded, redacted GitHub PR conte
 mw mark "before the risky flash"      # bookmark the current debugging moment
 mw remember "the fix was passing --features vendored-ssl"  # save a lesson/conclusion (warns on a near-duplicate; add --force to save anyway)
 mw remember "staging creds rotate friday" ttl:7d   # auto-expires after 7d (m/h/d/w) — drops from retrieval, evidence preserved
+mw remember 'when `echo ==`: zsh reads =word as a lookup; quote it'  # a lesson that opens with when `text` stops a Claude Code command containing that text, once, before it runs
 mw replay 12                          # rerun a saved command run
 mw compare 12 34                      # compare two saved command runs, including provenance and differences
 mw demo                               # seed a small demo dataset to explore
 mw rm 5                               # delete a session (+ its transcript); mw rm command <id> for a run
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
+mw memory publish                     # write this repo's lessons to .memorywhale/lessons.md
+mw memory adopt                       # read that file into your review queue
+mw memory pending                     # agent-written lessons waiting for review
+mw memory approve <id>                # use a pending lesson in notes, warnings, and search
+mw memory reject <id>                 # delete a pending lesson
 mw memory stale <id>                  # retire an outdated lesson, preserving its row
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
 mw memory compact [--apply]           # preview/apply conservative evidence compaction
@@ -128,15 +134,34 @@ mw recipe copy 1
 
 `mw` starts a recorded subshell; run commands normally, then `exit` or Ctrl-D
 to stop. The raw transcript lands in the data folder, searchable metadata in
-SQLite. `--live` matters for SSH sessions and sudden shutdown risk: if the
-terminal dies before `exit`, the last autosaved transcript is still there.
-Recorded a garbage terminal? Type `mw discard` inside it before exiting, or
-`mw rm <id>` after the fact.
+SQLite. `--live` matters for SSH sessions and sudden shutdown risk: the
+session row is created with status `recording` and autosaved every 2 s, and
+if the terminal dies before `exit`, a parent-death watcher finalizes the row
+as `interrupted` right away — the last autosaved transcript is still there.
+If a recording died before writing any row, `mw-recover` imports the orphaned
+transcript. Recorded a garbage terminal? Type `mw discard` inside it before
+exiting, or `mw rm <id>` after the fact. See
+[the live capture and recovery guide](../guides/debugging.md) for details.
 
 Memories written through MCP start pending by default and stay out of retrieval
 until approved in the TUI review pane. To opt into automatic approval, set
 `MEMORYWHALE_REVIEW_AGENT_MEMORIES=0` or add
 `review_agent_memories = false` to `config.toml`.
+
+A lesson an agent saves through the MCP `remember` tool waits for review:
+`mw memory pending` lists the queue, `mw doctor` says when it is not empty, and
+`mw memory approve <id>` or `mw memory reject <id>` settles each one. A lesson
+an agent saves by running `mw remember` in Claude Code's shell is used right
+away and is labeled as written by `claude-code`.
+
+Lessons can travel with a repository. `mw memory publish` writes the approved
+lessons saved inside the current git repository to `.memorywhale/lessons.md`,
+one per line, redacted; read the file, then commit it. It keeps lines other
+people added and never includes lessons from other directories, temporary
+(`ttl:`) lessons, or lessons still waiting for review. After a clone or pull,
+`mw memory adopt` reads the file into the review queue: nothing from it is
+shown to an agent until you approve it with `mw memory approve <id>`, because
+the file is whatever someone committed.
 
 Use `mw memory stale <id>` when advice is no longer current, or
 `mw memory supersede <old-id> <new-id>` when a newer lesson replaces it. Both

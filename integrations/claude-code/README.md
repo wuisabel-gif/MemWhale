@@ -156,10 +156,25 @@ MemoryWhale's normal terminal capture paths.
 A third hook, `mw-remember --before-hook claude` on `PreToolUse`, runs before
 each Bash command. When the same program failed in this directory, has not
 passed since, and MemoryWhale has a saved lesson or a fix with evidence for
-that error, Claude gets one line before the command runs: "`cargo build`
+that error, Claude gets one line with the command's result: "`cargo build`
 failed here 2 h ago with `…`; worked 2 of 2 times, last run by Codex 2 days
-ago, confirmed fix: xcode-select --install". Nothing is blocked, each failure
-is warned about once, and programs that only read are never warned about.
+ago, confirmed fix: xcode-select --install". That warning blocks nothing,
+each failure is warned about once, and programs that only read are never
+warned about.
+
+A lesson can also stop a command before it runs. Start the lesson with
+"when" and the command text in backticks:
+
+```bash
+mw remember 'when `echo ==`: zsh reads =word as a command lookup; quote the separator'
+```
+
+Any Bash command containing that text, in any directory, is stopped once and
+Claude is shown the lesson as the reason, so it rewrites the command instead
+of failing first. The same command sent again within ten minutes runs. The
+text is matched literally, outside heredoc bodies, and must be at least four
+characters. `mw doctor` counts the stops and how many were followed by a
+command that passed.
 `MEMORYWHALE_HOOK_FEEDBACK=0` turns both the notes and the warnings off. An
 install from before 0.22 gains the hook the next time you run
 `mw integrate claude`; restart Claude Code afterwards.
