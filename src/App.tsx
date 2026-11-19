@@ -1,6 +1,6 @@
 import { Bell, BookOpen, Search, Terminal, Waves, type LucideIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { call, inTauri, shortPath } from "./api";
 import { RunDrawer } from "./components/RunDrawer";
 import { Commands } from "./pages/Commands";

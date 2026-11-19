@@ -1,9 +1,10 @@
 import { readFile, access } from "node:fs/promises";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { LOCALES } from "./sync-readme-locales.mjs";
 
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 const html = await readFile(resolve(root, "index.html"), "utf8");
 const i18nSource = await readFile(resolve(root, "site-i18n.js"), "utf8");
 const searchSource = await readFile(resolve(root, "site-search.js"), "utf8");
