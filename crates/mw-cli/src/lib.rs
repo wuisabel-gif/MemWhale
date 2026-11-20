@@ -1669,6 +1669,184 @@ pub fn lesson_before(conn: &Connection, command: &str) -> Option<String> {
     (recorded == 1).then_some(text)
 }
 
+/// A lesson MemoryWhale drafted from an error that keeps coming back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LessonDraft {
+    pub id: i64,
+    pub label: String,
+    pub failures: usize,
+    pub days: usize,
+}
+
+/// Draft a lesson for each error that failed on three or more days and that
+/// no lesson covers, and put it in the review queue (`mw memory pending`).
+/// Each error is drafted once, so a rejected draft does not come back.
+///
+/// The draft states what was observed and no fix: guessing a fix from
+/// "failed, then passed" was right about 2 times in 81. When text from the
+/// error appears in every failing command, the draft opens with "when" and
+/// that text, so approving it stops the command before it runs (see
+/// [`lesson_trigger`]).
+pub fn draft_recurring_lessons(conn: &Connection) -> Result<Vec<LessonDraft>, String> {
+    // ponytail: rereads the newest 2000 failures on every call; store the
+    // normalized line in a column if a store outgrows that.
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, command, CASE WHEN stderr != '' THEN stderr ELSE stdout END,
+                    substr(created_at, 1, 10)
+             FROM command_runs WHERE exit_code IS NOT NULL AND exit_code != 0
+             ORDER BY id DESC LIMIT 2000",
+        )
+        .map_err(|e| format!("draft lessons: {e}"))?;
+    let failures: Vec<(i64, String, String, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+        .map_err(|e| format!("draft lessons: {e}"))?
+        .filter_map(Result::ok)
+        .collect();
+    // Normalized error line -> its failures, newest first: (run, command, day, line).
+    type Failure = (i64, String, String, String);
+    let mut groups: std::collections::BTreeMap<String, Vec<Failure>> = Default::default();
+    for (id, command, output, day) in failures {
+        let Some(line) = output.lines().find(|l| {
+            let l = l.to_lowercase();
+            [
+                "error",
+                "failed",
+                "fatal",
+                "cannot",
+                "no such",
+                "not found",
+                "panic",
+                "exception",
+            ]
+            .iter()
+            .any(|kw| l.contains(kw))
+        }) else {
+            continue;
+        };
+        // A run of one symbol counts once, so `=== not found` and
+        // `===== not found` are the same mistake.
+        let mut key = String::new();
+        for c in normalize_error_line(line).chars() {
+            if c.is_alphanumeric() || c.is_whitespace() || !key.ends_with(c) {
+                key.push(c);
+            }
+        }
+        // An error about a path is about that path, not about the command:
+        // `ls: <path>: No such file or directory` groups unrelated mistakes.
+        if key.contains("<path>") || key.len() < 8 {
+            continue;
+        }
+        groups
+            .entry(key)
+            .or_default()
+            .push((id, command, day, line.trim().to_string()));
+    }
+    let triggers: Vec<String> = conn
+        .prepare("SELECT label FROM bookmarks WHERE status = 'active' AND approved = 1")
+        .and_then(|mut stmt| {
+            stmt.query_map([], |r| r.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|label| lesson_trigger(label).map(str::to_string))
+        .collect();
+    let mut drafts = Vec::new();
+    for (key, runs) in groups {
+        let days: std::collections::BTreeSet<&str> = runs.iter().map(|r| r.2.as_str()).collect();
+        if days.len() < 3 {
+            continue;
+        }
+        let (newest, command, _, line) = &runs[0];
+        let drafted: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM recall_hints WHERE kind = 'drafted' AND text = ?1)",
+                [&key],
+                |r| r.get(0),
+            )
+            .unwrap_or(true);
+        let commands: Vec<String> = runs.iter().map(|r| without_heredoc_bodies(&r.1)).collect();
+        // Covered already: a lesson quotes the error, or would have stopped
+        // the newest failing command.
+        if drafted
+            || matching_lesson(conn, "", line).is_some()
+            || triggers
+                .iter()
+                .any(|t| without_heredoc_bodies(command).contains(t.as_str()))
+        {
+            continue;
+        }
+        let trigger = draft_trigger(runs.iter().map(|r| r.3.as_str()), &commands);
+        let shown: String = line.chars().take(160).collect();
+        let (n, d) = (runs.len(), days.len());
+        let label = sanitize_capture(&match trigger {
+            Some(trigger) => {
+                format!("when `{trigger}`: this failed {n} times on {d} days with: {shown}")
+            }
+            None => format!("`{shown}` came back on {d} days ({n} failures); no fix is recorded"),
+        });
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO bookmarks (label, created_at, author_kind, author_name, approved)
+             VALUES (?1, ?2, 'agent', 'memorywhale', 0)",
+            params![label, now],
+        )
+        .map_err(|e| format!("failed to save draft lesson: {e}"))?;
+        let id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO recall_hints (run_id, fix_argv_json, created_at, kind, text)
+             VALUES (?1, '[]', ?2, 'drafted', ?3)",
+            params![newest, now, key],
+        )
+        .map_err(|e| format!("failed to record draft lesson: {e}"))?;
+        drafts.push(LessonDraft {
+            id,
+            label,
+            failures: n,
+            days: d,
+        });
+    }
+    Ok(drafts)
+}
+
+/// Command text to stop on for an error: the longest piece of the error
+/// `lines` that starts a word in every one of `commands` (`pdflatex` in
+/// "pdflatex not found"). A piece too short to be a trigger takes the word in
+/// front of it when that is the same everywhere (`echo ==`).
+fn draft_trigger<'a>(
+    lines: impl Iterator<Item = &'a str>,
+    commands: &'a [String],
+) -> Option<String> {
+    let words =
+        |command: &'a str| command.split(|c: char| c.is_whitespace() || ";|&()".contains(c));
+    let mut pieces: Vec<&str> = lines
+        .flat_map(|line| line.split(|c: char| c.is_whitespace() || "'\"`:()[],;".contains(c)))
+        .filter(|piece| piece.len() >= 2 && !piece.chars().all(|c| c.is_ascii_digit()))
+        .collect();
+    pieces.sort_by_key(|piece| std::cmp::Reverse(piece.len()));
+    let piece = pieces.into_iter().find(|piece| {
+        commands
+            .iter()
+            .all(|command| words(command).any(|word| word.starts_with(piece)))
+    })?;
+    if piece.len() >= 4 {
+        return Some(piece.to_string());
+    }
+    // The word before the piece, when every command has the same one.
+    let before = |command: &'a String| {
+        let all: Vec<&str> = words(command).filter(|w| !w.is_empty()).collect();
+        let at = all.iter().position(|word| word.starts_with(piece))?;
+        at.checked_sub(1).map(|i| all[i])
+    };
+    let first = before(commands.first()?)?;
+    let trigger = format!("{first} {piece}");
+    commands
+        .iter()
+        .all(|command| before(command) == Some(first) && command.contains(&trigger))
+        .then_some(trigger)
+}
+
 /// A warning for an agent about to run `command` in `cwd`: the same program
 /// failed here recently, nothing has passed since, and MemoryWhale knows a
 /// saved lesson or a confirmed fix. `None` otherwise, including once the same
@@ -1949,6 +2127,9 @@ pub fn hook_feedback(conn: &Connection, run_id: i64) -> Result<Option<String>, S
                 .any(|kw| l.contains(kw))
             });
             let Some(line) = line else { return Ok(None) };
+            // A failure is when an error can cross three days; the draft goes
+            // to the person's review queue, which `mw doctor` reports.
+            let _ = draft_recurring_lessons(conn);
             let lesson = matching_lesson(conn, &program_stem_for_failure(&argv, &stderr), line);
             let best = best_fix_before(conn, line, run_id)?;
             let (seen, best) = match best {
@@ -2017,6 +2198,7 @@ pub fn recall_history(conn: &Connection, limit: usize) -> Result<Vec<RecallEvent
             "SELECT h.id, h.kind, h.created_at, h.text, h.run_id, h.since_run_id, h.fix_argv_json,
                     r.agent, r.cwd, r.argv_json
              FROM recall_hints h JOIN command_runs r ON r.id = h.run_id
+             WHERE h.kind != 'drafted'
              ORDER BY h.id DESC LIMIT ?1",
         )
         .map_err(|e| format!("recall history: {e}"))?;
@@ -4412,6 +4594,74 @@ mod tests {
     }
 
     #[test]
+    fn an_error_on_three_days_is_drafted_once_for_review() {
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let fail = |command: &str, stderr: &str, day: u32| {
+            conn.execute(
+                "INSERT INTO command_runs (command, argv_json, cwd, exit_code, stderr, created_at)
+                 VALUES (?1, json_array(?1), '/p', 1, ?2, ?3)",
+                params![command, stderr, format!("2026-01-{day:02}T00:00:00Z")],
+            )
+            .unwrap();
+        };
+        for day in 1..=3 {
+            // Text from the error is in every command: a "when" draft.
+            fail(
+                &format!("ls src{day}; echo =====; ls"),
+                "(eval):1: ===== not found",
+                day,
+            );
+            // The error names nothing the commands share: an error draft.
+            fail(
+                &format!("node report{day}.js"),
+                "Error: Cannot find module 'docx'",
+                day,
+            );
+            // About a path, so about nothing in particular: never drafted.
+            fail(
+                &format!("ls /tmp/x{day}"),
+                &format!("ls: /tmp/x{day}: No such file or directory"),
+                day,
+            );
+            // Two days only: not yet.
+            if day < 3 {
+                fail("which pdflatex", "pdflatex not found", day);
+            }
+        }
+        let drafts = draft_recurring_lessons(&conn).unwrap();
+        let labels: Vec<&str> = drafts.iter().map(|d| d.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            [
+                "when `=====`: this failed 3 times on 3 days with: (eval):1: ===== not found",
+                "`Error: Cannot find module 'docx'` came back on 3 days (3 failures); no fix is recorded",
+            ]
+        );
+        // Waiting for review, not in use; approved, the "when" draft stops
+        // the command.
+        assert_eq!(pending_agent_notes(&conn).unwrap().len(), 2);
+        assert_eq!(lesson_before(&conn, "echo =====; pwd"), None);
+        approve_note(&conn, drafts[0].id).unwrap();
+        assert!(lesson_before(&conn, "echo =====; pwd").is_some());
+        // Drafted once: rejecting a draft does not bring it back.
+        reject_note(&conn, drafts[1].id).unwrap();
+        assert_eq!(draft_recurring_lessons(&conn).unwrap(), []);
+        // A third day for an error a saved lesson already quotes: no draft.
+        conn.execute(
+            "INSERT INTO bookmarks (label, created_at) VALUES
+             ('pdflatex not found: this Mac has no TeX Live, use tectonic', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        fail("which pdflatex", "pdflatex not found", 3);
+        assert_eq!(draft_recurring_lessons(&conn).unwrap(), []);
+        // Drafting is not a recall note or event.
+        assert_eq!(recall_stats(&conn).shown, 0);
+        assert_eq!(recall_history(&conn, 10).unwrap().len(), 1);
+    }
+
+    #[test]
     fn confirmed_fix_outranks_a_bystander_and_names_the_agent() {
         let conn = Connection::open_in_memory().unwrap();
         storage::initialize(&conn).unwrap();
@@ -4581,8 +4831,12 @@ mod tests {
         assert_eq!(hook_feedback(&conn, new).unwrap(), None);
         // Every fix note shown so far was recorded.
         let shown = |conn: &Connection| -> i64 {
-            conn.query_row("SELECT COUNT(*) FROM recall_hints", [], |r| r.get(0))
-                .unwrap()
+            conn.query_row(
+                "SELECT COUNT(*) FROM recall_hints WHERE kind = 'note'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
         };
         assert_eq!(shown(&conn), 1);
         // Unknown exit with the error in stdout (Codex): still names the fix.

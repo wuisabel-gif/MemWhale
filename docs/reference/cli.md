@@ -74,6 +74,7 @@ mw rm 5                               # delete a session (+ its transcript); mw 
 mw prune [--min-bytes N] [--dry-run]  # delete empty auto-recorded sessions (noise cleanup)
 mw memory publish                     # write this repo's lessons to .memorywhale/lessons.md
 mw memory adopt                       # read that file into your review queue
+mw memory suggest                     # draft a lesson for each error that came back on three or more days
 mw memory pending                     # agent-written lessons waiting for review
 mw memory approve <id>                # use a pending lesson in notes, warnings, and search
 mw memory reject <id>                 # delete a pending lesson
@@ -153,6 +154,24 @@ A lesson an agent saves through the MCP `remember` tool waits for review:
 `mw memory approve <id>` or `mw memory reject <id>` settles each one. A lesson
 an agent saves by running `mw remember` in Claude Code's shell is used right
 away and is labeled as written by `claude-code`.
+
+MemoryWhale drafts a lesson itself when the same error has failed on three or
+more days and no lesson covers it. The draft goes to the same review queue,
+and nothing uses it until you approve it. Drafting runs when an agent's
+command fails, and on demand with `mw memory suggest`:
+
+```text
+$ mw memory suggest
+#12  when `echo ==`: this failed 19 times on 13 days with: (eval):1: ===== not found
+#13  `Error: Cannot find module 'docx'` came back on 3 days (3 failures); no fix is recorded
+```
+
+A draft says what was observed and never guesses a fix. When text from the
+error starts a word in every failing command, the draft opens with "when" and
+that text, so approving it stops the command before it runs. Errors about a
+path are skipped, since they group unrelated mistakes. Each error is drafted
+once: a rejected draft does not come back. To add the fix, reject the draft
+and save your own sentence with `mw remember`.
 
 Lessons can travel with a repository. `mw memory publish` writes the approved
 lessons saved inside the current git repository to `.memorywhale/lessons.md`,
