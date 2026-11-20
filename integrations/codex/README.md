@@ -57,10 +57,23 @@ When the output contains an error that a later command fixed before, Codex
 gets one line in its context naming that fix, the same note Claude Code and
 Cursor get. A second hook on `PreToolUse` (`mw-remember --before-hook codex`)
 warns before a command when the same program failed here, has not passed
-since, and MemoryWhale has a saved lesson or a fix with evidence; nothing is
-blocked, and each failure is warned about once. Set
-`MEMORYWHALE_HOOK_FEEDBACK=0` to record without notes or warnings. Codex asks
-you to trust the changed hooks once (`/hooks`).
+since, and MemoryWhale has a saved lesson or a fix with evidence; that
+warning blocks nothing, and each failure is warned about once.
+
+The same hook stops a command before it runs when a saved lesson names its
+text. Start the lesson with "when" and the command text in backticks:
+
+```bash
+mw remember 'when `echo ==`: zsh reads =word as a command lookup; quote the separator'
+```
+
+A Codex shell command containing that text, in any directory, is stopped once
+and Codex is given the lesson as the reason. The same command sent again
+within ten minutes runs. The text is matched literally, outside heredoc
+bodies, and must be at least four characters.
+
+Set `MEMORYWHALE_HOOK_FEEDBACK=0` to record without notes, warnings, or
+stops. Codex asks you to trust the changed hooks once (`/hooks`).
 
 #### Reading a recall note
 

@@ -94,11 +94,11 @@ fn run() -> Result<(), String> {
         run_from_hook(agent);
         return Ok(());
     }
-    if let Some(agent) = before_hook {
+    if before_hook.is_some() {
         if record_flags || !command_parts.is_empty() {
             return Err("mw-remember --before-hook cannot be mixed with other options".to_string());
         }
-        run_before_hook(agent);
+        run_before_hook();
         return Ok(());
     }
 
@@ -150,7 +150,7 @@ fn run_from_hook(agent: Agent) {
 /// reason to the model, which rewrites; the same command sent again runs).
 /// Otherwise it prints a context note when MemoryWhale has a saved lesson or
 /// a confirmed fix for a recent failure of the same program here.
-fn run_before_hook(agent: Agent) {
+fn run_before_hook() {
     if env::var("MEMORYWHALE_HOOK_FEEDBACK").is_ok_and(|v| v == "0") {
         return;
     }
@@ -166,21 +166,20 @@ fn run_before_hook(agent: Agent) {
     else {
         return;
     };
-    // Only Claude Code documents that the model sees a denial's reason.
-    if agent == Agent::Claude {
-        if let Some(reason) = memorywhale_cli::lesson_before(&conn, &command) {
-            println!(
-                "{}",
-                serde_json::json!({
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": reason
-                    }
-                })
-            );
-            return;
-        }
+    // Claude Code and Codex take the same denial and both give its reason to
+    // the model (Codex as "Command blocked by PreToolUse hook: <reason>").
+    if let Some(reason) = memorywhale_cli::lesson_before(&conn, &command) {
+        println!(
+            "{}",
+            serde_json::json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason
+                }
+            })
+        );
+        return;
     }
     if let Some(note) = memorywhale_cli::recall_before(&conn, &command, cwd.as_deref()) {
         println!(

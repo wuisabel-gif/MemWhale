@@ -248,9 +248,14 @@ fn a_lesson_saved_from_claude_codes_shell_names_the_agent_and_stays_live() {
 
 /// What the Claude Code pre-run hook prints for `command`.
 fn before(dir: &Path, command: &str) -> String {
+    before_as("claude", dir, command)
+}
+
+/// What `agent`'s pre-run hook prints for `command`.
+fn before_as(agent: &str, dir: &Path, command: &str) -> String {
     let mut child = Command::new(env!("CARGO_BIN_EXE_mw-remember"))
         .env("MEMORYWHALE_DATA_DIR", dir)
-        .args(["--before-hook", "claude"])
+        .args(["--before-hook", agent])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -295,7 +300,11 @@ fn a_lesson_naming_command_text_stops_that_command_once() {
     assert_eq!(before(&dir, "ls src; echo '===='; ls tests"), "");
     assert_eq!(before(&dir, "cat <<'EOF'\necho ====\nEOF"), "");
 
+    // Codex takes the same denial, for a command it has not been stopped on.
+    let codex = before_as("codex", &dir, "echo ====; pwd");
+    assert!(codex.contains(r#""permissionDecision":"deny""#), "{codex}");
+
     let doctor = run(env!("CARGO_BIN_EXE_mw"), &dir, &["doctor"]);
     let doctor = String::from_utf8_lossy(&doctor.stdout);
-    assert!(doctor.contains("1 stopped before running"), "{doctor}");
+    assert!(doctor.contains("2 stopped before running"), "{doctor}");
 }
