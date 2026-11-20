@@ -4751,6 +4751,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(masked, format!("export API_TOKEN={REDACTED} PATH=/bin"));
+    }
+
+    #[test]
     fn an_error_on_three_days_is_drafted_once_for_review() {
         let conn = Connection::open_in_memory().unwrap();
         storage::initialize(&conn).unwrap();
