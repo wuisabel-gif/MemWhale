@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -45,7 +45,7 @@ du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.28.1/
 Beim Öffnen wird ein Speicher von Schema 10 auf 17 migriert.
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="Das make eines Agenten scheitert mit einem xcrun-Fehler; der Capture-Hook meldet, dass der Fehler schon einmal auftrat und der Fix xcode-select --install war." width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="Mit mw remember wird eine Lektion gespeichert; will ein Agent einen Befehl mit diesem Text ausführen, stoppt ihn der Hook vor der Ausführung und nennt die Lektion als Grund." width="820" />
 </p>
 
 **Du willst mitmachen?** Fang mit dem [„Start here“-Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) an.

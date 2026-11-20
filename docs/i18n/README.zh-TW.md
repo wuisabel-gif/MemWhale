@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -40,7 +40,7 @@ CLI、Web 介面與桌面應用程式共用同一個產品版本 0.28.1；可重
 開啟資料儲存區時，其 schema 會從 10 遷移到 17。
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="代理的 make 因 xcrun 錯誤失敗；擷取掛鉤回覆說這個錯誤先前出現過一次，修正方法是 xcode-select --install。" width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="用 mw remember 儲存一則經驗；當代理要執行含有該文字的指令時，執行前掛鉤會攔下它，並把這則經驗當作理由。" width="820" />
 </p>
 
 **想參與貢獻嗎？** 可以先從 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317) 開始。

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -39,7 +39,7 @@ CLI、Web 界面和桌面应用共用产品版本号 0.28.1；可复用的 Rust 
 升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.28.1/docs/releases/0.28.1.md)。打开存储库时，其 schema 会从 10 迁移到 17。
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="智能体的 make 因 xcrun 错误失败；捕获钩子回复说这个错误以前出现过一次，修复方法是 xcode-select --install。" width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="用 mw remember 保存一条经验；当智能体要运行包含该文本的命令时，运行前钩子会拦下它，并把这条经验作为理由。" width="820" />
 </p>
 
 **想参与贡献？** 可以先看看 [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317)。

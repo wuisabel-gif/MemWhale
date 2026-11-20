@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -40,7 +40,7 @@ CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.28.1을 함께 사용하며, �
 스토어를 열면 스키마가 10에서 17로 마이그레이션됩니다.
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="에이전트의 make가 xcrun 오류로 실패하자 캡처 훅이 이 오류를 전에 한 번 봤고 해결책은 xcode-select --install이었다고 알려 줍니다." width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="mw remember로 교훈을 저장하면, 에이전트가 그 텍스트가 들어간 명령을 실행하려 할 때 실행 전 훅이 명령을 멈추고 교훈을 이유로 알려 줍니다." width="820" />
 </p>
 
 **기여하고 싶으신가요?** [Start here 이슈](https://github.com/wuisabel-gif/MemWhale/issues/317)부터 시작해 보세요.

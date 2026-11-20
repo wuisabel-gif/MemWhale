@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <div dir="rtl">
 
@@ -46,7 +46,7 @@
 للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 17.
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="يفشل أمر make لدى الوكيل بخطأ xcrun؛ فيردّ خطاف الالتقاط بأن هذا الخطأ ظهر مرة من قبل وأن الإصلاح كان xcode-select --install." width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="يُحفظ درس بالأمر mw remember؛ وعندما يوشك الوكيل على تشغيل أمر يحتوي على ذلك النص، يوقفه خطاف ما قبل التشغيل ويعرض الدرس سببًا لذلك." width="820" />
 </p>
 
 **هل تودّ المساهمة؟** ابدأ من [تذكرة «ابدأ من هنا»](https://github.com/wuisabel-gif/MemWhale/issues/317).
