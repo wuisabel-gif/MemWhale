@@ -3,6 +3,26 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.29.0] — A Head Start — November 19, 2026
+
+Product `0.29.0`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.29.0.md).
+
+### Added
+
+- MemoryWhale drafts a lesson when the same error has failed on three or more days and no lesson covers it. The draft waits in `mw memory pending` and is not used until approved. Drafting runs when an agent's command fails, and on demand with `mw memory suggest`. (#511)
+- `mw import --shell-history [FILE] [--limit N]` fills a store from your shell history: commands and times only, with secrets masked. The first-run welcome offers it once, and `mw doctor` points at it while the store is empty. (#513)
+- A lesson that opens with "when" and command text in backticks now stops a matching Codex command once, before it runs, as it already did in Claude Code. (#510)
+
+### Changed
+
+- The README demo shows a command being stopped before it runs. (#514)
+
+### Fixed
+
+- The coverage job in CI no longer fails when a test that kills a child process leaves one unreadable profile. (#515)
+
 ## [0.28.1] — A Tested Interface — November 19, 2026
 
 Product `0.28.1`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
