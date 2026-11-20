@@ -182,20 +182,23 @@ jobs:
           components: llvm-tools-preview
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
+      # Some tests kill a child process on purpose, which can leave one
+      # half-written profile; `--failure-mode all` skips it instead of failing
+      # the job with "no profile can be merged".
       - name: Run tests with coverage
-        run: cargo llvm-cov -p memorywhale-core -p memorywhale-cli --lcov --output-path lcov.info
+        run: cargo llvm-cov -p memorywhale-core -p memorywhale-cli --failure-mode all --lcov --output-path lcov.info
       - name: Summarize line coverage by file
         run: |
           {
             echo '### Rust line coverage (memorywhale-core, memorywhale-cli)'
             echo '```'
-            cargo llvm-cov report
+            cargo llvm-cov report --failure-mode all
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
       # Baseline measured 2026-11-13: 71.5% of 24,383 lines. The floor sits a
       # little below it; raise it deliberately when coverage rises.
       - name: Check the line-coverage floor
-        run: cargo llvm-cov report --summary-only --fail-under-lines 68
+        run: cargo llvm-cov report --failure-mode all --summary-only --fail-under-lines 68
       - name: Upload lcov report
         uses: actions/upload-artifact@v7
         with:
