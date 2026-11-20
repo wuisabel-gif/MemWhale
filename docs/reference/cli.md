@@ -96,6 +96,7 @@ mw pet [--watch]                      # show the whale whose mood reflects the m
 mw doctor                             # check the install, shell hooks, MCP server, and Claude/Rho integrations
 mw export [project:name]              # export a bundle (Markdown + JSON + SQLite)
 mw import <bundle|sqlite>             # merge another machine's export
+mw import --shell-history [FILE]      # add your shell history, so a new store has something to search
 mw push <ssh-host>                    # send this machine's memory to another (scp + remote import)
 mw pull <ssh-host> [path]             # the reverse: copy another machine's memory here and merge it
 mw global on|off|status               # auto-record every new terminal
@@ -131,6 +132,16 @@ mw recipe list
 mw recipe show 1
 mw recipe copy 1
 ```
+
+A new store is empty, so there is nothing to search or recall.
+`mw import --shell-history` fills it from the shell history you already have
+(`$HISTFILE`, else `~/.zsh_history` or `~/.bash_history`; pass another file to
+use it, and `--limit N` to take only the newest N, default 5000). The first
+`mw` on a new machine offers the same import. History holds no output and no
+exit codes, so each imported row is a command and its time, marked
+`source:shell-history`. Secrets are masked as they are for recorded commands,
+and a variable named like a secret (`API_TOKEN=...`) loses its value. Running
+the import again adds only what is new.
 
 `mw` starts a recorded subshell; run commands normally, then `exit` or Ctrl-D
 to stop. The raw transcript lands in the data folder, searchable metadata in

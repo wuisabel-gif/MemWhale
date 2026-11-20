@@ -15,6 +15,7 @@ expose the data.
 | `mw-remember` / `mw-run` | stdout, stderr, notes, command/argv representations, argument index values | cwd |
 | `mw` session capture | transcript and session notes | shell, cwd, transcript path, timestamps |
 | `mw-recover` / `mw-serve` recovery | recovered transcript | transcript path and timestamps |
+| `mw import --shell-history` (opt-in) | each history command, plus the value of a variable named like a secret | timestamps |
 | `mw import` / `mw pull` | imported command runs, sessions, and lessons | cwd, filesystem paths, timestamps |
 | `mw-mcp remember` / `mw mark` | lesson text through `remember_as` | provenance fields |
 | Desktop app lessons | lesson text through `remember_as` | provenance fields |

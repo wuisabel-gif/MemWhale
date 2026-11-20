@@ -3406,6 +3406,110 @@ pub fn remember_as(
     Ok(conn.last_insert_rowid())
 }
 
+/// The commands in a shell history file, oldest first, each with the time it
+/// ran when the file records one. Reads zsh's extended format
+/// (`: 1700000000:0;cargo build`), bash's `#1700000000` timestamp lines, and
+/// plain one-command-per-line files; a trailing backslash continues a command.
+pub fn parse_shell_history(text: &str) -> Vec<(Option<i64>, String)> {
+    let mut out: Vec<(Option<i64>, String)> = Vec::new();
+    let mut stamp: Option<i64> = None;
+    let mut open = false;
+    for raw in text.lines() {
+        if open {
+            let last = &mut out.last_mut().expect("an open command").1;
+            last.push('\n');
+            last.push_str(raw.strip_suffix('\\').unwrap_or(raw));
+            open = raw.ends_with('\\');
+            continue;
+        }
+        // bash, with HISTTIMEFORMAT set: the time is on its own line.
+        if let Some(at) = raw.strip_prefix('#').and_then(|s| s.parse::<i64>().ok()) {
+            stamp = Some(at);
+            continue;
+        }
+        let (at, command) = raw
+            .strip_prefix(": ")
+            .and_then(|rest| rest.split_once(';'))
+            .and_then(|(head, command)| Some((head.split(':').next()?.parse().ok()?, command)))
+            .map_or((stamp.take(), raw), |(at, command)| (Some(at), command));
+        if command.trim().is_empty() {
+            continue;
+        }
+        open = command.ends_with('\\');
+        out.push((
+            at,
+            command.strip_suffix('\\').unwrap_or(command).to_string(),
+        ));
+    }
+    out
+}
+
+/// Add the newest `limit` commands of a shell history file to the store, so a
+/// new install has something to search. Returns `(added, already there)`.
+///
+/// History holds neither output nor exit codes, so each row is a command and
+/// a time only, marked `source:shell-history`; a command with no recorded
+/// time gets `fallback_at`. Secrets are masked the way a recorded command's
+/// are. Running it again adds only what is new.
+pub fn import_shell_history(
+    conn: &Connection,
+    text: &str,
+    fallback_at: &str,
+    limit: usize,
+) -> Result<(usize, usize), String> {
+    let commands = parse_shell_history(text);
+    let newest = &commands[commands.len().saturating_sub(limit)..];
+    conn.execute_batch("BEGIN IMMEDIATE")
+        .map_err(|e| format!("failed to start history import: {e}"))?;
+    let mut added = 0;
+    for (at, command) in newest {
+        // Whole-line patterns first, then `--password hunter2` style flags.
+        // History is where `export API_TOKEN=...` lives, so a variable
+        // named like a secret loses its value too.
+        let words: Vec<String> = sanitize_capture(command)
+            .split(' ')
+            .map(|word| match word.split_once('=') {
+                Some((name, value))
+                    if !value.is_empty()
+                        && ["TOKEN", "SECRET", "PASSWORD", "PASSWD", "KEY", "CREDENTIAL"]
+                            .iter()
+                            .any(|secret| name.to_uppercase().contains(secret)) =>
+                {
+                    format!("{name}={REDACTED}")
+                }
+                _ => word.to_string(),
+            })
+            .collect();
+        let command = sanitize_arguments(&words).join(" ");
+        let at = at
+            .and_then(|secs| chrono::DateTime::from_timestamp(secs, 0))
+            .map_or_else(|| fallback_at.to_string(), |at| at.to_rfc3339());
+        let inserted = conn
+            .execute(
+                "INSERT INTO command_runs
+                    (command, argv_json, stdout, stderr, notes, created_at, capture_kind)
+                 SELECT ?1, json_array(?1), '', '', 'source:shell-history', ?2, 'commands-only'
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM command_runs
+                     WHERE notes = 'source:shell-history' AND command = ?1 AND created_at = ?2)",
+                params![command, at],
+            )
+            .map_err(|e| format!("failed to import a history line: {e}"))?;
+        if inserted == 1 {
+            conn.execute(
+                "INSERT INTO command_arguments (command_run_id, position, value)
+                 VALUES (?1, 0, ?2)",
+                params![conn.last_insert_rowid(), command],
+            )
+            .map_err(|e| format!("failed to import a history line: {e}"))?;
+            added += 1;
+        }
+    }
+    conn.execute_batch("COMMIT")
+        .map_err(|e| format!("failed to finish history import: {e}"))?;
+    Ok((added, newest.len() - added))
+}
+
 pub use memorywhale_core::privacy::{
     max_capture_bytes, redact, sanitize_arguments, sanitize_capture, strip_terminal_controls,
     truncate_capture, DEFAULT_MAX_CAPTURE_BYTES, REDACTED,
@@ -4409,6 +4513,62 @@ mod tests {
             stem_of_line("for p in 1 2; do t=$(pdftotext -f $p a.pdf -); echo \"$t\"; done"),
             "echo $t"
         );
+    }
+
+    #[test]
+    fn shell_history_imports_once_with_times_and_masked_secrets() {
+        let zsh = ": 1700000000:0;cargo build\n\
+                   : 1700000060:3;for f in *; do \\\n  echo $f\\\ndone\n\
+                   : 1700000120:0;mysql --password hunter2 app\n";
+        assert_eq!(
+            parse_shell_history(zsh),
+            [
+                (Some(1700000000), "cargo build".to_string()),
+                (
+                    Some(1700000060),
+                    "for f in *; do \n  echo $f\ndone".to_string()
+                ),
+                (Some(1700000120), "mysql --password hunter2 app".to_string()),
+            ]
+        );
+        assert_eq!(
+            parse_shell_history("#1700000000\ngit status\n\nls -la\n"),
+            [
+                (Some(1700000000), "git status".to_string()),
+                (None, "ls -la".to_string())
+            ]
+        );
+
+        let conn = Connection::open_in_memory().unwrap();
+        storage::initialize(&conn).unwrap();
+        let now = "2026-01-01T00:00:00+00:00";
+        assert_eq!(import_shell_history(&conn, zsh, now, 2).unwrap(), (2, 0));
+        // Again, with a wider limit: only the one not yet there is added.
+        assert_eq!(import_shell_history(&conn, zsh, now, 10).unwrap(), (1, 2));
+        let rows: Vec<(String, String, Option<i64>)> = conn
+            .prepare("SELECT command, created_at, exit_code FROM command_runs ORDER BY created_at")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(rows[0].0, "cargo build");
+        assert_eq!(rows[0].1, "2023-11-14T22:13:20+00:00");
+        assert_eq!(rows[0].2, None);
+        assert!(!rows[2].0.contains("hunter2"), "{}", rows[2].0);
+        assert!(rows[2].0.starts_with("mysql --password "), "{}", rows[2].0);
+        assert_eq!(
+            import_shell_history(&conn, "export API_TOKEN=abc123 PATH=/bin", now, 1).unwrap(),
+            (1, 0)
+        );
+        let masked: String = conn
+            .query_row(
+                "SELECT command FROM command_runs WHERE command LIKE 'export%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(masked, format!("export API_TOKEN={REDACTED} PATH=/bin"));
     }
 
     #[test]

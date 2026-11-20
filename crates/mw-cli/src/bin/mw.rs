@@ -443,6 +443,7 @@ fn print_help() {
          mw demo                  seed a small demo terminal-memory dataset\n\
          mw export [project:name] export memory to Markdown + JSON\n\
          mw import <bundle|sqlite> merge another machine's exported memory into this one\n\
+         mw import --shell-history [FILE] [--limit N]  add your shell history (commands and times only) so a new store has something to search\n\
          mw push <ssh-host>       send this machine's memory to a teammate (scp + remote mw import)\n\
          mw pull <ssh-host> [path] copy another machine's memory here and merge it (scp + import)\n\
          mw search <text> [--mode evidence|lessons|recipes|failures] [--explain] [tag:X] [source:command|session|note|document|conversation] [agent:claude|rho|cursor|codewhale|codex|gemini|terminal] [after:YYYY-MM-DD] [before:YYYY-MM-DD] [limit:N] [--project X] [--machine Y] [--since 7d]  rank memories by relevance (--explain shows why)\n\
@@ -568,15 +569,30 @@ fn first_run_welcome() -> Result<(), String> {
          need to type `mw` each time. This adds one line to your shell startup\n\
          file (`mw global off` undoes it).\n"
     );
-    print!("Enable auto-recording in every new terminal now? [y/N] ");
-    let _ = std::io::stdout().flush();
-
-    let mut answer = String::new();
-    std::io::stdin()
-        .read_line(&mut answer)
-        .map_err(|err| format!("failed to read input: {err}"))?;
-
-    if matches!(answer.trim(), "y" | "Y" | "yes" | "Yes") {
+    let ask = |question: &str| -> Result<bool, String> {
+        print!("{question} [y/N] ");
+        let _ = std::io::stdout().flush();
+        let mut answer = String::new();
+        std::io::stdin()
+            .read_line(&mut answer)
+            .map_err(|err| format!("failed to read input: {err}"))?;
+        Ok(matches!(answer.trim(), "y" | "Y" | "yes" | "Yes"))
+    };
+    // An empty store has nothing to search; the shell's own history fills it.
+    if let Some(history) = default_shell_history() {
+        println!(
+            "Your shell history ({}) can go in first, so there is something to\n\
+             search right away: commands and times only, secrets masked.\n",
+            history.display()
+        );
+        if ask("Import your shell history now?")? {
+            if let Err(err) = import_shell_history(&history, 5000) {
+                eprintln!("mw: {err}");
+            }
+        }
+        println!();
+    }
+    if ask("Enable auto-recording in every new terminal now?")? {
         global_on()?;
         std::process::exit(0);
     }
@@ -2724,9 +2740,30 @@ fn pull_memory(args: &[String]) -> Result<(), String> {
 /// Merge another machine's exported memory (a bundle dir or a raw .sqlite3)
 /// into the local database, skipping rows that are already present.
 fn import_memory(args: &[String]) -> Result<(), String> {
-    let raw = args
-        .first()
-        .ok_or_else(|| "usage: mw import <bundle-dir|memorywhale.sqlite3>".to_string())?;
+    const USAGE: &str =
+        "usage: mw import <bundle-dir|memorywhale.sqlite3> | mw import --shell-history [FILE] [--limit N]";
+    if args.first().is_some_and(|arg| arg == "--shell-history") {
+        let (mut file, mut limit) = (None, 5000);
+        let mut rest = args[1..].iter();
+        while let Some(arg) = rest.next() {
+            if arg == "--limit" {
+                limit = rest
+                    .next()
+                    .and_then(|n| n.parse().ok())
+                    .ok_or_else(|| USAGE.to_string())?;
+            } else if file.is_none() && !arg.starts_with('-') {
+                file = Some(PathBuf::from(arg));
+            } else {
+                return Err(USAGE.to_string());
+            }
+        }
+        let file = file.or_else(default_shell_history).ok_or_else(|| {
+            "no shell history found (~/.zsh_history or ~/.bash_history); pass the file to import"
+                .to_string()
+        })?;
+        return import_shell_history(&file, limit);
+    }
+    let raw = args.first().ok_or_else(|| USAGE.to_string())?;
     let path = PathBuf::from(raw);
     let src = if path.is_dir() {
         path.join("memorywhale.sqlite3")
@@ -2737,6 +2774,57 @@ fn import_memory(args: &[String]) -> Result<(), String> {
         return Err(format!("no SQLite database found at {}", src.display()));
     }
     import_sqlite(&src)
+}
+
+/// This user's shell history file: `$HISTFILE` when exported, else the file
+/// of the login shell, else whichever of zsh's and bash's exists.
+fn default_shell_history() -> Option<PathBuf> {
+    let home = dirs::home_dir()?;
+    let (zsh, bash) = (home.join(".zsh_history"), home.join(".bash_history"));
+    let by_shell = if env::var("SHELL").is_ok_and(|shell| shell.ends_with("bash")) {
+        [bash, zsh]
+    } else {
+        [zsh, bash]
+    };
+    env::var_os("HISTFILE")
+        .map(PathBuf::from)
+        .into_iter()
+        .chain(by_shell)
+        .find(|path| path.is_file())
+}
+
+/// `mw import --shell-history`: add the newest `limit` commands of `file` to
+/// the store (see `memorywhale_cli::import_shell_history`).
+fn import_shell_history(file: &std::path::Path, limit: usize) -> Result<(), String> {
+    let gate = memorywhale_cli::capture_rule_for(None);
+    if !gate.mode.stores_anything() {
+        return Err(format!(
+            "capture is off ({}); nothing imported",
+            gate.source
+        ));
+    }
+    // zsh writes non-ASCII bytes in its own encoding; keep the rest.
+    let bytes = fs::read(file).map_err(|e| format!("failed to read {}: {e}", file.display()))?;
+    let at = fs::metadata(file)
+        .and_then(|meta| meta.modified())
+        .map(chrono::DateTime::<chrono::Utc>::from)
+        .unwrap_or_else(|_| chrono::Utc::now());
+    let conn = open_session_db()?;
+    let (added, present) = memorywhale_cli::import_shell_history(
+        &conn,
+        &String::from_utf8_lossy(&bytes),
+        &at.to_rfc3339(),
+        limit,
+    )?;
+    println!(
+        "mw: imported {added} command(s) from {} ({present} already there).",
+        file.display()
+    );
+    println!(
+        "    Commands and their times only: shell history has no output or exit codes. \
+         Secrets are masked, and nothing leaves this machine. Try `mw search <word>`."
+    );
+    Ok(())
 }
 
 /// Attach a source SQLite database and merge its command runs, sessions, and
@@ -5473,6 +5561,19 @@ fn doctor() -> Result<(), String> {
     };
     ok("recall notes", feedback);
     // Agent-written lessons do nothing until someone reviews them.
+    // A store with no commands answers no search; point at the quickest fill.
+    let empty = conn.as_ref().is_some_and(|conn| {
+        conn.query_row("SELECT NOT EXISTS(SELECT 1 FROM command_runs)", [], |r| {
+            r.get(0)
+        })
+        .unwrap_or(false)
+    });
+    if empty && default_shell_history().is_some() {
+        warn(
+            "history",
+            "no commands recorded yet; `mw import --shell-history` adds your shell history so search has something to find".to_string(),
+        );
+    }
     let pending = conn
         .as_ref()
         .and_then(|conn| memorywhale_cli::pending_agent_notes(conn).ok())
