@@ -52,9 +52,11 @@ fn latest(app: &AppHandle) -> Option<(i64, Option<Event>)> {
     let state = app.state::<AppState>();
     let conn = state.db.lock().ok()?;
     let id = conn
-        .query_row("SELECT COALESCE(MAX(id), 0) FROM recall_hints", [], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT COALESCE(MAX(id), 0) FROM recall_hints WHERE kind != 'drafted'",
+            [],
+            |r| r.get(0),
+        )
         .ok()?;
     let event = crate::store::events(&conn, 1)
         .ok()
