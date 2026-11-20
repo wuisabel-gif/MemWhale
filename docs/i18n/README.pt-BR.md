@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo do MemoryWhale" width="160" />
@@ -45,7 +45,7 @@ o núcleo Rust reutilizável está na versão 0.13.0. Consulte as [notas de vers
 para o guia de atualização. Ao abrir uma base, ela é migrada do schema 10 para o 17.
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="O make de um agente falha com um erro do xcrun; o hook de captura responde que o erro já apareceu uma vez e que a correção foi xcode-select --install." width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="Uma lição é salva com mw remember; quando um agente vai executar um comando que contém esse texto, o hook de pré-execução o interrompe e apresenta a lição como motivo." width="820" />
 </p>
 
 **Quer contribuir?** Comece pela [issue Start here](https://github.com/wuisabel-gif/MemWhale/issues/317).

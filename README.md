@@ -43,7 +43,7 @@ Rust core is version 0.13.0. See the [release notes](https://github.com/wuisabel
 for the upgrade guide. Opening a store migrates it from schema 10 to 17.
 
 <p align="center">
-  <img src="assets/proactive-recall.gif" alt="An agent's make fails with an xcrun error; the capture hook answers that this error was seen once and the fix was xcode-select --install." width="820" />
+  <img src="assets/stopped-before-it-runs.gif" alt="A lesson is saved with mw remember; when an agent is about to run a command containing that text, the pre-run hook stops it and gives the lesson as the reason." width="820" />
 </p>
 
 **Want to contribute?** Start with the [Start here issue](https://github.com/wuisabel-gif/MemWhale/issues/317).

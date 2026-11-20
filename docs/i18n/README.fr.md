@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -44,7 +44,7 @@ Le CLI, l’interface web et l’application de bureau partagent la version prod
 pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 17.
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="Le make d’un agent échoue avec une erreur xcrun ; le hook de capture répond que cette erreur a déjà été vue une fois et que le correctif était xcode-select --install." width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="Une leçon est enregistrée avec mw remember ; quand un agent s’apprête à lancer une commande contenant ce texte, le hook d’avant exécution l’arrête et donne la leçon comme raison." width="820" />
 </p>
 
 **Envie de contribuer ?** Commencez par l’[issue « Start here »](https://github.com/wuisabel-gif/MemWhale/issues/317).

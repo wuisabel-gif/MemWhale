@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -45,7 +45,7 @@ producto 0.28.1; el núcleo reutilizable en Rust está en la versión 0.13.0. Co
 para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 17.
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="El make de un agente falla con un error de xcrun; el hook de captura responde que el error ya apareció una vez y que la solución fue xcode-select --install." width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="Se guarda una lección con mw remember; cuando un agente va a ejecutar un comando que contiene ese texto, el hook previo lo detiene y da la lección como motivo." width="820" />
 </p>
 
 **¿Quieres contribuir?** Empieza por el [issue «Start here»](https://github.com/wuisabel-gif/MemWhale/issues/317).

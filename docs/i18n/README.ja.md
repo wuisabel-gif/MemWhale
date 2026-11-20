@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: e2ca049bfc1d7ec41e27b0e67bc30512759279811c54af3e95d4df516f65f12f -->
+<!-- README-SOURCE-SHA256: d1a7b52b3897044aa7fa8c4e44765e8e78fa24aee6b92218befe271a805b382b -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -39,7 +39,7 @@ CLI、Web UI、デスクトップアプリの製品バージョンはいずれ�
 アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.28.1/docs/releases/0.28.1.md)をご覧ください。ストアを開くと、スキーマが 10 から 17 に移行されます。
 
 <p align="center">
-  <img src="../../assets/proactive-recall.gif" alt="エージェントの make が xcrun エラーで失敗すると、キャプチャフックがこのエラーは以前 1 回発生し、修正は xcode-select --install だったと返します。" width="820" />
+  <img src="../../assets/stopped-before-it-runs.gif" alt="mw remember で教訓を保存すると、エージェントがその文字列を含むコマンドを実行しようとしたとき、実行前フックがそれを止め、理由として教訓を示します。" width="820" />
 </p>
 
 **コントリビュートしてみませんか？** まずは[「Start here」Issue](https://github.com/wuisabel-gif/MemWhale/issues/317) をご覧ください。
