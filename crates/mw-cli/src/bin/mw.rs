@@ -425,6 +425,7 @@ fn print_help() {
          mw remember <text> [ttl:7d] [--force]  save a lesson/conclusion (ttl: auto-expires it; warns on a near-duplicate, --force saves anyway), e.g. \"the fix was passing --features vendored-ssl\"\n\
          mw memory publish        write this repository's lessons to .memorywhale/lessons.md, to commit\n\
          mw memory adopt          read .memorywhale/lessons.md into your review queue\n\
+         mw memory suggest        draft a lesson for each error that came back on three or more days\n\
          mw memory pending        list agent-written lessons waiting for review\n\
          mw memory approve|reject <id>  approve a pending lesson, or delete it\n\
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
@@ -1491,6 +1492,23 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
                 );
             }
         }
+        [action] if action == "suggest" => {
+            let drafts = memorywhale_cli::draft_recurring_lessons(&conn)?;
+            if drafts.is_empty() {
+                println!(
+                    "mw: no error has come back on three or more days without a lesson or an earlier draft."
+                );
+            }
+            for draft in &drafts {
+                println!("#{}  {}", draft.id, memorywhale_cli::redact(&draft.label));
+            }
+            if !drafts.is_empty() {
+                println!(
+                    "\n{} draft lesson(s) are waiting for review; run `mw memory pending`.",
+                    drafts.len()
+                );
+            }
+        }
         [action] if action == "pending" => {
             let pending = memorywhale_cli::pending_agent_notes(&conn)?;
             if pending.is_empty() {
@@ -1533,7 +1551,7 @@ fn memory_lifecycle_cmd(args: &[String]) -> Result<(), String> {
         }
         _ => {
             return Err(
-                "usage: mw memory pending | mw memory approve <id> | mw memory reject <id> \
+                "usage: mw memory suggest | mw memory pending | mw memory approve <id> | mw memory reject <id> \
                         | mw memory publish | mw memory adopt \
                         | mw memory stale <id> | mw memory supersede <old-id> <new-id> \
                         | mw memory compact [--apply] [--min-session-bytes N] [--stale-days N] \
