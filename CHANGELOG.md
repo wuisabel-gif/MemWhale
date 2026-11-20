@@ -3,6 +3,25 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.28.1] — A Tested Interface — November 19, 2026
+
+Product `0.28.1`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.28.1.md).
+
+### Added
+
+- Tests for the web and desktop interface: a jsdom harness with a stand-in for the Tauri bridge, and 14 tests that drive search, run details, and recall through user events. Contributed by @MayurK-cmd. (#493, #494)
+- The debugging guide and the CLI reference explain live autosave and how an interrupted session is recovered. Contributed by @MayurK-cmd. (#492)
+
+### Changed
+
+- The interface runs on React 19.3, up from 18.3. Contributed by @MayurK-cmd. (#491)
+
+### Fixed
+
+- The site check failed in a checkout whose path contains a space or other escaped character. (#491)
+
 ## [0.28.0] — Stopped Before It Fails — November 17, 2026
 
 Product `0.28.0`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
