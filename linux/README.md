@@ -4,9 +4,9 @@ Everything needed to run MemoryWhale as a first-class Linux citizen: install the
 CLI binaries, auto-record commands with a shell hook, keep the dashboard alive
 as a service, and package it as a `.deb`.
 
-MemoryWhale 0.29.0: A Head Start, uses the same product version on
+MemoryWhale 0.29.1: Patched Dependencies, uses the same product version on
 Linux, macOS, the CLI, and the UI. See the
-[release notes](../docs/releases/0.29.0.md).
+[release notes](../docs/releases/0.29.1.md).
 
 Storage is local-first: commands, sessions, and notes land in
 `~/.local/share/MemoryWhale/memorywhale.sqlite3` unless

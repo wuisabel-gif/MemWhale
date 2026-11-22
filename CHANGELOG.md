@@ -3,6 +3,20 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.29.1] — Patched Dependencies — November 22, 2026
+
+Product `0.29.1`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.29.1.md).
+
+### Security
+
+- The desktop app's `url` dependency moves from 2.5.8 to 2.5.9 for RUSTSEC-2026-0592, a stack overflow in `Url::origin()` on nested `blob:` URLs. The crate reaches the desktop app through Tauri; the CLI does not use it. (#520)
+
+### Changed
+
+- Patch updates to Tauri and its plugins, `ureq`, `regex`, Vite, Vitest, Playwright, and other build and interface dependencies. (#518, #519)
+
 ## [0.29.0] — A Head Start — November 19, 2026
 
 Product `0.29.0`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
