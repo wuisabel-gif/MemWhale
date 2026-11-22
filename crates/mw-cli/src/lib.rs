@@ -5,6 +5,7 @@ pub mod case_files;
 pub mod github;
 pub mod handoff;
 pub mod integrate;
+pub mod knowledge;
 pub mod mcp;
 pub mod remember;
 pub mod repository;
