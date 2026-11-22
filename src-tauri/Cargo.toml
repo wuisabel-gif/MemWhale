@@ -1,6 +1,6 @@
 [package]
 name = "memorywhale"
-version = "0.29.1"
+version = "0.30.0"
 description = "MemoryWhale desktop: what your coding agents were told, and the terminal memory behind it"
 authors = ["MemoryWhale"]
 license = "MIT"

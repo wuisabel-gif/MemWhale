@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
+<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -39,10 +39,12 @@ código a través de MCP, sin cuenta y sin subir nada.
 > demuestran el mecanismo, no un estudio de campo; consulta
 > [cómo se midió](../../benchmarks/README.md).
 
-**MemoryWhale 0.29.1: Patched Dependencies · 22 de noviembre de 2026.**
+**MemoryWhale 0.30.0: One Memory, Four Assistants · 22 de noviembre de 2026.**
 La CLI, la interfaz web y la aplicación de escritorio comparten la versión de
-producto 0.29.1; el núcleo reutilizable en Rust está en la versión 0.13.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md)
+producto 0.30.0; el núcleo reutilizable en Rust está en la versión 0.13.0. Consulta las [notas de la versión](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md)
 para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 17.
+
+**Memoria de conocimiento, opcional.** `mw knowledge import` trae lo que ya les dijiste a Claude Code, Codex, ChatGPT y Claude, y propone afirmaciones para que las apruebes. Consulta [memoria de conocimiento](../../docs/reference/knowledge.md).
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="Se guarda una lección con mw remember; cuando un agente va a ejecutar un comando que contiene ese texto, el hook previo lo detiene y da la lección como motivo." width="820" />

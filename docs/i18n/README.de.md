@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
+<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -38,11 +38,13 @@ wenn das Terminal, die SSH-Verbindung oder die Agentensitzung längst weg ist. �
 > synthetische Aufgaben, die den Mechanismus zeigen, nicht um eine Feldstudie; siehe
 > [so wurde gemessen](../../benchmarks/README.md).
 
-**MemoryWhale 0.29.1: Patched Dependencies · 22. November 2026.**
-CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.29.1; der
+**MemoryWhale 0.30.0: One Memory, Four Assistants · 22. November 2026.**
+CLI, Weboberfläche und Desktop-App teilen sich die Produktversion 0.30.0; der
 wiederverwendbare Rust-Kern hat die Version 0.13.0. Hinweise zum Upgrade findest
-du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md).
+du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md).
 Beim Öffnen wird ein Speicher von Schema 10 auf 17 migriert.
+
+**Wissensspeicher, optional.** `mw knowledge import` holt herein, was du Claude Code, Codex, ChatGPT und Claude bereits gesagt hast, und schlägt Aussagen zur Freigabe vor. Siehe [Wissensspeicher](../../docs/reference/knowledge.md).
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="Mit mw remember wird eine Lektion gespeichert; will ein Agent einen Befehl mit diesem Text ausführen, stoppt ihn der Hook vor der Ausführung und nennt die Lektion als Grund." width="820" />

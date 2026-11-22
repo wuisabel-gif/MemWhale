@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
+<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -34,9 +34,11 @@ MCP 経由で 19 種類のコーディングエージェントと連携でき、
 > プロジェクト固有のバグを対象にした統制された評価では、エージェントはメモリなしで **25%**、メモリありで **96%** の課題を解決しました。
 > これはメカニズムを示すための合成タスクであり、実環境での調査ではありません。詳しくは[測定方法](../../benchmarks/README.md)をご覧ください。
 
-**MemoryWhale 0.29.1: Patched Dependencies · 2026 年 11 月 22 日**
-CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.29.1 で、再利用可能な Rust コアのバージョンは 0.13.0 です。
-アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md)をご覧ください。ストアを開くと、スキーマが 10 から 17 に移行されます。
+**MemoryWhale 0.30.0: One Memory, Four Assistants · 2026 年 11 月 22 日**
+CLI、Web UI、デスクトップアプリの製品バージョンはいずれも 0.30.0 で、再利用可能な Rust コアのバージョンは 0.13.0 です。
+アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 17 に移行されます。
+
+**ナレッジメモリ（オプトイン）。** `mw knowledge import` は、Claude Code、Codex、ChatGPT、Claude にすでに伝えた内容を取り込み、承認する文を提案します。詳しくは[ナレッジメモリ](../../docs/reference/knowledge.md)をご覧ください。
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="mw remember で教訓を保存すると、エージェントがその文字列を含むコマンドを実行しようとしたとき、実行前フックがそれを止め、理由として教訓を示します。" width="820" />
