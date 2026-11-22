@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
+<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
 
 <div dir="rtl">
 
@@ -39,11 +39,13 @@
 > و**96%** منها مع الذاكرة. هذه مهام اصطناعية توضّح آلية العمل، وليست دراسة ميدانية؛
 > راجع [كيف أُجري القياس](../../benchmarks/README.md).
 
-**MemoryWhale 0.29.1: Patched Dependencies · 22 نوفمبر 2026.**
-تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.29.1،
+**MemoryWhale 0.30.0: One Memory, Four Assistants · 22 نوفمبر 2026.**
+تشترك واجهة سطر الأوامر وواجهة الويب وتطبيق سطح المكتب في إصدار المنتج 0.30.0،
 أما نواة Rust القابلة لإعادة الاستخدام فإصدارها 0.13.0. راجع
-[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md)
+[ملاحظات الإصدار](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md)
 للاطلاع على دليل الترقية. وعند فتح مخزن البيانات يُرحَّل مخططه من الإصدار 10 إلى 17.
+
+**ذاكرة المعرفة، اختيارية.** يجلب `mw knowledge import` ما سبق أن قلته لـ Claude Code و Codex و ChatGPT و Claude، ويقترح عبارات لتوافق عليها. راجع [ذاكرة المعرفة](../../docs/reference/knowledge.md).
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="يُحفظ درس بالأمر mw remember؛ وعندما يوشك الوكيل على تشغيل أمر يحتوي على ذلك النص، يوقفه خطاف ما قبل التشغيل ويعرض الدرس سببًا لذلك." width="820" />

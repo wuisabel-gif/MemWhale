@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
+<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -34,10 +34,12 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 > 在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 **25%** 的問題，有記憶時則解決了 **96%**。
 > 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](../../benchmarks/README.md)。
 
-**MemoryWhale 0.29.1: Patched Dependencies · 2026 年 11 月 22 日。**
-CLI、Web 介面與桌面應用程式共用同一個產品版本 0.29.1；可重複使用的 Rust 核心則是 0.13.0。
-升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md)。
+**MemoryWhale 0.30.0: One Memory, Four Assistants · 2026 年 11 月 22 日。**
+CLI、Web 介面與桌面應用程式共用同一個產品版本 0.30.0；可重複使用的 Rust 核心則是 0.13.0。
+升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md)。
 開啟資料儲存區時，其 schema 會從 10 遷移到 17。
+
+**知識記憶（選用）。** `mw knowledge import` 會帶入你已經告訴過 Claude Code、Codex、ChatGPT 和 Claude 的內容，並提出語句供你核准。詳見[知識記憶](../../docs/reference/knowledge.md)。
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="用 mw remember 儲存一則經驗；當代理要執行含有該文字的指令時，執行前掛鉤會攔下它，並把這則經驗當作理由。" width="820" />

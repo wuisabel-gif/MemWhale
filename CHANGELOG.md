@@ -3,6 +3,20 @@
 All notable changes to MemoryWhale are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.30.0] — One Memory, Four Assistants — November 22, 2026
+
+Product `0.30.0`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).
+
+See [release notes](docs/releases/0.30.0.md).
+
+### Added
+
+- Knowledge memory, opt-in: durable statements you approve, kept apart from debugging memory. `mw knowledge import` with no arguments reads Claude Code transcripts and memory files, Codex sessions, and any ChatGPT or Claude chat export in the downloads folder, and proposes statements for review. (#523, #525)
+- `mw knowledge pending`, `approve`, `keep`, `reject`, `add`, `list`, `search`, `rm`, and `doctor`. Nothing is used until approved, and a rejected statement is never proposed again. (#525)
+- `mw knowledge export` prints approved statements as a context block, and `--into FILE` writes that block into an instruction file, changing only its own marked section. (#525, #527)
+- A Knowledge page in the desktop app with an "Import my conversations" button, a review list, and a copyable context block. (#526)
+- Guides for importing ChatGPT and Claude chat data exports. (#528)
+
 ## [0.29.1] — Patched Dependencies — November 22, 2026
 
 Product `0.29.1`; `memorywhale-core` `0.13.0` (unchanged); SQLite schema `17` (unchanged).

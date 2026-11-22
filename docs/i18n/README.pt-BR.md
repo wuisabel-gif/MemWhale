@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
+<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo do MemoryWhale" width="160" />
@@ -39,10 +39,12 @@ Funciona com 19 agentes de programação via MCP, sem conta e sem enviar nada.
 > mecanismo, não um estudo de campo. Veja
 > [como foi medido](../../benchmarks/README.md).
 
-**MemoryWhale 0.29.1: Patched Dependencies · 22 de novembro de 2026.**
-A CLI, a interface web e o app desktop compartilham a versão de produto 0.29.1;
-o núcleo Rust reutilizável está na versão 0.13.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md)
+**MemoryWhale 0.30.0: One Memory, Four Assistants · 22 de novembro de 2026.**
+A CLI, a interface web e o app desktop compartilham a versão de produto 0.30.0;
+o núcleo Rust reutilizável está na versão 0.13.0. Consulte as [notas de versão](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md)
 para o guia de atualização. Ao abrir uma base, ela é migrada do schema 10 para o 17.
+
+**Memória de conhecimento, opcional.** `mw knowledge import` traz o que você já disse ao Claude Code, Codex, ChatGPT e Claude, e propõe afirmações para você aprovar. Consulte [memória de conhecimento](../../docs/reference/knowledge.md).
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="Uma lição é salva com mw remember; quando um agente vai executar um comando que contém esse texto, o hook de pré-execução o interrompe e apresenta a lição como motivo." width="820" />
