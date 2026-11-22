@@ -1,10 +1,11 @@
-import { Bell, BookOpen, Search, Terminal, Waves, type LucideIcon } from "lucide-react";
+import { Bell, BookOpen, Brain, Search, Terminal, Waves, type LucideIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { call, inTauri, shortPath } from "./api";
 import { RunDrawer } from "./components/RunDrawer";
 import { Commands } from "./pages/Commands";
 import { Home } from "./pages/Home";
+import { Knowledge } from "./pages/Knowledge";
 import { Lessons } from "./pages/Lessons";
 import { RecallPage } from "./pages/Recall";
 import { SearchPage } from "./pages/Search";
@@ -15,7 +16,8 @@ const PAGES: { id: Page; label: string; icon: LucideIcon; view: (props: PageProp
   { id: "search", label: "Search", icon: Search, view: SearchPage },
   { id: "recall", label: "Recall", icon: Bell, view: RecallPage },
   { id: "commands", label: "Commands", icon: Terminal, view: Commands },
-  { id: "lessons", label: "Lessons", icon: BookOpen, view: Lessons }
+  { id: "lessons", label: "Lessons", icon: BookOpen, view: Lessons },
+  { id: "knowledge", label: "Knowledge", icon: Brain, view: Knowledge }
 ];
 
 export default function App() {

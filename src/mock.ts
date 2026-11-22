@@ -1,6 +1,6 @@
 // Sample data for the browser preview (`npm run dev` without the desktop
 // shell). Nothing here touches a real store.
-import type { Lesson, Overview, RecallEvent, Run, RunDetail, SearchHit } from "./types";
+import type { Knowledge, Lesson, Overview, RecallEvent, Run, RunDetail, SearchHit } from "./types";
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 
@@ -75,6 +75,12 @@ function search(query: string): SearchHit[] {
     });
 }
 
+let knowledge: Knowledge[] = [
+  { id: 3, text: "I prefer small pull requests, one per task", kind: "preference", project: null, sensitivity: "sensitive", status: "proposed", platform: "claude_code" },
+  { id: 2, text: "We decided to keep the planner in Rust", kind: "decision", project: "robot-arm", sensitivity: "sensitive", status: "proposed", platform: "chatgpt" },
+  { id: 1, text: "Never use em dashes in documentation", kind: "preference", project: null, sensitivity: "internal", status: "approved", platform: "codex" }
+];
+
 export async function mockCall<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
   const result = ((): unknown => {
     switch (command) {
@@ -110,6 +116,30 @@ export async function mockCall<T>(command: string, args: Record<string, unknown>
       case "delete_lesson":
         lessons = lessons.filter((l) => l.id !== args.id);
         return null;
+      case "knowledge_list":
+        return knowledge.filter((k) => k.status === args.status);
+      case "knowledge_import":
+        return { files: 216, messages: 7113, proposed: 0, already_known: knowledge.length, export_found: false };
+      case "knowledge_decide":
+        knowledge = knowledge.map((k) =>
+          k.id !== args.id
+            ? k
+            : args.decision === "reject"
+              ? { ...k, status: "rejected" }
+              : { ...k, status: "approved", sensitivity: args.decision === "keep" ? "sensitive" : "internal" }
+        );
+        return null;
+      case "knowledge_decide_all":
+        knowledge = knowledge.map((k) => (k.status === "proposed" ? { ...k, status: "rejected" } : k));
+        return null;
+      case "knowledge_delete":
+        knowledge = knowledge.filter((k) => k.id !== args.id);
+        return null;
+      case "knowledge_pack":
+        return knowledge
+          .filter((k) => k.status === "approved" && k.sensitivity !== "sensitive")
+          .map((k) => `- "${k.text}"`)
+          .join("\n");
       default:
         throw new Error(`unknown command ${command}`);
     }

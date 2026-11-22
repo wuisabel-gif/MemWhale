@@ -880,6 +880,11 @@ pub fn import_path(
     Ok(())
 }
 
+/// This user's home folder, where [`discover`] looks.
+pub fn home() -> Option<PathBuf> {
+    dirs::home_dir()
+}
+
 /// Every conversation source on this machine, under `home`: Claude Code
 /// transcripts and memory files, Codex sessions, and chat exports in the downloads folder (a
 /// `.zip` that lists `conversations.json`, or a folder that holds it).

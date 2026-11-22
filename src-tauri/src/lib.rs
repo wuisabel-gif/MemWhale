@@ -28,7 +28,13 @@ pub fn run() {
             store::list_lessons,
             store::add_lesson,
             store::approve_lesson,
-            store::delete_lesson
+            store::delete_lesson,
+            store::knowledge_import,
+            store::knowledge_list,
+            store::knowledge_decide,
+            store::knowledge_decide_all,
+            store::knowledge_delete,
+            store::knowledge_pack
         ])
         .setup(|app| {
             tray::install(app)?;
