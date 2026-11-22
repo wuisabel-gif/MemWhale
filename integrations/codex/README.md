@@ -121,6 +121,15 @@ MCP access alone is not execution capture; that needs `--capture`. Without the M
 `mw` CLI still works: `mw context --last-error`, `mw search "…"`,
 `mw remember "…"`.
 
+### Knowledge memory
+
+`mw knowledge import` reads the conversations this client keeps in
+`~/.codex/sessions` and proposes statements you made in them: preferences, decisions,
+standing instructions. Archived sessions are compressed and are not read. Nothing is used until you approve it. To give
+approved statements back to this client, write them into its instruction
+file with `mw knowledge export --into <file>`; only a marked block is
+written. See [knowledge memory](../../docs/reference/knowledge.md).
+
 ## Example prompt
 
 > Use MemoryWhale to check whether I encountered a similar failure before.
