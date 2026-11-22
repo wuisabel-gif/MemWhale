@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: dbc21536a24af4ca6e3711d7bb401c20f07afe065ac2052985d6c72edef41900 -->
+<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -34,9 +34,9 @@ MCP를 통해 19개 코딩 에이전트와 함께 사용할 수 있으며, 계�
 > 프로젝트 고유 버그를 대상으로 한 통제된 평가에서 에이전트는 메모리 없이는 과제의 **25%**, 메모리가 있을 때는 **96%** 해결했습니다.
 > 이는 동작 원리를 보여 주기 위한 합성 과제이며 현장 연구가 아닙니다. 자세한 내용은 [측정 방법](../../benchmarks/README.md)을 참고하세요.
 
-**MemoryWhale 0.29.0: A Head Start · 2026년 11월 17일**
-CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.29.0을 함께 사용하며, 재사용 가능한 Rust 코어는 0.13.0입니다.
-업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.0/docs/releases/0.29.0.md)를 참고하세요.
+**MemoryWhale 0.29.1: Patched Dependencies · 2026년 11월 22일**
+CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.29.1을 함께 사용하며, 재사용 가능한 Rust 코어는 0.13.0입니다.
+업그레이드 방법은 [릴리스 노트](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md)를 참고하세요.
 스토어를 열면 스키마가 10에서 17로 마이그레이션됩니다.
 
 <p align="center">

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: dbc21536a24af4ca6e3711d7bb401c20f07afe065ac2052985d6c72edef41900 -->
+<!-- README-SOURCE-SHA256: 95a56f2fd5e4457c4b8587190a3826125208d88ed62753d3dc85807c2740d8dd -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -34,9 +34,9 @@ MemoryWhale 會記下你除錯時實際發生的事：執行過的指令、輸�
 > 在一項針對專案特定 bug 的對照評估中，代理在沒有記憶時解決了 **25%** 的問題，有記憶時則解決了 **96%**。
 > 這些是用來展示運作機制的合成任務，並非實地研究；詳見[評測方式](../../benchmarks/README.md)。
 
-**MemoryWhale 0.29.0: A Head Start · 2026 年 11 月 19 日。**
-CLI、Web 介面與桌面應用程式共用同一個產品版本 0.29.0；可重複使用的 Rust 核心則是 0.13.0。
-升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.0/docs/releases/0.29.0.md)。
+**MemoryWhale 0.29.1: Patched Dependencies · 2026 年 11 月 22 日。**
+CLI、Web 介面與桌面應用程式共用同一個產品版本 0.29.1；可重複使用的 Rust 核心則是 0.13.0。
+升級指南請見[版本說明](https://github.com/wuisabel-gif/MemWhale/blob/v0.29.1/docs/releases/0.29.1.md)。
 開啟資料儲存區時，其 schema 會從 10 遷移到 17。
 
 <p align="center">
