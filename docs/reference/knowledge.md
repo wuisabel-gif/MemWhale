@@ -83,8 +83,18 @@ mw knowledge export --project alpha --client claude-code
 `<!-- memorywhale:knowledge:start -->` and `<!-- memorywhale:knowledge:end -->`
 markers. Paste it into a chat, or into a `CLAUDE.md` or `AGENTS.md` file.
 Each statement is quoted as a fact with its source and date, and the block
-says it is not an instruction. MemoryWhale never edits your instruction files
-itself.
+says it is not an instruction.
+
+To keep an assistant's instruction file current, name the file:
+
+```bash
+mw knowledge export --into ~/.codex/AGENTS.md
+```
+
+Only the block between the markers is written. The first time it is added at
+the end; after that it is replaced in place, and every line you wrote
+yourself stays as it is. MemoryWhale edits an instruction file only when you
+name it in this command.
 
 A statement about a project or a decision belongs to the folder it was said
 in, and is shown only with `--project <that folder>`. Other statements are
