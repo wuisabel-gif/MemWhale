@@ -271,6 +271,26 @@ model-assisted extraction, sync, and a browser extension.
    hold it until the review flow and export exist? Recommended: hold until
    items 1 to 9 are merged, then release once.
 
+## Working assumptions while this is proposed (2026-11-22)
+
+The maintainer asked for a first build that brings in existing conversations
+with one action. This record stays **proposed** until the maintainer accepts
+it. The build uses the recommendations above as working assumptions, and each
+one is still the maintainer's to change:
+
+| Open decision | Assumed for the first build |
+| --- | --- |
+| 2. Tables | New `knowledge_*` tables. |
+| 3. Sensitivity | No implicit label. The person chooses at approval: `approve` marks a memory `internal`, which agents may be shown; `keep` marks it `sensitive`, which stays out of context packs. |
+| 4. Export fixtures | No real ChatGPT or Claude export was available. Their parsers follow the publicly described structure of `conversations.json` and are labeled unverified until checked against a real export. Claude Code and Codex transcripts were read from real local files. |
+| 5. Chat clients | No public endpoint. Exports in, context packs out. |
+| 6. Naming | `mw knowledge`. |
+
+One change to the plan in section 9: import comes first. `mw knowledge
+import` with no arguments finds Claude Code transcripts, Codex sessions, and
+chat export archives in the downloads folder, and proposes candidates from
+all of them, so the first build already covers what section 9 left to M2.
+
 ## Consequences
 
 - The README's "not a general-purpose personal memory" line has to change.
