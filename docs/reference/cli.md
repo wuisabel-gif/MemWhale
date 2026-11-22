@@ -79,6 +79,10 @@ mw memory pending                     # agent-written lessons waiting for review
 mw memory approve <id>                # use a pending lesson in notes, warnings, and search
 mw memory reject <id>                 # delete a pending lesson
 mw memory stale <id>                  # retire an outdated lesson, preserving its row
+mw knowledge import                   # propose statements from your Claude Code, Codex, ChatGPT, and Claude conversations
+mw knowledge pending                  # statements waiting for your review
+mw knowledge approve <id...|all>      # use a statement; keep = use but private; reject = never
+mw knowledge export --client codex    # a context pack of approved statements, to paste
 mw memory supersede <old> <new>       # replace an old lesson with a newer one
 mw memory compact [--apply]           # preview/apply conservative evidence compaction
 mw audit                              # inspect capture policy and retained volume

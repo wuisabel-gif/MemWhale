@@ -51,6 +51,7 @@ fn run() -> Result<(), String> {
         Some("mark") => return mark_bookmark(&raw_args[1..]),
         Some("remember") => return remember_cmd(&raw_args[1..]),
         Some("memory") => return memory_lifecycle_cmd(&raw_args[1..]),
+        Some("knowledge") => return knowledge_cmd(&raw_args[1..]),
         Some("rm") => return rm_memory(&raw_args[1..]),
         Some("prune") => return prune_cmd(&raw_args[1..]),
         Some("retention") => return retention_cmd(&raw_args[1..]),
@@ -431,6 +432,9 @@ fn print_help() {
          mw memory stale <id>     retire an outdated lesson without deleting its evidence\n\
          mw memory supersede <old-id> <new-id>  replace an old lesson with a newer one\n\
          mw memory compact [--apply]  preview/apply conservative evidence compaction\n\
+         mw knowledge import [PATH...]  propose statements from your Claude Code, Codex, ChatGPT, and Claude conversations; no PATH finds them all\n\
+         mw knowledge pending|approve|keep|reject  review proposed statements (approve: agents may see it; keep: private)\n\
+         mw knowledge add|list|search|export|rm|doctor  manage approved statements and write a context pack\n\
          mw rm [session|command] <id>  delete a saved item and its transcript\n\
          mw prune [--min-bytes N] [--dry-run]  delete empty auto-recorded sessions (noise cleanup)\n\
          mw prune --older-than <7d|24h|2w> [--dry-run]  delete sessions and command runs older than a window\n\
@@ -2792,6 +2796,204 @@ fn import_memory(args: &[String]) -> Result<(), String> {
         return Err(format!("no SQLite database found at {}", src.display()));
     }
     import_sqlite(&src)
+}
+
+const KNOWLEDGE_USAGE: &str = "usage: mw knowledge import [PATH...] | pending | approve <id...|all> | keep <id...|all> | reject <id...|all> | add <text> [--kind K] [--project P] [--private] | list | search <words> [--project P] [--private] | export [--project P] [--client NAME] [--private] | rm <id> | doctor";
+
+/// `mw knowledge ...`: the opt-in, reviewed knowledge memory (see
+/// `memorywhale_cli::knowledge`). Nothing here reads or writes debugging
+/// memory.
+fn knowledge_cmd(args: &[String]) -> Result<(), String> {
+    use memorywhale_cli::knowledge::{self, Access, Decision};
+    let gate = memorywhale_cli::capture_rule_for(None);
+    if !gate.mode.stores_anything() {
+        return Err(format!(
+            "capture is off ({}); knowledge is unavailable",
+            gate.source
+        ));
+    }
+    let conn = open_session_db()?;
+    // `--flag value` and bare `--flag` options, pulled out of the words.
+    let mut words: Vec<&str> = Vec::new();
+    let (mut kind, mut project, mut client, mut private) = (None, None, None, false);
+    let mut rest = args.iter().skip(1);
+    while let Some(arg) = rest.next() {
+        match arg.as_str() {
+            "--private" => private = true,
+            "--kind" => kind = rest.next().map(String::as_str),
+            "--project" => project = rest.next().map(String::as_str),
+            "--client" => client = rest.next().map(String::as_str),
+            word => words.push(word),
+        }
+    }
+    let access = Access {
+        project,
+        include_private: private,
+    };
+    let show = |memories: &[knowledge::Memory]| {
+        for m in memories {
+            let when = m.captured_at.as_deref().unwrap_or(&m.created_at);
+            println!(
+                "#{}  {}  {}  from {} {}{}\n    {}",
+                m.id,
+                m.kind,
+                if m.sensitivity == "sensitive" && m.status == "approved" {
+                    "private"
+                } else {
+                    m.status.as_str()
+                },
+                m.platform,
+                when.get(..10).unwrap_or(when),
+                m.project
+                    .as_deref()
+                    .map(|p| format!("  project {p}"))
+                    .unwrap_or_default(),
+                memorywhale_cli::redact(&m.text)
+            );
+        }
+    };
+    match args.first().map(String::as_str) {
+        Some("import") => {
+            let home = dirs::home_dir().ok_or("could not resolve home directory")?;
+            let paths: Vec<PathBuf> = if words.is_empty() {
+                knowledge::discover(&home)
+            } else {
+                words.iter().map(PathBuf::from).collect()
+            };
+            if let Some(missing) = paths.iter().find(|path| !path.exists()) {
+                return Err(format!("no file or folder at {}", missing.display()));
+            }
+            let mut report = knowledge::ImportReport::default();
+            conn.execute_batch("BEGIN")
+                .map_err(|e| format!("failed to start import: {e}"))?;
+            for path in &paths {
+                knowledge::import_path(&conn, path, &mut report)?;
+            }
+            conn.execute_batch("COMMIT")
+                .map_err(|e| format!("failed to finish import: {e}"))?;
+            println!(
+                "mw: read {} conversation file(s) holding {} message(s) you wrote.",
+                report.files, report.messages
+            );
+            let per: Vec<String> = report
+                .proposed
+                .iter()
+                .map(|(platform, n)| format!("{platform} {n}"))
+                .collect();
+            println!(
+                "    {} new statement(s) are waiting for review{}.",
+                report.proposed_total(),
+                if per.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({})", per.join(", "))
+                }
+            );
+            println!(
+                "    {} already known; {} skipped as secret-shaped; {} file(s) unreadable.",
+                report.already_known, report.skipped_secret, report.unreadable
+            );
+            if words.is_empty()
+                && !paths
+                    .iter()
+                    .any(|path| path.extension().is_none_or(|ext| ext != "jsonl"))
+            {
+                println!(
+                    "    No ChatGPT or Claude chat export was found in {}.\n    \
+                     ChatGPT: Settings, Data controls, Export data. Claude: Settings, Privacy, \
+                     Export data.\n    Save the download there and run this again.",
+                    home.join("Downloads").display()
+                );
+            }
+            println!("    Nothing is used until you approve it: mw knowledge pending");
+        }
+        Some("pending") => {
+            let pending = knowledge::list(&conn, "proposed", 500)?;
+            if pending.is_empty() {
+                println!("mw: no statements are waiting for review.");
+            } else {
+                show(&pending);
+                println!("\nmw knowledge approve <id...|all>   use it; agents may be shown it");
+                println!("mw knowledge keep <id...|all>      use it, but keep it private");
+                println!("mw knowledge reject <id...|all>    do not use it or propose it again");
+            }
+        }
+        Some(verb @ ("approve" | "keep" | "reject")) if !words.is_empty() => {
+            let decision = match verb {
+                "approve" => Decision::Approve,
+                "keep" => Decision::Keep,
+                _ => Decision::Reject,
+            };
+            let ids: Vec<i64> = if words == ["all"] {
+                knowledge::list(&conn, "proposed", 100_000)?
+                    .iter()
+                    .map(|m| m.id)
+                    .collect()
+            } else {
+                words
+                    .iter()
+                    .map(|word| word.parse().map_err(|_| format!("invalid id {word:?}")))
+                    .collect::<Result<_, _>>()?
+            };
+            for id in &ids {
+                knowledge::decide(&conn, *id, decision)?;
+            }
+            println!("mw: {verb}: {} statement(s).", ids.len());
+        }
+        Some("add") if !words.is_empty() => {
+            let kind = match kind.unwrap_or("preference") {
+                "preference" => "preference",
+                "profile" => "profile",
+                "project" => "project",
+                "decision" => "decision",
+                "workflow" => "workflow",
+                other => {
+                    return Err(format!(
+                    "unknown kind {other:?}; use preference, profile, project, decision, or workflow"
+                ))
+                }
+            };
+            let id = knowledge::add(&conn, &words.join(" "), kind, project, private)?;
+            println!(
+                "mw: knowledge #{id} saved{}.",
+                if private { " (private)" } else { "" }
+            );
+        }
+        Some("list") => {
+            let approved = knowledge::list(&conn, "approved", 500)?;
+            if approved.is_empty() {
+                println!("mw: nothing approved yet; see `mw knowledge pending`.");
+            }
+            show(&approved);
+        }
+        Some("search") => show(&knowledge::readable(&conn, access, &words.join(" "), 50)?),
+        Some("export") => print!(
+            "{}",
+            knowledge::context_pack(&conn, access, client.unwrap_or("export"))?
+        ),
+        Some("rm") if words.len() == 1 => {
+            let id: i64 = words[0]
+                .parse()
+                .map_err(|_| format!("invalid id {:?}", words[0]))?;
+            knowledge::delete(&conn, id)?;
+            println!("mw: knowledge #{id} deleted.");
+        }
+        Some("doctor") => {
+            let counts = knowledge::counts(&conn)?;
+            if counts.is_empty() {
+                println!("knowledge: empty; `mw knowledge import` proposes statements from your conversations");
+            }
+            for (status, n) in counts {
+                println!("knowledge: {n} {status}");
+            }
+            println!(
+                "limits: project and private limits decide what a configured client is shown.\n        \
+                 They are not a security boundary: any program running as you can read the store file."
+            );
+        }
+        _ => return Err(KNOWLEDGE_USAGE.to_string()),
+    }
+    Ok(())
 }
 
 /// This user's shell history file: `$HISTFILE` when exported, else the file
