@@ -16,6 +16,7 @@ expose the data.
 | `mw` session capture | transcript and session notes | shell, cwd, transcript path, timestamps |
 | `mw-recover` / `mw-serve` recovery | recovered transcript | transcript path and timestamps |
 | `mw import --shell-history` (opt-in) | each history command, plus the value of a variable named like a secret | timestamps |
+| `mw knowledge import` / `add` (opt-in) | each proposed statement; one that still looks secret-shaped after masking is not stored | source platform, conversation id, timestamps |
 | `mw import` / `mw pull` | imported command runs, sessions, and lessons | cwd, filesystem paths, timestamps |
 | `mw-mcp remember` / `mw mark` | lesson text through `remember_as` | provenance fields |
 | Desktop app lessons | lesson text through `remember_as` | provenance fields |

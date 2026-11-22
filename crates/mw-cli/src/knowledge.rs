@@ -1,4 +1,4 @@
-//! Opt-in, user-reviewed knowledge memory (see `docs/adr/0001-knowledge-memory.md`).
+//! Opt-in, user-reviewed knowledge memory (see `docs/reference/knowledge.md`).
 //!
 //! Durable statements a person wants several assistants to share: a
 //! preference, a project decision, a workflow. They live in their own tables,
@@ -422,31 +422,19 @@ pub fn context_pack(conn: &Connection, access: Access<'_>, client: &str) -> Resu
 }
 
 /// The statements in `text` worth proposing, each with its kind. Rules only:
-/// a sentence the person wrote that states a preference, a fact about
-/// themselves, a decision, a project fact, or a standing instruction.
-/// Questions, code, and anything very short or very long are skipped.
-// ponytail: a fixed phrase list, English only; a model-assisted extractor is
-// the opt-in upgrade when recall of this proves too low.
+/// a sentence the person wrote that opens by stating a preference, a fact
+/// about themselves, a decision, a project fact, or a standing instruction.
+/// Questions, code, long pasted text, and anything very short are skipped.
+// ponytail: a fixed list of English sentence openers. It favors a short,
+// clean review queue over finding everything; a model-assisted extractor is
+// the opt-in upgrade when that proves too little.
 pub fn candidates(text: &str) -> Vec<(&'static str, String)> {
-    const RULES: [(&str, &[&str]); 5] = [
+    // Said anywhere in the sentence: first-person statements that outlive
+    // the task at hand.
+    const ANYWHERE: [(&str, &[&str]); 4] = [
         (
             "preference",
-            &[
-                "i prefer",
-                "i like to",
-                "i always",
-                "i never",
-                "i don't want",
-                "i do not want",
-                "i want you to",
-                "please always",
-                "please never",
-                "always use",
-                "never use",
-                "from now on",
-                "don't ever",
-                "do not ever",
-            ],
+            &["i prefer", "i always", "i never", "from now on"],
         ),
         (
             "profile",
@@ -457,20 +445,25 @@ pub fn candidates(text: &str) -> Vec<(&'static str, String)> {
                 "i work at",
                 "i work on",
                 "i work as",
-                "i study",
+                "i study ",
                 "i'm studying",
                 "i live in",
             ],
         ),
+        ("decision", &["we decided", "i decided", "we agreed"]),
+        ("workflow", &["remember that", "remember to"]),
+    ];
+    // Only as the sentence's opening words: a standing instruction or a
+    // project fact, not a passing mention.
+    const OPENING: [(&str, &[&str]); 3] = [
         (
-            "decision",
+            "preference",
             &[
-                "we decided",
-                "i decided",
-                "let's go with",
-                "we will use",
-                "we'll use",
-                "we agreed",
+                "always ",
+                "never ",
+                "don't ever",
+                "do not ever",
+                "by default",
             ],
         ),
         (
@@ -479,28 +472,22 @@ pub fn candidates(text: &str) -> Vec<(&'static str, String)> {
                 "this project uses",
                 "this repo uses",
                 "the repo uses",
-                "our stack",
-                "the project is",
+                "our stack is",
             ],
         ),
-        (
-            "workflow",
-            &[
-                "remember that",
-                "remember to",
-                "every time you",
-                "whenever you",
-                "before you commit",
-                "when you commit",
-            ],
-        ),
+        ("decision", &["let's go with", "we will use", "we'll use"]),
+    ];
+    // Words people put in front of the statement itself.
+    const LEAD: [&str; 10] = [
+        "and ", "but ", "so ", "also ", "please ", "ok ", "okay ", "no ", "yes ", "well ",
     ];
     let mut out = Vec::new();
-    if text.contains("```") {
+    // A long message is a pasted document or a summary, not a statement.
+    if text.contains("```") || text.chars().count() > 1500 {
         return out;
     }
     for sentence in text.split(['.', '!', '?', '\n']) {
-        let sentence = sentence.trim();
+        let sentence = sentence.trim().trim_start_matches(['-', '*', '"', ' ']);
         let length = sentence.chars().count();
         if !(20..=240).contains(&length) || sentence.starts_with(['<', '/', '$', '#', '|']) {
             continue;
@@ -510,11 +497,20 @@ pub fn candidates(text: &str) -> Vec<(&'static str, String)> {
         if text[end..].starts_with('?') {
             continue;
         }
-        let lower = sentence.to_lowercase();
-        if let Some((kind, _)) = RULES
+        let lower = sentence.to_lowercase().replace(',', "");
+        let mut opener = lower.as_str();
+        while let Some(rest) = LEAD.iter().find_map(|lead| opener.strip_prefix(lead)) {
+            opener = rest;
+        }
+        let kind = OPENING
             .iter()
-            .find(|(_, phrases)| phrases.iter().any(|phrase| lower.contains(phrase)))
-        {
+            .find(|(_, phrases)| phrases.iter().any(|phrase| opener.starts_with(phrase)))
+            .or_else(|| {
+                ANYWHERE
+                    .iter()
+                    .find(|(_, phrases)| phrases.iter().any(|phrase| lower.contains(phrase)))
+            });
+        if let Some((kind, _)) = kind {
             out.push((*kind, sentence.to_string()));
         }
     }
@@ -535,7 +531,11 @@ pub struct Message {
 /// Text the person typed, not text a tool or the client put in their turn.
 fn typed(text: &str) -> bool {
     let text = text.trim_start();
-    !text.is_empty() && !text.starts_with('<') && !text.starts_with("Caveat:")
+    !text.is_empty()
+        && !text.starts_with('<')
+        && !text.starts_with("Caveat:")
+        // A client's own summary of an earlier conversation, sent as the user.
+        && !text.starts_with("This session is being continued")
 }
 
 fn folder(cwd: Option<&str>) -> Option<String> {
@@ -578,6 +578,47 @@ pub fn claude_code_messages(jsonl: &str) -> Vec<Message> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+/// The statement in one Claude Code memory file
+/// (`~/.claude/projects/<project>/memory/<name>.md`): its `description`
+/// line, which is one curated sentence. `project_dir` is the folder under
+/// `projects`, such as `-Users-ada-work-alpha`.
+// ponytail: the project name is the text after the folder's last dash, so
+// `my-app` becomes `app`; read the transcript's cwd if that misfiles things.
+pub fn claude_memory_candidate(markdown: &str, project_dir: &str) -> Option<Candidate> {
+    let field = |name: &str| {
+        markdown
+            .lines()
+            .take_while(|line| !line.starts_with("# "))
+            .find_map(|line| line.trim().strip_prefix(name))
+            .map(|value| value.trim().trim_matches(['"', '\'']).replace("\\\"", "\""))
+            .filter(|value| !value.is_empty())
+    };
+    let text = field("description:")?;
+    let kind = match field("type:").as_deref() {
+        Some("user") => "profile",
+        Some("project") => "project",
+        Some("reference") => "workflow",
+        _ => "preference",
+    };
+    Some(Candidate {
+        text,
+        kind,
+        platform: "claude_code",
+        method: "memory-file",
+        captured_at: field("modified:"),
+        conversation_ref: field("originSessionId:"),
+        project: (kind == "project")
+            .then(|| {
+                project_dir
+                    .rsplit('-')
+                    .next()
+                    .unwrap_or(project_dir)
+                    .to_string()
+            })
+            .filter(|name| !name.is_empty()),
+    })
 }
 
 /// The person's messages in a Codex session file (`~/.codex/sessions`).
@@ -684,6 +725,29 @@ impl ImportReport {
     }
 }
 
+/// Propose one candidate and count what happened to it.
+fn record(
+    conn: &Connection,
+    candidate: &Candidate,
+    report: &mut ImportReport,
+) -> Result<(), String> {
+    match propose(conn, candidate)? {
+        Proposed::New => {
+            match report
+                .proposed
+                .iter_mut()
+                .find(|(platform, _)| platform == candidate.platform)
+            {
+                Some((_, n)) => *n += 1,
+                None => report.proposed.push((candidate.platform.to_string(), 1)),
+            }
+        }
+        Proposed::Known => report.already_known += 1,
+        Proposed::Secret => report.skipped_secret += 1,
+    }
+    Ok(())
+}
+
 /// Propose every candidate statement in `messages`. Statements about a
 /// project or a decision are scoped to the folder they were said in, when
 /// the source records one; the rest are global.
@@ -708,20 +772,7 @@ pub fn import_messages(
                     .clone()
                     .filter(|_| matches!(kind, "project" | "decision")),
             };
-            match propose(conn, &candidate)? {
-                Proposed::New => {
-                    match report
-                        .proposed
-                        .iter_mut()
-                        .find(|(platform, _)| platform == message.platform)
-                    {
-                        Some((_, n)) => *n += 1,
-                        None => report.proposed.push((message.platform.to_string(), 1)),
-                    }
-                }
-                Proposed::Known => report.already_known += 1,
-                Proposed::Secret => report.skipped_secret += 1,
-            }
+            record(conn, &candidate, report)?;
         }
     }
     Ok(())
@@ -777,7 +828,7 @@ fn export_documents(path: &Path) -> Vec<String> {
 }
 
 /// Import one file or folder: a Claude Code or Codex transcript (`.jsonl`),
-/// or a ChatGPT or Claude chat export (`.zip`, its folder, or
+/// a Claude Code memory file (`.md`), or a ChatGPT or Claude chat export (`.zip`, its folder, or
 /// `conversations.json`). Which one it is comes from what the file holds.
 pub fn import_path(
     conn: &Connection,
@@ -797,6 +848,23 @@ pub fn import_path(
         }
         return import_messages(conn, &messages, "local-transcript", report);
     }
+    if path.extension().is_some_and(|ext| ext == "md") {
+        let project_dir = path
+            .parent()
+            .and_then(Path::parent)
+            .and_then(Path::file_name)
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let candidate = std::fs::read_to_string(path)
+            .ok()
+            .and_then(|markdown| claude_memory_candidate(&markdown, &project_dir));
+        let Some(candidate) = candidate else {
+            report.unreadable += 1;
+            return Ok(());
+        };
+        report.messages += 1;
+        return record(conn, &candidate, report);
+    }
     let documents = export_documents(path);
     if documents.is_empty() {
         report.unreadable += 1;
@@ -813,7 +881,7 @@ pub fn import_path(
 }
 
 /// Every conversation source on this machine, under `home`: Claude Code
-/// transcripts, Codex sessions, and chat exports in the downloads folder (a
+/// transcripts and memory files, Codex sessions, and chat exports in the downloads folder (a
 /// `.zip` that lists `conversations.json`, or a folder that holds it).
 pub fn discover(home: &Path) -> Vec<PathBuf> {
     fn jsonl_under(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
@@ -828,6 +896,25 @@ pub fn discover(home: &Path) -> Vec<PathBuf> {
     }
     let mut found = Vec::new();
     jsonl_under(&home.join(".claude/projects"), 1, &mut found);
+    for project in std::fs::read_dir(home.join(".claude/projects"))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        for entry in std::fs::read_dir(project.path().join("memory"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let path = entry.path();
+            // MEMORY.md is the index of the others, not a statement.
+            if path.extension().is_some_and(|ext| ext == "md")
+                && path.file_name().is_some_and(|name| name != "MEMORY.md")
+            {
+                found.push(path);
+            }
+        }
+    }
     jsonl_under(&home.join(".codex/sessions"), 3, &mut found);
     jsonl_under(&home.join(".codex/archived_sessions"), 3, &mut found);
     for entry in std::fs::read_dir(home.join("Downloads"))
@@ -1101,10 +1188,21 @@ mod tests {
         )
         .unwrap();
         std::fs::write(home.join("Downloads/notes.txt"), "I prefer nothing").unwrap();
+        std::fs::create_dir_all(home.join(".claude/projects/-w-alpha/memory")).unwrap();
+        std::fs::write(
+            home.join(".claude/projects/-w-alpha/memory/MEMORY.md"),
+            "- [Tabs](tabs.md)",
+        )
+        .unwrap();
+        std::fs::write(
+            home.join(".claude/projects/-w-alpha/memory/stack.md"),
+            "---\nname: stack\ndescription: \"The parser is written in Rust\"\nmetadata:\n  type: project\n  modified: 2026-02-01T00:00:00Z\n---\n\nBody text that is not imported.\n",
+        )
+        .unwrap();
 
         let conn = store();
         let found = discover(&home);
-        assert_eq!(found.len(), 3);
+        assert_eq!(found.len(), 4);
         let mut report = ImportReport::default();
         for path in &found {
             import_path(&conn, path, &mut report).unwrap();
@@ -1115,9 +1213,19 @@ mod tests {
             proposed,
             [
                 ("claude_chat".to_string(), 1),
-                ("claude_code".to_string(), 1),
+                ("claude_code".to_string(), 2),
                 ("codex".to_string(), 1)
             ]
+        );
+        // The memory file's one sentence, filed under its project.
+        let stack = list(&conn, "proposed", 10)
+            .unwrap()
+            .into_iter()
+            .find(|m| m.text == "The parser is written in Rust")
+            .unwrap();
+        assert_eq!(
+            (stack.kind.as_str(), stack.project.as_deref()),
+            ("project", Some("alpha"))
         );
         let _ = std::fs::remove_dir_all(&home);
     }
