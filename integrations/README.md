@@ -39,6 +39,8 @@ features.
 | Claude Code | Yes | Yes, optional capture hooks | Yes, optional skill | [Guide](claude-code/README.md) |
 | CLIProxyAPI | No; model-provider proxy | No | No; configure in the agent | [Guide](cliproxyapi/README.md) |
 | Claude Desktop | Yes | No | No | [Guide](claude-desktop/README.md) |
+| ChatGPT (chat) | No | No | No | [Import from a data export](chatgpt/README.md) |
+| Claude (chat) | No | No | No | [Import from a data export](claude-chat/README.md) |
 | Cline | Yes | No | Yes | [Guide](cline/README.md) |
 | Codewhale | Yes | Separate opt-in bundle; Codewhale 0.10.1+ in Full Access mode | Yes, via plugin guidance / roles | [Guide](codewhale/README.md) |
 | Waku Agent | Yes, with verified SDK bootstrap | No | Optional debugging skill | [Guide](waku/README.md) |

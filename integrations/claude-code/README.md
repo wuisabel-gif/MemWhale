@@ -198,6 +198,15 @@ The note says who ran the fix last ("run by Codex", "run in a terminal"), so a f
   call on every failure.
 - Secret redaction reduces accidental retention but is not a security boundary.
 
+### Knowledge memory
+
+`mw knowledge import` reads the conversations this client keeps in
+`~/.claude/projects` and proposes statements you made in them: preferences, decisions,
+standing instructions. Claude Code's own memory files there are read too, one statement per file; they are the richest source. Nothing is used until you approve it. To give
+approved statements back to this client, write them into its instruction
+file with `mw knowledge export --into <file>`; only a marked block is
+written. See [knowledge memory](../../docs/reference/knowledge.md).
+
 ## Example prompt
 
 > Use MemoryWhale to check whether I encountered a similar failure before.
