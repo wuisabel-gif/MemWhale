@@ -317,6 +317,100 @@ pub fn delete_lesson(state: tauri::State<AppState>, id: i64) -> Res<()> {
     Ok(())
 }
 
+/// What "Import my conversations" did, for the Knowledge page.
+#[derive(Serialize)]
+pub struct KnowledgeImport {
+    files: usize,
+    messages: usize,
+    proposed: usize,
+    already_known: usize,
+    /// Whether a ChatGPT or Claude chat export was among the sources.
+    export_found: bool,
+}
+
+/// Read every conversation source on this machine and propose statements
+/// from them (see `memorywhale_cli::knowledge`). Nothing is used until the
+/// person approves it. Runs off the main thread: a large history takes a
+/// while to read.
+#[tauri::command(async)]
+pub fn knowledge_import(state: tauri::State<AppState>) -> Res<KnowledgeImport> {
+    use memorywhale_cli::knowledge;
+    let home = knowledge::home().ok_or("could not resolve the home directory")?;
+    let paths = knowledge::discover(&home);
+    let conn = db(&state)?;
+    let mut report = knowledge::ImportReport::default();
+    conn.execute_batch("BEGIN").map_err(sql_err)?;
+    for path in &paths {
+        knowledge::import_path(&conn, path, &mut report)?;
+    }
+    conn.execute_batch("COMMIT").map_err(sql_err)?;
+    Ok(KnowledgeImport {
+        files: report.files,
+        messages: report.messages,
+        proposed: report.proposed_total(),
+        already_known: report.already_known,
+        export_found: paths.iter().any(|path| {
+            path.extension()
+                .is_none_or(|ext| ext != "jsonl" && ext != "md")
+        }),
+    })
+}
+
+/// Statements in one state (`proposed` or `approved`), redacted for display.
+#[tauri::command]
+pub fn knowledge_list(
+    state: tauri::State<AppState>,
+    status: String,
+) -> Res<Vec<memorywhale_cli::knowledge::Memory>> {
+    let mut found = memorywhale_cli::knowledge::list(&*db(&state)?, &status, 500)?;
+    for memory in &mut found {
+        memory.text = redact(&memory.text);
+    }
+    Ok(found)
+}
+
+fn knowledge_decision(decision: &str) -> Res<memorywhale_cli::knowledge::Decision> {
+    use memorywhale_cli::knowledge::Decision;
+    match decision {
+        "approve" => Ok(Decision::Approve),
+        "keep" => Ok(Decision::Keep),
+        "reject" => Ok(Decision::Reject),
+        other => Err(format!("unknown decision {other:?}")),
+    }
+}
+
+#[tauri::command]
+pub fn knowledge_decide(state: tauri::State<AppState>, id: i64, decision: String) -> Res<()> {
+    memorywhale_cli::knowledge::decide(&*db(&state)?, id, knowledge_decision(&decision)?)
+}
+
+/// One decision for everything still waiting.
+#[tauri::command]
+pub fn knowledge_decide_all(state: tauri::State<AppState>, decision: String) -> Res<()> {
+    let decision = knowledge_decision(&decision)?;
+    let conn = db(&state)?;
+    for memory in memorywhale_cli::knowledge::list(&conn, "proposed", 100_000)? {
+        memorywhale_cli::knowledge::decide(&conn, memory.id, decision)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn knowledge_delete(state: tauri::State<AppState>, id: i64) -> Res<()> {
+    memorywhale_cli::knowledge::delete(&*db(&state)?, id)
+}
+
+/// The context pack of approved, non-private global statements, to paste
+/// into an assistant.
+#[tauri::command]
+pub fn knowledge_pack(state: tauri::State<AppState>) -> Res<String> {
+    memorywhale_cli::knowledge::context_pack(
+        &*db(&state)?,
+        memorywhale_cli::knowledge::Access::default(),
+        "desktop",
+    )
+}
+
 /// Save a lesson as the person at the keyboard; agents see it first when the
 /// failure it mentions comes back.
 #[tauri::command]

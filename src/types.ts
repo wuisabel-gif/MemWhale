@@ -78,7 +78,27 @@ export type Lesson = {
   provenance: string;
 };
 
-export type Page = "home" | "search" | "recall" | "commands" | "lessons";
+/** One statement in knowledge memory (see docs/reference/knowledge.md). */
+export type Knowledge = {
+  id: number;
+  text: string;
+  kind: string;
+  project: string | null;
+  sensitivity: string;
+  status: string;
+  platform: string;
+};
+
+/** What "Import my conversations" did. */
+export type KnowledgeImport = {
+  files: number;
+  messages: number;
+  proposed: number;
+  already_known: number;
+  export_found: boolean;
+};
+
+export type Page = "home" | "search" | "recall" | "commands" | "lessons" | "knowledge";
 
 /** What every page gets from the app shell. */
 export type PageProps = {
