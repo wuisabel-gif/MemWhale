@@ -2798,7 +2798,7 @@ fn import_memory(args: &[String]) -> Result<(), String> {
     import_sqlite(&src)
 }
 
-const KNOWLEDGE_USAGE: &str = "usage: mw knowledge import [PATH...] | pending | approve <id...|all> | keep <id...|all> | reject <id...|all> | add <text> [--kind K] [--project P] [--private] | list | search <words> [--project P] [--private] | export [--project P] [--client NAME] [--private] | rm <id> | doctor";
+const KNOWLEDGE_USAGE: &str = "usage: mw knowledge import [PATH...] | pending | approve <id...|all> | keep <id...|all> | reject <id...|all> | add <text> [--kind K] [--project P] [--private] | list | search <words> [--project P] [--private] | export [--project P] [--client NAME] [--into FILE] [--private] | rm <id> | doctor";
 
 /// `mw knowledge ...`: the opt-in, reviewed knowledge memory (see
 /// `memorywhale_cli::knowledge`). Nothing here reads or writes debugging
@@ -2815,7 +2815,8 @@ fn knowledge_cmd(args: &[String]) -> Result<(), String> {
     let conn = open_session_db()?;
     // `--flag value` and bare `--flag` options, pulled out of the words.
     let mut words: Vec<&str> = Vec::new();
-    let (mut kind, mut project, mut client, mut private) = (None, None, None, false);
+    let (mut kind, mut project, mut client, mut into, mut private) =
+        (None, None, None, None, false);
     let mut rest = args.iter().skip(1);
     while let Some(arg) = rest.next() {
         match arg.as_str() {
@@ -2823,6 +2824,7 @@ fn knowledge_cmd(args: &[String]) -> Result<(), String> {
             "--kind" => kind = rest.next().map(String::as_str),
             "--project" => project = rest.next().map(String::as_str),
             "--client" => client = rest.next().map(String::as_str),
+            "--into" => into = rest.next().map(String::as_str),
             word => words.push(word),
         }
     }
@@ -2967,10 +2969,20 @@ fn knowledge_cmd(args: &[String]) -> Result<(), String> {
             show(&approved);
         }
         Some("search") => show(&knowledge::readable(&conn, access, &words.join(" "), 50)?),
-        Some("export") => print!(
-            "{}",
-            knowledge::context_pack(&conn, access, client.unwrap_or("export"))?
-        ),
+        Some("export") => {
+            let pack = knowledge::context_pack(&conn, access, client.unwrap_or("export"))?;
+            match into {
+                // Only the generated block changes; the rest of the file is
+                // the person's own and is written back untouched.
+                Some(file) => {
+                    let existing = fs::read_to_string(file).unwrap_or_default();
+                    fs::write(file, knowledge::pack_into(&existing, &pack))
+                        .map_err(|e| format!("failed to write {file}: {e}"))?;
+                    println!("mw: wrote the knowledge block in {file}; the rest of the file is unchanged.");
+                }
+                None => print!("{pack}"),
+            }
+        }
         Some("rm") if words.len() == 1 => {
             let id: i64 = words[0]
                 .parse()

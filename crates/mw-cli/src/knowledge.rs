@@ -421,6 +421,29 @@ pub fn context_pack(conn: &Connection, access: Access<'_>, client: &str) -> Resu
     Ok(out)
 }
 
+const PACK_START: &str = "<!-- memorywhale:knowledge:start";
+const PACK_END: &str = "<!-- memorywhale:knowledge:end -->";
+
+/// `document` with `pack` in place of the block a previous pack left, or
+/// appended when there is none. Only the text between the generated markers
+/// is ever replaced; what the person wrote around it is kept as it is.
+pub fn pack_into(document: &str, pack: &str) -> String {
+    let block = document.find(PACK_START).and_then(|start| {
+        let end = document[start..].find(PACK_END)? + start + PACK_END.len();
+        Some((start, end))
+    });
+    match block {
+        Some((start, end)) => {
+            let after = document[end..]
+                .strip_prefix('\n')
+                .unwrap_or(&document[end..]);
+            format!("{}{pack}{after}", &document[..start])
+        }
+        None if document.trim().is_empty() => pack.to_string(),
+        None => format!("{}\n\n{pack}", document.trim_end()),
+    }
+}
+
 /// The statements in `text` worth proposing, each with its kind. Rules only:
 /// a sentence the person wrote that opens by stating a preference, a fact
 /// about themselves, a decision, a project fact, or a standing instruction.
@@ -1228,6 +1251,22 @@ mod tests {
             ("project", Some("alpha"))
         );
         let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_pack_replaces_only_its_own_block_in_a_file() {
+        let first = "<!-- memorywhale:knowledge:start (generated) -->\n- one\n<!-- memorywhale:knowledge:end -->\n";
+        let second = "<!-- memorywhale:knowledge:start (generated) -->\n- two\n<!-- memorywhale:knowledge:end -->\n";
+        assert_eq!(pack_into("", first), first);
+        let mine = "# My rules\n\nUse tabs.\n";
+        let written = pack_into(mine, first);
+        assert_eq!(written, format!("# My rules\n\nUse tabs.\n\n{first}"));
+        // Written again with new content, and with my own text after it.
+        let edited = format!("{written}\nMore of my rules.\n");
+        assert_eq!(
+            pack_into(&edited, second),
+            format!("# My rules\n\nUse tabs.\n\n{second}\nMore of my rules.\n")
+        );
     }
 
     #[test]

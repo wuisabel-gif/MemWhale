@@ -91,6 +91,29 @@ fn one_command_imports_then_review_decides_what_a_client_sees() {
     let (_, pack) = mw(&home, &["knowledge", "export", "--private"]);
     assert!(pack.contains("robotics"), "{pack}");
 
+    // Written into an instruction file: my own lines stay, and a second
+    // write replaces the block instead of adding another.
+    let rules = home.join("AGENTS.md");
+    std::fs::write(&rules, "# Mine\n\nKeep this line.\n").unwrap();
+    for _ in 0..2 {
+        let (ok, out) = mw(
+            &home,
+            &["knowledge", "export", "--into", rules.to_str().unwrap()],
+        );
+        assert!(ok, "{out}");
+    }
+    let written = std::fs::read_to_string(&rules).unwrap();
+    assert!(
+        written.starts_with("# Mine\n\nKeep this line.\n"),
+        "{written}"
+    );
+    assert_eq!(
+        written.matches("memorywhale:knowledge:start").count(),
+        1,
+        "{written}"
+    );
+    assert!(written.contains("small pull requests"), "{written}");
+
     // Importing again proposes nothing, the rejected statement included.
     let (_, out) = mw(&home, &["knowledge", "import"]);
     assert!(out.contains("0 new statement(s)"), "{out}");
