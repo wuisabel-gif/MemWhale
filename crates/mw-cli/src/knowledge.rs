@@ -509,7 +509,25 @@ pub fn candidates(text: &str) -> Vec<(&'static str, String)> {
     if text.contains("```") || text.chars().count() > 1500 {
         return out;
     }
-    for sentence in text.split(['.', '!', '?', '\n']) {
+    // A period inside a token (`rust-toolchain.toml`, `v1.82`) ends nothing.
+    let mut sentences = Vec::new();
+    let mut start = 0;
+    for (at, mark) in text.char_indices() {
+        let ends = match mark {
+            '!' | '?' | '\n' => true,
+            '.' => text[at + 1..]
+                .chars()
+                .next()
+                .is_none_or(char::is_whitespace),
+            _ => false,
+        };
+        if ends {
+            sentences.push(&text[start..at]);
+            start = at + 1;
+        }
+    }
+    sentences.push(&text[start..]);
+    for sentence in sentences {
         let sentence = sentence.trim().trim_start_matches(['-', '*', '"', ' ']);
         let length = sentence.chars().count();
         if !(20..=240).contains(&length) || sentence.starts_with(['<', '/', '$', '#', '|']) {
@@ -534,7 +552,8 @@ pub fn candidates(text: &str) -> Vec<(&'static str, String)> {
                     .find(|(_, phrases)| phrases.iter().any(|phrase| lower.contains(phrase)))
             });
         if let Some((kind, _)) = kind {
-            out.push((*kind, sentence.to_string()));
+            // An ellipsis leaves its first dots on the sentence.
+            out.push((*kind, sentence.trim_end_matches('.').to_string()));
         }
     }
     out
@@ -1187,6 +1206,25 @@ mod tests {
             ]
         );
         assert_eq!(found[0].at.as_deref(), Some("2023-11-14T22:13:20+00:00"));
+    }
+
+    #[test]
+    fn a_period_inside_a_token_does_not_end_the_sentence() {
+        let said =
+            |text: &str| -> Vec<String> { candidates(text).into_iter().map(|(_, s)| s).collect() };
+        assert_eq!(
+            said("We decided to pin the Rust toolchain in rust-toolchain.toml and bump it once per quarter."),
+            ["We decided to pin the Rust toolchain in rust-toolchain.toml and bump it once per quarter"]
+        );
+        assert_eq!(
+            said("We decided to ship v1.82 on example.com. I prefer tabs over spaces... mostly."),
+            [
+                "We decided to ship v1.82 on example.com",
+                "I prefer tabs over spaces"
+            ]
+        );
+        // A question still is not a statement, whatever dots it holds.
+        assert!(said("Should we decided to pin rust-toolchain.toml?").is_empty());
     }
 
     #[test]
