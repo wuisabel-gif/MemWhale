@@ -36,6 +36,7 @@ The repository documentation is organized by the question a reader is asking.
 ## Design and policy
 
 - [Architecture](architecture.md)
+- [ADR 0001: opt-in knowledge memory](adr/0001-knowledge-memory.md): proposed, not implemented; with its [repository map](project/knowledge-memory-repo-map.md)
 - [Information-flow security constitution](information-flow-policy.md) — design policy; enforcement is not implemented
 - [Rho 2.10.0 compatibility verification](research/rho-2.10-compatibility.md) — live results, privacy boundary, and capture limits
 - [Security and local threat model](SECURITY.md)
