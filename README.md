@@ -45,6 +45,10 @@ for the upgrade guide. Opening a store migrates it from schema 10 to 17.
 **Knowledge memory, opt-in.** `mw knowledge import` brings in what you have already told Claude Code, Codex, ChatGPT, and Claude, and proposes statements for you to approve. See [knowledge memory](docs/reference/knowledge.md).
 
 <p align="center">
+  <img src="assets/desktop-knowledge.png" alt="The Knowledge page of the desktop app, with an Import my conversations button and statements waiting for approval." width="820" />
+</p>
+
+<p align="center">
   <img src="assets/stopped-before-it-runs.gif" alt="A lesson is saved with mw remember; when an agent is about to run a command containing that text, the pre-run hook stops it and gives the lesson as the reason." width="820" />
 </p>
 
@@ -124,6 +128,10 @@ PATH setup, and platform notes.
 what your agents were told, the commands and output behind it, and your
 lessons, and stays in the menu bar to announce each new note. It ships with
 each release from 0.23 on; see the [desktop guide](docs/guides/desktop.md).
+
+<p align="center">
+  <img src="assets/desktop-home.png" alt="The Home page of the MemoryWhale desktop app, with counts of commands, failures, and lessons." width="820" />
+</p>
 
 ## Sixty-second example
 

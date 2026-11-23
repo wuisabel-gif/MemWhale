@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
+<!-- README-SOURCE-SHA256: 64ea67b5d6184bd0b4a85704f28554a9a45680b98fe99a7b32d16a004c433ab7 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale-Logo" width="160" />
@@ -45,6 +45,10 @@ du in den [Release Notes](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/
 Beim Öffnen wird ein Speicher von Schema 10 auf 17 migriert.
 
 **Wissensspeicher, optional.** `mw knowledge import` holt herein, was du Claude Code, Codex, ChatGPT und Claude bereits gesagt hast, und schlägt Aussagen zur Freigabe vor. Siehe [Wissensspeicher](../../docs/reference/knowledge.md).
+
+<p align="center">
+  <img src="../../assets/desktop-knowledge.png" alt="Die Seite „Knowledge“ der Desktop-App mit der Schaltfläche zum Importieren der Unterhaltungen und Aussagen, die auf Freigabe warten." width="820" />
+</p>
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="Mit mw remember wird eine Lektion gespeichert; will ein Agent einen Befehl mit diesem Text ausführen, stoppt ihn der Hook vor der Ausführung und nennt die Lektion als Grund." width="820" />
@@ -131,6 +135,10 @@ Unter Windows läuft MemoryWhale in
 stehen in der [Anleitung für den Einstieg](../../docs/guides/getting-started.md).
 
 **Desktop-App.** Wenn du lieber ein Fenster als ein Terminal willst, zeigt die MemoryWhale-App, was deinen Agenten gesagt wurde, die Befehle und Ausgaben dahinter und deine Lektionen, und sie bleibt in der Menüleiste, um jeden neuen Hinweis anzukündigen. Sie erscheint mit jedem Release ab 0.23; siehe die [Desktop-Anleitung](../../docs/guides/desktop.md).
+
+<p align="center">
+  <img src="../../assets/desktop-home.png" alt="Die Startseite der MemoryWhale-Desktop-App mit der Anzahl der Befehle, Fehlschläge und Lektionen." width="820" />
+</p>
 
 ## Beispiel in 60 Sekunden
 
