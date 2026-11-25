@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
+<!-- README-SOURCE-SHA256: 64ea67b5d6184bd0b4a85704f28554a9a45680b98fe99a7b32d16a004c433ab7 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logo MemoryWhale" width="160" />
@@ -44,6 +44,10 @@ Le CLI, l’interface web et l’application de bureau partagent la version prod
 pour le guide de mise à niveau. À l’ouverture, une base est migrée du schéma 10 au schéma 17.
 
 **Mémoire de connaissances, facultative.** `mw knowledge import` récupère ce que vous avez déjà dit à Claude Code, Codex, ChatGPT et Claude, et propose des énoncés à approuver. Voir [la mémoire de connaissances](../../docs/reference/knowledge.md).
+
+<p align="center">
+  <img src="../../assets/desktop-knowledge.png" alt="La page Knowledge de l'application de bureau, avec le bouton d'import des conversations et des énoncés en attente d'approbation." width="820" />
+</p>
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="Une leçon est enregistrée avec mw remember ; quand un agent s’apprête à lancer une commande contenant ce texte, le hook d’avant exécution l’arrête et donne la leçon comme raison." width="820" />
@@ -132,6 +136,10 @@ Sous Windows, vous pouvez utiliser MemoryWhale dans
 paquets, la configuration du PATH et les particularités de chaque plateforme.
 
 **Application de bureau.** Pour une fenêtre plutôt qu’un terminal, l’application MemoryWhale montre ce qu’on a dit à vos agents, les commandes et sorties derrière, et vos leçons, et reste dans la barre des menus pour annoncer chaque nouveau message. Elle est fournie avec chaque version à partir de 0.23 ; voir le [guide de l’application de bureau](../../docs/guides/desktop.md).
+
+<p align="center">
+  <img src="../../assets/desktop-home.png" alt="La page d'accueil de l'application de bureau MemoryWhale, avec le nombre de commandes, d'échecs et de leçons." width="820" />
+</p>
 
 ## Exemple en soixante secondes
 

@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
+<!-- README-SOURCE-SHA256: 64ea67b5d6184bd0b4a85704f28554a9a45680b98fe99a7b32d16a004c433ab7 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 標誌" width="160" />
@@ -40,6 +40,10 @@ CLI、Web 介面與桌面應用程式共用同一個產品版本 0.30.0；可重
 開啟資料儲存區時，其 schema 會從 10 遷移到 17。
 
 **知識記憶（選用）。** `mw knowledge import` 會帶入你已經告訴過 Claude Code、Codex、ChatGPT 和 Claude 的內容，並提出語句供你核准。詳見[知識記憶](../../docs/reference/knowledge.md)。
+
+<p align="center">
+  <img src="../../assets/desktop-knowledge.png" alt="桌面應用程式的 Knowledge 頁面，帶有匯入對話的按鈕和等待核准的陳述。" width="820" />
+</p>
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="用 mw remember 儲存一則經驗；當代理要執行含有該文字的指令時，執行前掛鉤會攔下它，並把這則經驗當作理由。" width="820" />
@@ -106,6 +110,10 @@ Windows 使用者可以在 [WSL](https://learn.microsoft.com/windows/wsl/) 裡�
 套件安裝、PATH 設定與各平台注意事項，請見[入門指南](../../docs/guides/getting-started.md)。
 
 **桌面應用程式。** 想用視窗而不是終端機的話，MemoryWhale 應用程式會顯示代理被告知了什麼、背後的指令與輸出，以及你的經驗，並常駐選單列，告訴你每一則新提示。從 0.23 起隨每個版本推出；請見[桌面應用程式指南](../../docs/guides/desktop.md)。
+
+<p align="center">
+  <img src="../../assets/desktop-home.png" alt="MemoryWhale 桌面應用程式的首頁，顯示指令、失敗和經驗的數量。" width="820" />
+</p>
 
 ## 60 秒上手範例
 

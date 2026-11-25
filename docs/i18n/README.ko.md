@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
+<!-- README-SOURCE-SHA256: 64ea67b5d6184bd0b4a85704f28554a9a45680b98fe99a7b32d16a004c433ab7 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 로고" width="160" />
@@ -40,6 +40,10 @@ CLI, 웹 UI, 데스크톱 앱은 제품 버전 0.30.0을 함께 사용하며, �
 스토어를 열면 스키마가 10에서 17로 마이그레이션됩니다.
 
 **지식 메모리(선택 사항).** `mw knowledge import`는 Claude Code, Codex, ChatGPT, Claude에 이미 말한 내용을 가져와 승인할 문장을 제안합니다. [지식 메모리](../../docs/reference/knowledge.md)를 참고하세요.
+
+<p align="center">
+  <img src="../../assets/desktop-knowledge.png" alt="데스크톱 앱의 Knowledge 페이지. 대화 가져오기 버튼과 승인을 기다리는 문장이 보입니다." width="820" />
+</p>
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="mw remember로 교훈을 저장하면, 에이전트가 그 텍스트가 들어간 명령을 실행하려 할 때 실행 전 훅이 명령을 멈추고 교훈을 이유로 알려 줍니다." width="820" />
@@ -106,6 +110,10 @@ Windows에서는 [WSL](https://learn.microsoft.com/windows/wsl/)에서 MemoryWha
 패키지 설치, PATH 설정, 플랫폼별 참고 사항은 [시작 가이드](../../docs/guides/getting-started.md)에 정리되어 있습니다.
 
 **데스크톱 앱.** 터미널 대신 창을 원한다면, MemoryWhale 앱이 에이전트가 무엇을 전달받았는지, 그 뒤의 명령과 출력, 그리고 여러분의 교훈을 보여 주고, 메뉴 막대에 머물며 새 알림마다 알려 줍니다. 0.23부터 모든 릴리스와 함께 나옵니다. [데스크톱 가이드](../../docs/guides/desktop.md)를 참고하세요.
+
+<p align="center">
+  <img src="../../assets/desktop-home.png" alt="MemoryWhale 데스크톱 앱의 홈 페이지. 명령, 실패, 교훈의 수가 보입니다." width="820" />
+</p>
 
 ## 60초 만에 살펴보기
 

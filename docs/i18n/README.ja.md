@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
+<!-- README-SOURCE-SHA256: 64ea67b5d6184bd0b4a85704f28554a9a45680b98fe99a7b32d16a004c433ab7 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale ロゴ" width="160" />
@@ -39,6 +39,10 @@ CLI、Web UI、デスクトップアプリの製品バージョンはいずれ�
 アップグレード手順は[リリースノート](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md)をご覧ください。ストアを開くと、スキーマが 10 から 17 に移行されます。
 
 **ナレッジメモリ（オプトイン）。** `mw knowledge import` は、Claude Code、Codex、ChatGPT、Claude にすでに伝えた内容を取り込み、承認する文を提案します。詳しくは[ナレッジメモリ](../../docs/reference/knowledge.md)をご覧ください。
+
+<p align="center">
+  <img src="../../assets/desktop-knowledge.png" alt="デスクトップアプリの Knowledge ページ。会話を取り込むボタンと、承認待ちの文が並んでいます。" width="820" />
+</p>
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="mw remember で教訓を保存すると、エージェントがその文字列を含むコマンドを実行しようとしたとき、実行前フックがそれを止め、理由として教訓を示します。" width="820" />
@@ -105,6 +109,10 @@ Windows をお使いの場合は、[WSL](https://learn.microsoft.com/windows/wsl
 パッケージでのインストール、PATH の設定、プラットフォームごとの注意点については[入門ガイド](../../docs/guides/getting-started.md)をご覧ください。
 
 **デスクトップアプリ。** ターミナルではなくウィンドウで見たいなら、MemoryWhale アプリが、エージェントに何が伝えられたか、その裏のコマンドと出力、そしてあなたの教訓を表示し、メニューバーに常駐して新しい通知をそのつど知らせます。0.23 以降の各リリースに付属します。詳しくは[デスクトップガイド](../../docs/guides/desktop.md)をご覧ください。
+
+<p align="center">
+  <img src="../../assets/desktop-home.png" alt="MemoryWhale デスクトップアプリのホームページ。コマンド、失敗、教訓の件数が表示されています。" width="820" />
+</p>
 
 ## 60 秒でわかる使い方
 

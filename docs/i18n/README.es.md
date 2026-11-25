@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
+<!-- README-SOURCE-SHA256: 64ea67b5d6184bd0b4a85704f28554a9a45680b98fe99a7b32d16a004c433ab7 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="Logotipo de MemoryWhale" width="160" />
@@ -45,6 +45,10 @@ producto 0.30.0; el núcleo reutilizable en Rust está en la versión 0.13.0. Co
 para ver la guía de actualización. Al abrir un almacén, se migra del esquema 10 al 17.
 
 **Memoria de conocimiento, opcional.** `mw knowledge import` trae lo que ya les dijiste a Claude Code, Codex, ChatGPT y Claude, y propone afirmaciones para que las apruebes. Consulta [memoria de conocimiento](../../docs/reference/knowledge.md).
+
+<p align="center">
+  <img src="../../assets/desktop-knowledge.png" alt="La página Knowledge de la aplicación de escritorio, con el botón para importar conversaciones y afirmaciones pendientes de aprobación." width="820" />
+</p>
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="Se guarda una lección con mw remember; cuando un agente va a ejecutar un comando que contiene ese texto, el hook previo lo detiene y da la lección como motivo." width="820" />
@@ -126,6 +130,10 @@ En Windows, puedes usar MemoryWhale dentro de
 la configuración del PATH y las notas de cada plataforma.
 
 **App de escritorio.** Si prefieres una ventana a una terminal, la app de MemoryWhale muestra lo que se les dijo a tus agentes, los comandos y la salida detrás, y tus lecciones, y se queda en la barra de menús para anunciar cada aviso nuevo. Se publica con cada versión desde la 0.23; consulta la [guía de escritorio](../../docs/guides/desktop.md).
+
+<p align="center">
+  <img src="../../assets/desktop-home.png" alt="La página de inicio de la aplicación de escritorio MemoryWhale, con el número de comandos, fallos y lecciones." width="820" />
+</p>
 
 ## Ejemplo en sesenta segundos
 

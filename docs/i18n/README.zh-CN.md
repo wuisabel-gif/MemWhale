@@ -1,4 +1,4 @@
-<!-- README-SOURCE-SHA256: c2e199c3b25b3f4d0dcc9ec6bbb78e941c0d62c45ec917117e403996b2c3c681 -->
+<!-- README-SOURCE-SHA256: 64ea67b5d6184bd0b4a85704f28554a9a45680b98fe99a7b32d16a004c433ab7 -->
 
 <p align="center">
   <img src="../../assets/memorywhale-logo-sm.png" alt="MemoryWhale 标志" width="160" />
@@ -39,6 +39,10 @@ CLI、Web 界面和桌面应用共用产品版本号 0.30.0；可复用的 Rust 
 升级指南见[发布说明](https://github.com/wuisabel-gif/MemWhale/blob/v0.30.0/docs/releases/0.30.0.md)。打开存储库时，其 schema 会从 10 迁移到 17。
 
 **知识记忆（可选）。** `mw knowledge import` 会带入你已经告诉过 Claude Code、Codex、ChatGPT 和 Claude 的内容，并提出语句供你批准。详见[知识记忆](../../docs/reference/knowledge.md)。
+
+<p align="center">
+  <img src="../../assets/desktop-knowledge.png" alt="桌面应用的 Knowledge 页面，带有导入对话的按钮和等待批准的陈述。" width="820" />
+</p>
 
 <p align="center">
   <img src="../../assets/stopped-before-it-runs.gif" alt="用 mw remember 保存一条经验；当智能体要运行包含该文本的命令时，运行前钩子会拦下它，并把这条经验作为理由。" width="820" />
@@ -105,6 +109,10 @@ Windows 用户可以在 [WSL](https://learn.microsoft.com/windows/wsl/) 中运�
 包管理器安装、PATH 设置和各平台注意事项见[入门指南](../../docs/guides/getting-started.md)。
 
 **桌面应用。** 想用窗口而不是终端的话，MemoryWhale 应用会显示智能体被告知了什么、背后的命令和输出，以及你的经验，并常驻菜单栏，告诉你每一条新提示。从 0.23 起随每个版本发布；见[桌面应用指南](../../docs/guides/desktop.md)。
+
+<p align="center">
+  <img src="../../assets/desktop-home.png" alt="MemoryWhale 桌面应用的主页，显示命令、失败和经验的数量。" width="820" />
+</p>
 
 ## 60 秒示例
 
